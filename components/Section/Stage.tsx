@@ -13,7 +13,7 @@ import TokenBadge from '../Package/TokenBadge.tsx';
 import TokenConnector from '../Package/TokenConnector.tsx';
 import * as Babel from '@babel/standalone';
 
-const CustomComponentRenderer = ({ code, ...rest }) => {
+const CustomComponentRenderer = React.forwardRef(({ code, ...rest }, ref) => {
   const [Component, setComponent] = useState(null);
 
   useEffect(() => {
@@ -43,16 +43,16 @@ const CustomComponentRenderer = ({ code, ...rest }) => {
   }, [code]);
 
   if (!Component) {
-    return <div {...rest}>Custom Component</div>;
+    return <div ref={ref} {...rest}>Custom Component</div>;
   }
 
   try {
-    return <Component {...rest} />;
+    return <Component ref={ref} {...rest} />;
   } catch (error) {
     console.error("Error rendering the component:", error);
-    return <div {...rest}>Error rendering component</div>;
+    return <div ref={ref} {...rest}>Error rendering component</div>;
   }
-};
+});
 
 // --- HELPER TYPES & COMPONENTS ---
 
