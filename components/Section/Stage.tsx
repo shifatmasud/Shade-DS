@@ -2,16 +2,57 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useRef } from 'react';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { motion, MotionValue, useTransform, AnimatePresence, motionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import Button from '../Core/Button.tsx';
 import Card from '../Package/Card.tsx';
 import { MetaButtonProps, FeedbackVariant } from '../../types/index.tsx';
 import { useElementAnatomy, ElementAnatomy, NormalizedRect } from '../../hooks/useElementAnatomy.tsx';
-import { useMemo } from 'react';
 import TokenBadge from '../Package/TokenBadge.tsx';
 import TokenConnector from '../Package/TokenConnector.tsx';
+import * as Babel from '@babel/standalone';
+
+const CustomComponentRenderer = ({ code, ...rest }) => {
+  const [Component, setComponent] = useState(null);
+
+  useEffect(() => {
+    if (!code) {
+      setComponent(null);
+      return;
+    }
+
+    try {
+      const transformedCode = Babel.transform(code, {
+        presets: ['react'],
+        plugins: [
+          ['transform-react-jsx', { runtime: 'automatic' }],
+        ],
+      }).code;
+
+      const factory = new Function('React', 'return ' + transformedCode);
+      const result = factory(React);
+      
+      const component = result.default || result;
+
+      setComponent(() => component);
+    } catch (error) {
+      console.error("Error transforming or rendering custom component:", error);
+      setComponent(null);
+    }
+  }, [code]);
+
+  if (!Component) {
+    return <div {...rest}>Custom Component</div>;
+  }
+
+  try {
+    return <Component {...rest} />;
+  } catch (error) {
+    console.error("Error rendering the component:", error);
+    return <div {...rest}>Error rendering component</div>;
+  }
+};
 
 // --- HELPER TYPES & COMPONENTS ---
 
@@ -359,8 +400,9 @@ const Stage: React.FC<StageProps> = ({
                     view3D={view3D}
                 />
             ) : (
-                <div 
+                <CustomComponentRenderer 
                     ref={componentRef}
+                    code={btnProps.customCode}
                     style={{
                         padding: '24px',
                         backgroundColor: btnProps.customFill || theme.Color.Base.Surface[2],
@@ -374,7 +416,6 @@ const Stage: React.FC<StageProps> = ({
                         flexDirection: 'column',
                         gap: '12px',
                     }}
-                    dangerouslySetInnerHTML={{ __html: btnProps.customCode || '<div>Custom Component</div>' }}
                 />
             )}
             {showMeasurements && anatomy && <BlueprintOverlay anatomy={anatomy} />}
