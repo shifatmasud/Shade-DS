@@ -15,11 +15,15 @@ import { LiveProvider, LiveEditor, LiveError, LivePreview } from 'react-live';
 import * as Core from '../Core';
 import * as Package from '../Package';
 
+
+
 const reactLiveScope = {
     React,
     ...React,
     ...Core,
     ...Package,
+    useTheme,
+    motion,
 };
 
 // --- HELPER TYPES & COMPONENTS ---
