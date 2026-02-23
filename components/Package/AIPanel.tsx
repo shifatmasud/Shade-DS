@@ -117,21 +117,28 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
           { role: 'user', parts: [{ text: userMessage }] }
         ],
         config: {
-          systemInstruction: `You are a world-class senior design engineer agent. You can read and write the application internal state. Use the updateAppState tool to change component properties or create entirely new components using 'customCode'. When using 'customCode', provide a valid React component body or JSX. Be extremely concise and minimalist. Your goal is to make the prototype feel alive and high-fidelity.\n\nHere is the codebase context you can use to generate components:\n${contextString}`,
+          systemInstruction: `You are a world-class senior design engineer agent. You can read and write the application internal state. Use the updateAppState tool to change component properties or create entirely new components using 'customCode'. When using 'customCode', provide a valid React component body or JSX. Be extremely concise and minimalist. Your goal is to make the prototype feel alive and high-fidelity.\n\n**IMPORTANT**: You MUST use the design tokens and component structure from the provided context. Do not invent new styles. Always provide a chat response to the user explaining the changes you've made.\n\nHere is the codebase context you can use to generate components:\n${contextString}`,
           tools: [{ functionDeclarations: [updateStateFunctionDeclaration] }],
         },
       });
 
       const functionCalls = response.functionCalls;
+      let stateUpdateMessage = "State updated successfully.";
       if (functionCalls) {
         for (const call of functionCalls) {
           if (call.name === 'updateAppState') {
             onUpdateState(call.args as Partial<MetaButtonProps>);
+            stateUpdateMessage = `Updated state: ${Object.entries(call.args).map(([k, v]) => `${k}: ${v}`).join(', ')}`;
           }
         }
       }
 
-      setMessages(prev => [...prev, { role: 'model', text: response.text || "State updated successfully." }]);
+      const chatResponse = response.text ? response.text.trim() : '';
+      if (chatResponse) {
+        setMessages(prev => [...prev, { role: 'model', text: chatResponse }]);
+      } else if (functionCalls) {
+        setMessages(prev => [...prev, { role: 'model', text: stateUpdateMessage }]);
+      }
     } catch (error) {
       console.error("AI Error:", error);
       setMessages(prev => [...prev, { role: 'model', text: "Sorry, I encountered an error. Please try again." }]);
