@@ -15,7 +15,8 @@
     "framer-motion": "^12.23.26",
     "phosphor-react": "^1.4.1",
     "react": "^19.0.0",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "react-live": "^4.1.8"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

@@ -11,48 +11,16 @@ import { MetaButtonProps, FeedbackVariant } from '../../types/index.tsx';
 import { useElementAnatomy, ElementAnatomy, NormalizedRect } from '../../hooks/useElementAnatomy.tsx';
 import TokenBadge from '../Package/TokenBadge.tsx';
 import TokenConnector from '../Package/TokenConnector.tsx';
-import * as Babel from '@babel/standalone';
+import { LiveProvider, LiveEditor, LiveError, LivePreview } from 'react-live';
+import * as Core from '../Core';
+import * as Package from '../Package';
 
-const CustomComponentRenderer = React.forwardRef(({ code, ...rest }, ref) => {
-  const [Component, setComponent] = useState(null);
-
-  useEffect(() => {
-    if (!code) {
-      setComponent(null);
-      return;
-    }
-
-    try {
-      const transformedCode = Babel.transform(code, {
-        presets: ['react'],
-        plugins: [
-          ['transform-react-jsx', { runtime: 'automatic' }],
-        ],
-      }).code;
-
-      const factory = new Function('React', 'return ' + transformedCode);
-      const result = factory(React);
-      
-      const component = result.default || result;
-
-      setComponent(() => component);
-    } catch (error) {
-      console.error("Error transforming or rendering custom component:", error);
-      setComponent(null);
-    }
-  }, [code]);
-
-  if (!Component) {
-    return <div ref={ref} {...rest}>Custom Component</div>;
-  }
-
-  try {
-    return <Component ref={ref} {...rest} />;
-  } catch (error) {
-    console.error("Error rendering the component:", error);
-    return <div ref={ref} {...rest}>Error rendering component</div>;
-  }
-});
+const reactLiveScope = {
+    React,
+    ...React,
+    ...Core,
+    ...Package,
+};
 
 // --- HELPER TYPES & COMPONENTS ---
 
@@ -400,23 +368,12 @@ const Stage: React.FC<StageProps> = ({
                     view3D={view3D}
                 />
             ) : (
-                <CustomComponentRenderer 
-                    ref={componentRef}
-                    code={btnProps.customCode}
-                    style={{
-                        padding: '24px',
-                        backgroundColor: btnProps.customFill || theme.Color.Base.Surface[2],
-                        borderRadius: btnProps.customRadius || '12px',
-                        color: btnProps.customColor || theme.Color.Base.Content[1],
-                        border: `1px solid ${theme.Color.Base.Surface[3]}`,
-                        boxShadow: theme.effects['Effect.Shadow.Drop.2'],
-                        minWidth: '200px',
-                        minHeight: '100px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px',
-                    }}
-                />
+                <div ref={componentRef} style={{ width: '100%', height: '100%' }}>
+                  <LiveProvider code={btnProps.customCode || '() => <></>'} scope={reactLiveScope}>
+                    <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.spacing['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: '12px' }} />
+                    <LivePreview style={{ width: '100%', height: '100%' }} />
+                  </LiveProvider>
+                </div>
             )}
             {showMeasurements && anatomy && <BlueprintOverlay anatomy={anatomy} />}
             {showTokens && anatomy && <TokenOverlay anatomy={anatomy} btnProps={btnProps} />}
