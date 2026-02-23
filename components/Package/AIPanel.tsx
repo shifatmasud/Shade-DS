@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -9,6 +10,28 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { MetaButtonProps } from '../../types/index.tsx';
 import { PaperPlaneTilt, Robot, User, X, Copy, Check } from 'phosphor-react';
 import CustomScrollbar from '../Core/CustomScrollbar.tsx';
+
+const coreComponents = import.meta.glob('../Core/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const packageComponents = import.meta.glob('../Package/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const themeFile = import.meta.glob('../../Theme.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const typesFile = import.meta.glob('../../types/index.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+
+let contextString = "Design Tokens & Theme Code:\n";
+for (const path in themeFile) {
+  contextString += themeFile[path] + "\n\n";
+}
+contextString += "Types:\n";
+for (const path in typesFile) {
+  contextString += typesFile[path] + "\n\n";
+}
+contextString += "Core Components Code:\n";
+for (const path in coreComponents) {
+  contextString += `--- ${path} ---\n${coreComponents[path]}\n\n`;
+}
+contextString += "Package Components Code:\n";
+for (const path in packageComponents) {
+  contextString += `--- ${path} ---\n${packageComponents[path]}\n\n`;
+}
 
 interface Message {
   role: 'user' | 'model';
@@ -94,7 +117,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
           { role: 'user', parts: [{ text: userMessage }] }
         ],
         config: {
-          systemInstruction: "You are a world-class senior design engineer agent. You can read and write the application internal state. Use the updateAppState tool to change component properties or create entirely new components using 'customCode'. When using 'customCode', provide a valid React component body or JSX. Be extremely concise and minimalist. Your goal is to make the prototype feel alive and high-fidelity.",
+          systemInstruction: `You are a world-class senior design engineer agent. You can read and write the application internal state. Use the updateAppState tool to change component properties or create entirely new components using 'customCode'. When using 'customCode', provide a valid React component body or JSX. Be extremely concise and minimalist. Your goal is to make the prototype feel alive and high-fidelity.\n\nHere is the codebase context you can use to generate components:\n${contextString}`,
           tools: [{ functionDeclarations: [updateStateFunctionDeclaration] }],
         },
       });
@@ -180,23 +203,25 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                   userSelect: 'text',
                 }}>
                   {msg.text}
-                  <button
-                    onClick={() => handleCopy(msg.text, i)}
-                    style={{
-                      position: 'absolute',
-                      top: '2px',
-                      right: '2px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: theme.Color.Base.Content[3],
-                      opacity: 0.3,
-                      padding: '4px',
-                    }}
-                  >
-                    {copiedIndex === i ? <Check size={10} color={theme.Color.Success.Content[1]} /> : <Copy size={10} />}
-                  </button>
                 </div>
+                <button
+                  onClick={() => handleCopy(msg.text, i)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: theme.Color.Base.Content[3],
+                    opacity: 0.5,
+                    padding: '2px 4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '10px',
+                    marginTop: '-2px',
+                  }}
+                >
+                  {copiedIndex === i ? <><Check size={10} color={theme.Color.Success.Content[1]} /> Copied</> : <><Copy size={10} /> Copy</>}
+                </button>
               </div>
             ))}
             {isLoading && (
