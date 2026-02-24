@@ -10,6 +10,7 @@ export { default as DockIcon } from './DockIcon.tsx';
 export { default as Input } from './Input.tsx';
 export { default as LogEntry } from './LogEntry.tsx';
 export { default as RangeSlider } from './RangeSlider.tsx';
+export { default as RippleLayer } from './RippleLayer.tsx';
 export { default as Select } from './Select.tsx';
 export { default as StateLayer } from './StateLayer.tsx';
 export { default as TextArea } from './TextArea.tsx';

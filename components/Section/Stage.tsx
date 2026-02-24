@@ -14,8 +14,35 @@ import TokenConnector from '../Package/TokenConnector.tsx';
 import { LiveProvider, LiveEditor, LiveError, LivePreview } from 'react-live';
 import * as Core from '../Core';
 import * as Package from '../Package';
+import { ErrorBoundary } from 'react-error-boundary';
+import confetti from 'canvas-confetti';
+import { transform } from '@babel/standalone';
 
 
+
+const ErrorFallback = ({ error }: { error: Error }) => {
+  const { theme } = useTheme();
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      padding: '16px',
+      backgroundColor: theme.Color.Error.Surface[1],
+      color: theme.Color.Error.Content[1],
+      borderRadius: '8px',
+      border: `1px solid ${theme.Color.Error.Content[1]}`,
+      fontFamily: 'monospace',
+      fontSize: '12px',
+    }}>
+      <strong>Component failed to render.</strong>
+      <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginTop: '8px' }}>
+        {error.toString()}
+      </pre>
+    </div>
+  );
+};
 
 const reactLiveScope = {
     React,
@@ -24,7 +51,11 @@ const reactLiveScope = {
     ...Package,
     useTheme,
     motion,
+    AnimatePresence,
+    confetti,
 };
+
+
 
 // --- HELPER TYPES & COMPONENTS ---
 
@@ -193,7 +224,7 @@ const TokenOverlay: React.FC<{ anatomy: ElementAnatomy; btnProps: StageComponent
           const textCenter = children.text.x + children.text.width / 2;
           tokenData.push({ label: `Type.${getTypographyToken(btnProps.size)}`, x: textCenter, y: -50, targetX: textCenter, targetY: children.text.y + 4, delay: 0.7 });
       }
-    } else {
+    } else if (btnProps.componentType === 'card') {
       tokenData.push({ label: 'Radius.L', x: -40, y: -40, targetX: 12, targetY: 12, delay: 0.1 });
       tokenData.push({ label: 'Space.XL', x: -60, y: 100, targetX: padding.left / 2, targetY: 100, delay: 0.2 });
       tokenData.push({ label: 'Base.Surface.1', x: width + 60, y: height + 60, targetX: width - 20, targetY: height - 10, delay: 0.3 });
@@ -207,6 +238,23 @@ const TokenOverlay: React.FC<{ anatomy: ElementAnatomy; btnProps: StageComponent
       if (children.title) {
           const textCenter = children.title.x + children.title.width / 2;
           tokenData.push({ label: 'Type.Headline.S', x: textCenter, y: -50, targetX: textCenter, targetY: children.title.y + 10, delay: 0.6 });
+      }
+    } else {
+      // Custom Component Tokens
+      tokenData.push({ label: 'Custom Radius', x: -40, y: -40, targetX: 12, targetY: 12, delay: 0.1 });
+      if (children.title) {
+          const titleY = children.title.y + children.title.height / 2;
+          tokenData.push({ label: 'Title Token', x: width + 60, y: titleY, targetX: width - 20, targetY: titleY, delay: 0.2 });
+      }
+      if (children.media) {
+          tokenData.push({ label: 'Media Token', x: -40, y: 200, targetX: children.media.x + 20, targetY: children.media.y + 20, delay: 0.3 });
+      }
+      if (children.text) {
+          const textCenter = children.text.x + children.text.width / 2;
+          tokenData.push({ label: 'Text Token', x: textCenter, y: -50, targetX: textCenter, targetY: children.text.y + 10, delay: 0.4 });
+      }
+      if (children.icon) {
+          tokenData.push({ label: 'Icon Token', x: -40, y: height + 40, targetX: children.icon.x + children.icon.width / 2, targetY: children.icon.y + children.icon.height, delay: 0.5 });
       }
     }
 
@@ -267,12 +315,13 @@ const HUDItem: React.FC<{ layer: any, gap: MotionValue<number>, isLast: boolean 
     );
 }
 
-const LayerStackHUD = ({ layerSpacing, isCard }: { layerSpacing: MotionValue<number>, isCard: boolean }) => {
+const LayerStackHUD = ({ layerSpacing, isCard, isCustom }: { layerSpacing: MotionValue<number>, isCard: boolean, isCustom: boolean }) => {
     const { theme } = useTheme();
     const gap = useTransform(layerSpacing, [0, 150], [4, 32]);
     
     const layers = [
         ...(isCard ? [{ label: 'Media Layer', stroke: theme.Color.Signal.Content[1], fill: theme.Color.Signal.Surface[1] }] : []),
+        ...(isCustom ? [{ label: 'Custom Layer', stroke: theme.Color.Accent.Content[1], fill: theme.Color.Accent.Surface[1] }] : []),
         { label: 'Content Layer', stroke: theme.Color.Success.Content[1], fill: theme.Color.Success.Surface[1] },
         { label: 'Ripple Layer', stroke: theme.Color.Focus.Content[1], fill: theme.Color.Focus.Surface[1] },
         { label: 'State Layer', stroke: theme.Color.Signal.Content[1], fill: theme.Color.Signal.Surface[1] },
@@ -329,9 +378,40 @@ const Stage: React.FC<StageProps> = ({
 
   const buttonSelectors = { icon: 'i', text: 'span' };
   const cardSelectors = { media: '.card-media', title: '.card-title', body: '.card-body', label: 'span' };
+  const customSelectors = { icon: '.custom-icon', text: '.custom-text', media: '.custom-media', title: '.custom-title', body: '.custom-body' };
   
-  const selectors = btnProps.componentType === 'card' ? cardSelectors : buttonSelectors;
+  const selectors = btnProps.componentType === 'card' ? cardSelectors : btnProps.componentType === 'button' ? buttonSelectors : customSelectors;
   const anatomy = useElementAnatomy(componentRef, selectors, [btnProps, showMeasurements, showTokens, view3D]);
+
+  const customScope = useMemo(() => ({ 
+    ...reactLiveScope, 
+    props: btnProps, 
+    layerSpacing, 
+    view3D, 
+    onButtonClick,
+    console: {
+        log: (...args: any[]) => {
+            console.log(...args);
+            window.dispatchEvent(new CustomEvent('app-log', { detail: args.map(String).join(' ') }));
+        }
+    }
+  }), [btnProps, layerSpacing, view3D, onButtonClick]);
+
+  const customCode = useMemo(() => btnProps.customCode || 'render(<></>)', [btnProps.customCode]);
+
+  const transformCode = (code: string) => {
+    try {
+      return transform(code, {
+        presets: [
+          ['react', { runtime: 'automatic' }],
+          'typescript'
+        ],
+        filename: 'component.tsx'
+      }).code || '';
+    } catch (e) {
+      return code; // Fallback to raw code if transform fails, LiveError will catch it
+    }
+  };
 
   return (
     <div style={{ 
@@ -373,9 +453,16 @@ const Stage: React.FC<StageProps> = ({
                 />
             ) : (
                 <div ref={componentRef} style={{ width: '100%', height: '100%' }}>
-                  <LiveProvider code={btnProps.customCode || '() => <></>'} scope={reactLiveScope}>
+                  <LiveProvider 
+                    code={customCode} 
+                    noInline={true}
+                    scope={customScope}
+                    transformCode={transformCode}
+                  >
                     <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.spacing['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: '12px' }} />
-                    <LivePreview style={{ width: '100%', height: '100%' }} />
+                    <ErrorBoundary FallbackComponent={ErrorFallback}>
+                      <LivePreview style={{ width: '100%', height: '100%' }} />
+                    </ErrorBoundary>
                   </LiveProvider>
                 </div>
             )}
@@ -384,7 +471,7 @@ const Stage: React.FC<StageProps> = ({
         </motion.div>
 
         <AnimatePresence>
-            {view3D && <LayerStackHUD layerSpacing={layerSpacing} isCard={btnProps.componentType === 'card'} />}
+            {view3D && <LayerStackHUD layerSpacing={layerSpacing} isCard={btnProps.componentType === 'card'} isCustom={btnProps.componentType === 'custom'} />}
         </AnimatePresence>
     </div>
   );

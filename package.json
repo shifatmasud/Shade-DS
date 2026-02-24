@@ -12,10 +12,13 @@
   "dependencies": {
     "@babel/standalone": "^7.29.1",
     "@google/genai": "^0.7.0",
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.23.26",
     "phosphor-react": "^1.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.2.3",
+    "react-error-boundary": "^6.1.1",
     "react-live": "^4.1.8"
   },
   "devDependencies": {
