@@ -59,84 +59,84 @@ export const useElementAnatomy = (
     const element = ref.current;
     if (!element) return;
 
-    let rafId: number;
-
     const measure = () => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        // 1. Get Viewport Metrics (Scaled)
-        const rect = element.getBoundingClientRect();
-        
-        // 2. Get Source of Truth (CSS)
-        const computed = window.getComputedStyle(element);
-        
-        // 3. Calculate Scale Factor
-        const scaleX = (element.offsetWidth && rect.width) ? rect.width / element.offsetWidth : 1;
-        const scaleY = (element.offsetHeight && rect.height) ? rect.height / element.offsetHeight : 1;
-        
-        // 4. Parse Box Model
-        const padding = {
-          top: parseFloat(computed.paddingTop) || 0,
-          right: parseFloat(computed.paddingRight) || 0,
-          bottom: parseFloat(computed.paddingBottom) || 0,
-          left: parseFloat(computed.paddingLeft) || 0,
-        };
-        
-        const border = {
-          top: parseFloat(computed.borderTopWidth) || 0,
-          right: parseFloat(computed.borderRightWidth) || 0,
-          bottom: parseFloat(computed.borderBottomWidth) || 0,
-          left: parseFloat(computed.borderLeftWidth) || 0,
-        };
+      // 1. Get Viewport Metrics (Scaled)
+      const rect = element.getBoundingClientRect();
+      
+      // 2. Get Source of Truth (CSS)
+      const computed = window.getComputedStyle(element);
+      
+      // 3. Calculate Scale Factor
+      // If the visual width (rect.width) is different from offsetWidth, a transform is applied.
+      // We divide to find the multiplier. Default to 1 if 0 to avoid Infinity.
+      const scaleX = rect.width / (element.offsetWidth || 1);
+      
+      // 4. Parse Box Model (CSS values are already "logical", no unscaling needed)
+      const padding = {
+        top: parseFloat(computed.paddingTop) || 0,
+        right: parseFloat(computed.paddingRight) || 0,
+        bottom: parseFloat(computed.paddingBottom) || 0,
+        left: parseFloat(computed.paddingLeft) || 0,
+      };
+      
+      const border = {
+        top: parseFloat(computed.borderTopWidth) || 0,
+        right: parseFloat(computed.borderRightWidth) || 0,
+        bottom: parseFloat(computed.borderBottomWidth) || 0,
+        left: parseFloat(computed.borderLeftWidth) || 0,
+      };
 
-        // 5. Measure Children & Normalize
-        const childrenMetrics: Record<string, NormalizedRect | null> = {};
-        let firstChildRect: NormalizedRect | null = null;
-        let lastChildRect: NormalizedRect | null = null;
+      // 5. Measure Children & Normalize
+      const childrenMetrics: Record<string, NormalizedRect | null> = {};
+      let firstChildRect: NormalizedRect | null = null;
+      let lastChildRect: NormalizedRect | null = null;
 
-        Object.entries(selectors).forEach(([key, selector]) => {
-          const child = element.querySelector<HTMLElement>(selector);
-          if (child) {
-            const childRect = child.getBoundingClientRect();
-            
-            const normalized: NormalizedRect = {
-              x: scaleX !== 0 ? (childRect.left - rect.left) / scaleX : 0,
-              y: scaleY !== 0 ? (childRect.top - rect.top) / scaleY : 0,
-              width: scaleX !== 0 ? childRect.width / scaleX : 0,
-              height: scaleY !== 0 ? childRect.height / scaleY : 0,
-            };
-            
-            childrenMetrics[key] = normalized;
-            
-            if (!firstChildRect || normalized.x < firstChildRect.x) firstChildRect = normalized;
-            if (!lastChildRect || normalized.x > lastChildRect.x) lastChildRect = normalized;
-          } else {
-            childrenMetrics[key] = null;
-          }
-        });
-
-        // 6. Calculate Internal Gap
-        let gap = 0;
-        if (firstChildRect && lastChildRect && firstChildRect !== lastChildRect) {
-          gap = lastChildRect.x - (firstChildRect.x + firstChildRect.width);
-          gap = Math.max(0, gap);
+      Object.entries(selectors).forEach(([key, selector]) => {
+        const child = element.querySelector<HTMLElement>(selector);
+        if (child) {
+          const childRect = child.getBoundingClientRect();
+          
+          // Normalize: Calculate relative position and divide by scale
+          const normalized: NormalizedRect = {
+            x: (childRect.left - rect.left) / scaleX,
+            y: (childRect.top - rect.top) / scaleX,
+            width: childRect.width / scaleX,
+            height: childRect.height / scaleX,
+          };
+          
+          childrenMetrics[key] = normalized;
+          
+          // Track for Gap calculation
+          if (!firstChildRect || normalized.x < firstChildRect.x) firstChildRect = normalized;
+          if (!lastChildRect || normalized.x > lastChildRect.x) lastChildRect = normalized;
+        } else {
+          childrenMetrics[key] = null;
         }
+      });
 
-        setAnatomy({
-          width: element.offsetWidth,
-          height: element.offsetHeight,
-          scaleFactor: scaleX,
-          padding,
-          border,
-          contentBox: {
-              x: padding.left + border.left,
-              y: padding.top + border.top,
-              width: element.offsetWidth - (padding.left + padding.right + border.left + border.right),
-              height: element.offsetHeight - (padding.top + padding.bottom + border.top + border.bottom),
-          },
-          children: childrenMetrics,
-          gap,
-        });
+      // 6. Calculate Internal Gap (Distance between first and last element edges)
+      // Note: This naive approach assumes horizontal flow of two items.
+      let gap = 0;
+      if (firstChildRect && lastChildRect && firstChildRect !== lastChildRect) {
+        gap = lastChildRect.x - (firstChildRect.x + firstChildRect.width);
+        // Safety clamp
+        gap = Math.max(0, gap);
+      }
+
+      setAnatomy({
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+        scaleFactor: scaleX,
+        padding,
+        border,
+        contentBox: {
+            x: padding.left + border.left,
+            y: padding.top + border.top,
+            width: element.offsetWidth - (padding.left + padding.right + border.left + border.right),
+            height: element.offsetHeight - (padding.top + padding.bottom + border.top + border.bottom),
+        },
+        children: childrenMetrics,
+        gap,
       });
     };
 
@@ -145,11 +145,11 @@ export const useElementAnatomy = (
     const resizeObserver = new ResizeObserver(measure);
     resizeObserver.observe(element);
     
+    // Also observe mutations in children/attributes which might shift layout
     const mutationObserver = new MutationObserver(measure);
     mutationObserver.observe(element, { attributes: true, childList: true, subtree: true });
 
     return () => {
-      cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
       mutationObserver.disconnect();
     };

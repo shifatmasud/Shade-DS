@@ -122,11 +122,7 @@ const MetaPrototype = () => {
   
   useEffect(() => {
     if (!isCodeFocused) {
-      if (btnProps.componentType === 'custom' && btnProps.customCode) {
-        setCodeText(btnProps.customCode);
-      } else {
-        setCodeText(JSON.stringify(btnProps, null, 2));
-      }
+      setCodeText(JSON.stringify(btnProps, null, 2));
     }
   }, [btnProps, isCodeFocused]);
 
@@ -144,12 +140,6 @@ const MetaPrototype = () => {
   // Initial Log
   useEffect(() => {
       logEvent('System Ready. Meta Prototype initialized.');
-
-      const handleAppLog = (e: any) => {
-        logEvent(`[Custom] ${e.detail}`);
-      };
-      window.addEventListener('app-log', handleAppLog);
-      return () => window.removeEventListener('app-log', handleAppLog);
   }, []);
 
   const updateBtnProps = (newProps: MetaButtonProps, saveHistory: boolean = true) => {

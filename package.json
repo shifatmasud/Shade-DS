@@ -12,8 +12,6 @@
   "dependencies": {
     "@babel/standalone": "^7.29.1",
     "@google/genai": "^0.7.0",
-    "@types/canvas-confetti": "^1.9.0",
-    "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.23.26",
     "phosphor-react": "^1.4.1",
     "react": "^19.0.0",
