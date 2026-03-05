@@ -7,6 +7,7 @@ import { motion, MotionValue, useTransform, AnimatePresence, motionValue } from 
 import { useTheme } from '../../Theme.tsx';
 import Button from '../Core/Button.tsx';
 import Card from '../Package/Card.tsx';
+import Slot from '../Package/Slot.tsx';
 import { MetaButtonProps, FeedbackVariant } from '../../types/index.tsx';
 import { useElementAnatomy, ElementAnatomy, NormalizedRect } from '../../hooks/useElementAnatomy.tsx';
 import TokenBadge from '../Package/TokenBadge.tsx';
@@ -367,7 +368,7 @@ const Stage: React.FC<StageProps> = ({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        padding: '80px',
+        padding: btnProps.componentType === 'slot' ? '0px' : '80px',
         perspective: '1000px',
         width: '100%',
         height: '100%',
@@ -375,11 +376,13 @@ const Stage: React.FC<StageProps> = ({
         <motion.div 
             style={{ 
                 position: 'relative', 
-                display: 'inline-block',
+                display: btnProps.componentType === 'slot' ? 'block' : 'inline-block',
+                width: btnProps.componentType === 'slot' ? '100%' : 'auto',
+                height: btnProps.componentType === 'slot' ? '100%' : 'auto',
                 transformStyle: 'preserve-3d',
                 rotateX: view3D ? viewRotateX : 0,
                 rotateZ: view3D ? containerRotateZ : 0,
-                scale: btnProps.componentType === 'card' ? 1.0 : 1.5,
+                scale: 1.0,
             }}
             transition={{ type: 'spring', damping: 20, stiffness: 100 }}
         >
@@ -399,6 +402,8 @@ const Stage: React.FC<StageProps> = ({
                     layerSpacing={layerSpacing}
                     view3D={view3D}
                 />
+            ) : btnProps.componentType === 'slot' ? (
+                <Slot ref={componentRef} />
             ) : (
                 <div ref={componentRef} style={{ width: '100%', height: '100%' }}>
                   <LiveProvider code={btnProps.customCode || '() => <></>'} scope={reactLiveScope}>

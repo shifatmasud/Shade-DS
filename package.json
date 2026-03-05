@@ -12,12 +12,16 @@
   "dependencies": {
     "@babel/standalone": "^7.29.1",
     "@google/genai": "^0.7.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@types/three": "^0.183.1",
     "framer-motion": "^12.23.26",
     "phosphor-react": "^1.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.2.3",
     "react-error-boundary": "^6.1.1",
-    "react-live": "^4.1.8"
+    "react-live": "^4.1.8",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

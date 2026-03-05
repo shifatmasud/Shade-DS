@@ -29,7 +29,7 @@ export interface LogEntry {
 export type FeedbackVariant = 'Success' | 'Warning' | 'Error' | 'Focus' | 'Signal';
 
 // --- Component Type ---
-export type ComponentType = 'button' | 'card' | 'custom';
+export type ComponentType = 'button' | 'card' | 'custom' | 'slot';
 
 // --- Props for Meta Prototype ---
 export interface MetaComponentProps {

@@ -125,7 +125,7 @@ const StateLayer: React.FC<StateLayerProps> = ({
                         height: layer.isActive ? maxDiameter : 0,
                     }}
                     transition={{
-                        duration: 2.5,
+                        duration: 1.05,
                         ease: [0.2, 0, 0, 1]
                     }}
                     onAnimationComplete={() => {
