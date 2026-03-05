@@ -3,17 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React from 'react';
-import MetaPrototype from '../App/MetaPrototype.tsx';
+import MainPage from '../Page/MainPage.tsx';
 import CustomScrollbar from '../Core/CustomScrollbar.tsx';
 
-const Welcome = () => {
-    return (
+const App = () => {
+  return (
     <div style={{ height: '100vh', width: '100vw' }}>
       <CustomScrollbar>
-        <MetaPrototype />
+        <MainPage />
       </CustomScrollbar>
     </div>
   );
 };
 
-export default Welcome;
+export default App;

@@ -22,12 +22,12 @@ import { Sliders, Code, Terminal } from 'phosphor-react';
 import { WindowId, WindowState, LogEntry, MetaButtonProps } from '../../types/index.tsx';
 
 /**
- * 🏎️ Meta Prototype App
+ * 🏎️ Main Page
  * Acts as the main state orchestrator for the application.
  */
-const MetaPrototype = () => {
+const MainPage = () => {
   const { theme } = useTheme();
-    const [uiMode, setUiMode] = useState<'default' | 'lean'>('lean');
+  const [uiMode, setUiMode] = useState<'default' | 'lean'>('lean');
   const [showThemeToggle, setShowThemeToggle] = useState(false);
   
   // -- App State --
@@ -139,7 +139,7 @@ const MetaPrototype = () => {
   
   // Initial Log
   useEffect(() => {
-      logEvent('System Ready. Meta Prototype initialized.');
+      logEvent('System Ready. Main Page initialized.');
   }, []);
 
   const updateBtnProps = (newProps: MetaButtonProps, saveHistory: boolean = true) => {
@@ -449,4 +449,4 @@ const MetaPrototype = () => {
   );
 };
 
-export default MetaPrototype;
+export default MainPage;

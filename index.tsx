@@ -1,15 +1,15 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
-*/
+ */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ThemeProvider, useTheme } from './Theme.tsx';
 import { BreakpointProvider } from './hooks/useBreakpoint.tsx';
-import Welcome from './components/Page/Welcome.tsx';
+import App from './components/App/App.tsx';
 import './styles.css';
 
-function App() {
+function Root() {
   const { theme } = useTheme();
 
   React.useEffect(() => {
@@ -17,7 +17,7 @@ function App() {
   }, [theme]);
 
   return (
-      <Welcome />
+      <App />
   );
 }
 
@@ -26,7 +26,7 @@ root.render(
   <React.StrictMode>
     <BreakpointProvider>
       <ThemeProvider>
-        <App />
+        <Root />
       </ThemeProvider>
     </BreakpointProvider>
   </React.StrictMode>
