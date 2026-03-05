@@ -25,7 +25,7 @@ import { WindowId, WindowState, LogEntry, MetaButtonProps } from '../../types/in
  * 🏎️ Main Page
  * Acts as the main state orchestrator for the application.
  */
-const MainPage = () => {
+const Home = () => {
   const { theme } = useTheme();
   const [uiMode, setUiMode] = useState<'default' | 'lean'>('lean');
   const [showThemeToggle, setShowThemeToggle] = useState(false);
@@ -139,7 +139,7 @@ const MainPage = () => {
   
   // Initial Log
   useEffect(() => {
-      logEvent('System Ready. Main Page initialized.');
+      logEvent('System Ready. Home initialized.');
   }, []);
 
   const updateBtnProps = (newProps: MetaButtonProps, saveHistory: boolean = true) => {
@@ -449,4 +449,4 @@ const MainPage = () => {
   );
 };
 
-export default MainPage;
+export default Home;
