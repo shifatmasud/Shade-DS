@@ -11,10 +11,10 @@ import { MetaButtonProps } from '../../types/index.tsx';
 import { PaperPlaneTilt, Robot, User, X, Copy, Check } from 'phosphor-react';
 import CustomScrollbar from '../Core/CustomScrollbar.tsx';
 
-const coreComponents = import.meta.glob('../Core/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-const packageComponents = import.meta.glob('../Package/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const allComponents = import.meta.glob('../../components/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const hooks = import.meta.glob('../../hooks/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const themeFile = import.meta.glob('../../Theme.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-const typesFile = import.meta.glob('../../types/index.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const typesFile = import.meta.glob('../../types/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 
 let contextString = "Design Tokens & Theme Code:\n";
 for (const path in themeFile) {
@@ -22,15 +22,15 @@ for (const path in themeFile) {
 }
 contextString += "Types:\n";
 for (const path in typesFile) {
-  contextString += typesFile[path] + "\n\n";
+  contextString += `--- ${path} ---\n${typesFile[path]}\n\n`;
 }
-contextString += "Core Components Code:\n";
-for (const path in coreComponents) {
-  contextString += `--- ${path} ---\n${coreComponents[path]}\n\n`;
+contextString += "Hooks:\n";
+for (const path in hooks) {
+  contextString += `--- ${path} ---\n${hooks[path]}\n\n`;
 }
-contextString += "Package Components Code:\n";
-for (const path in packageComponents) {
-  contextString += `--- ${path} ---\n${packageComponents[path]}\n\n`;
+contextString += "Components Code:\n";
+for (const path in allComponents) {
+  contextString += `--- ${path} ---\n${allComponents[path]}\n\n`;
 }
 
 interface Message {
@@ -75,6 +75,20 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  const generateContentWithRetry = async (ai: GoogleGenAI, params: any, retries = 3, delay = 1000): Promise<any> => {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (error: any) {
+      const status = error?.status || error?.error?.code || error?.response?.status;
+      if (retries > 0 && (status === 503 || status === 'UNAVAILABLE')) {
+        console.warn(`AI model busy (status: ${status}), retrying in ${delay}ms... (${retries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return generateContentWithRetry(ai, params, retries - 1, delay * 2);
+      }
+      throw error;
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -98,7 +112,6 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
           type: Type.OBJECT,
           description: "Update the application state properties.",
           properties: {
-            componentType: { type: Type.STRING, enum: ['button', 'card', 'custom'], description: "The type of component to render." },
             label: { type: Type.STRING, description: "The label or title of the component." },
             variant: { type: Type.STRING, description: "The variant (primary, secondary, tertiary, outline)." },
             size: { type: Type.STRING, description: "The size (S, M, L)." },
@@ -112,14 +125,14 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
         },
       };
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: "gemini-3-flash-preview",
         contents: [
           { role: 'user', parts: [{ text: `Current App State (Internal Code): ${JSON.stringify(appState, null, 2)}` }] },
           { role: 'user', parts: [{ text: userMessage }] }
         ],
         config: {
-          systemInstruction: `You are a world-class senior design engineer agent. You can read and write the application internal state. Use the updateAppState tool to change component properties or create entirely new components using 'customCode'. When using 'customCode', provide a valid React component body or JSX. Be extremely concise and minimalist. Your goal is to make the prototype feel alive and high-fidelity.\n\n**IMPORTANT**: You are generating code for a 'react-live' environment. The code should be a single, self-contained functional component. You have access to all 'Core' and 'Package' components, the 'useTheme' hook, and the 'motion' component from 'framer-motion'. Do NOT include 'import' statements. You MUST use the design tokens and component structure from the provided context. Do not invent new styles. Always provide a chat response to the user explaining the changes you've made. Your tone should be helpful, encouraging, and a little playful. You are a design partner, not just a tool.\n\nHere is the codebase context you can use to generate components:\n${contextString}`,
+          systemInstruction: `You are a world-class senior design engineer agent. You can read and write the application internal state. Use the updateAppState tool to change component properties or create entirely new components using 'customCode'. When using 'customCode', provide a valid React component body or JSX. Be extremely concise and minimalist. Your goal is to make the prototype feel alive and high-fidelity.\n\n**IMPORTANT**: You are generating code for a 'react-live' environment. The code should be a single, self-contained functional component. You have access to all 'Core' and 'Package' components, the 'useTheme' hook, and the 'motion' component from 'framer-motion'. Do NOT include 'import' statements. You MUST use the design tokens and component structure from the provided context. Do not invent new styles. Always provide a chat response to the user explaining the changes you've made. Your tone should be helpful, encouraging, and a little playful. You are a design partner, not just a tool.\n\n**CRITICAL RESTRICTION**: You are strictly forbidden from modifying, overriding, or generating code that attempts to replicate or replace the existing 'Button.tsx' or 'Card.tsx' components. You must only generate entirely new, custom components that use existing components as building blocks.\n\nHere is the codebase context you can use to generate components:\n${contextString}`,
           tools: [{ functionDeclarations: [updateStateFunctionDeclaration] }],
         },
       });
@@ -141,9 +154,12 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
       } else if (functionCalls) {
         setMessages(prev => [...prev, { role: 'model', text: stateUpdateMessage }]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "Sorry, I encountered an error. Please try again." }]);
+      const errorMessage = error?.status === 503 
+        ? "The AI model is currently experiencing high demand. Please try again in a moment."
+        : "Sorry, I encountered an error. Please try again.";
+      setMessages(prev => [...prev, { role: 'model', text: errorMessage }]);
     } finally {
       setIsLoading(false);
     }

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useRef, useMemo, useEffect, useState } from 'react';
-import { motion, MotionValue, useTransform, AnimatePresence, motionValue } from 'framer-motion';
+import { motion, MotionValue, useTransform, AnimatePresence, motionValue, useMotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import Button from '../Core/Button.tsx';
 import Card from '../Package/Card.tsx';
@@ -42,6 +42,24 @@ const ErrorFallback = ({ error }: { error: Error }) => {
     </div>
   );
 };
+
+class ErrorBoundaryWrapper extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(_: Error) {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <ErrorFallback error={new Error("Component render failed")} />;
+    }
+    return this.props.children;
+  }
+}
 
 const reactLiveScope = {
     React,
@@ -408,9 +426,9 @@ const Stage: React.FC<StageProps> = ({
                 <div ref={componentRef} style={{ width: '100%', height: '100%' }}>
                   <LiveProvider code={btnProps.customCode || '() => <></>'} scope={reactLiveScope}>
                     <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.spacing['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: '12px' }} />
-                    <ErrorBoundary FallbackComponent={ErrorFallback}>
+                    <ErrorBoundaryWrapper>
                       <LivePreview style={{ width: '100%', height: '100%' }} />
-                    </ErrorBoundary>
+                    </ErrorBoundaryWrapper>
                   </LiveProvider>
                 </div>
             )}

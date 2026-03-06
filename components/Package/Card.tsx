@@ -147,6 +147,16 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
     userSelect: 'none',
   };
 
+  // 3D Debug Colors
+  const colors = {
+      state: theme.Color.Signal.Content[1],
+      ripple: theme.Color.Focus.Content[1],
+      media: theme.Color.Signal.Content[1],
+      content: theme.Color.Success.Content[1],
+  };
+
+  const getDebugBorder = (color: string) => view3D ? `1px solid ${color}` : 'none';
+
   return (
     <motion.div
       ref={ref}
@@ -189,7 +199,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
          }} />
       </motion.div>
 
-      <motion.div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', transform: zStateLayer, overflow: 'hidden', pointerEvents: 'none' }}>
+      <motion.div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', transform: zStateLayer, overflow: 'hidden', pointerEvents: 'none', border: getDebugBorder(colors.state) }}>
         <StateLayer 
             color={contentColor1} 
             isActive={effectiveHover} 
@@ -202,7 +212,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
         />
       </motion.div>
       
-      <motion.div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', transform: zRippleLayer, overflow: 'hidden', pointerEvents: 'none' }}>
+      <motion.div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', transform: zRippleLayer, overflow: 'hidden', pointerEvents: 'none', border: getDebugBorder(colors.ripple) }}>
         <RippleLayer
             color={contentColor1}
             ripples={ripples}
@@ -226,7 +236,8 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             transform: zMedia,
             position: 'relative',
             overflow: 'hidden',
-            border: `1px solid ${theme.Color.Base.Surface[3]}`
+            border: `1px solid ${theme.Color.Base.Surface[3]}`,
+            ... (view3D ? { border: getDebugBorder(colors.media) } : {})
         }}
       >
           <div style={{ 
@@ -258,7 +269,8 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
           transform: zContent, 
           display: 'flex', 
           flexDirection: 'column', 
-          gap: theme.spacing['Space.XS'] // Unified 4px rhythm within the text block
+          gap: theme.spacing['Space.XS'], // Unified 4px rhythm within the text block
+          border: getDebugBorder(colors.content)
       }}>
         <span draggable={false} style={{ 
             ...theme.Type.Readable.Label.S, 

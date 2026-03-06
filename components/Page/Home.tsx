@@ -402,7 +402,7 @@ const Home = () => {
           >
             <AIPanel 
               appState={btnProps} 
-              onUpdateState={(updates) => handlePropChange(updates)}
+              onUpdateState={(updates) => handlePropChange({ ...updates, componentType: 'custom' })}
               apiKey={geminiApiKey}
             />
           </FloatingWindow>
