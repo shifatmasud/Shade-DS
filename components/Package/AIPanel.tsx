@@ -45,7 +45,6 @@ interface AIPanelProps {
 }
 
 const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) => {
-  console.log('AIPanel rendered with apiKey:', apiKey);
   const { theme } = useTheme();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
@@ -85,7 +84,6 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
     setIsLoading(true);
 
     try {
-      console.log('AIPanel apiKey prop (type, length):', typeof apiKey, apiKey?.length);
       if (!apiKey || apiKey.trim() === '') {
         const errorMsg = "Gemini API key is missing or empty. Please get one at https://aistudio.google.com/api-keys and enter it in the Control Panel's Agent section.";
         console.error(errorMsg);
