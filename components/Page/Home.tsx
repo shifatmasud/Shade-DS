@@ -244,6 +244,7 @@ const Home = () => {
   };
 
   const handleGeminiApiKeyChange = (key: string) => {
+    console.log('Home handleGeminiApiKeyChange:', key);
     setGeminiApiKey(key);
     localStorage.setItem('geminiApiKey', key);
     logEvent('Gemini API Key saved.');
