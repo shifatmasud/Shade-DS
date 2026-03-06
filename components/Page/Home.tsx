@@ -35,7 +35,7 @@ const Home = () => {
     componentType: 'button',
     label: 'Do Magic',
     variant: 'primary',
-    size: 'M',
+    size: 'L',
     icon: 'ph-sparkle',
     customFill: '',
     customColor: '',

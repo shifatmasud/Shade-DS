@@ -12,10 +12,12 @@
   "dependencies": {
     "@babel/standalone": "^7.29.1",
     "@google/genai": "^0.7.0",
+    "@gsap/react": "^2.1.2",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@types/three": "^0.183.1",
     "framer-motion": "^12.23.26",
+    "gsap": "^3.14.2",
     "phosphor-react": "^1.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.2.3",

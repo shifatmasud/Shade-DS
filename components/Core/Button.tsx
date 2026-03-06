@@ -31,7 +31,7 @@ interface ButtonProps {
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary',
-  size = 'M',
+  size = 'L',
   label,
   icon,
   onClick,
