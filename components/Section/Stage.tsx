@@ -17,7 +17,7 @@ import * as Core from '../Core/index.tsx';
 import * as Package from '../Package/index.tsx';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 import { FallbackProps } from 'react-error-boundary';
-import { Code } from 'phosphor-react';
+import { Code, Play } from 'phosphor-react';
 
 const CustomPlaceholder = () => {
     const { theme } = useTheme();
@@ -384,6 +384,20 @@ const Stage: React.FC<StageProps> = ({
     layerSpacing 
 }) => {
   const { theme } = useTheme();
+  const [stagedCode, setStagedCode] = useState(btnProps.customCode || '');
+  const isDirty = btnProps.customCode !== stagedCode;
+
+  const handleRunCode = () => {
+    setStagedCode(btnProps.customCode || '');
+  };
+
+  // Sync staged code if it was empty and now has content (first generation)
+  useEffect(() => {
+    if (!stagedCode && btnProps.customCode) {
+      setStagedCode(btnProps.customCode);
+    }
+  }, [btnProps.customCode, stagedCode]);
+
   const componentRef = useRef<any>(null);
   const containerRotateZ = useTransform(viewRotateZ, v => -v);
 
@@ -438,16 +452,44 @@ const Stage: React.FC<StageProps> = ({
             ) : btnProps.componentType === 'slot' ? (
                 <Slot ref={componentRef} />
             ) : (
-                <div ref={componentRef} style={{ width: '100%', height: '100%' }}>
-                  {!btnProps.customCode ? (
+                <div ref={componentRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+                  {!stagedCode && !btnProps.customCode ? (
                     <CustomPlaceholder />
                   ) : (
-                    <LiveProvider code={btnProps.customCode} scope={reactLiveScope}>
-                      <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.spacing['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: '12px' }} />
-                      <ErrorBoundary FallbackComponent={ErrorFallback}>
-                        <LivePreview style={{ width: '100%', height: '100%' }} />
-                      </ErrorBoundary>
-                    </LiveProvider>
+                    <>
+                      <LiveProvider code={stagedCode} scope={reactLiveScope}>
+                        <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.spacing['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: '12px' }} />
+                        <ErrorBoundary FallbackComponent={ErrorFallback}>
+                          <LivePreview style={{ width: '100%', height: '100%' }} />
+                        </ErrorBoundary>
+                      </LiveProvider>
+                      
+                      <AnimatePresence>
+                        {isDirty && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            style={{
+                              position: 'absolute',
+                              bottom: theme.spacing['Space.M'],
+                              left: '50%',
+                              transform: 'translateX(-50%)',
+                              zIndex: 10,
+                            }}
+                          >
+                            <Button 
+                              label="Run Code" 
+                              variant="primary" 
+                              size="small" 
+                              icon="Play"
+                              onClick={handleRunCode}
+                              customRadius={theme.radius['Radius.Full']}
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </>
                   )}
                 </div>
             )}
