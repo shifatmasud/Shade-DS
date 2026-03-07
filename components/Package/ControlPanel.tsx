@@ -128,12 +128,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             value={btnProps.componentType}
             onChange={(e) => onPropChange({ 
                 componentType: e.target.value,
-                customRadius: e.target.value === 'card' ? '40px' : e.target.value === 'slot' ? '0px' : '56px',
-                variant: e.target.value === 'card' ? 'secondary' : 'primary'
+                customRadius: e.target.value === 'nametag' ? '24px' : e.target.value === 'card' ? '40px' : e.target.value === 'slot' ? '0px' : e.target.value === 'custom' ? '12px' : '56px',
+                variant: e.target.value === 'nametag' || e.target.value === 'card' ? 'secondary' : 'primary'
             })}
             options={[
               { value: 'button', label: 'Button (Core)' },
               { value: 'card', label: 'Card (Package)' },
+              { value: 'nametag', label: 'Name Tag (Package)' },
+              { value: 'custom', label: 'Custom (Code)' },
               { value: 'slot', label: 'Slot (Viewport)' },
             ]}
           />

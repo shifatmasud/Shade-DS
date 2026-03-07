@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 
 interface SegmentedTabProps {
-  tabs: { id: string; title: string; icon: React.ReactNode }[];
+  tabs: { id: string; title: string; icon?: React.ReactNode }[];
   activeTab: string;
   onTabClick: (id: string) => void;
 }

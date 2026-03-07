@@ -34,7 +34,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
   children,
   footer,
 }) => {
-  const { theme } = useTheme();
+  const { theme, themeName } = useTheme();
   const dragControls = useDragControls();
   
   // Initialize MotionValues with the position from props. Because this component
@@ -53,7 +53,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     backdropFilter: 'blur(20px)',
     borderRadius: theme.radius['Radius.L'],
     boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-    border: 'none',
+    border: themeName === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
     zIndex: zIndex,
     display: 'flex',
     flexDirection: 'column',

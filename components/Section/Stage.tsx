@@ -13,13 +13,14 @@ import { useElementAnatomy, ElementAnatomy, NormalizedRect } from '../../hooks/u
 import TokenBadge from '../Package/TokenBadge.tsx';
 import TokenConnector from '../Package/TokenConnector.tsx';
 import { LiveProvider, LiveEditor, LiveError, LivePreview } from 'react-live';
-import * as Core from '../Core';
-import * as Package from '../Package';
-import { ErrorBoundary } from 'react-error-boundary';
+import * as Core from '../Core/index.tsx';
+import * as Package from '../Package/index.tsx';
+import { ErrorBoundary } from '../ErrorBoundary.tsx';
+import { FallbackProps } from 'react-error-boundary';
 
 
 
-const ErrorFallback = ({ error }: { error: Error }) => {
+const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
   const { theme } = useTheme();
   return (
     <div style={{
@@ -43,27 +44,11 @@ const ErrorFallback = ({ error }: { error: Error }) => {
   );
 };
 
-class ErrorBoundaryWrapper extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(_: Error) {
-    return { hasError: true };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return <ErrorFallback error={new Error("Component render failed")} />;
-    }
-    return this.props.children;
-  }
-}
-
 const reactLiveScope = {
     React,
     ...React,
+    Core,
+    Package,
     ...Core,
     ...Package,
     useTheme,
@@ -420,15 +405,17 @@ const Stage: React.FC<StageProps> = ({
                     layerSpacing={layerSpacing}
                     view3D={view3D}
                 />
+            ) : btnProps.componentType === 'nametag' ? (
+                <Package.NameTag />
             ) : btnProps.componentType === 'slot' ? (
                 <Slot ref={componentRef} />
             ) : (
                 <div ref={componentRef} style={{ width: '100%', height: '100%' }}>
                   <LiveProvider code={btnProps.customCode || '() => <></>'} scope={reactLiveScope}>
                     <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.spacing['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: '12px' }} />
-                    <ErrorBoundaryWrapper>
+                    <ErrorBoundary FallbackComponent={ErrorFallback}>
                       <LivePreview style={{ width: '100%', height: '100%' }} />
-                    </ErrorBoundaryWrapper>
+                    </ErrorBoundary>
                   </LiveProvider>
                 </div>
             )}

@@ -118,11 +118,16 @@ const resolveTokens = (obj: any, breakpoint: Breakpoint): any => {
 
 // --- GLOBAL STYLES & THEME PROVIDER ---
 
-const GlobalStyles = () => {
+const GlobalStyles = ({ theme }: { theme: any }) => {
     const globalCss = `
       *, *::before, *::after { box-sizing: border-box; }
       html, body, #root { height: 100%; margin: 0; padding: 0; font-family: ${typography.Type.Readable.Body.M.fontFamily}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
       body { transition: background-color ${time['Time.3x']} ease; }
+      
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: ${theme.Color.Base.Surface[1]}; }
+      ::-webkit-scrollbar-thumb { background: ${theme.Color.Base.Surface[3]}; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: ${theme.Color.Base.Content[3]}; }
     `;
     return <style>{globalCss}</style>;
 };
@@ -163,7 +168,7 @@ export const ThemeProvider = ({ children }: React.PropsWithChildren) => {
 
   return (
     <ThemeContext.Provider value={value}>
-      <GlobalStyles />
+      <GlobalStyles theme={smartTheme} />
       {children}
     </ThemeContext.Provider>
   );
