@@ -410,9 +410,9 @@ const Home = () => {
       </AnimatePresence>
 
       {uiMode === 'default' ? (
-        <Dock windows={windows} toggleWindow={toggleWindow} />
+        <Dock windows={windows} toggleWindow={toggleWindow} uiMode={uiMode} />
       ) : (
-        <Dock windows={{ settings: { id: 'settings', title: 'Settings', isOpen: windows.control.isOpen, zIndex: 1, x: 0, y: 0, height: 600 } }} toggleWindow={() => toggleWindow('control')} />
+        <Dock windows={{ settings: { id: 'settings', title: 'Settings', isOpen: windows.control.isOpen, zIndex: 1, x: 0, y: 0, height: 600 } }} toggleWindow={() => toggleWindow('control')} uiMode={uiMode} />
       )}
 
       {/* --- LEAN MODE WINDOW --- */}

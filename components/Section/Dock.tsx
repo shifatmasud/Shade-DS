@@ -11,6 +11,7 @@ import { WindowId, WindowState } from '../../types/index.tsx';
 interface DockProps {
     windows: Record<WindowId, WindowState>;
     toggleWindow: (id: WindowId) => void;
+    uiMode?: 'default' | 'lean';
 }
 
 const ICON_MAP: Record<string, { icon: string; label: string }> = {
@@ -20,9 +21,13 @@ const ICON_MAP: Record<string, { icon: string; label: string }> = {
   settings: { icon: 'ph-gear', label: 'Settings' },
 };
 
-const Dock: React.FC<DockProps> = ({ windows, toggleWindow }) => {
+const Dock: React.FC<DockProps> = ({ windows, toggleWindow, uiMode = 'default' }) => {
     const { theme } = useTheme();
-    const windowItems = (Object.keys(windows) as WindowId[]).filter(id => id !== 'styles' && id !== 'systemSpec' && id !== 'ai');
+    let windowItems = (Object.keys(windows) as WindowId[]).filter(id => id !== 'styles' && id !== 'systemSpec' && id !== 'ai');
+    
+    if (uiMode === 'lean') {
+        windowItems = ['settings'];
+    }
 
     return (
       <motion.div
