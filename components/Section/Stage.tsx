@@ -17,6 +17,34 @@ import * as Core from '../Core/index.tsx';
 import * as Package from '../Package/index.tsx';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 import { FallbackProps } from 'react-error-boundary';
+import { Code } from 'phosphor-react';
+
+const CustomPlaceholder = () => {
+    const { theme } = useTheme();
+    return (
+        <div style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.Color.Base.Surface[2],
+            borderRadius: theme.radius['Radius.M'],
+            border: `2px dashed ${theme.Color.Base.Surface[3]}`,
+            color: theme.Color.Base.Content[3],
+            gap: theme.spacing['Space.S'],
+            padding: theme.spacing['Space.L'],
+            textAlign: 'center'
+        }}>
+            <Code size={32} weight="duotone" />
+            <div style={{ ...theme.Type.Readable.Label.S }}>Empty Custom Component</div>
+            <div style={{ ...theme.Type.Readable.Body.S, fontSize: '10px', opacity: 0.6 }}>
+                Use the Agent panel to generate code or edit manually in the Code panel.
+            </div>
+        </div>
+    );
+};
 
 
 
@@ -411,12 +439,16 @@ const Stage: React.FC<StageProps> = ({
                 <Slot ref={componentRef} />
             ) : (
                 <div ref={componentRef} style={{ width: '100%', height: '100%' }}>
-                  <LiveProvider code={btnProps.customCode || '() => <></>'} scope={reactLiveScope}>
-                    <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.spacing['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: '12px' }} />
-                    <ErrorBoundary FallbackComponent={ErrorFallback}>
-                      <LivePreview style={{ width: '100%', height: '100%' }} />
-                    </ErrorBoundary>
-                  </LiveProvider>
+                  {!btnProps.customCode ? (
+                    <CustomPlaceholder />
+                  ) : (
+                    <LiveProvider code={btnProps.customCode} scope={reactLiveScope}>
+                      <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.spacing['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: '12px' }} />
+                      <ErrorBoundary FallbackComponent={ErrorFallback}>
+                        <LivePreview style={{ width: '100%', height: '100%' }} />
+                      </ErrorBoundary>
+                    </LiveProvider>
+                  )}
                 </div>
             )}
             {showMeasurements && anatomy && <BlueprintOverlay anatomy={anatomy} />}
