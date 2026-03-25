@@ -32,7 +32,7 @@ const RippleLayer: React.FC<RippleLayerProps> = ({
   onRippleComplete,
   width,
   height,
-  opacity = 0.25,
+  opacity = 0.15,
   forced = false
 }) => {
   // Calculate the diameter needed to cover the component from the center or furthest corner.
@@ -77,19 +77,23 @@ const RippleLayer: React.FC<RippleLayerProps> = ({
               width: 0,
               height: 0,
               opacity: 0,
+              borderWidth: 0,
             }}
             animate={{
               width: maxDiameter,
               height: maxDiameter,
               opacity: [opacity * 0.5, opacity, 0], // Flash then fade
-              filter: 'blur(8px)', // Soft blur
+              borderWidth: 80, // Fixed 80px thickness
+              filter: 'blur(12px)', // Heavy blur for the ring
             }}
             exit={{ opacity: 0 }}
             style={{
               position: 'absolute',
               top: ripple.y,
               left: ripple.x,
-              backgroundColor: color,
+              backgroundColor: 'transparent',
+              borderStyle: 'solid',
+              borderColor: color,
               borderRadius: '50%',
               transform: 'translate(-50%, -50%)',
               pointerEvents: 'none',
