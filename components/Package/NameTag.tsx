@@ -87,7 +87,7 @@ const NameTag: React.FC = () => {
           <div style={{ ...theme.Type.Expressive.Data, backgroundColor: theme.Color.Base.Surface[2], color: theme.Color.Base.Content[1], padding: '4px 8px', borderRadius: '4px' }}>
             LVL 99
           </div>
-          <div style={{ ...theme.Type.Expressive.Data, backgroundColor: theme.Color.Signal.Surface[1], color: theme.Color.Signal.Content[1], padding: '4px 8px', borderRadius: '4px' }}>
+          <div style={{ ...theme.Type.Expressive.Data, backgroundColor: theme.Color.Active.Surface[1], color: theme.Color.Active.Content[1], padding: '4px 8px', borderRadius: '4px' }}>
              PROTOTYPER
           </div>
         </div>
@@ -95,7 +95,7 @@ const NameTag: React.FC = () => {
 
       <div style={{ 
         height: '12px', 
-        background: `linear-gradient(90deg, ${theme.Color.Focus.Content[1]}, ${theme.Color.Signal.Content[1]}, ${theme.Color.Success.Content[1]})` 
+        background: `linear-gradient(90deg, ${theme.Color.Focus.Content[1]}, ${theme.Color.Active.Content[1]}, ${theme.Color.Success.Content[1]})` 
       }} />
     </motion.div>
   );

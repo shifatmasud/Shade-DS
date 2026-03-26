@@ -9,7 +9,7 @@ import DockIcon from '../Core/DockIcon.tsx';
 import { WindowId, WindowState } from '../../types/index.tsx';
 
 interface DockProps {
-    windows: Record<WindowId, WindowState>;
+    windows: Partial<Record<WindowId, WindowState>>;
     toggleWindow: (id: WindowId) => void;
     uiMode?: 'default' | 'lean';
 }
@@ -23,7 +23,7 @@ const ICON_MAP: Record<string, { icon: string; label: string }> = {
 
 const Dock: React.FC<DockProps> = ({ windows, toggleWindow, uiMode = 'default' }) => {
     const { theme } = useTheme();
-    let windowItems = (Object.keys(windows) as WindowId[]).filter(id => id !== 'styles' && id !== 'systemSpec' && id !== 'ai');
+    let windowItems: WindowId[] = (Object.keys(windows) as WindowId[]).filter(id => id !== 'styles' && id !== 'systemSpec' && id !== 'ai' && id !== 'settings');
     
     if (uiMode === 'lean') {
         windowItems = ['settings'];
@@ -53,7 +53,7 @@ const Dock: React.FC<DockProps> = ({ windows, toggleWindow, uiMode = 'default' }
           <DockIcon
             key={id}
             icon={ICON_MAP[id]?.icon || 'ph-question'}
-            isActive={windows[id].isOpen}
+            isActive={windows[id]?.isOpen || false}
             onClick={() => toggleWindow(id)}
           />
         ))}

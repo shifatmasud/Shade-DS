@@ -226,7 +226,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   // 3D Debug Colors
   const colors = {
       surface: theme.Color.Error.Content[1],
-      state: theme.Color.Signal.Content[1],
+      state: theme.Color.Active.Content[1],
       ripple: theme.Color.Focus.Content[1],
       content: theme.Color.Success.Content[1],
   };

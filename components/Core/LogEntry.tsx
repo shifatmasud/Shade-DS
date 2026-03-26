@@ -31,9 +31,9 @@ const LogEntry: React.FC<LogEntryProps> = ({ log }) => {
         return theme.Color.Success.Content[1];
     }
     
-    // Signal / Info / Updates
+    // Active / Info / Updates
     if (lower.includes('updated') || lower.includes('toggled') || lower.includes('copied') || lower.includes('changed') || lower.includes('ready')) {
-        return theme.Color.Signal.Content[1];
+        return theme.Color.Active.Content[1];
     }
 
     // Default

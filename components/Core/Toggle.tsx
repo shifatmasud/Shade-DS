@@ -15,10 +15,10 @@ interface ToggleProps {
 const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
   const { theme } = useTheme();
 
-  // Use Signal Content for the active color.
-  // In Light Mode, Signal Surface is pastel, so Content (Strong Purple) gives the correct "On" state.
-  // In Dark Mode, Signal Surface is dark, so Content (Light Purple) gives the correct high-contrast "On" state.
-  const activeColor = theme.Color.Signal.Content[1];
+  // Use Active Content for the active color.
+  // In Light Mode, Active Surface is pastel, so Content (Strong Purple) gives the correct "On" state.
+  // In Dark Mode, Active Surface is dark, so Content (Light Purple) gives the correct high-contrast "On" state.
+  const activeColor = theme.Color.Active.Content[1];
 
   const trackStyle: React.CSSProperties = {
     width: '40px',

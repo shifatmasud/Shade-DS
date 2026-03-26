@@ -114,6 +114,7 @@ const Home = () => {
     styles: { id: 'styles', title: 'Style Guide', isOpen: false, zIndex: 4, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
     systemSpec: { id: 'systemSpec', title: 'System Spec', isOpen: false, zIndex: 5, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
     ai: { id: 'ai', title: 'AI Agent', isOpen: false, zIndex: 6, x: -WINDOW_WIDTH / 2, y: -240, height: 480 },
+    settings: { id: 'settings', title: 'Settings', isOpen: false, zIndex: 7, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
   });
 
   // -- Code Editor State --
@@ -432,7 +433,7 @@ const Home = () => {
                 onToggleStyles={() => toggleWindow('styles')}
                 showSystemSpec={windows.systemSpec.isOpen}
                 onToggleSystemSpec={() => toggleWindow('systemSpec')}
-                view3D={view3D} onToggleView3D={() => setView3D(!view3D)} layerSpacing={layerSpacing} viewRotateX={viewRotateX} viewRotateZ={viewRotateZ} uiMode={uiMode} onToggleUIMode={() => setUiMode(uiMode === 'default' ? 'lean' : 'default')}
+                view3D={view3D} onToggleView3D={() => setView3D(!view3D)} layerSpacing={layerSpacing} viewRotateX={viewRotateX} viewRotateZ={viewRotateZ} uiMode={uiMode} onToggleUIMode={() => setUiMode(prev => prev === 'default' ? 'lean' : 'default')}
                 showThemeToggle={showThemeToggle}
                 onToggleThemeButton={() => setShowThemeToggle(!showThemeToggle)}
                 isAIControlEnabled={isAIControlEnabled}

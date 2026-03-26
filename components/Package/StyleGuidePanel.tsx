@@ -40,7 +40,7 @@ const StyleGuidePanel: React.FC = () => {
     }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         <span style={{ ...theme.Type.Readable.Label.M, color: theme.Color.Base.Content[1] }}>{label}</span>
-        <span style={{ ...theme.Type.Readable.Data, color: theme.Color.Base.Content[3], fontSize: '10px' }}>{value}</span>
+        <span style={{ ...theme.Type.Expressive.Data, color: theme.Color.Base.Content[3], fontSize: '10px' }}>{value}</span>
       </div>
       {preview && <div>{preview}</div>}
     </div>
@@ -108,7 +108,7 @@ const StyleGuidePanel: React.FC = () => {
                     return Object.entries(style).map(([size, s]: [string, any]) => (
                         <div key={`expressive-${name}-${size}`} style={{ padding: theme.spacing['Space.M'], backgroundColor: theme.Color.Base.Surface[2], borderRadius: theme.radius['Radius.M'] }}>
                             <div style={{ ...s, color: theme.Color.Base.Content[1], marginBottom: theme.spacing['Space.XS'] }}>{name} {size}</div>
-                            <div style={{ ...theme.Type.Readable.Data, fontSize: '10px', color: theme.Color.Base.Content[3] }}>
+                            <div style={{ ...theme.Type.Expressive.Data, fontSize: '10px', color: theme.Color.Base.Content[3] }}>
                                 {s.fontFamily} | {typeof s.fontSize === 'object' ? s.fontSize.desktop : s.fontSize} | {s.fontWeight}
                             </div>
                         </div>
@@ -117,7 +117,7 @@ const StyleGuidePanel: React.FC = () => {
                  return (
                     <div key={`expressive-${name}`} style={{ padding: theme.spacing['Space.M'], backgroundColor: theme.Color.Base.Surface[2], borderRadius: theme.radius['Radius.M'] }}>
                         <div style={{ ...style, color: theme.Color.Base.Content[1], marginBottom: theme.spacing['Space.XS'] }}>{name} Sample</div>
-                        <div style={{ ...theme.Type.Readable.Data, fontSize: '10px', color: theme.Color.Base.Content[3] }}>
+                        <div style={{ ...theme.Type.Expressive.Data, fontSize: '10px', color: theme.Color.Base.Content[3] }}>
                             {style.fontFamily} | {style.fontSize} | {style.fontWeight}
                         </div>
                     </div>
@@ -134,7 +134,7 @@ const StyleGuidePanel: React.FC = () => {
                   Object.entries(style).map(([size, s]: [string, any]) => (
                     <div key={`readable-${name}-${size}`} style={{ padding: theme.spacing['Space.M'], backgroundColor: theme.Color.Base.Surface[2], borderRadius: theme.radius['Radius.M'] }}>
                         <div style={{ ...s, color: theme.Color.Base.Content[1], marginBottom: theme.spacing['Space.XS'] }}>{name} {size}</div>
-                        <div style={{ ...theme.Type.Readable.Data, fontSize: '10px', color: theme.Color.Base.Content[3] }}>
+                        <div style={{ ...theme.Type.Expressive.Data, fontSize: '10px', color: theme.Color.Base.Content[3] }}>
                             {s.fontFamily} | {typeof s.fontSize === 'object' ? s.fontSize.desktop : s.fontSize} | {s.fontWeight}
                         </div>
                     </div>

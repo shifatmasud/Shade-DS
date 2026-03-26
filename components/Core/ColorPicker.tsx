@@ -150,7 +150,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     theme.Color.Success.Content[1],
     theme.Color.Warning.Content[1],
     theme.Color.Error.Content[1],
-    theme.Color.Signal.Content[1],
+    theme.Color.Active.Content[1],
     '#FF0055', '#00CC88', '#3366FF', '#FF9900', '#CC00FF',
   ];
 

@@ -34,7 +34,7 @@ const Confetti: React.FC<ConfettiProps> = ({ trigger }) => {
 
   // Theme-aware colors
   const getColors = () => [
-    theme.Color.Signal.Content[1],
+    theme.Color.Active.Content[1],
     theme.Color.Focus.Content[1], 
     theme.Color.Warning.Content[1], 
     theme.Color.Success.Content[1],

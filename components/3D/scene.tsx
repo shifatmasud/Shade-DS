@@ -8,9 +8,8 @@ import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Float, S
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { InertiaPlugin } from 'gsap/InertiaPlugin';
 
-gsap.registerPlugin(useGSAP, InertiaPlugin);
+gsap.registerPlugin(useGSAP);
 
 interface Scene3DProps {
   boxColor?: string;
@@ -98,12 +97,8 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onClick }: { color?: string
     setPressed(false);
     e.target.releasePointerCapture(e.pointerId);
     
-    // Use InertiaPlugin to tween rotation based on velocity calculated in useFrame
+    // Simple tween instead of inertia
     gsap.to(rotationRef.current, {
-      inertia: {
-        x: { velocity: velocityRef.current.x, resistance: 350 },
-        y: { velocity: velocityRef.current.y, resistance: 350 }
-      },
       duration: 2,
       ease: 'power3.out',
       overwrite: true

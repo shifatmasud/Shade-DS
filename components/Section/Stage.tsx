@@ -167,7 +167,7 @@ const BlueprintOverlay: React.FC<{ anatomy: ElementAnatomy }> = ({ anatomy }) =>
     
     const LINE_OFFSET = 24;
     const colorDim = theme.Color.Warning.Content['1'];
-    const colorLayout = theme.Color.Signal.Content['1'];
+    const colorLayout = theme.Color.Active.Content['1'];
     const CANVAS_PAD = 100;
     
     return (
@@ -225,7 +225,7 @@ const getTextToken = (v: string) => (v === 'secondary' || v === 'tertiary' || v 
 const getTokenVariant = (label: string): FeedbackVariant => {
   if (label.includes('Space') || label.includes('Gap')) return 'Warning';
   if (label.includes('Radius')) return 'Focus';
-  if (label.includes('Color') || label.includes('Fill') || label.includes('Accent') || label.includes('Base') || label.includes('Transparent')) return 'Signal';
+  if (label.includes('Color') || label.includes('Fill') || label.includes('Accent') || label.includes('Base') || label.includes('Transparent')) return 'Active';
   if (label.includes('Type') || label.includes('Label') || label.includes('Headline')) return 'Success';
   return 'Error';
 };
@@ -332,10 +332,10 @@ const LayerStackHUD = ({ layerSpacing, isCard }: { layerSpacing: MotionValue<num
     const gap = useTransform(layerSpacing, [0, 150], [4, 32]);
     
     const layers = [
-        ...(isCard ? [{ label: 'Media Layer', stroke: theme.Color.Signal.Content[1], fill: theme.Color.Signal.Surface[1] }] : []),
+        ...(isCard ? [{ label: 'Media Layer', stroke: theme.Color.Active.Content[1], fill: theme.Color.Active.Surface[1] }] : []),
         { label: 'Content Layer', stroke: theme.Color.Success.Content[1], fill: theme.Color.Success.Surface[1] },
         { label: 'Ripple Layer', stroke: theme.Color.Focus.Content[1], fill: theme.Color.Focus.Surface[1] },
-        { label: 'State Layer', stroke: theme.Color.Signal.Content[1], fill: theme.Color.Signal.Surface[1] },
+        { label: 'State Layer', stroke: theme.Color.Active.Content[1], fill: theme.Color.Active.Surface[1] },
         { label: 'Surface Layer', stroke: theme.Color.Error.Content[1], fill: theme.Color.Error.Surface[1] }, 
     ];
 
@@ -481,7 +481,7 @@ const Stage: React.FC<StageProps> = ({
                             <Button 
                               label="Run Code" 
                               variant="primary" 
-                              size="small" 
+                              size="S" 
                               icon="Play"
                               onClick={handleRunCode}
                               customRadius={theme.radius['Radius.Full']}

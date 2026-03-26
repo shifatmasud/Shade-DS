@@ -16,7 +16,7 @@ This is a starter project for building modern, theme-aware React applications. I
 | **State Management** | React Context (`Theme`, `Breakpoint`), Local State, History Stack (Undo/Redo) |
 | **Architecture** | Atomic-based: `Core` → `Package` → `Section` → `Page` → `App` |
 | **Key Components** | Floating Windows, Draggable Dock, State Layer (Ripple), Element Anatomy Inspector |
-| **Theme System** | Light/Dark Modes, Responsive Tokens, Feedback States (Success, Warning, Error, Signal) |
+| **Theme System** | Light/Dark Modes, Responsive Tokens, Feedback States (Success, Warning, Error, Active) |
 | **Inputs** | Range Sliders, Color Pickers, Toggles, Selects, TextAreas |
 | **Visuals** | Confetti System, Blueprint Overlays, Token Badges, Glassmorphism |
 

@@ -149,9 +149,9 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
 
   // 3D Debug Colors
   const colors = {
-      state: theme.Color.Signal.Content[1],
+      state: theme.Color.Active.Content[1],
       ripple: theme.Color.Focus.Content[1],
-      media: theme.Color.Signal.Content[1],
+      media: theme.Color.Active.Content[1],
       content: theme.Color.Success.Content[1],
   };
 
