@@ -14,6 +14,7 @@ export default function ForceInjector(props) {
     } = props
 
     // Extract nested values with defaults
+    const pushEnabled = localForce.push?.enabled ?? true
     const pushStrength = localForce.push?.strength ?? 40
     const pushRotation = localForce.push?.rotation ?? 10
     const pushTransition = localForce.push?.transition ?? {
@@ -29,8 +30,11 @@ export default function ForceInjector(props) {
         mass: 1,
     }
 
+    const attractEnabled = globalForce.attract?.enabled ?? true
     const attractStrength = globalForce.attract?.strength ?? 0.02
+    const repelEnabled = globalForce.repel?.enabled ?? true
     const repelStrength = globalForce.repel?.strength ?? 0
+    const tiltEnabled = globalForce.tilt?.enabled ?? true
     const tiltStrength = globalForce.tilt?.strength ?? 0
     const tiltPerspective = globalForce.tilt?.perspective ?? 1200
     const globalTransition = globalForce.transition ?? {
@@ -71,10 +75,15 @@ export default function ForceInjector(props) {
         targetRef.current = target
 
         // Setup 3D context if tilt is used
-        if (tiltStrength > 0) {
+        if (tiltEnabled && tiltStrength > 0) {
             target.style.transformStyle = "preserve-3d"
             if (target.parentElement) {
                 target.parentElement.style.perspective = `${tiltPerspective}px`
+            }
+        } else {
+            target.style.transformStyle = ""
+            if (target.parentElement) {
+                target.parentElement.style.perspective = ""
             }
         }
 
@@ -124,7 +133,7 @@ export default function ForceInjector(props) {
             let pushRotate = 0
 
             // 1. Calculate Push Force (Velocity based) - Only if inside
-            if (isInside.current && dt > 0) {
+            if (pushEnabled && isInside.current && dt > 0) {
                 const dx = clientX - lastPointerPos.current.x
                 const dy = clientY - lastPointerPos.current.y
                 
@@ -138,14 +147,17 @@ export default function ForceInjector(props) {
 
             // 2. Calculate Follow Force (Position based) - Global
             // Attraction is positive, Repulsion is negative
-            const netFollowStrength = attractStrength - repelStrength
+            const netAttract = attractEnabled ? attractStrength : 0
+            const netRepel = repelEnabled ? repelStrength : 0
+            const netFollowStrength = netAttract - netRepel
+            
             const followX = (clientX - targetCenter.current.x) * netFollowStrength
             const followY = (clientY - targetCenter.current.y) * netFollowStrength
 
             // 3. Calculate 3D Tilt
             // rotateY depends on X offset, rotateX depends on Y offset (inverted)
-            const tiltY = (clientX - targetCenter.current.x) * tiltStrength
-            const tiltX = -(clientY - targetCenter.current.y) * tiltStrength
+            const tiltX = tiltEnabled ? -(clientY - targetCenter.current.y) * tiltStrength : 0
+            const tiltY = tiltEnabled ? (clientX - targetCenter.current.x) * tiltStrength : 0
 
             // Combine forces
             const targetX = pushX + followX
@@ -247,6 +259,7 @@ ForceInjector.displayName = "Force Injector"
 ForceInjector.defaultProps = {
     localForce: {
         push: {
+            enabled: true,
             strength: 40,
             rotation: 10,
             transition: {
@@ -266,9 +279,9 @@ ForceInjector.defaultProps = {
         },
     },
     globalForce: {
-        attract: { strength: 0.02 },
-        repel: { strength: 0 },
-        tilt: { strength: 0, perspective: 1200 },
+        attract: { enabled: true, strength: 0.02 },
+        repel: { enabled: false, strength: 0 },
+        tilt: { enabled: false, strength: 0, perspective: 1200 },
         transition: {
             type: "tween",
             ease: "linear",
@@ -287,6 +300,11 @@ addPropertyControls(ForceInjector, {
                 title: "Push",
                 description: "Force out from original position when in zone",
                 controls: {
+                    enabled: {
+                        type: ControlType.Boolean,
+                        title: "Enabled",
+                        defaultValue: true,
+                    },
                     strength: {
                         type: ControlType.Number,
                         title: "Strength",
@@ -329,6 +347,11 @@ addPropertyControls(ForceInjector, {
                 title: "Attract",
                 description: "To global pointer",
                 controls: {
+                    enabled: {
+                        type: ControlType.Boolean,
+                        title: "Enabled",
+                        defaultValue: true,
+                    },
                     strength: {
                         type: ControlType.Number,
                         title: "Strength",
@@ -344,6 +367,11 @@ addPropertyControls(ForceInjector, {
                 title: "Repel",
                 description: "From global pointer",
                 controls: {
+                    enabled: {
+                        type: ControlType.Boolean,
+                        title: "Enabled",
+                        defaultValue: false,
+                    },
                     strength: {
                         type: ControlType.Number,
                         title: "Strength",
@@ -359,6 +387,11 @@ addPropertyControls(ForceInjector, {
                 title: "3D Tilt",
                 description: "CSS 3D tilt based on cursor",
                 controls: {
+                    enabled: {
+                        type: ControlType.Boolean,
+                        title: "Enabled",
+                        defaultValue: false,
+                    },
                     strength: {
                         type: ControlType.Number,
                         title: "Strength",
