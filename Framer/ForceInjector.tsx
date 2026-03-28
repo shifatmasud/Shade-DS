@@ -9,13 +9,35 @@ import { addPropertyControls, ControlType, RenderTarget } from "framer"
  */
 export default function ForceInjector(props) {
     const {
-        pushForceTransition,
-        pullBackTransition,
-        globalFollowTransition,
-        strength,
-        rotationStrength,
-        followStrength,
+        localForce = {},
+        globalForce = {},
     } = props
+
+    // Extract nested values with defaults
+    const pushStrength = localForce.push?.strength ?? 40
+    const pushRotation = localForce.push?.rotation ?? 10
+    const pushTransition = localForce.push?.transition ?? {
+        type: "spring",
+        stiffness: 600,
+        damping: 30,
+        mass: 1,
+    }
+    const pullTransition = localForce.pull?.transition ?? {
+        type: "spring",
+        stiffness: 200,
+        damping: 20,
+        mass: 1,
+    }
+
+    const attractStrength = globalForce.attract?.strength ?? 0.02
+    const repelStrength = globalForce.repel?.strength ?? 0
+    const tiltStrength = globalForce.tilt?.strength ?? 0
+    const tiltPerspective = globalForce.tilt?.perspective ?? 1200
+    const globalTransition = globalForce.transition ?? {
+        type: "tween",
+        ease: "linear",
+        duration: 0.4,
+    }
 
     const containerRef = useRef<HTMLDivElement>(null)
     const targetRef = useRef<HTMLElement | null>(null)
@@ -48,6 +70,14 @@ export default function ForceInjector(props) {
         if (!target) return
         targetRef.current = target
 
+        // Setup 3D context if tilt is used
+        if (tiltStrength > 0) {
+            target.style.transformStyle = "preserve-3d"
+            if (target.parentElement) {
+                target.parentElement.style.perspective = `${tiltPerspective}px`
+            }
+        }
+
         const computedStyle = window.getComputedStyle(target)
         if (computedStyle.display === "inline") {
             target.style.display = "inline-block"
@@ -68,29 +98,26 @@ export default function ForceInjector(props) {
             if (animationRef.current) animationRef.current.stop()
             animationRef.current = animate(
                 target,
-                { x: 0, y: 0, rotate: 0 },
+                { x: 0, y: 0, rotate: 0, rotateX: 0, rotateY: 0 },
                 {
-                    type: "spring",
-                    ...pullBackTransition,
+                    ...pullTransition,
                 }
             )
         }
 
-        const handlePointerEnter = (e: PointerEvent | TouchEvent) => {
+        const handlePointerEnter = (e: PointerEvent) => {
             isInside.current = true
             updateCenter()
-            const clientX = "clientX" in e ? e.clientX : e.touches[0].clientX
-            const clientY = "clientY" in e ? e.clientY : e.touches[0].clientY
-            lastPointerPos.current = { x: clientX, y: clientY }
+            lastPointerPos.current = { x: e.clientX, y: e.clientY }
             lastTime.current = performance.now()
         }
 
-        const handleGlobalPointerMove = (e: PointerEvent | TouchEvent) => {
+        const handleGlobalPointerMove = (e: PointerEvent) => {
             const now = performance.now()
             const dt = now - lastTime.current
             
-            const clientX = "clientX" in e ? e.clientX : e.touches[0].clientX
-            const clientY = "clientY" in e ? e.clientY : e.touches[0].clientY
+            const clientX = e.clientX
+            const clientY = e.clientY
 
             let pushX = 0
             let pushY = 0
@@ -104,36 +131,55 @@ export default function ForceInjector(props) {
                 const vx = dx / dt
                 const vy = dy / dt
 
-                pushX = vx * strength
-                pushY = vy * strength
-                pushRotate = vx * rotationStrength
+                pushX = vx * pushStrength
+                pushY = vy * pushStrength
+                pushRotate = vx * pushRotation
             }
 
             // 2. Calculate Follow Force (Position based) - Global
-            const followX = (clientX - targetCenter.current.x) * followStrength
-            const followY = (clientY - targetCenter.current.y) * followStrength
+            // Attraction is positive, Repulsion is negative
+            const netFollowStrength = attractStrength - repelStrength
+            const followX = (clientX - targetCenter.current.x) * netFollowStrength
+            const followY = (clientY - targetCenter.current.y) * netFollowStrength
+
+            // 3. Calculate 3D Tilt
+            // rotateY depends on X offset, rotateX depends on Y offset (inverted)
+            const tiltY = (clientX - targetCenter.current.x) * tiltStrength
+            const tiltX = -(clientY - targetCenter.current.y) * tiltStrength
 
             // Combine forces
             const targetX = pushX + followX
             const targetY = pushY + followY
             const targetRotate = pushRotate
+            const targetRotateX = tiltX
+            const targetRotateY = tiltY
 
             // Apply animation if there's any significant target
-            if (Math.abs(targetX) > 0.1 || Math.abs(targetY) > 0.1 || Math.abs(targetRotate) > 0.1) {
+            const hasMovement = Math.abs(targetX) > 0.1 || Math.abs(targetY) > 0.1 || 
+                               Math.abs(targetRotate) > 0.1 || Math.abs(targetRotateX) > 0.1 || 
+                               Math.abs(targetRotateY) > 0.1
+
+            if (hasMovement) {
                 if (animationRef.current) animationRef.current.stop()
                 
                 // Determine which transition to use
-                let transition = globalFollowTransition
+                let transition = globalTransition
                 if (isInside.current) {
-                    transition = pushForceTransition
+                    transition = pushTransition
                 } else if (now - lastLeaveTime.current < 600) {
-                    // Use pullBack spring for a short duration after leaving for the "snap" effect
-                    transition = { type: "spring", ...pullBackTransition }
+                    // Use pull spring for a short duration after leaving for the "snap" effect
+                    transition = pullTransition
                 }
 
                 animationRef.current = animate(
                     target,
-                    { x: targetX, y: targetY, rotate: targetRotate },
+                    { 
+                        x: targetX, 
+                        y: targetY, 
+                        rotate: targetRotate,
+                        rotateX: targetRotateX,
+                        rotateY: targetRotateY
+                    },
                     {
                         ...transition,
                     }
@@ -150,24 +196,32 @@ export default function ForceInjector(props) {
             triggerReturn()
         }
 
+        const handlePointerDown = (e: PointerEvent) => {
+            isInside.current = true
+            updateCenter()
+            lastPointerPos.current = { x: e.clientX, y: e.clientY }
+            lastTime.current = performance.now()
+        }
+
         target.addEventListener("pointerenter", handlePointerEnter as any)
-        target.addEventListener("touchstart", handlePointerEnter as any)
+        target.addEventListener("pointerdown", handlePointerDown as any)
         window.addEventListener("pointermove", handleGlobalPointerMove as any)
-        window.addEventListener("touchmove", handleGlobalPointerMove as any)
         target.addEventListener("pointerleave", handlePointerLeave as any)
-        target.addEventListener("touchend", handlePointerLeave as any)
+
+        // Prevent scrolling on touch devices when interacting with the target
+        const originalTouchAction = target.style.touchAction
+        target.style.touchAction = "none"
 
         return () => {
             target.removeEventListener("pointerenter", handlePointerEnter as any)
-            target.removeEventListener("touchstart", handlePointerEnter as any)
+            target.removeEventListener("pointerdown", handlePointerDown as any)
             window.removeEventListener("pointermove", handleGlobalPointerMove as any)
-            window.removeEventListener("touchmove", handleGlobalPointerMove as any)
             target.removeEventListener("pointerleave", handlePointerLeave as any)
-            target.removeEventListener("touchend", handlePointerLeave as any)
             window.removeEventListener("resize", updateCenter)
+            target.style.touchAction = originalTouchAction
             if (animationRef.current) animationRef.current.stop()
         }
-    }, [isClient, pushForceTransition, pullBackTransition, globalFollowTransition, strength, rotationStrength, followStrength])
+    }, [isClient, localForce, globalForce])
 
     if (!isClient) return null
 
@@ -191,65 +245,143 @@ export default function ForceInjector(props) {
 ForceInjector.displayName = "Force Injector"
 
 ForceInjector.defaultProps = {
-    strength: 40,
-    rotationStrength: 10,
-    followStrength: 0.02,
-    pushForceTransition: {
-        type: "spring",
-        stiffness: 600,
-        damping: 30,
-        mass: 1,
+    localForce: {
+        push: {
+            strength: 40,
+            rotation: 10,
+            transition: {
+                type: "spring",
+                stiffness: 600,
+                damping: 30,
+                mass: 1,
+            },
+        },
+        pull: {
+            transition: {
+                type: "spring",
+                stiffness: 200,
+                damping: 20,
+                mass: 1,
+            },
+        },
     },
-    pullBackTransition: {
-        stiffness: 200,
-        damping: 20,
-        mass: 1,
-    },
-    globalFollowTransition: {
-        type: "tween",
-        ease: "linear",
-        duration: 0.4,
+    globalForce: {
+        attract: { strength: 0.02 },
+        repel: { strength: 0 },
+        tilt: { strength: 0, perspective: 1200 },
+        transition: {
+            type: "tween",
+            ease: "linear",
+            duration: 0.4,
+        },
     },
 }
 
 addPropertyControls(ForceInjector, {
-    strength: {
-        type: ControlType.Number,
-        title: "Push Strength",
-        defaultValue: 40,
-        min: 0,
-        max: 200,
-        step: 1,
-        description: "Multiplier for pointer velocity (transient push).",
+    localForce: {
+        type: ControlType.Object,
+        title: "Local Force",
+        controls: {
+            push: {
+                type: ControlType.Object,
+                title: "Push",
+                description: "Force out from original position when in zone",
+                controls: {
+                    strength: {
+                        type: ControlType.Number,
+                        title: "Strength",
+                        defaultValue: 40,
+                        min: 0,
+                        max: 200,
+                    },
+                    rotation: {
+                        type: ControlType.Number,
+                        title: "Rotation",
+                        defaultValue: 10,
+                        min: 0,
+                        max: 100,
+                    },
+                    transition: {
+                        type: ControlType.Transition,
+                        title: "Transition",
+                    },
+                },
+            },
+            pull: {
+                type: ControlType.Object,
+                title: "Pull",
+                description: "Snap to original position when out of zone",
+                controls: {
+                    transition: {
+                        type: ControlType.Transition,
+                        title: "Transition",
+                    },
+                },
+            },
+        },
     },
-    rotationStrength: {
-        type: ControlType.Number,
-        title: "Rotation Strength",
-        defaultValue: 10,
-        min: 0,
-        max: 100,
-        step: 0.1,
-        description: "How much the element tilts based on velocity.",
-    },
-    followStrength: {
-        type: ControlType.Number,
-        title: "Follow Strength",
-        defaultValue: 0.02,
-        min: 0,
-        max: 0.5,
-        step: 0.001,
-        description: "Global cursor attraction (constant subtle movement).",
-    },
-    pushForceTransition: {
-        type: ControlType.Transition,
-        title: "Push Spring",
-    },
-    pullBackTransition: {
-        type: ControlType.Transition,
-        title: "Pull Back Spring",
-    },
-    globalFollowTransition: {
-        type: ControlType.Transition,
-        title: "Global Follow (Linear)",
+    globalForce: {
+        type: ControlType.Object,
+        title: "Global Force",
+        controls: {
+            attract: {
+                type: ControlType.Object,
+                title: "Attract",
+                description: "To global pointer",
+                controls: {
+                    strength: {
+                        type: ControlType.Number,
+                        title: "Strength",
+                        defaultValue: 0.02,
+                        min: 0,
+                        max: 0.5,
+                        step: 0.001,
+                    },
+                },
+            },
+            repel: {
+                type: ControlType.Object,
+                title: "Repel",
+                description: "From global pointer",
+                controls: {
+                    strength: {
+                        type: ControlType.Number,
+                        title: "Strength",
+                        defaultValue: 0,
+                        min: 0,
+                        max: 0.5,
+                        step: 0.001,
+                    },
+                },
+            },
+            tilt: {
+                type: ControlType.Object,
+                title: "3D Tilt",
+                description: "CSS 3D tilt based on cursor",
+                controls: {
+                    strength: {
+                        type: ControlType.Number,
+                        title: "Strength",
+                        defaultValue: 0,
+                        min: 0,
+                        max: 0.5,
+                        step: 0.01,
+                    },
+                    perspective: {
+                        type: ControlType.Number,
+                        title: "Perspective",
+                        defaultValue: 1200,
+                        min: 200,
+                        max: 5000,
+                        step: 10,
+                        unit: "px",
+                    },
+                },
+            },
+            transition: {
+                type: ControlType.Transition,
+                title: "Follow Transition",
+            },
+        },
     },
 })

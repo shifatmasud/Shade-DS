@@ -49,32 +49,45 @@ export default function StateLayer(props: {
     const target = containerRef.current?.parentElement?.parentElement;
     if (!target) return;
 
-    const handleEnter = () => startTransition(() => setIsActive(true));
-    const handleLeave = () => startTransition(() => setIsActive(false));
-    const handleMove = (e: PointerEvent | TouchEvent) => {
+    const handleEnter = (e: PointerEvent) => {
       const rect = target.getBoundingClientRect();
-      const clientX = "clientX" in e ? e.clientX : e.touches[0].clientX;
-      const clientY = "clientY" in e ? e.clientY : e.touches[0].clientY;
-      setMousePos({
-        x: clientX - rect.left,
-        y: clientY - rect.top,
+      startTransition(() => {
+        setDimensions({ width: rect.width, height: rect.height });
+        setIsActive(true);
       });
     };
 
-    target.addEventListener('pointerenter', handleEnter);
-    target.addEventListener('touchstart', handleEnter);
+    const handleLeave = () => startTransition(() => setIsActive(false));
+
+    const handleMove = (e: PointerEvent) => {
+      const rect = target.getBoundingClientRect();
+      setMousePos({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    };
+
+    const handleDown = (e: PointerEvent) => {
+      const rect = target.getBoundingClientRect();
+      startTransition(() => {
+        setDimensions({ width: rect.width, height: rect.height });
+        setMousePos({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        });
+      });
+    };
+
+    target.addEventListener('pointerenter', handleEnter as any);
     target.addEventListener('pointerleave', handleLeave);
-    target.addEventListener('touchend', handleLeave);
-    target.addEventListener('pointermove', handleMove as any);
-    target.addEventListener('touchmove', handleMove as any);
+    target.addEventListener('pointermove', handleMove);
+    target.addEventListener('pointerdown', handleDown as any);
 
     return () => {
-      target.removeEventListener('pointerenter', handleEnter);
-      target.removeEventListener('touchstart', handleEnter);
+      target.removeEventListener('pointerenter', handleEnter as any);
       target.removeEventListener('pointerleave', handleLeave);
-      target.removeEventListener('touchend', handleLeave);
-      target.removeEventListener('pointermove', handleMove as any);
-      target.removeEventListener('touchmove', handleMove as any);
+      target.removeEventListener('pointermove', handleMove);
+      target.removeEventListener('pointerdown', handleDown as any);
     };
   }, []);
 

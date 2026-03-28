@@ -47,23 +47,28 @@ export default function RippleLayer(props: {
     const target = containerRef.current?.parentElement?.parentElement;
     if (!target) return;
 
-    const handleDown = (e: PointerEvent | TouchEvent) => {
+    const handleClick = (e: MouseEvent) => {
       const rect = target.getBoundingClientRect();
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
+      let x, y;
+      
+      // Handle Keyboard click (coordinates are 0)
+      if (e.detail === 0) {
+        x = rect.width / 2;
+        y = rect.height / 2;
+      } else {
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
+      }
       
       startTransition(() => {
+        setDimensions({ width: rect.width, height: rect.height });
         setRipples(prev => [...prev, { id: Date.now() + Math.random(), x, y }]);
       });
     };
 
-    target.addEventListener('pointerdown', handleDown);
-    target.addEventListener('touchstart', handleDown);
+    target.addEventListener('click', handleClick);
     return () => {
-      target.removeEventListener('pointerdown', handleDown);
-      target.removeEventListener('touchstart', handleDown);
+      target.removeEventListener('click', handleClick);
     };
   }, []);
 
