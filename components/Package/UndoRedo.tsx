@@ -25,7 +25,7 @@ const UndoRedo: React.FC<UndoRedoProps> = ({ onUndo, onRedo, canUndo, canRedo })
     height: '32px',
     border: 'none',
     borderRadius: theme.radius['Radius.M'],
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0,0,0,0)',
     cursor: 'pointer',
   };
 
