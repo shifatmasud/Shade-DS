@@ -225,7 +225,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
           ) : (
             <div
               style={animatedCounterWrapperStyle}
-              onPointerDown={() => {
+              onClick={() => {
                 setInputValue(Math.round(internalValue));
                 setIsEditing(true)
               }}

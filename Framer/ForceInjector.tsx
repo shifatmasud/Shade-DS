@@ -76,25 +76,30 @@ export default function ForceInjector(props) {
             )
         }
 
-        const handlePointerEnter = (e: PointerEvent) => {
+        const handlePointerEnter = (e: PointerEvent | TouchEvent) => {
             isInside.current = true
             updateCenter()
-            lastPointerPos.current = { x: e.clientX, y: e.clientY }
+            const clientX = "clientX" in e ? e.clientX : e.touches[0].clientX
+            const clientY = "clientY" in e ? e.clientY : e.touches[0].clientY
+            lastPointerPos.current = { x: clientX, y: clientY }
             lastTime.current = performance.now()
         }
 
-        const handleGlobalPointerMove = (e: PointerEvent) => {
+        const handleGlobalPointerMove = (e: PointerEvent | TouchEvent) => {
             const now = performance.now()
             const dt = now - lastTime.current
             
+            const clientX = "clientX" in e ? e.clientX : e.touches[0].clientX
+            const clientY = "clientY" in e ? e.clientY : e.touches[0].clientY
+
             let pushX = 0
             let pushY = 0
             let pushRotate = 0
 
             // 1. Calculate Push Force (Velocity based) - Only if inside
             if (isInside.current && dt > 0) {
-                const dx = e.clientX - lastPointerPos.current.x
-                const dy = e.clientY - lastPointerPos.current.y
+                const dx = clientX - lastPointerPos.current.x
+                const dy = clientY - lastPointerPos.current.y
                 
                 const vx = dx / dt
                 const vy = dy / dt
@@ -105,8 +110,8 @@ export default function ForceInjector(props) {
             }
 
             // 2. Calculate Follow Force (Position based) - Global
-            const followX = (e.clientX - targetCenter.current.x) * followStrength
-            const followY = (e.clientY - targetCenter.current.y) * followStrength
+            const followX = (clientX - targetCenter.current.x) * followStrength
+            const followY = (clientY - targetCenter.current.y) * followStrength
 
             // Combine forces
             const targetX = pushX + followX
@@ -135,7 +140,7 @@ export default function ForceInjector(props) {
                 )
             }
 
-            lastPointerPos.current = { x: e.clientX, y: e.clientY }
+            lastPointerPos.current = { x: clientX, y: clientY }
             lastTime.current = now
         }
 
@@ -146,13 +151,19 @@ export default function ForceInjector(props) {
         }
 
         target.addEventListener("pointerenter", handlePointerEnter as any)
+        target.addEventListener("touchstart", handlePointerEnter as any)
         window.addEventListener("pointermove", handleGlobalPointerMove as any)
+        window.addEventListener("touchmove", handleGlobalPointerMove as any)
         target.addEventListener("pointerleave", handlePointerLeave as any)
+        target.addEventListener("touchend", handlePointerLeave as any)
 
         return () => {
             target.removeEventListener("pointerenter", handlePointerEnter as any)
+            target.removeEventListener("touchstart", handlePointerEnter as any)
             window.removeEventListener("pointermove", handleGlobalPointerMove as any)
+            window.removeEventListener("touchmove", handleGlobalPointerMove as any)
             target.removeEventListener("pointerleave", handlePointerLeave as any)
+            target.removeEventListener("touchend", handlePointerLeave as any)
             window.removeEventListener("resize", updateCenter)
             if (animationRef.current) animationRef.current.stop()
         }

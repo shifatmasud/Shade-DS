@@ -51,22 +51,30 @@ export default function StateLayer(props: {
 
     const handleEnter = () => startTransition(() => setIsActive(true));
     const handleLeave = () => startTransition(() => setIsActive(false));
-    const handleMove = (e: PointerEvent) => {
+    const handleMove = (e: PointerEvent | TouchEvent) => {
       const rect = target.getBoundingClientRect();
+      const clientX = "clientX" in e ? e.clientX : e.touches[0].clientX;
+      const clientY = "clientY" in e ? e.clientY : e.touches[0].clientY;
       setMousePos({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: clientX - rect.left,
+        y: clientY - rect.top,
       });
     };
 
     target.addEventListener('pointerenter', handleEnter);
+    target.addEventListener('touchstart', handleEnter);
     target.addEventListener('pointerleave', handleLeave);
-    target.addEventListener('pointermove', handleMove);
+    target.addEventListener('touchend', handleLeave);
+    target.addEventListener('pointermove', handleMove as any);
+    target.addEventListener('touchmove', handleMove as any);
 
     return () => {
       target.removeEventListener('pointerenter', handleEnter);
+      target.removeEventListener('touchstart', handleEnter);
       target.removeEventListener('pointerleave', handleLeave);
-      target.removeEventListener('pointermove', handleMove);
+      target.removeEventListener('touchend', handleLeave);
+      target.removeEventListener('pointermove', handleMove as any);
+      target.removeEventListener('touchmove', handleMove as any);
     };
   }, []);
 

@@ -47,10 +47,12 @@ export default function RippleLayer(props: {
     const target = containerRef.current?.parentElement?.parentElement;
     if (!target) return;
 
-    const handleDown = (e: PointerEvent) => {
+    const handleDown = (e: PointerEvent | TouchEvent) => {
       const rect = target.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
       
       startTransition(() => {
         setRipples(prev => [...prev, { id: Date.now() + Math.random(), x, y }]);
@@ -58,7 +60,11 @@ export default function RippleLayer(props: {
     };
 
     target.addEventListener('pointerdown', handleDown);
-    return () => target.removeEventListener('pointerdown', handleDown);
+    target.addEventListener('touchstart', handleDown);
+    return () => {
+      target.removeEventListener('pointerdown', handleDown);
+      target.removeEventListener('touchstart', handleDown);
+    };
   }, []);
 
   const removeRipple = (id: number) => {
