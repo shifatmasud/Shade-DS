@@ -37,7 +37,7 @@ const StyleManagerPanel: React.FC = () => {
         <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], margin: 0 }}>{value}</p>
       </div>
       <div style={{ flex: 1, height: '24px', display: 'flex', alignItems: 'center' }}>
-        <div style={{ width: value, height: '100%', backgroundColor: theme.Color.Accent.Surface[2] }} />
+        <div style={{ width: value, height: '100%', backgroundColor: theme.Color.Base.Surface[3] }} />
       </div>
     </div>
   );

@@ -18,8 +18,8 @@ const lightThemeColors = {
       Content: { '1': '#111111', '2': '#555555', '3': '#888888' }
     },
     Accent: {
-      Surface: { '1': '#111111', '2': '#E0E0E0' }, // Grayscale Accent (Black)
-      Content: { '1': '#FFFFFF', '2': '#111111' }  // White text on black
+      Surface: { '1': '#111111' }, // Grayscale Accent (Black)
+      Content: { '1': '#FFFFFF' }  // White text on black
     },
     Success: { Surface: { '1': '#E6F4EA' }, Content: { '1': '#1E8E3E' } },
     Warning: { Surface: { '1': '#FFF8E1' }, Content: { '1': '#E67C00' } },
@@ -36,8 +36,8 @@ const darkThemeColors = {
       Content: { '1': '#E0E0E0', '2': '#AAAAAA', '3': '#777777' }
     },
     Accent: {
-      Surface: { '1': '#FFFFFF', '2': '#333333' }, // Grayscale Accent (White)
-      Content: { '1': '#000000', '2': '#FFFFFF' }  // Black text on white
+      Surface: { '1': '#FFFFFF' }, // Grayscale Accent (White)
+      Content: { '1': '#000000' }  // Black text on white
     },
     Success: { Surface: { '1': '#1E3E2F' }, Content: { '1': '#6DD78C' } },
     Warning: { Surface: { '1': '#4A340D' }, Content: { '1': '#FF9800' } },

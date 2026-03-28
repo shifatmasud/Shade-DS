@@ -158,6 +158,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     { value: 'secondary', label: 'Secondary' },
                     { value: 'tertiary', label: 'Tertiary' },
                     { value: 'outline', label: 'Outline' },
+                    { value: 'destructive', label: 'Destructive' },
                   ]}
                 />
               </div>

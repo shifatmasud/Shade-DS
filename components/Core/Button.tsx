@@ -8,7 +8,7 @@ import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-m
 import StateLayer from './StateLayer.tsx';
 import RippleLayer, { Ripple } from './RippleLayer.tsx';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline';
+export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
 export type ButtonSize = 'S' | 'M' | 'L';
 
 interface ButtonProps {
@@ -147,6 +147,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           color: baseContent,
           border: `1px solid ${theme.Color.Base.Content[3]}`,
         };
+      case 'destructive':
+        return {
+          background: customFill || theme.Color.Error.Surface[1],
+          color: customColor || theme.Color.Error.Content[1],
+          border: `1px solid ${theme.Color.Error.Content[1]}`,
+          boxShadow: theme.effects['Effect.Shadow.Drop.2'],
+        };
       case 'tertiary':
         return {
           background: 'transparent',
@@ -196,7 +203,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   };
 
   // Feedback Color Derivation
-  let feedbackColor = variant === 'primary' ? theme.Color.Accent.Content[1] : theme.Color.Base.Content[1];
+  let feedbackColor = variant === 'primary' ? theme.Color.Accent.Content[1] : (variant === 'destructive' ? theme.Color.Error.Content[1] : theme.Color.Base.Content[1]);
   
   // State Layer Opacity
   const stateLayerOpacity = 0.1; 

@@ -10,7 +10,7 @@ import RippleLayer, { Ripple } from '../Core/RippleLayer.tsx';
 
 interface CardProps {
   label: string; // Used as title
-  variant?: 'primary' | 'secondary' | 'outline' | 'tertiary';
+  variant?: 'primary' | 'secondary' | 'outline' | 'tertiary' | 'destructive';
   customFill?: string;
   customColor?: string;
   customRadius?: string | MotionValue<string>;
@@ -125,9 +125,10 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
 
   // Determine Semantic Colors
   const isPrimary = variant === 'primary';
-  const bgColor = customFill || (isPrimary ? theme.Color.Accent.Surface[1] : theme.Color.Base.Surface[1]);
-  const contentColor1 = customColor || (isPrimary ? theme.Color.Accent.Content[1] : theme.Color.Base.Content[1]);
-  const contentColor2 = isPrimary ? theme.Color.Accent.Content[2] : theme.Color.Base.Content[2];
+  const isDestructive = variant === 'destructive';
+  const bgColor = customFill || (isPrimary ? theme.Color.Accent.Surface[1] : (isDestructive ? theme.Color.Error.Surface[1] : theme.Color.Base.Surface[1]));
+  const contentColor1 = customColor || (isPrimary ? theme.Color.Accent.Content[1] : (isDestructive ? theme.Color.Error.Content[1] : theme.Color.Base.Content[1]));
+  const contentColor2 = theme.Color.Base.Content[2];
 
   const styles: React.CSSProperties = {
     position: 'relative',
