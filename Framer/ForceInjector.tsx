@@ -23,6 +23,7 @@ export default function ForceInjector(props) {
         damping: 30,
         mass: 1,
     }
+    const localAreaRadius = localForce.radius ?? 100
     const pullTransition = localForce.pull?.transition ?? {
         type: "spring",
         stiffness: 200,
@@ -50,6 +51,7 @@ export default function ForceInjector(props) {
     const animationRef = useRef<any>(null)
     const isInside = useRef(false)
     const lastLeaveTime = useRef(0)
+    const currentTransform = useRef({ x: 0, y: 0 })
     const [isClient, setIsClient] = useState(false)
 
     // Store the initial center of the target to calculate follow offset
@@ -94,10 +96,11 @@ export default function ForceInjector(props) {
 
         // Calculate initial center
         const updateCenter = () => {
+            if (!target) return
             const rect = target.getBoundingClientRect()
             targetCenter.current = {
-                x: rect.left + rect.width / 2,
-                y: rect.top + rect.height / 2,
+                x: rect.left + rect.width / 2 - currentTransform.current.x,
+                y: rect.top + rect.height / 2 - currentTransform.current.y,
             }
         }
         updateCenter()
@@ -127,6 +130,17 @@ export default function ForceInjector(props) {
             
             const clientX = e.clientX
             const clientY = e.clientY
+
+            // Update isInside based on radius
+            const dist = Math.hypot(clientX - targetCenter.current.x, clientY - targetCenter.current.y)
+            const wasInside = isInside.current
+            isInside.current = dist <= localAreaRadius
+
+            // Handle leave event if just exited radius
+            if (wasInside && !isInside.current) {
+                lastLeaveTime.current = performance.now()
+                if (pushEnabled) triggerReturn()
+            }
 
             let pushX = 0
             let pushY = 0
@@ -176,9 +190,9 @@ export default function ForceInjector(props) {
                 
                 // Determine which transition to use
                 let transition = globalTransition
-                if (isInside.current) {
+                if (isInside.current && pushEnabled) {
                     transition = pushTransition
-                } else if (now - lastLeaveTime.current < 600) {
+                } else if (pushEnabled && now - lastLeaveTime.current < 600) {
                     // Use pull spring for a short duration after leaving for the "snap" effect
                     transition = pullTransition
                 }
@@ -194,6 +208,10 @@ export default function ForceInjector(props) {
                     },
                     {
                         ...transition,
+                        onUpdate: (latest) => {
+                            currentTransform.current.x = latest.x || 0
+                            currentTransform.current.y = latest.y || 0
+                        }
                     }
                 )
             }
@@ -203,21 +221,44 @@ export default function ForceInjector(props) {
         }
 
         const handlePointerLeave = () => {
-            isInside.current = false
-            lastLeaveTime.current = performance.now()
-            triggerReturn()
+            // Handled by global pointer move/up
         }
 
-        const handlePointerDown = (e: PointerEvent) => {
-            isInside.current = true
+        const handleGlobalPointerDown = (e: PointerEvent) => {
             updateCenter()
             lastPointerPos.current = { x: e.clientX, y: e.clientY }
             lastTime.current = performance.now()
+            
+            const dist = Math.hypot(e.clientX - targetCenter.current.x, e.clientY - targetCenter.current.y)
+            isInside.current = dist <= localAreaRadius
+        }
+
+        const handleGlobalPointerUp = (e: PointerEvent) => {
+            if (isInside.current) {
+                isInside.current = false
+                lastLeaveTime.current = performance.now()
+                if (pushEnabled) triggerReturn()
+            }
+        }
+
+        const handleTouchMove = (e: TouchEvent) => {
+            if (!pushEnabled) return
+            const touch = e.touches[0]
+            if (!touch) return
+            
+            const dist = Math.hypot(touch.clientX - targetCenter.current.x, touch.clientY - targetCenter.current.y)
+            if (dist <= localAreaRadius) {
+                // If we are within the radius, prevent scroll to allow force interaction
+                if (e.cancelable) e.preventDefault()
+            }
         }
 
         target.addEventListener("pointerenter", handlePointerEnter as any)
-        target.addEventListener("pointerdown", handlePointerDown as any)
+        window.addEventListener("pointerdown", handleGlobalPointerDown as any)
         window.addEventListener("pointermove", handleGlobalPointerMove as any)
+        window.addEventListener("pointerup", handleGlobalPointerUp as any)
+        window.addEventListener("pointercancel", handleGlobalPointerUp as any)
+        window.addEventListener("touchmove", handleTouchMove as any, { passive: false })
         target.addEventListener("pointerleave", handlePointerLeave as any)
 
         // Prevent scrolling on touch devices when interacting with the target
@@ -226,8 +267,11 @@ export default function ForceInjector(props) {
 
         return () => {
             target.removeEventListener("pointerenter", handlePointerEnter as any)
-            target.removeEventListener("pointerdown", handlePointerDown as any)
+            window.removeEventListener("pointerdown", handleGlobalPointerDown as any)
             window.removeEventListener("pointermove", handleGlobalPointerMove as any)
+            window.removeEventListener("pointerup", handleGlobalPointerUp as any)
+            window.removeEventListener("pointercancel", handleGlobalPointerUp as any)
+            window.removeEventListener("touchmove", handleTouchMove as any)
             target.removeEventListener("pointerleave", handlePointerLeave as any)
             window.removeEventListener("resize", updateCenter)
             target.style.touchAction = originalTouchAction
@@ -258,6 +302,7 @@ ForceInjector.displayName = "Force Injector"
 
 ForceInjector.defaultProps = {
     localForce: {
+        radius: 100,
         push: {
             enabled: true,
             strength: 40,
@@ -324,6 +369,15 @@ addPropertyControls(ForceInjector, {
                         title: "Transition",
                     },
                 },
+            },
+            radius: {
+                type: ControlType.Number,
+                title: "Local Area Radius",
+                defaultValue: 100,
+                min: 0,
+                max: 500,
+                step: 1,
+                unit: "px",
             },
             pull: {
                 type: ControlType.Object,
