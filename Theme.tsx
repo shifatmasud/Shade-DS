@@ -23,7 +23,7 @@ const lightThemeColors = {
     },
     Success: { Surface: { '1': '#E6F4EA' }, Content: { '1': '#1E8E3E' } },
     Warning: { Surface: { '1': '#FFF8E1' }, Content: { '1': '#E67C00' } },
-    Error: { Surface: { '1': '#FCE8E6' }, Content: { '1': '#C5221F' } },
+    Error: { Surface: { '1': '#FBEAEB' }, Content: { '1': '#C5221F' } },
     Focus: { Surface: { '1': '#E3F2FD' }, Content: { '1': '#1565C0' } }, // Blue Focus
     Active: { Surface: { '1': '#F3E5F5' }, Content: { '1': '#6A1B9A' } } // Restored Pastel Purple
   }
@@ -39,11 +39,11 @@ const darkThemeColors = {
       Surface: { '1': '#FFFFFF' }, // Grayscale Accent (White)
       Content: { '1': '#000000' }  // Black text on white
     },
-    Success: { Surface: { '1': '#1E3E2F' }, Content: { '1': '#6DD78C' } },
-    Warning: { Surface: { '1': '#4A340D' }, Content: { '1': '#FF9800' } },
-    Error: { Surface: { '1': '#591111' }, Content: { '1': '#FF453A' } }, // Rich Saturated Red
+    Success: { Surface: { '1': '#032a1d' }, Content: { '1': '#6DD78C' } },
+    Warning: { Surface: { '1': '#2c1f04' }, Content: { '1': '#FF9800' } },
+    Error: { Surface: { '1': '#281718' }, Content: { '1': '#FF453A' } }, // Rich Saturated Red
     Focus: { Surface: { '1': '#0D1B2A' }, Content: { '1': '#64B5F6' } }, // Blue Focus
-    Active: { Surface: { '1': '#2E0F45' }, Content: { '1': '#D9A7F7' } } // Deep Purple Surface, Light Purple Content
+    Active: { Surface: { '1': '#22023a' }, Content: { '1': '#D9A7F7' } } // Deep Purple Surface, Light Purple Content
   }
 };
 
