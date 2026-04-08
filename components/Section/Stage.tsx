@@ -203,7 +203,25 @@ const BlueprintOverlay: React.FC<{ anatomy: ElementAnatomy }> = ({ anatomy }) =>
                 <DimensionLine x1={0} y1={0} x2={width} y2={0} label={`${Math.round(width)}`} offset={LINE_OFFSET} color={colorDim} position="top" />
                 <DimensionLine x1={0} y1={0} x2={0} y2={height} label={`${Math.round(height)}`} offset={LINE_OFFSET} color={colorDim} position="left" />
                 {padding.left > 0 && <DimensionLine x1={0} y1={height} x2={padding.left} y2={height} label={`${Math.round(padding.left)}`} offset={LINE_OFFSET} color={colorLayout} position="bottom" />}
-                {gap > 1 && <DimensionLine x1={padding.left} y1={height} x2={width - padding.right} y2={height} label={`${Math.round(gap)}`} offset={LINE_OFFSET + 20} color={colorLayout} position="bottom" />}
+                {(() => {
+                    const rects = Object.values(children).filter(Boolean) as NormalizedRect[];
+                    if (rects.length < 2) return null;
+                    const sorted = rects.sort((a, b) => a.x - b.x);
+                    const first = sorted[0];
+                    const last = sorted[sorted.length - 1];
+                    return (
+                        <DimensionLine 
+                            x1={first.x + first.width} 
+                            y1={height} 
+                            x2={last.x} 
+                            y2={height} 
+                            label={`${Math.round(gap)}`} 
+                            offset={LINE_OFFSET + 20} 
+                            color={colorLayout} 
+                            position="bottom" 
+                        />
+                    );
+                })()}
                 {padding.right > 0 && <DimensionLine x1={width - padding.right} y1={height} x2={width} y2={height} label={`${Math.round(padding.right)}`} offset={LINE_OFFSET} color={colorLayout} position="bottom" />}
             </g>
         </svg>
