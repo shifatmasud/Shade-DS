@@ -68,8 +68,8 @@ Before any task, generate:
 
 Bebas Neue (hero)
 Inter (body)
-Victor Mono (data)
-Comic Neue (quotes)
+JetBrains Mono (data)
+Cause (quotes)
 
 ### Iconography
 
@@ -149,7 +149,7 @@ Never overwrite previous entries.`;
   };
 
   const dataStyle: React.CSSProperties = {
-    fontFamily: 'Victor Mono',
+    fontFamily: 'JetBrains Mono',
     fontSize: '12px',
     color: theme.Color.Base.Content[3],
     backgroundColor: theme.Color.Base.Surface[2],
@@ -158,7 +158,7 @@ Never overwrite previous entries.`;
   };
 
   const quoteStyle: React.CSSProperties = {
-    fontFamily: 'Comic Neue',
+    fontFamily: 'Cause',
     fontStyle: 'italic',
     fontSize: '14px',
     color: theme.Color.Base.Content[2],
@@ -333,8 +333,8 @@ Never overwrite previous entries.`;
               {[
                 { role: 'Hero', font: 'Bebas Neue', style: { fontFamily: 'Bebas Neue', fontSize: '20px' } },
                 { role: 'Body', font: 'Inter', style: { fontFamily: 'Inter', fontSize: '14px' } },
-                { role: 'Data', font: 'Victor Mono', style: { fontFamily: 'Victor Mono', fontSize: '12px' } },
-                { role: 'Quotes', font: 'Comic Neue', style: { fontFamily: 'Comic Neue', fontSize: '14px', fontStyle: 'italic' } },
+                { role: 'Data', font: 'JetBrains Mono', style: { fontFamily: 'JetBrains Mono', fontSize: '12px' } },
+                { role: 'Quotes', font: 'Cause', style: { fontFamily: 'Cause', fontSize: '14px', fontStyle: 'italic' } },
               ].map((item, i) => (
                 <div key={i} style={{ 
                   backgroundColor: theme.Color.Base.Surface[2],
@@ -369,11 +369,11 @@ Never overwrite previous entries.`;
             <div style={{ display: 'flex', gap: '20px' }}>
               <div>
                 <div style={{ fontSize: '10px', opacity: 0.5 }}>BASE</div>
-                <div style={{ fontFamily: 'Victor Mono', fontSize: '16px' }}>100ms</div>
+                <div style={{ fontFamily: 'JetBrains Mono', fontSize: '16px' }}>100ms</div>
               </div>
               <div>
                 <div style={{ fontSize: '10px', opacity: 0.5 }}>DEFAULT</div>
-                <div style={{ fontFamily: 'Victor Mono', fontSize: '16px' }}>300ms</div>
+                <div style={{ fontFamily: 'JetBrains Mono', fontSize: '16px' }}>300ms</div>
               </div>
             </div>
           </div>

@@ -11,7 +11,7 @@ This is a starter project for building modern, theme-aware React applications. I
 | **Framework** | React 18.2.0 (ESM via `importmap`) |
 | **Styling** | CSS-in-JS (JS Objects), Semantic Design Tokens, No CSS Modules/Tailwind |
 | **Animation** | Framer Motion 12.x (Spring Physics, Layout Animations) |
-| **Typography** | Bebas Neue (Display), Comic Neue (Quotes), Inter (UI), Victor Mono (Code) |
+| **Typography** | Bebas Neue (Display), Cause (Quotes), Inter (UI), JetBrains Mono (Code) |
 | **Icons** | Phosphor Icons (Web Component) |
 | **State Management** | React Context (`Theme`, `Breakpoint`), Local State, History Stack (Undo/Redo) |
 | **Architecture** | Atomic-based: `Core` → `Package` → `Section` → `Page` → `App` |

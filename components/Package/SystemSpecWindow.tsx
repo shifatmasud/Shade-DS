@@ -49,8 +49,8 @@ Before any task, generate:
 
 Bebas Neue (hero)
 Inter (body)
-Victor Mono (data)
-Comic Neue (quotes)
+JetBrains Mono (data)
+Cause (quotes)
 
 ### Iconography
 
@@ -137,7 +137,7 @@ const SystemSpecWindow = () => {
   };
 
   const badgeStyle: React.CSSProperties = {
-    fontFamily: 'Victor Mono, monospace',
+    fontFamily: 'JetBrains Mono, monospace',
     fontSize: '10px',
     padding: '2px 6px',
     borderRadius: '4px',
@@ -248,7 +248,7 @@ const SystemSpecWindow = () => {
           >
             <div style={{ width: '4px', height: '4px', backgroundColor: theme.Color.Focus.Content[1], borderRadius: '50%' }} />
           </motion.div>
-          <div style={{ position: 'absolute', bottom: 4, fontSize: '8px', fontFamily: 'Victor Mono', opacity: 0.5 }}>
+          <div style={{ position: 'absolute', bottom: 4, fontSize: '8px', fontFamily: 'JetBrains Mono', opacity: 0.5 }}>
             AUTO_ABSTRACTION_ACTIVE
           </div>
         </div>
@@ -267,7 +267,7 @@ const SystemSpecWindow = () => {
               border: `1px solid ${theme.Color.Base.Surface[3]}`,
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '10px', fontFamily: 'Victor Mono', opacity: 0.5, marginBottom: '4px' }}>STEP 0{i+1}</div>
+              <div style={{ fontSize: '10px', fontFamily: 'JetBrains Mono', opacity: 0.5, marginBottom: '4px' }}>STEP 0{i+1}</div>
               <div style={{ fontSize: '12px', fontWeight: 600 }}>{step}</div>
             </div>
           ))}
@@ -332,8 +332,8 @@ const SystemSpecWindow = () => {
             <div style={badgeStyle}>Typography</div>
             <div style={{ fontFamily: 'Bebas Neue', fontSize: '20px' }}>BEBAS NEUE</div>
             <div style={{ fontFamily: 'Inter', fontSize: '12px' }}>Inter Body</div>
-            <div style={{ fontFamily: 'Victor Mono', fontSize: '10px' }}>Victor Mono Data</div>
-            <div style={{ fontFamily: 'Comic Neue', fontSize: '12px', fontStyle: 'italic' }}>"Comic Quotes"</div>
+            <div style={{ fontFamily: 'JetBrains Mono', fontSize: '10px' }}>JetBrains Mono Data</div>
+            <div style={{ fontFamily: 'Cause', fontSize: '12px', fontStyle: 'italic' }}>"Cause Quotes"</div>
           </div>
           <div>
             <div style={badgeStyle}>Motion</div>
@@ -352,7 +352,7 @@ const SystemSpecWindow = () => {
             borderRadius: '4px',
             fontSize: '11px',
             marginTop: '4px',
-            fontFamily: 'Victor Mono'
+            fontFamily: 'JetBrains Mono'
           }}>
             Category.Purpose.Context.Level
           </code>
@@ -374,7 +374,7 @@ const SystemSpecWindow = () => {
               border: `1px solid ${theme.Color.Base.Surface[3]}`
             }}>
               <FileText size={16} />
-              <span style={{ fontSize: '13px', fontFamily: 'Victor Mono' }}>{file}</span>
+              <span style={{ fontSize: '13px', fontFamily: 'JetBrains Mono' }}>{file}</span>
               <div style={{ marginLeft: 'auto', fontSize: '10px', color: '#10b981' }}>PERSISTENT</div>
             </div>
           ))}

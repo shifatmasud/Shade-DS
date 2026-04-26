@@ -577,22 +577,22 @@
       "name": "Sample",
       "tag": "p",
       "font": {
-        "family": "Victor Mono",
+        "family": "JetBrains Mono",
         "weight": "400",
         "style": "normal"
       },
       "boldFont": {
-        "family": "Victor Mono",
+        "family": "JetBrains Mono",
         "weight": "700",
         "style": "normal"
       },
       "italicFont": {
-        "family": "Victor Mono",
+        "family": "JetBrains Mono",
         "weight": "400",
         "style": "italic"
       },
       "boldItalicFont": {
-        "family": "Victor Mono",
+        "family": "JetBrains Mono",
         "weight": "700",
         "style": "italic"
       },
@@ -638,22 +638,22 @@
       "name": "Sample",
       "tag": "p",
       "font": {
-        "family": "Comic Neue",
+        "family": "Cause",
         "weight": "400",
         "style": "normal"
       },
       "boldFont": {
-        "family": "Comic Neue",
+        "family": "Cause",
         "weight": "700",
         "style": "normal"
       },
       "italicFont": {
-        "family": "Comic Neue",
+        "family": "Cause",
         "weight": "400",
         "style": "italic"
       },
       "boldItalicFont": {
-        "family": "Comic Neue",
+        "family": "Cause",
         "weight": "700",
         "style": "italic"
       },
