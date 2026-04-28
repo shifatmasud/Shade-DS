@@ -15,6 +15,8 @@ export default function ForceInjector(props) {
 
     // Extract nested values with defaults
     const pushEnabled = localForce.push?.enabled ?? true
+    const pushXEnabled = localForce.push?.xEnabled ?? true
+    const pushYEnabled = localForce.push?.yEnabled ?? true
     const pushStrength = localForce.push?.strength ?? 40
     const pushRotation = localForce.push?.rotation ?? 10
     const pushTransition = localForce.push?.transition ?? {
@@ -24,16 +26,35 @@ export default function ForceInjector(props) {
         mass: 1,
     }
     const localAreaRadius = localForce.radius ?? 100
-    const pullTransition = localForce.pull?.transition ?? {
+    const localTiltEnabled = localForce.tilt?.enabled ?? false
+    const localTiltStrength = localForce.tilt?.strength ?? 0
+    const localTiltPerspective = localForce.tilt?.perspective ?? 1200
+    const snapbackEnabled = localForce.snapback?.enabled ?? true
+    const snapbackTransition = localForce.snapback?.transition ?? {
         type: "spring",
         stiffness: 200,
         damping: 20,
         mass: 1,
     }
+    const pullEnabled = localForce.pull?.enabled ?? true
+    const pullXEnabled = localForce.pull?.xEnabled ?? true
+    const pullYEnabled = localForce.pull?.yEnabled ?? true
+    const pullStrength = localForce.pull?.strength ?? 20
+    const pullRotation = localForce.pull?.rotation ?? 0
+    const pullTransition = localForce.pull?.transition ?? {
+        type: "spring",
+        stiffness: 400,
+        damping: 30,
+        mass: 1,
+    }
 
     const attractEnabled = globalForce.attract?.enabled ?? true
+    const attractXEnabled = globalForce.attract?.xEnabled ?? true
+    const attractYEnabled = globalForce.attract?.yEnabled ?? true
     const attractStrength = globalForce.attract?.strength ?? 0.02
     const repelEnabled = globalForce.repel?.enabled ?? true
+    const repelXEnabled = globalForce.repel?.xEnabled ?? true
+    const repelYEnabled = globalForce.repel?.yEnabled ?? true
     const repelStrength = globalForce.repel?.strength ?? 0
     const tiltEnabled = globalForce.tilt?.enabled ?? true
     const tiltStrength = globalForce.tilt?.strength ?? 0
@@ -76,11 +97,12 @@ export default function ForceInjector(props) {
         if (!target) return
         targetRef.current = target
 
-        // Setup 3D context if tilt is used
-        if (tiltEnabled && tiltStrength > 0) {
+        // Setup context if tilt is used
+        const useTilt = (tiltEnabled && tiltStrength > 0) || (localTiltEnabled && localTiltStrength > 0)
+        if (useTilt) {
             target.style.transformStyle = "preserve-3d"
             if (target.parentElement) {
-                target.parentElement.style.perspective = `${tiltPerspective}px`
+                target.parentElement.style.perspective = `${tiltEnabled ? tiltPerspective : localTiltPerspective}px`
             }
         } else {
             target.style.transformStyle = ""
@@ -107,12 +129,13 @@ export default function ForceInjector(props) {
         window.addEventListener("resize", updateCenter)
 
         const triggerReturn = () => {
+            if (!snapbackEnabled) return
             if (animationRef.current) animationRef.current.stop()
             animationRef.current = animate(
                 target,
                 { x: 0, y: 0, rotate: 0, rotateX: 0, rotateY: 0 },
                 {
-                    ...pullTransition,
+                    ...snapbackTransition,
                 }
             )
         }
@@ -139,12 +162,14 @@ export default function ForceInjector(props) {
             // Handle leave event if just exited radius
             if (wasInside && !isInside.current) {
                 lastLeaveTime.current = performance.now()
-                if (pushEnabled) triggerReturn()
+                if (pushEnabled || pullEnabled) triggerReturn()
             }
 
             let pushX = 0
             let pushY = 0
             let pushRotate = 0
+            let pullX = 0
+            let pullY = 0
 
             // 1. Calculate Push Force (Velocity based) - Only if inside
             if (pushEnabled && isInside.current && dt > 0) {
@@ -154,31 +179,43 @@ export default function ForceInjector(props) {
                 const vx = dx / dt
                 const vy = dy / dt
 
-                pushX = vx * pushStrength
-                pushY = vy * pushStrength
+                pushX = pushXEnabled ? vx * pushStrength : 0
+                pushY = pushYEnabled ? vy * pushStrength : 0
                 pushRotate = vx * pushRotation
+            }
+            
+            // 1.5 Calculate Pull Force (Position based) - Only if inside
+            if (pullEnabled && isInside.current) {
+                pullX = pullXEnabled ? (clientX - targetCenter.current.x) * (pullStrength / 100) : 0
+                pullY = pullYEnabled ? (clientY - targetCenter.current.y) * (pullStrength / 100) : 0
+                pushRotate += (clientX - targetCenter.current.x) * (pullRotation / 1000)
             }
 
             // 2. Calculate Follow Force (Position based) - Global
             // Attraction is positive, Repulsion is negative
-            const netAttract = attractEnabled ? attractStrength : 0
-            const netRepel = repelEnabled ? repelStrength : 0
-            const netFollowStrength = netAttract - netRepel
+            const netAttractStrengthX = attractEnabled && attractXEnabled ? attractStrength : 0
+            const netAttractStrengthY = attractEnabled && attractYEnabled ? attractStrength : 0
+            const netRepelStrengthX = repelEnabled && repelXEnabled ? repelStrength : 0
+            const netRepelStrengthY = repelEnabled && repelYEnabled ? repelStrength : 0
             
-            const followX = (clientX - targetCenter.current.x) * netFollowStrength
-            const followY = (clientY - targetCenter.current.y) * netFollowStrength
+            const followX = (clientX - targetCenter.current.x) * (netAttractStrengthX - netRepelStrengthX)
+            const followY = (clientY - targetCenter.current.y) * (netAttractStrengthY - netRepelStrengthY)
 
             // 3. Calculate 3D Tilt
-            // rotateY depends on X offset, rotateX depends on Y offset (inverted)
-            const tiltX = tiltEnabled ? -(clientY - targetCenter.current.y) * tiltStrength : 0
-            const tiltY = tiltEnabled ? (clientX - targetCenter.current.x) * tiltStrength : 0
-
+            // Global Tilt
+            const tiltXGlobal = tiltEnabled ? -(clientY - targetCenter.current.y) * tiltStrength : 0
+            const tiltYGlobal = tiltEnabled ? (clientX - targetCenter.current.x) * tiltStrength : 0
+            
+            // Local Tilt (only when inside)
+            const tiltXLocal = (localTiltEnabled && isInside.current) ? -(clientY - targetCenter.current.y) * localTiltStrength : 0
+            const tiltYLocal = (localTiltEnabled && isInside.current) ? (clientX - targetCenter.current.x) * localTiltStrength : 0
+            
             // Combine forces
-            const targetX = pushX + followX
-            const targetY = pushY + followY
+            const targetX = pushX + pullX + followX
+            const targetY = pushY + pullY + followY
             const targetRotate = pushRotate
-            const targetRotateX = tiltX
-            const targetRotateY = tiltY
+            const targetRotateX = tiltXGlobal + tiltXLocal
+            const targetRotateY = tiltYGlobal + tiltYLocal
 
             // Apply animation if there's any significant target
             const hasMovement = Math.abs(targetX) > 0.1 || Math.abs(targetY) > 0.1 || 
@@ -194,7 +231,7 @@ export default function ForceInjector(props) {
                     transition = pushTransition
                 } else if (pushEnabled && now - lastLeaveTime.current < 600) {
                     // Use pull spring for a short duration after leaving for the "snap" effect
-                    transition = pullTransition
+                    transition = snapbackTransition
                 }
 
                 animationRef.current = animate(
@@ -237,7 +274,7 @@ export default function ForceInjector(props) {
             if (isInside.current) {
                 isInside.current = false
                 lastLeaveTime.current = performance.now()
-                if (pushEnabled) triggerReturn()
+                if (pushEnabled || pullEnabled) triggerReturn()
             }
         }
 
@@ -305,6 +342,8 @@ ForceInjector.defaultProps = {
         radius: 100,
         push: {
             enabled: true,
+            xEnabled: true,
+            yEnabled: true,
             strength: 40,
             rotation: 10,
             transition: {
@@ -314,7 +353,8 @@ ForceInjector.defaultProps = {
                 mass: 1,
             },
         },
-        pull: {
+        snapback: {
+            enabled: true,
             transition: {
                 type: "spring",
                 stiffness: 200,
@@ -322,10 +362,28 @@ ForceInjector.defaultProps = {
                 mass: 1,
             },
         },
+        pull: {
+            enabled: true,
+            xEnabled: true,
+            yEnabled: true,
+            strength: 20,
+            rotation: 0,
+            transition: {
+                type: "spring",
+                stiffness: 400,
+                damping: 30,
+                mass: 1,
+            },
+        },
+        tilt: {
+            enabled: false,
+            strength: 0,
+            perspective: 1200,
+        },
     },
     globalForce: {
-        attract: { enabled: true, strength: 0.02 },
-        repel: { enabled: false, strength: 0 },
+        attract: { enabled: true, xEnabled: true, yEnabled: true, strength: 0.02 },
+        repel: { enabled: false, xEnabled: true, yEnabled: true, strength: 0 },
         tilt: { enabled: false, strength: 0, perspective: 1200 },
         transition: {
             type: "tween",
@@ -357,10 +415,60 @@ addPropertyControls(ForceInjector, {
                         min: 0,
                         max: 200,
                     },
+                    xEnabled: {
+                        type: ControlType.Boolean,
+                        title: "X Enabled",
+                        defaultValue: true,
+                    },
+                    yEnabled: {
+                        type: ControlType.Boolean,
+                        title: "Y Enabled",
+                        defaultValue: true,
+                    },
                     rotation: {
                         type: ControlType.Number,
                         title: "Rotation",
                         defaultValue: 10,
+                        min: 0,
+                        max: 100,
+                    },
+                    transition: {
+                        type: ControlType.Transition,
+                        title: "Transition",
+                    },
+                },
+            },
+            pull: {
+                type: ControlType.Object,
+                title: "Pull",
+                description: "Pull towards cursor when in zone",
+                controls: {
+                    enabled: {
+                        type: ControlType.Boolean,
+                        title: "Enabled",
+                        defaultValue: true,
+                    },
+                    strength: {
+                        type: ControlType.Number,
+                        title: "Strength",
+                        defaultValue: 20,
+                        min: 0,
+                        max: 100,
+                    },
+                    xEnabled: {
+                        type: ControlType.Boolean,
+                        title: "X Enabled",
+                        defaultValue: true,
+                    },
+                    yEnabled: {
+                        type: ControlType.Boolean,
+                        title: "Y Enabled",
+                        defaultValue: true,
+                    },
+                    rotation: {
+                        type: ControlType.Number,
+                        title: "Rotation",
+                        defaultValue: 0,
                         min: 0,
                         max: 100,
                     },
@@ -379,11 +487,45 @@ addPropertyControls(ForceInjector, {
                 step: 1,
                 unit: "px",
             },
-            pull: {
+            tilt: {
                 type: ControlType.Object,
-                title: "Pull",
+                title: "3D Tilt (Local)",
+                description: "CSS 3D tilt when inside zone",
+                controls: {
+                    enabled: {
+                        type: ControlType.Boolean,
+                        title: "Enabled",
+                        defaultValue: false,
+                    },
+                    strength: {
+                        type: ControlType.Number,
+                        title: "Strength",
+                        defaultValue: 0,
+                        min: 0,
+                        max: 0.5,
+                        step: 0.01,
+                    },
+                    perspective: {
+                        type: ControlType.Number,
+                        title: "Perspective",
+                        defaultValue: 1200,
+                        min: 200,
+                        max: 5000,
+                        step: 10,
+                        unit: "px",
+                    },
+                },
+            },
+            snapback: {
+                type: ControlType.Object,
+                title: "Snapback",
                 description: "Snap to original position when out of zone",
                 controls: {
+                    enabled: {
+                        type: ControlType.Boolean,
+                        title: "Enabled",
+                        defaultValue: true,
+                    },
                     transition: {
                         type: ControlType.Transition,
                         title: "Transition",
@@ -414,6 +556,16 @@ addPropertyControls(ForceInjector, {
                         max: 0.5,
                         step: 0.001,
                     },
+                    xEnabled: {
+                        type: ControlType.Boolean,
+                        title: "X Enabled",
+                        defaultValue: true,
+                    },
+                    yEnabled: {
+                        type: ControlType.Boolean,
+                        title: "Y Enabled",
+                        defaultValue: true,
+                    },
                 },
             },
             repel: {
@@ -433,6 +585,16 @@ addPropertyControls(ForceInjector, {
                         min: 0,
                         max: 0.5,
                         step: 0.001,
+                    },
+                    xEnabled: {
+                        type: ControlType.Boolean,
+                        title: "X Enabled",
+                        defaultValue: true,
+                    },
+                    yEnabled: {
+                        type: ControlType.Boolean,
+                        title: "Y Enabled",
+                        defaultValue: true,
                     },
                 },
             },

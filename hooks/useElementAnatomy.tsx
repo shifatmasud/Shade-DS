@@ -36,6 +36,7 @@ export interface ElementAnatomy {
   
   // Calculated Spacing
   gap: number;
+  verticalGap: number;
 }
 
 interface Selectors {
@@ -88,8 +89,10 @@ export const useElementAnatomy = (
 
       // 5. Measure Children & Normalize
       const childrenMetrics: Record<string, NormalizedRect | null> = {};
-      let firstChildRect: NormalizedRect | null = null;
-      let lastChildRect: NormalizedRect | null = null;
+      let firstChildX: NormalizedRect | null = null;
+      let lastChildX: NormalizedRect | null = null;
+      let firstChildY: NormalizedRect | null = null;
+      let lastChildY: NormalizedRect | null = null;
 
       Object.entries(selectors).forEach(([key, selector]) => {
         const child = element.querySelector<HTMLElement>(selector);
@@ -106,21 +109,39 @@ export const useElementAnatomy = (
           
           childrenMetrics[key] = normalized;
           
-          // Track for Gap calculation
-          if (!firstChildRect || normalized.x < firstChildRect.x) firstChildRect = normalized;
-          if (!lastChildRect || normalized.x > lastChildRect.x) lastChildRect = normalized;
+          // Track for Gap calculation (Horizontal)
+          if (!firstChildX || normalized.x < firstChildX.x) firstChildX = normalized;
+          if (!lastChildX || (normalized.x + normalized.width) > (lastChildX.x + lastChildX.width)) lastChildX = normalized;
+
+          // Track for Gap calculation (Vertical)
+          if (!firstChildY || normalized.y < firstChildY.y) firstChildY = normalized;
+          if (!lastChildY || (normalized.y + normalized.height) > (lastChildY.y + lastChildY.height)) lastChildY = normalized;
         } else {
           childrenMetrics[key] = null;
         }
       });
 
-      // 6. Calculate Internal Gap (Distance between first and last element edges)
-      // Note: This naive approach assumes horizontal flow of two items.
+      // 6. Calculate Internal Gap
       let gap = 0;
-      if (firstChildRect && lastChildRect && firstChildRect !== lastChildRect) {
-        gap = lastChildRect.x - (firstChildRect.x + firstChildRect.width);
-        // Safety clamp
-        gap = Math.max(0, gap);
+      let verticalGap = 0;
+
+      // Logic: Find the most common gap between adjacent elements
+      // For now, keep the "first/last" logic but make it direction-aware
+      if (firstChildX && lastChildX && firstChildX !== lastChildX) {
+        // Only calculate horizontal gap if they DON'T significantly overlap horizontally
+        const horizontalOverlap = Math.min(firstChildX.x + firstChildX.width, lastChildX.x + lastChildX.width) - Math.max(firstChildX.x, lastChildX.x);
+        if (horizontalOverlap <= 0) {
+           // Find the "real" horizontal neighbors to get a true gap
+           // (This is still a simplification)
+           gap = Math.max(0, lastChildX.x - (firstChildX.x + firstChildX.width));
+        }
+      }
+
+      if (firstChildY && lastChildY && firstChildY !== lastChildY) {
+        const verticalOverlap = Math.min(firstChildY.y + firstChildY.height, lastChildY.y + lastChildY.height) - Math.max(firstChildY.y, lastChildY.y);
+        if (verticalOverlap <= 0) {
+           verticalGap = Math.max(0, lastChildY.y - (firstChildY.y + firstChildY.height));
+        }
       }
 
       setAnatomy({
@@ -137,6 +158,7 @@ export const useElementAnatomy = (
         },
         children: childrenMetrics,
         gap,
+        verticalGap,
       });
     };
 

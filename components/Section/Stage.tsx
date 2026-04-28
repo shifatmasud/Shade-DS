@@ -163,7 +163,7 @@ const DimensionLine = ({
 
 const BlueprintOverlay: React.FC<{ anatomy: ElementAnatomy }> = ({ anatomy }) => {
     const { theme } = useTheme();
-    const { width, height, padding, children, gap } = anatomy;
+    const { width, height, padding, children, gap, verticalGap } = anatomy;
     
     const LINE_OFFSET = 24;
     const colorDim = theme.Color.Warning.Content['1'];
@@ -206,21 +206,50 @@ const BlueprintOverlay: React.FC<{ anatomy: ElementAnatomy }> = ({ anatomy }) =>
                 {(() => {
                     const rects = Object.values(children).filter(Boolean) as NormalizedRect[];
                     if (rects.length < 2) return null;
-                    const sorted = rects.sort((a, b) => a.x - b.x);
-                    const first = sorted[0];
-                    const last = sorted[sorted.length - 1];
-                    return (
-                        <DimensionLine 
-                            x1={first.x + first.width} 
-                            y1={height} 
-                            x2={last.x} 
-                            y2={height} 
-                            label={`${Math.round(gap)}`} 
-                            offset={LINE_OFFSET + 20} 
-                            color={colorLayout} 
-                            position="bottom" 
-                        />
-                    );
+
+                    const results = [];
+
+                    // Horizontal Gap
+                    if (gap > 0) {
+                        const sortedX = [...rects].sort((a, b) => a.x - b.x);
+                        const first = sortedX[0];
+                        const last = sortedX[sortedX.length - 1];
+                        results.push(
+                            <DimensionLine 
+                                key="h-gap"
+                                x1={first.x + first.width} 
+                                y1={height} 
+                                x2={last.x} 
+                                y2={height} 
+                                label={`${Math.round(gap)}`} 
+                                offset={LINE_OFFSET + 20} 
+                                color={colorLayout} 
+                                position="bottom" 
+                            />
+                        );
+                    }
+
+                    // Vertical Gap
+                    if (verticalGap > 0) {
+                        const sortedY = [...rects].sort((a, b) => a.y - b.y);
+                        const first = sortedY[0];
+                        const last = sortedY[sortedY.length - 1];
+                        results.push(
+                            <DimensionLine 
+                                key="v-gap"
+                                x1={width} 
+                                y1={first.y + first.height} 
+                                x2={width} 
+                                y2={last.y} 
+                                label={`${Math.round(verticalGap)}`} 
+                                offset={LINE_OFFSET + 20} 
+                                color={colorLayout} 
+                                position="right" 
+                            />
+                        );
+                    }
+
+                    return results;
                 })()}
                 {padding.right > 0 && <DimensionLine x1={width - padding.right} y1={height} x2={width} y2={height} label={`${Math.round(padding.right)}`} offset={LINE_OFFSET} color={colorLayout} position="bottom" />}
             </g>
