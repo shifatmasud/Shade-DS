@@ -780,9 +780,9 @@ const cloneWithVariant = (
 // ------------------------------------------------------------ //
 // INTERACTION MANAGER
 // ------------------------------------------------------------ //
-type Listener = (variant: string) => void
+export type Listener = (variant: string) => void
 
-class InteractionManager {
+export class InteractionManager {
     private static instance: InteractionManager
     private listeners: { [key: string]: Listener[] } = {}
     private static instanceId: string = Math.random().toString(36).substring(7)
@@ -808,13 +808,9 @@ class InteractionManager {
         if (!this.listeners[interactionId]) {
             this.listeners[interactionId] = []
         }
-        // Add instanceId to help with cleanup
-        const wrappedListener = (variant: string) => {
-            if (InteractionManager.instanceId === this.getCurrentInstanceId()) {
-                listener(variant)
-            }
-        }
-        this.listeners[interactionId].push(wrappedListener)
+        // Attach current instanceId to listener to avoid executing stale ones
+        ;(listener as any)._instanceId = InteractionManager.instanceId
+        this.listeners[interactionId].push(listener)
     }
 
     removeListener(interactionId: string, listener: Listener) {
@@ -840,7 +836,11 @@ class InteractionManager {
 
     trigger(interactionId: string, variant: string) {
         if (!this.listeners[interactionId]) return
-        this.listeners[interactionId].forEach((listener) => listener(variant))
+        this.listeners[interactionId].forEach((listener) => {
+            if ((listener as any)._instanceId === InteractionManager.instanceId) {
+                listener(variant)
+            }
+        })
     }
 
     static clearPreviewOnce() {
