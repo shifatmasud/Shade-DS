@@ -60,8 +60,8 @@ const typography = {
         M: { fontSize: '28px', lineHeight: '28px', fontWeight: 400, letterSpacing: '0em', tag: 'h5', fontFamily: "'Bebas Neue', sans-serif" },
         S: { fontSize: '24px', lineHeight: '24px', fontWeight: 400, letterSpacing: '0em', tag: 'h6', fontFamily: "'Bebas Neue', sans-serif" },
       },
-      Quote: { fontSize: '24px', lineHeight: 1.5, fontWeight: 400, letterSpacing: '0.01em', tag: 'blockquote', fontFamily: "'Cause', sans-serif" },
-      Data: { fontSize: '12px', lineHeight: 1.5, fontWeight: 400, letterSpacing: '0.03em', tag: 'code', fontFamily: "'JetBrains Mono', monospace" },
+      Quote: { fontSize: '24px', lineHeight: "24px", fontWeight: 400, letterSpacing: '0.01em', tag: 'blockquote', fontFamily: "'Cause', sans-serif" },
+      Data: { fontSize: '12px', lineHeight: "12px", fontWeight: 400, letterSpacing: '0.03em', tag: 'code', fontFamily: "'JetBrains Mono', monospace" },
     },
     Readable: {
       Title: {
