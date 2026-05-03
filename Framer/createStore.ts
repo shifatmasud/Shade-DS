@@ -1,4 +1,4 @@
-//https://framer.com/m/framer/store.js@^1.0.0
+// https://framer.com/m/framer/store.js@^1.0.0
 
 import { useState, useEffect } from "react"
 import { Data, useObserveData } from "framer"
