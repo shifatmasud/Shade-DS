@@ -8,37 +8,21 @@ import { useEffect, useRef, useState, startTransition } from "react"
  */
 export default function Styler(props) {
     const {
+        targetMode,
         targetId,
         manualId,
-        opacity,
+        classNameId,
+        domLevel,
         blur,
-        grayscale,
-        hueRotate,
-        sepia,
-        invert,
-        rotate,
-        scale,
-        skewX,
-        skewY,
-        x,
-        y,
-        borderRadius,
         backgroundColor,
-        borderWidth,
-        borderColor,
-        borderStyle,
-        mixBlendMode,
-        zIndex,
-        pointerEvents,
-        transitionDuration,
-        transitionEasing,
         enabled,
         showDebug,
     } = props
 
+    const stylerRef = useRef<HTMLDivElement>(null)
     const [debugInfo, setDebugInfo] = useState<string>("Waiting...")
-    const originalStylesRef = useRef<any>(null)
-    const targetElementRef = useRef<HTMLElement | null>(null)
+    const originalStylesMap = useRef<Map<HTMLElement, any>>(new Map())
+    const targetElementsRef = useRef<HTMLElement[]>([])
 
     useEffect(() => {
         if (!enabled) {
@@ -46,151 +30,177 @@ export default function Styler(props) {
             return
         }
 
+        // Helper to calculate DOM depth
+        const getDepth = (el: HTMLElement | null) => {
+            let depth = 0
+            let curr = el
+            while (curr && curr.parentElement) {
+                depth++
+                curr = curr.parentElement
+            }
+            return depth
+        }
+
         // Discovery Logic: Manual ID takes precedence, then Picker
         const effectiveId = manualId || (typeof targetId === "string" ? targetId : targetId?.section || targetId?.id)
         
-        if (!effectiveId && (!targetId || !targetId.current)) {
-            startTransition(() => setDebugInfo("No Target"))
-            return
-        }
-
-        const applyStyles = (el: HTMLElement) => {
+        const applyStylesToElement = (el: HTMLElement) => {
             if (!el || !el.style) return
 
             // Save original styles once per element
-            if (originalStylesRef.current === null) {
-                originalStylesRef.current = {
-                    opacity: el.style.opacity,
+            if (!originalStylesMap.current.has(el)) {
+                originalStylesMap.current.set(el, {
                     filter: el.style.filter,
-                    transform: el.style.transform,
-                    borderRadius: el.style.borderRadius,
                     backgroundColor: el.style.backgroundColor,
-                    borderWidth: el.style.borderWidth,
-                    borderColor: el.style.borderColor,
-                    borderStyle: el.style.borderStyle,
-                    mixBlendMode: el.style.mixBlendMode,
-                    zIndex: el.style.zIndex,
-                    pointerEvents: el.style.pointerEvents,
                     transition: el.style.transition,
-                }
+                })
             }
-
-            // Apply Transition
-            el.style.transition = transitionDuration > 0 
-                ? `all ${transitionDuration}s ${transitionEasing}` 
-                : "none"
-
-            // Filters
-            const filters = [
-                blur > 0 ? `blur(${blur}px)` : "",
-                grayscale > 0 ? `grayscale(${grayscale}%)` : "",
-                hueRotate !== 0 ? `hue-rotate(${hueRotate}deg)` : "",
-                sepia > 0 ? `sepia(${sepia}%)` : "",
-                invert > 0 ? `invert(${invert}%)` : "",
-            ].filter(Boolean).join(" ")
-
-            // Transforms
-            const transforms = [
-                scale !== 1 ? `scale(${scale})` : "",
-                rotate !== 0 ? `rotate(${rotate}deg)` : "",
-                skewX !== 0 ? `skewX(${skewX}deg)` : "",
-                skewY !== 0 ? `skewY(${skewY}deg)` : "",
-                x !== 0 || y !== 0 ? `translate(${x}px, ${y}px)` : "",
-            ].filter(Boolean).join(" ")
 
             // Apply Values
-            el.style.opacity = `${opacity}`
-            el.style.filter = filters
-            el.style.transform = transforms
-            el.style.borderRadius = `${borderRadius}px`
+            el.style.filter = blur > 0 ? `blur(${blur}px)` : "none"
             el.style.backgroundColor = backgroundColor
-            el.style.borderWidth = `${borderWidth}px`
-            el.style.borderColor = borderColor
-            el.style.borderStyle = borderStyle
-            el.style.mixBlendMode = mixBlendMode
-            el.style.zIndex = zIndex === 0 ? (originalStylesRef.current?.zIndex || "") : `${zIndex}`
-            el.style.pointerEvents = pointerEvents
         }
 
-        const restoreStyles = () => {
-            const el = targetElementRef.current
-            if (el && originalStylesRef.current) {
-                Object.assign(el.style, originalStylesRef.current)
-                originalStylesRef.current = null
+        const restoreElement = (el: HTMLElement) => {
+            const styles = originalStylesMap.current.get(el)
+            if (el && styles) {
+                Object.assign(el.style, styles)
+                originalStylesMap.current.delete(el)
             }
+        }
+
+        const restoreAllStyles = () => {
+            originalStylesMap.current.forEach((styles, el) => {
+                if (el && styles) {
+                    Object.assign(el.style, styles)
+                }
+            })
+            originalStylesMap.current.clear()
+            targetElementsRef.current = []
         }
 
         let searchInterval: number | null = null
 
-        const findElement = () => {
-            let foundEl: HTMLElement | null = null
+        const findElements = () => {
+            let candidates: HTMLElement[] = []
+            let isLevelsMode = targetMode === "Levels"
+            let isClassesMode = targetMode === "Classes"
 
-            // 1. Try manual ID or Picked ID string
-            if (effectiveId && typeof effectiveId === "string") {
-                foundEl = document.getElementById(effectiveId)
-                if (!foundEl) {
-                    foundEl = document.querySelector(`[data-framer-section-id="${effectiveId}"], [data-framer-name="${effectiveId}"], [id="${effectiveId}"]`) as HTMLElement
+            if (isLevelsMode) {
+                // DOM Levels mode always starts from self
+                if (stylerRef.current) {
+                    candidates.push(stylerRef.current)
+                }
+            } else if (isClassesMode) {
+                // Classes mode: Use CSS selector targeting
+                if (classNameId && typeof classNameId === "string") {
+                    const selector = classNameId.startsWith(".") ? classNameId : `.${classNameId}`
+                    try {
+                        candidates = Array.from(document.querySelectorAll(selector)) as HTMLElement[]
+                    } catch (e) {}
+                }
+            } else {
+                // Reference mode: Try pattern matching for manual ID or Picked ID
+                if (effectiveId && typeof effectiveId === "string") {
+                    // Exact matches
+                    const exactIds = Array.from(document.querySelectorAll(`[id="${effectiveId}"], [data-framer-section-id="${effectiveId}"], [data-framer-name="${effectiveId}"]`)) as HTMLElement[]
+                    candidates.push(...exactIds)
+
+                    // Pattern matches (Stem/Prefix/Suffix targeting)
+                    const selectors = [
+                        `[id^="${effectiveId}"]`, // Prefix
+                        `[id$="${effectiveId}"]`, // Suffix
+                        `[id*="-${effectiveId}"]`, // Targeted Stem
+                        `[id*="${effectiveId}-"]`, // Targeted Stem
+                        `[data-framer-name^="${effectiveId}"]`,
+                        `[data-framer-name$="${effectiveId}"]`,
+                        `[data-framer-name*="${effectiveId}"]`,
+                    ]
+                    
+                    try {
+                        const patternIds = Array.from(document.querySelectorAll(selectors.join(","))) as HTMLElement[]
+                        candidates.push(...patternIds)
+                    } catch (e) {
+                        // Fallback
+                    }
+                }
+
+                // Try Ref Current if available (from Picker)
+                if (candidates.length === 0 && targetId?.current) {
+                    candidates.push(targetId.current)
                 }
             }
 
-            // 2. Try Ref Current if available (from Picker)
-            if (!foundEl && targetId?.current) {
-                foundEl = targetId.current
-            }
+            // Apply DOM Level traversal ONLY if in Levels mode
+            const targetedElements = candidates.map(el => {
+                let current = el
+                if (isLevelsMode) {
+                    for (let i = 0; i < domLevel; i++) {
+                        if (current.parentElement) {
+                            current = current.parentElement
+                        } else {
+                            break
+                        }
+                    }
+                }
+                return current
+            }).filter((el, index, self) => el instanceof HTMLElement && self.indexOf(el) === index)
 
-            if (foundEl) {
+            // Dynamic Undo: Restore elements that are no longer targeted
+            const prevElements = targetElementsRef.current
+            const removed = prevElements.filter(el => !targetedElements.includes(el))
+            removed.forEach(restoreElement)
+
+            if (targetedElements.length > 0) {
                 if (searchInterval) clearInterval(searchInterval)
-                applyStyles(foundEl)
-                targetElementRef.current = foundEl
+                
+                targetedElements.forEach(applyStylesToElement)
+                targetElementsRef.current = targetedElements
+
                 startTransition(() => {
-                    setDebugInfo(`Active: ${effectiveId || "Target Node"}`)
+                    const first = targetedElements[0]
+                    const stylerDepth = getDepth(stylerRef.current)
+                    const targetDepth = getDepth(first)
+                    const relativeDepth = targetDepth - stylerDepth
+
+                    const idLabel = isLevelsMode ? "Self" : (isClassesMode ? (classNameId || "Class") : (effectiveId || "Target"))
+                    const info = [
+                        targetedElements.length > 1 ? `[${targetedElements.length}]` : (first.id || idLabel),
+                        `LV:${relativeDepth}`,
+                        first.className ? `.${first.className.split(" ").filter(Boolean).slice(0, 2).join(".")}` : ""
+                    ].filter(Boolean).join(" | ")
+                    setDebugInfo(info)
                 })
             } else {
                 startTransition(() => {
-                    setDebugInfo(`Searching: ${effectiveId || "..."}`)
+                    setDebugInfo(isLevelsMode ? "Injecting..." : `No targets found for "${isClassesMode ? classNameId : effectiveId || "..."}"`)
                 })
             }
         }
 
-        findElement()
+        findElements()
         // Aggressive search for Framer Canvas hydration
-        searchInterval = window.setInterval(findElement, 500)
+        searchInterval = window.setInterval(findElements, 1000)
 
         return () => {
             if (searchInterval) clearInterval(searchInterval)
-            restoreStyles()
+            restoreAllStyles()
         }
     }, [
         enabled,
+        targetMode,
         targetId,
         manualId,
-        opacity,
+        classNameId,
+        domLevel,
         blur,
-        grayscale,
-        hueRotate,
-        sepia,
-        invert,
-        rotate,
-        scale,
-        skewX,
-        skewY,
-        x,
-        y,
-        borderRadius,
         backgroundColor,
-        borderWidth,
-        borderColor,
-        borderStyle,
-        mixBlendMode,
-        zIndex,
-        pointerEvents,
-        transitionDuration,
-        transitionEasing,
         showDebug,
     ])
 
     return (
         <div
+            ref={stylerRef}
             style={{
                 width: "100%",
                 height: "100%",
@@ -237,30 +247,13 @@ export default function Styler(props) {
 Styler.defaultProps = {
     enabled: true,
     showDebug: true,
+    targetMode: "Reference",
     manualId: "",
+    classNameId: "",
     targetId: "",
-    opacity: 1,
+    domLevel: 0,
     blur: 0,
-    grayscale: 0,
-    hueRotate: 0,
-    sepia: 0,
-    invert: 0,
-    rotate: 0,
-    scale: 1,
-    skewX: 0,
-    skewY: 0,
-    x: 0,
-    y: 0,
-    borderRadius: 0,
-    backgroundColor: "transparent",
-    borderWidth: 0,
-    borderColor: "transparent",
-    borderStyle: "solid",
-    mixBlendMode: "normal",
-    zIndex: 0,
-    pointerEvents: "auto",
-    transitionDuration: 0.3,
-    transitionEasing: "ease-in-out",
+    backgroundColor: "purple",
 }
 
 addPropertyControls(Styler, {
@@ -274,39 +267,42 @@ addPropertyControls(Styler, {
         title: "Debug Info",
         defaultValue: true,
     },
+    targetMode: {
+        type: ControlType.Enum,
+        title: "Target Mode",
+        options: ["Reference", "Classes", "Levels"],
+        optionTitles: ["Reference", "Classes", "DOM Levels"],
+        defaultValue: "Reference",
+    },
     manualId: {
         type: ControlType.String,
         title: "Manual ID",
         placeholder: "Type Layer ID...",
         defaultValue: "",
+        hidden: (props) => props.targetMode !== "Reference",
     },
     targetId: {
         // @ts-ignore
         type: ControlType.ScrollSectionRef,
-        title: "Picker",
+        title: "Scroll Section Picker",
+        hidden: (props) => props.targetMode !== "Reference",
     },
-    transitionDuration: {
+    classNameId: {
+        type: ControlType.String,
+        title: "CSS Classes",
+        placeholder: ".my-class, .btn",
+        defaultValue: "",
+        hidden: (props) => props.targetMode !== "Classes",
+    },
+    domLevel: {
         type: ControlType.Number,
-        title: "Duration",
+        title: "DOM Level",
         min: 0,
-        max: 5,
-        step: 0.1,
-        unit: "s",
-        defaultValue: 0.3,
-    },
-    transitionEasing: {
-        type: ControlType.Enum,
-        title: "Easing",
-        options: ["ease", "ease-in", "ease-out", "ease-in-out", "linear"],
-        defaultValue: "ease-in-out",
-    },
-    opacity: {
-        type: ControlType.Number,
-        title: "Opacity",
-        min: 0,
-        max: 1,
-        step: 0.01,
-        defaultValue: 1,
+        max: 10,
+        step: 1,
+        defaultValue: 0,
+        displayStepper: true,
+        hidden: (props) => props.targetMode !== "Levels",
     },
     blur: {
         type: ControlType.Number,
@@ -318,137 +314,6 @@ addPropertyControls(Styler, {
     backgroundColor: {
         type: ControlType.Color,
         title: "Background",
-        defaultValue: "transparent",
-    },
-    borderRadius: {
-        type: ControlType.Number,
-        title: "Radius",
-        min: 0,
-        defaultValue: 0,
-    },
-    borderWidth: {
-        type: ControlType.Number,
-        title: "Border Width",
-        min: 0,
-        defaultValue: 0,
-    },
-    borderColor: {
-        type: ControlType.Color,
-        title: "Border Color",
-        defaultValue: "transparent",
-    },
-    borderStyle: {
-        type: ControlType.Enum,
-        title: "Border Style",
-        options: ["solid", "dashed", "dotted", "none"],
-        defaultValue: "solid",
-    },
-    filters: {
-        type: ControlType.Object,
-        title: "Filters",
-        controls: {
-            grayscale: {
-                type: ControlType.Number,
-                title: "Grayscale",
-                min: 0,
-                max: 100,
-                unit: "%",
-                defaultValue: 0,
-            },
-            hueRotate: {
-                type: ControlType.Number,
-                title: "Hue Rotate",
-                min: 0,
-                max: 360,
-                unit: "°",
-                defaultValue: 0,
-            },
-            sepia: {
-                type: ControlType.Number,
-                title: "Sepia",
-                min: 0,
-                max: 100,
-                unit: "%",
-                defaultValue: 0,
-            },
-            invert: {
-                type: ControlType.Number,
-                title: "Invert",
-                min: 0,
-                max: 100,
-                unit: "%",
-                defaultValue: 0,
-            },
-        },
-    },
-    transforms: {
-        type: ControlType.Object,
-        title: "Transform",
-        controls: {
-            rotate: {
-                type: ControlType.Number,
-                title: "Rotate",
-                unit: "°",
-                defaultValue: 0,
-            },
-            scale: {
-                type: ControlType.Number,
-                title: "Scale",
-                step: 0.1,
-                defaultValue: 1,
-            },
-            x: {
-                type: ControlType.Number,
-                title: "X Offset",
-                unit: "px",
-                defaultValue: 0,
-            },
-            y: {
-                type: ControlType.Number,
-                title: "Y Offset",
-                unit: "px",
-                defaultValue: 0,
-            },
-            skewX: {
-                type: ControlType.Number,
-                title: "Skew X",
-                unit: "°",
-                defaultValue: 0,
-            },
-            skewY: {
-                type: ControlType.Number,
-                title: "Skew Y",
-                unit: "°",
-                defaultValue: 0,
-            },
-        },
-    },
-    advanced: {
-        type: ControlType.Object,
-        title: "Advanced",
-        controls: {
-            mixBlendMode: {
-                type: ControlType.Enum,
-                title: "Blend Mode",
-                options: [
-                    "normal", "multiply", "screen", "overlay", "darken",
-                    "lighten", "color-dodge", "color-burn", "hard-light",
-                    "soft-light", "difference", "exclusion", "hue",
-                    "saturation", "color", "luminosity"
-                ],
-                defaultValue: "normal",
-            },
-            zIndex: {
-                type: ControlType.Number,
-                title: "Z-Index",
-                defaultValue: 0,
-            },
-            pointerEvents: {
-                type: ControlType.Enum,
-                title: "Pointer Events",
-                options: ["auto", "none", "all"],
-                defaultValue: "auto",
-            },
-        },
+        defaultValue: "purple",
     },
 })
