@@ -51,14 +51,14 @@ const typography = {
   Type: {
     Expressive: {
       Display: {
-        L: { fontSize: { desktop: '56px', tablet: '52px', mobile: '48px' }, lineHeight: 1.2, fontWeight: 700, letterSpacing: '-0.02em', tag: 'h1', fontFamily: "'Bebas Neue', sans-serif" },
-        M: { fontSize: { desktop: '44px', tablet: '40px', mobile: '40px' }, lineHeight: 1.2, fontWeight: 700, letterSpacing: '-0.02em', tag: 'h2', fontFamily: "'Bebas Neue', sans-serif" },
-        S: { fontSize: '36px', lineHeight: 1.2, fontWeight: 700, letterSpacing: '-0.02em', tag: 'h3', fontFamily: "'Bebas Neue', sans-serif" },
+        L: { fontSize: { desktop: '52px', tablet: '52px', mobile: '48px' }, lineHeight: '52px', fontWeight: 400, letterSpacing: '-0.02em', tag: 'h1', fontFamily: "'Bebas Neue', sans-serif" },
+        M: { fontSize: { desktop: '40px', tablet: '40px', mobile: '40px' }, lineHeight: '40px', fontWeight: 400, letterSpacing: '-0.02em', tag: 'h2', fontFamily: "'Bebas Neue', sans-serif" },
+        S: { fontSize: '36px', lineHeight: '36px', fontWeight: 400, letterSpacing: '-0.02em', tag: 'h3', fontFamily: "'Bebas Neue', sans-serif" },
       },
       Headline: {
-        L: { fontSize: '32px', lineHeight: 1.25, fontWeight: 700, letterSpacing: '0em', tag: 'h4', fontFamily: "'Bebas Neue', sans-serif" },
-        M: { fontSize: '28px', lineHeight: 1.25, fontWeight: 700, letterSpacing: '0em', tag: 'h5', fontFamily: "'Bebas Neue', sans-serif" },
-        S: { fontSize: '24px', lineHeight: 1.25, fontWeight: 700, letterSpacing: '0em', tag: 'h6', fontFamily: "'Bebas Neue', sans-serif" },
+        L: { fontSize: '32px', lineHeight: '32px', fontWeight: 400, letterSpacing: '0em', tag: 'h4', fontFamily: "'Bebas Neue', sans-serif" },
+        M: { fontSize: '28px', lineHeight: '28px', fontWeight: 400, letterSpacing: '0em', tag: 'h5', fontFamily: "'Bebas Neue', sans-serif" },
+        S: { fontSize: '24px', lineHeight: '24px', fontWeight: 400, letterSpacing: '0em', tag: 'h6', fontFamily: "'Bebas Neue', sans-serif" },
       },
       Quote: { fontSize: '24px', lineHeight: 1.5, fontWeight: 400, letterSpacing: '0.01em', tag: 'blockquote', fontFamily: "'Cause', sans-serif" },
       Data: { fontSize: '12px', lineHeight: 1.5, fontWeight: 400, letterSpacing: '0.03em', tag: 'code', fontFamily: "'JetBrains Mono', monospace" },
