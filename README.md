@@ -1,6 +1,6 @@
 # React 18 Meta Prototype & Design System Starter Kit
 
-[**Remix on AI Studio**](https://ai.studio/apps/4c5ad789-603f-46a9-bdad-8e14663811ed)
+[**Remix on AI Studio**](https://ai.studio/apps/4c5ad789-603f-46a9-bdad-8e14663811ed) | [**Vercel Demo**](https://shade-ds.vercel.app/)
 
 This is a starter project for building modern, theme-aware React applications. It's set up with a modular structure, a powerful design system, and is ready for you to integrate the Gemini API.
 
@@ -14,7 +14,7 @@ This is a starter project for building modern, theme-aware React applications. I
 | **Typography** | Bebas Neue (Display), Cause (Quotes), Inter (UI), JetBrains Mono (Code) |
 | **Icons** | Phosphor Icons (Web Component) |
 | **State Management** | React Context (`Theme`, `Breakpoint`), Local State, History Stack (Undo/Redo) |
-| **Architecture** | Atomic-based: `Core` → `Package` → `Section` → `Page` → `App` |
+| **Architecture** | Atomic-based (Strict): `Core` → `Package` → `Section` → `Page` → `App` |
 | **Key Components** | Floating Windows, Draggable Dock, State Layer (Ripple), Element Anatomy Inspector |
 | **Theme System** | Light/Dark Modes, Responsive Tokens, Feedback States (Success, Warning, Error, Active) |
 | **Inputs** | Range Sliders, Color Pickers, Toggles, Selects, TextAreas |
@@ -33,12 +33,12 @@ Imagine you're building with LEGOs. This project gives you a super organized box
     -   `useElementAnatomy.tsx`: A special ruler that precisely measures a component and its inner parts.
 -   **`types/`**: A dictionary for our app's data shapes.
     -   `index.tsx`: Defines what a "Window" or a "Log Entry" looks like.
--   **`components/`**: The LEGO pieces themselves, organized by complexity!
-    -   **`Core/`**: The most basic, single-purpose pieces (Button, Input, Toggle, etc.).
-    -   **`Package/`**: Combines Core pieces into something more useful (`ControlPanel`, `FloatingWindow`).
-    -   **`Section/`**: A whole section of the app (the `Dock` at the bottom, the main `Stage`).
-    -   **`Page/`**: A full screen you see (`Welcome` page).
-    -   **`App/`**: The complete, running application (`MetaPrototype`).
+-   **`components/`**: The LEGO pieces themselves, organized by strict complexity and import hierarchy:
+    -   **`Core/`**: Atomic. The most basic, single-purpose pieces (Button, Input, Toggle, etc.). **Constraint: Never combines packages, sections, pages, or apps.**
+    -   **`Package/`**: Combines Core pieces into functional units (`ControlPanel`, `FloatingWindow`). **Constraint: Packages combine cores, but never combine sections, pages, or apps.**
+    -   **`Section/`**: A whole section of the app (the `Dock` at the bottom, the main `Stage`). **Constraint: Sections combine packages & cores, but never combine pages or apps.**
+    -   **`Page/`**: A full screen you see (`Welcome` page). **Constraint: Pages combine sections, packages & cores, but never import apps.**
+    -   **`App/`**: The complete, running application (`MetaPrototype`). **Constraint: Apps combine packages, sections, packages & cores, but never export to packages, cores, pages, or sections.**
 -   **`README.md`**: This file! Your friendly guide.
 -   **`LLM.md`**: Special instructions for AI helpers.
 -   **`noteBook.md`**: A diary of tasks and progress.

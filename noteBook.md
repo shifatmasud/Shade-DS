@@ -14,6 +14,13 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+-   **[2026-05-08 11:26]**: Clarified component directory architecture and strict hierarchy rules in README.md, COMPONENTS_GUIDE.md, and LLM.md.
+    -   Core: Atomic.
+    -   Package: Cores only.
+    -   Section: Packages + Cores.
+    -   Page: Sections + Packages + Cores.
+    -   App: Entry point (Combines all).
+-   **[2026-05-08 11:20]**: Added Vercel demo link (https://shade-ds.vercel.app/) to README.md for quick access to the live deployment.
 -   **[2026-02-20 08:45]**: Implemented "System Spec" floating window and toggle in the Inspector group. Added interactive visuals, SVG animations, and "Copy as Markdown" button.
 -   **[2024-05-21 13:30]**: Replaced the number input in Range Sliders with an interactive, animated counter for a more dynamic feel.
 -   **[2024-05-21 13:15]**: Added a toggleable measurement overlay to the Stage, showing real-time dimensions for the button component.

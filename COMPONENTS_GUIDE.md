@@ -22,3 +22,17 @@ To render a custom component (e.g., a 3D scene, a new UI element, or a complex v
 2. **Stage Update**: The AI will update `Stage.tsx` to render your new component when `btnProps.componentType === 'slot'`.
 3. **State/Control Update**: The AI will update `ControlPanel.tsx` and `types/index.tsx` to bridge your existing controls to the new component's props.
 4. **Verification**: The AI will verify the build and ensure the new component is correctly mapped to the UI.
+
+---
+
+### Architectural Constraints (Hierarchy)
+
+To maintain a clean and scalable codebase, we follow a strict one-way dependency flow:
+
+| Level | Imports From | NEVER Imports From | Notes |
+| :--- | :--- | :--- | :--- |
+| **Core** | Nothing (Atomic) | Packages, Sections, Pages, Apps | Pure, single-purpose pieces. |
+| **Package** | Cores | Sections, Pages, Apps | Functional units grouping cores. |
+| **Section** | Packages, Cores | Pages, Apps | Layout regions or major UI blocks. |
+| **Page** | Sections, Packages, Cores | Apps | Full screen views/routes. |
+| **App** | Pages, Sections, Packages, Cores | (N/A) | Entry point. Never exports to other levels. |

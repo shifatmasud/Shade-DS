@@ -40,7 +40,12 @@ Hello! You are an AI assistant helping to build this React application. Here are
 
 ## Simple Rules (ELI10 Version)
 
-1.  **Be a Tidy LEGO Builder**: Keep the code clean and organized. Follow the folder structure (`Core` -> `Package` -> `Section` -> `Page` -> `App`). Small, reusable pieces are better than big, messy ones.
+1.  **Be a Tidy LEGO Builder**: Keep the code clean and organized. Follow the folder structure (`Core` -> `Package` -> `Section` -> `Page` -> `App`). 
+    -   **Core**: Atomic. No imports from higher levels.
+    -   **Package**: Groups Cores. No imports from Sections, Pages, or Apps.
+    -   **Section**: Groups Packages & Cores. No imports from Pages or Apps.
+    -   **Page**: Groups Sections, Packages & Cores. No imports from Apps.
+    -   **App**: Entry point. Combines everything below. Never exports to other components.
 2.  **Use the Magic Style Closet (`Theme.tsx`)**: When you need a color, font size, or spacing, *always* get it from the `theme` object provided by the `useTheme()` hook. Don't use your own made-up styles like `color: 'blue'`.
 3.  **Animate Smoothly**: Use `framer-motion` for all animations. We like things to move gently and look premium.
 4.  **Think Mobile First**: Make sure everything looks great on a phone first, then on a tablet, then on a desktop.
