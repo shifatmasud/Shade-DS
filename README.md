@@ -21,12 +21,14 @@ This is a starter project for building modern, theme-aware React applications. I
 | **Visuals** | Confetti System, Blueprint Overlays, Token Badges, Glassmorphism |
 | **Intelligence** | Shade DSL (Bidirectional Translator & Architecture Extractor) |
 
-## Shade DSL & Framer DevKit
+## Shade DSL (Agent Skill)
 
-This project is equipped with specialized agent skills:
+This project is equipped with **Shade DSL**, a bidirectional translation layer between React ecosystems and a minimalist, architectural domain-specific language.
 
--   **Shade DSL**: A bidirectional translation layer between React ecosystems and a minimalist architectural DSL. (See `/skills/shade_dsl/SKILL.md`)
--   **Framer DevKit**: Professional patterns and constraints for building Framer Code Components and Overrides. (See `/skills/framer_devkit/SKILL.md`)
+-   **Code → DSL**: Extracts the "soul" of a component, simplifying it into DATA, LOGIC, and RENDER segments with an ASCII tree.
+-   **DSL → Code**: Generates idiomatic, modular React code from architectural blueprints.
+
+Refer to `/skills/shade_dsl/SKILL.md` for full specifications.
 
 ## What's Inside? (ELI10 Version)
 

@@ -14,9 +14,6 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
--   **[2026-05-08 11:36]**: Installed Framer DevKit skill.
-    -   Created `/skills/framer_devkit/SKILL.md` for Framer-specific React development.
-    -   Updated `AGENTS.md` to ensure proper tool usage for Framer tasks.
 -   **[2026-05-08 11:31]**: Refined and installed the Shade DSL agent skill.
     -   Created `/skills/shade_dsl/SKILL.md` with the full DSL specification.
     -   Initialized `AGENTS.md` for persistent DSL-first instructions.
