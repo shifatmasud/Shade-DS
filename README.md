@@ -19,6 +19,14 @@ This is a starter project for building modern, theme-aware React applications. I
 | **Theme System** | Light/Dark Modes, Responsive Tokens, Feedback States (Success, Warning, Error, Active) |
 | **Inputs** | Range Sliders, Color Pickers, Toggles, Selects, TextAreas |
 | **Visuals** | Confetti System, Blueprint Overlays, Token Badges, Glassmorphism |
+| **Intelligence** | Shade DSL (Bidirectional Translator & Architecture Extractor) |
+
+## Shade DSL & Framer DevKit
+
+This project is equipped with specialized agent skills:
+
+-   **Shade DSL**: A bidirectional translation layer between React ecosystems and a minimalist architectural DSL. (See `/skills/shade_dsl/SKILL.md`)
+-   **Framer DevKit**: Professional patterns and constraints for building Framer Code Components and Overrides. (See `/skills/framer_devkit/SKILL.md`)
 
 ## What's Inside? (ELI10 Version)
 
