@@ -106,7 +106,21 @@ Must generate:
 2. [noteBook.md](http://notebook.md/)
 3. [bugReport.md](http://bugreport.md/) 
 
-Never overwrite previous entries.`;
+Never overwrite previous entries.
+
+---
+
+## Safety Rules
+
+When change, write, update code:
+
+Inside the target file:
+1. Track errors.
+2. Add tiny comments.
+3. Explain what changed.
+4. Explain how to undo change.
+5. Keep code clean.
+6. Touch only needed code.`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(markdownContent);
@@ -397,6 +411,36 @@ Never overwrite previous entries.`;
         <div style={quoteStyle}>
           "Never overwrite previous entries."
         </div>
+      </section>
+
+      {/* Safety Rules */}
+      <section style={sectionStyle}>
+        <div style={headerStyle}>
+          <Check size={20} weight="bold" />
+          SAFETY RULES
+        </div>
+        <p style={{ ...itemStyle, fontSize: '12px', opacity: 0.7 }}>When change, write, update code (inside target file):</p>
+        <ul style={listStyle}>
+          {[
+            "Track errors.",
+            "Add tiny comments.",
+            "Explain what changed.",
+            "Explain how to undo change.",
+            "Keep code clean.",
+            "Touch only needed code."
+          ].map((rule, i) => (
+            <motion.li 
+              key={i} 
+              style={itemStyle}
+              initial={{ opacity: 0, x: 10 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
+            >
+              <div style={{ color: theme.Color.Base.Content[1], fontWeight: 600 }}>{i + 1}.</div>
+              {rule}
+            </motion.li>
+          ))}
+        </ul>
       </section>
 
       {/* Footer Actions */}

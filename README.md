@@ -113,3 +113,101 @@ Imagine you're building with LEGOs. This project gives you a super organized box
 1.  Open the `index.html` file in a modern web browser.
 2.  That's it! The app will run.
 3.  Start changing the code in the `.tsx` files to build your own features.
+
+---
+
+## System Spec
+
+---
+
+## Core Rules
+
+1. Hide complexity until desired.
+2. Write Compact Helpful copy (max 3 lines, 40–80 chars per line, EL5 mode).
+3. One primary focus at a time.
+4. Design Mobile-first always (max width: 400px, max height: 600px).
+5. Prioritize Stability > Performance > Usability > Aesthetic.
+
+---
+
+## Execution Rules
+
+Before any task, generate:
+
+1. Summary (≤5 lines in chat & README.MD)
+2. Architecture (IPO)
+3. Action List (Ordered)
+
+---
+
+## Engineering Rules
+
+1. No Tailwind. Use JS style object.
+2. No CSS keyframes. Use Framer Motion.
+3. GSAP only for Three.js & external timelines.
+4. Mobile gestures replace hover (touch drag = mouse move).
+5. No native OS UI components. Use custom components.
+6. Modular Components folder structure: Core → Package → Section → Page → App.
+7. Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer
+
+---
+
+## Safety Rules
+
+When change, write, update code:
+
+Inside the target file:
+1. Track errors.
+2. Add tiny comments.
+3. Explain what changed.
+4. Explain how to undo change.
+5. Keep code clean.
+6. Touch only needed code.
+
+---
+
+## Design Rules
+
+### Typography
+
+Bebas Neue (hero)
+Inter (body)
+JetBrains Mono (data)
+Cause (quotes)
+
+### Iconography
+
+Phosphor Icons
+
+### Tokens
+
+Use semantic format: `Category.Purpose.Context.Level`
+Surface = background
+Content = text/icon
+Never use literal values.
+
+### Motion
+
+Base = 100ms
+Default = 300ms
+Scale multiplicatively.
+
+### Grid
+
+4pt base system.
+
+### Interaction States
+
+Use state-layer & ripple-layer overlay. Do not change parent fill.
+
+---
+
+## Documentation Rules
+
+Must generate:
+
+1. [README.md](http://readme.md/)
+2. [noteBook.md](http://notebook.md/)
+3. [bugReport.md](http://bugreport.md/) 
+
+Never overwrite previous entries.

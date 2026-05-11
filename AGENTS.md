@@ -17,3 +17,13 @@ For every task involving component creation or modification:
 1. **Model**: Extract the Shade DSL architecture.
 2. **Review**: Ensure the DATA, LOGIC, and RENDER segments are clearly defined.
 3. **Execute**: Generate the React code based on the DSL model.
+
+## Safety Rules
+When change, write, update code:
+Inside the target file:
+- Track errors.
+- Add tiny comments.
+- Explain what changed.
+- Explain how to undo change.
+- Keep code clean.
+- Touch only needed code.
