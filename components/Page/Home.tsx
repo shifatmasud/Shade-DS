@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import ThemeToggleButton from '../Core/ThemeToggleButton.tsx';
@@ -27,6 +28,8 @@ import { WindowId, WindowState, LogEntry, MetaButtonProps } from '../../types/in
  */
 const Home = () => {
   const { theme } = useTheme();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [uiMode, setUiMode] = useState<'default' | 'lean'>('lean');
   const [showThemeToggle, setShowThemeToggle] = useState(false);
   
@@ -117,6 +120,53 @@ const Home = () => {
     settings: { id: 'settings', title: 'Settings', isOpen: false, zIndex: 7, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
   });
 
+  // --- Router Synchronization ---
+
+  // Initial Sync from URL
+  useEffect(() => {
+    const segments = location.pathname.substring(1).split('/').filter(Boolean);
+    if (segments.length === 0) return;
+
+    segments.forEach(path => {
+        if (path === 'tokens') {
+            setShowTokens(true);
+        } else if (path === 'measurements') {
+            setShowMeasurements(true);
+        } else if (path === '3d') {
+            setView3D(true);
+        } else if (path === 'lean') {
+            setUiMode('lean');
+        } else if (path === 'default') {
+            setUiMode('default');
+        } else if (windows[path as WindowId]) {
+            setWindowState(path as WindowId, true);
+            if (path === 'ai') setIsAIControlEnabled(true);
+        }
+    });
+    logEvent(`URL Initialized with segments: ${segments.join(', ')}`);
+  }, []);
+
+  // Update URL on state change
+  const syncUrlToState = (activeStates: string[]) => {
+      const path = activeStates.join('/');
+      // Avoid navigating if the current pathname matches the generated path
+      if (`/${path}` === location.pathname) return;
+      navigate(`/${path}`, { replace: true });
+  };
+
+  useEffect(() => {
+      const activeStates: string[] = [];
+      Object.entries(windows).forEach(([id, state]) => {
+          if (state.isOpen) activeStates.push(id);
+      });
+      if (showTokens) activeStates.push('tokens');
+      if (showMeasurements) activeStates.push('measurements');
+      if (view3D) activeStates.push('3d');
+      if (uiMode !== 'lean') activeStates.push(uiMode); // only push 'default' if it's not the lean mode (since lean is default in state)
+      
+      syncUrlToState(activeStates);
+  }, [windows, showTokens, showMeasurements, view3D, uiMode]);
+
   // -- Code Editor State --
   const [codeText, setCodeText] = useState('');
   const [isCodeFocused, setIsCodeFocused] = useState(false);
@@ -179,16 +229,20 @@ const Home = () => {
     });
   };
 
-  const toggleWindow = (id: WindowId) => {
+  const setWindowState = (id: WindowId, open: boolean) => {
     setWindows(prev => {
-      const isOpen = !prev[id].isOpen;
-      const next = { ...prev, [id]: { ...prev[id], isOpen } };
-      if (isOpen) {
+      if (prev[id].isOpen === open) return prev;
+      const next = { ...prev, [id]: { ...prev[id], isOpen: open } };
+      if (open) {
         const maxZ = Math.max(...Object.values(prev).map((w: WindowState) => w.zIndex));
         next[id].zIndex = maxZ + 1;
       }
       return next;
     });
+  };
+
+  const toggleWindow = (id: WindowId) => {
+    setWindowState(id, !windows[id].isOpen);
   };
 
   const handleCopyCode = () => {

@@ -8,7 +8,8 @@ Tracking all issues, from critical bugs to minor suggestions.
 
 ## Warning (Unexpected Behavior)
 
--   ...
+- [x] URL segments now support tracking all active states simultaneously (e.g., /tokens/3d).
+- ...
 
 ## Suggestion (Improvements)
 

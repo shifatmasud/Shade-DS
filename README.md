@@ -104,6 +104,7 @@ Imagine you're building with LEGOs. This project gives you a super organized box
 
 ## Recent Updates
 
+- **Deep Linking & Routing**: Every main action and panel (Control, Code, Console, Tokens, Measurements, 3D) is now mapped to a unique URL extension (e.g., `/tokens`, `/3d`). The app bi-directionally syncs its state with the browser address bar, allowing users to share specific workspace configurations.
 - **AI Agent Enhancements**: Implemented a dedicated input field for the Gemini API key in the Control Panel's Agent section, with local storage persistence for convenience. The AI window now consistently opens centered on the screen and always appears on top of other windows for improved visibility.
 - **System Spec Window**: Added a dedicated floating window that outlines the project's core rules, engineering standards, and design system. Accessible via the "System Spec" toggle in the Inspector group.
 - **Interactive Visuals**: The System Spec window features custom SVG animations and a "Copy as Markdown" utility.

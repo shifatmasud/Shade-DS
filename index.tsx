@@ -6,6 +6,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ThemeProvider, useTheme } from './Theme.tsx';
 import { BreakpointProvider } from './hooks/useBreakpoint.tsx';
+import { BrowserRouter } from 'react-router-dom';
 import App from './components/App/App.tsx';
 import './styles.css';
 
@@ -17,7 +18,9 @@ function Root() {
   }, [theme]);
 
   return (
+    <BrowserRouter>
       <App />
+    </BrowserRouter>
   );
 }
 

@@ -14,6 +14,7 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+-   **[2026-05-12 23:30]**: Implemented bi-directional URL routing for all core features. Linked `/control`, `/code`, `/tokens`, `/3d`, etc. to active UI states using `react-router-dom`.
 -   **[2026-05-11 04:43]**: Refined Safety Rules instructions to specify that tracking, comments, and change explanations must exist **inside the target code files** themselves. Updated `AGENTS.md`, `README.md`, `LLM.md`, and `SystemSpec.tsx`.
 -   **[2026-05-08 11:31]**: Refined and installed the Shade DSL agent skill.
     -   Created `/skills/shade_dsl/SKILL.md` with the full DSL specification.
