@@ -8,7 +8,7 @@ Tracking all issues, from critical bugs to minor suggestions.
 
 ## Warning (Unexpected Behavior)
 
-- [x] URL segments now support tracking all active states simultaneously (e.g., /tokens/3d).
+- [x] URL segments now support tracking all active states simultaneously (e.g., /tokens/3d). Fixed 404 error on direct navigation by implementing a full-stack Express server with index.html fallback and adding `vercel.json` for Vercel deployments.
 - ...
 
 ## Suggestion (Improvements)

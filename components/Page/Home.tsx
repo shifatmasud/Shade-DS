@@ -148,9 +148,12 @@ const Home = () => {
 
   // Update URL on state change
   const syncUrlToState = (activeStates: string[]) => {
-      const path = activeStates.join('/');
-      // Avoid navigating if the current pathname matches the generated path
-      if (`/${path}` === location.pathname) return;
+      // Sort segments for deterministic URLs (e.g. /3d/tokens is always the same path)
+      const path = [...activeStates].sort().join('/');
+      const currentPath = location.pathname.substring(1);
+      
+      // Avoid navigating if the current set of sorted segments matches the URL
+      if (path === currentPath) return;
       navigate(`/${path}`, { replace: true });
   };
 
