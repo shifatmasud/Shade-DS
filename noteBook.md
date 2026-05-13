@@ -2,17 +2,12 @@
 
 A log of all tasks, ideas, and progress for this project.
 
-## To Do
-
--   [ ] Integrate Gemini API for a core feature.
--   [ ] Create a more complex page layout.
--   [ ] Add interactive 3D elements with Three.js.
-
-## In Progress
-
--   ...
-
 ## Done
+
+- **[2026-05-13]**: Implemented Hero Cube X-axis auto-rotation via `useGSAP`.
+    - Successfully migrated X-axis rotation from `useFrame` to a dedicated GSAP timeline.
+    - Optimized performance by using a Reactive sync pattern between the GSAP-animated mesh and the Rapier kinematic rigid body.
+    - Maintained dynamic Y/Z variability in the physics loop while ensuring deterministic X rotation.
 
 - **[2026-05-13 07:01]**: Polished 3D Scene and Hierarchy Documentation.
     - Enhanced `RotatingBox` (Hero Cube) with faster auto X-rotation and dynamic Z-rotation.

@@ -128,6 +128,8 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1 }) => {
   useGSAP(() => {
     if (!meshRef.current || !materialRef.current) return;
     const targetScale = hovered ? 1.5 : 1;
+    
+    // UI: Adaptive scale on hover
     gsap.to(meshRef.current.scale, { 
       x: targetScale, 
       y: targetScale, 
@@ -136,6 +138,7 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1 }) => {
       ease: 'back.out(1.7)'
     });
     
+    // UI: Semantic color shift
     gsap.to(materialRef.current.color, {
       r: new THREE.Color(hovered ? '#ff0055' : color).r,
       g: new THREE.Color(hovered ? '#ff0055' : color).g,
@@ -144,18 +147,44 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1 }) => {
     });
   }, { dependencies: [hovered, color] });
 
+  // LOGIC: Hero cube auto-rotation on X-axis using useGSAP timeline
+  useGSAP(() => {
+    if (!meshRef.current) return;
+    
+    // Set initial rotation to avoid jump
+    gsap.set(meshRef.current.rotation, { x: 0 });
+    
+    // Infinite X rotation timeline
+    gsap.to(meshRef.current.rotation, {
+      x: Math.PI * 2,
+      duration: 4 / speed,
+      repeat: -1,
+      ease: 'none'
+    });
+    
+    return () => gsap.killTweensOf(meshRef.current.rotation);
+  }, { dependencies: [speed] });
+
   useFrame((state, delta) => {
-    if (rigidBodyRef.current) {
-      // Manual kinematic rotation for physics interaction
+    if (rigidBodyRef.current && meshRef.current) {
+      // Manual kinematic rotation for physics interaction (Y and Z)
       const curRotation = rigidBodyRef.current.rotation();
       const quaternion = new THREE.Quaternion(curRotation.x, curRotation.y, curRotation.z, curRotation.w);
       const euler = new THREE.Euler().setFromQuaternion(quaternion);
       
+      // Keep Y and Z dynamic in useFrame for variability
       euler.y += delta * speed;
-      euler.x += delta * speed * 0.8; // Increased X rotation speed for "auto x rotate" focus
-      euler.z += delta * speed * 0.2; // Added slight Z for more dynamic look
+      euler.z += delta * speed * 0.2;
       
-      rigidBodyRef.current.setNextKinematicRotation(new THREE.Quaternion().setFromEuler(euler));
+      // SYNC: Pull X rotation from GSAP-controlled mesh and apply to physics body
+      // This ensures zero-rerender performance while maintaining physics collisions
+      const finalQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+        meshRef.current.rotation.x,
+        euler.y,
+        euler.z
+      ));
+      
+      rigidBodyRef.current.setNextKinematicRotation(finalQuaternion);
     }
   });
 

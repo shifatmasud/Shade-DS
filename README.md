@@ -2,7 +2,20 @@
 
 [**Remix on AI Studio**](https://ai.studio/apps/4c5ad789-603f-46a9-bdad-8e14663811ed) | [**Vercel Demo**](https://shade-ds.vercel.app/)
 
-This is a starter project for building modern, theme-aware React applications. It's set up with a modular structure, a powerful design system, and is ready for you to integrate the Gemini API.
+## Task: Hero Cube Auto-Rotation
+Implementing auto-rotation on the X-axis for the Hero Cube using GSAP for optimized movement timelines.
+
+### Architecture (IPO)
+- **Input**: Speed constants, Component Lifecycle.
+- **Process**: GSAP auto-play timeline targeting rotation.x.
+- **Output**: Smooth, infinite X-axis rotation in R3F scene.
+
+### Action List
+1. [x] Research: Analyze `RotatingBox` in `scene.tsx`.
+2. [x] Model: Extract Shade DSL model for the component.
+3. [x] Execute: Implement `useGSAP` rotation logic.
+4. [x] Verify: Ensure smooth playback and no re-render loops.
+5. [x] Document: Update noteBook and bugReport.
 
 ## Project Scan Sheet
 
