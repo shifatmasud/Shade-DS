@@ -9,7 +9,7 @@ interface AccordionProps {
   defaultOpen?: boolean;
 }
 
-const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = false }) => {
+const Accordion = React.forwardRef<HTMLDivElement, AccordionProps>(({ title, children, defaultOpen = false }, ref) => {
   const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -36,7 +36,7 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
   };
 
   return (
-    <div>
+    <div ref={ref}>
       <div style={headerStyle} onClick={() => setIsOpen(!isOpen)}>
         <span style={titleStyle}>{title}</span>
         <motion.div
@@ -61,6 +61,6 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
       </AnimatePresence>
     </div>
   );
-};
+});
 
 export default Accordion;

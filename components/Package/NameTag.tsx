@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 
-const NameTag: React.FC = () => {
+const NameTag = React.forwardRef<HTMLDivElement>((props, ref) => {
   const { theme } = useTheme();
   
   const tagStyles: { [key: string]: React.CSSProperties } = {
@@ -51,6 +51,7 @@ const NameTag: React.FC = () => {
 
   return (
     <motion.div 
+      ref={ref}
       style={tagStyles.container}
       whileHover={{ y: -10, rotate: 1 }}
       whileTap={{ scale: 0.98 }}
@@ -99,6 +100,6 @@ const NameTag: React.FC = () => {
       }} />
     </motion.div>
   );
-};
+});
 
 export default NameTag;

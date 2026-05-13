@@ -12,6 +12,6 @@ Tracking all issues, from critical bugs to minor suggestions.
 - ...
 
 ## Suggestion (Improvements)
-
--   [ ] Add more interactive SVG animations to the System Spec window for each rule.
+- [ ] Monitor component behavior post-React 18 downgrade for hydration mismatches or changed hook timing.
+- [ ] Add more interactive SVG animations to the System Spec window for each rule.
 -   ...

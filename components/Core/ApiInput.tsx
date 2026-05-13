@@ -15,13 +15,13 @@ interface ApiInputProps {
   placeholder?: string;
 }
 
-const ApiInput: React.FC<ApiInputProps> = ({ 
+const ApiInput = React.forwardRef<HTMLDivElement, ApiInputProps>(({ 
   label, 
   value, 
   onChange, 
   onSave, 
   placeholder = "Enter API Key..." 
-}) => {
+}, ref) => {
   const { theme } = useTheme();
   const [isVisible, setIsVisible] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -33,7 +33,7 @@ const ApiInput: React.FC<ApiInputProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+    <div ref={ref} style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
       <label style={{ 
         ...theme.Type.Readable.Label.S, 
         color: theme.Color.Base.Content[3],
@@ -135,6 +135,6 @@ const ApiInput: React.FC<ApiInputProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default ApiInput;

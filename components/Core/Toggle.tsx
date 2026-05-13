@@ -12,7 +12,7 @@ interface ToggleProps {
   onToggle: () => void;
 }
 
-const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
+const Toggle = React.forwardRef<HTMLDivElement, ToggleProps>(({ label, isOn, onToggle }, ref) => {
   const { theme } = useTheme();
 
   // Use Active Content for the active color.
@@ -42,7 +42,7 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
   };
 
   return (
-    <div onPointerDown={(e) => e.stopPropagation()} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+    <div ref={ref} onPointerDown={(e) => e.stopPropagation()} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
       <label style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2] }}>
         {label}
       </label>
@@ -56,6 +56,6 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
       </div>
     </div>
   );
-};
+});
 
 export default Toggle;

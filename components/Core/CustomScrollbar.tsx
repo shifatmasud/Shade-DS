@@ -9,14 +9,14 @@ interface CustomScrollbarProps {
   children: React.ReactNode;
 }
 
-const CustomScrollbar: React.FC<CustomScrollbarProps> = ({ children }) => {
+const CustomScrollbar = React.forwardRef<HTMLDivElement, CustomScrollbarProps>(({ children }, ref) => {
   return (
-    <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
+    <div ref={ref} style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
       <div style={{ height: '100%', width: '100%', overflowY: 'hidden' }}>
         {children}
       </div>
     </div>
   );
-};
+});
 
 export default CustomScrollbar;

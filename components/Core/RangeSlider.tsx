@@ -18,7 +18,7 @@ interface RangeSliderProps {
   trackBackground?: string;
 }
 
-const RangeSlider: React.FC<RangeSliderProps> = ({ 
+const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(({ 
   label, 
   motionValue, 
   onCommit, 
@@ -26,7 +26,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   min = 0, 
   max = 100,
   trackBackground 
-}) => {
+}, ref) => {
   const { theme } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
   
@@ -146,7 +146,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
 
 
   return (
-    <div onPointerDown={(e) => e.stopPropagation()}>
+    <div ref={ref} onPointerDown={(e) => e.stopPropagation()}>
       <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.spacing['Space.S'], color: theme.Color.Base.Content[2] }}>
         {label}
       </label>
@@ -237,6 +237,6 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default RangeSlider;

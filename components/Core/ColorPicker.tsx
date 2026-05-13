@@ -80,7 +80,7 @@ interface ColorPickerProps {
   style?: React.CSSProperties;
 }
 
-const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCommit, style }) => {
+const ColorPicker = React.forwardRef<HTMLDivElement, ColorPickerProps>(({ label, value, onChange, onCommit, style }, ref) => {
   const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -162,7 +162,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     border: `1px solid ${theme.Color.Base.Surface[3]}`,
     cursor: 'pointer',
     flexShrink: 0,
-    boxShadow: theme.effects['Effect.Shadow.Inset.1'],
+    boxShadow: theme.effects['Effect.Shadow.Drop.1'],
   };
 
   const inputStyle: React.CSSProperties = {
@@ -199,7 +199,12 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
   const lightGradient = `linear-gradient(to right, #000, ${HSLToHex(hsl.h, hsl.s, 50)}, #fff)`;
 
   return (
-    <div ref={triggerRef} style={{ position: 'relative', ...style }} onPointerDown={(e) => e.stopPropagation()}>
+    <div ref={(node) => {
+        // Handle dual refs if necessary (triggerRef for local logic, ref for forwardRef)
+        (triggerRef as any).current = node;
+        if (typeof ref === 'function') ref(node);
+        else if (ref) (ref as any).current = node;
+    }} style={{ position: 'relative', ...style }} onPointerDown={(e) => e.stopPropagation()}>
       <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.spacing['Space.S'], color: theme.Color.Base.Content[2] }}>
         {label}
       </label>
@@ -299,6 +304,6 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
       )}
     </div>
   );
-};
+});
 
 export default ColorPicker;

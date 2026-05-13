@@ -12,11 +12,11 @@ interface SegmentedTabProps {
   onTabClick: (id: string) => void;
 }
 
-const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick }) => {
+const SegmentedTab = React.forwardRef<HTMLDivElement, SegmentedTabProps>(({ tabs, activeTab, onTabClick }, ref) => {
   const { theme } = useTheme();
 
   return (
-    <div style={{
+    <div ref={ref} style={{
       display: 'flex',
       padding: '2px',
       backgroundColor: theme.Color.Base.Surface[2],
@@ -77,6 +77,6 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
       })}
     </div>
   );
-};
+});
 
 export default SegmentedTab;

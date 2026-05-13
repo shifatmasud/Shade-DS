@@ -24,7 +24,7 @@ interface FloatingWindowProps {
   onResize?: (height: number) => void;
 }
 
-const FloatingWindow: React.FC<FloatingWindowProps> = ({
+const FloatingWindow = React.forwardRef<HTMLDivElement, FloatingWindowProps>(({
   title,
   zIndex,
   x: initialX,
@@ -33,7 +33,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
   onFocus,
   children,
   footer,
-}) => {
+}, ref) => {
   const { theme, themeName } = useTheme();
   const dragControls = useDragControls();
   
@@ -97,6 +97,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
 
   return (
     <motion.div
+      ref={ref}
       style={{ ...styles, x, y }}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -157,6 +158,6 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
       )}
     </motion.div>
   );
-};
+});
 
 export default FloatingWindow;

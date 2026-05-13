@@ -14,6 +14,12 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+- **[2026-05-13 05:30]**: Downgraded React to 18.3.1 and @react-three/fiber to 8.17.14.
+    - Updated `package.json` to lock versions.
+    - Added `@types/react` and `@types/react-dom` to devDependencies.
+    - Verified `index.tsx` for React 18 createRoot compatibility.
+    - Updated `README.md` and documentation files.
+
 - **[2026-05-13 05:22]**: Registered "Reactive Architecture" in Shade DSL skill.
     - Defined Target -> Mutate pattern for zero-rerender performance.
     - Integrated Zustand intent storage with imperative runtime hooks (`useRef`, `useFrame`, `useGSAP`).

@@ -16,7 +16,7 @@ interface SelectProps {
   style?: React.CSSProperties;
 }
 
-const Select: React.FC<SelectProps> = ({ label, value, onChange, options, style }) => {
+const Select = React.forwardRef<HTMLDivElement, SelectProps>(({ label, value, onChange, options, style }, ref) => {
   const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -85,7 +85,7 @@ const Select: React.FC<SelectProps> = ({ label, value, onChange, options, style 
   };
 
   return (
-    <div style={{ position: 'relative' }} onPointerDown={(e) => e.stopPropagation()}>
+    <div ref={ref} style={{ position: 'relative' }} onPointerDown={(e) => e.stopPropagation()}>
       <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.spacing['Space.S'], color: theme.Color.Base.Content[2] }}>
         {label}
       </label>
@@ -147,6 +147,6 @@ const Select: React.FC<SelectProps> = ({ label, value, onChange, options, style 
       )}
     </div>
   );
-};
+});
 
 export default Select;
