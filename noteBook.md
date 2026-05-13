@@ -14,6 +14,11 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+- **[2026-05-13 05:46]**: Migrated to Zustand for global state.
+    - Created `hooks/useStore.ts` for atomic UI and Session state.
+    - Integrated logic for window management and API key persistence.
+    - Updated `importmap.js` and `package.json`.
+
 - **[2026-05-13 05:30]**: Downgraded React to 18.3.1 and @react-three/fiber to 8.17.14.
     - Updated `package.json` to lock versions.
     - Added `@types/react` and `@types/react-dom` to devDependencies.

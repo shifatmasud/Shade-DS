@@ -111,6 +111,7 @@ Imagine you're building with LEGOs. This project gives you a super organized box
 - **System Spec Window**: Added a dedicated floating window that outlines the project's core rules, engineering standards, and design system. Accessible via the "System Spec" toggle in the Inspector group.
 - **Interactive Visuals**: The System Spec window features custom SVG animations and a "Copy as Markdown" utility.
 - **Dependency Downgrade**: Transitioned core stack from React 19 to React 18.3.1 and @react-three/fiber from 9 to 8.17.14 to align with specific stability requirements and established modular patterns.
+- **Global State Management**: Migrated to **Zustand** for centralized, high-performance state management, implementing a Reactive Architecture (Target -> Mutate) that bridges modular React components with imperative animation systems.
 
 ## How to Get Started
 
