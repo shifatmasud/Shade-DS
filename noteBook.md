@@ -14,6 +14,11 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+- **[2026-05-13 05:22]**: Registered "Reactive Architecture" in Shade DSL skill.
+    - Defined Target -> Mutate pattern for zero-rerender performance.
+    - Integrated Zustand intent storage with imperative runtime hooks (`useRef`, `useFrame`, `useGSAP`).
+    - Updated `metadata.json` and `README.md` to reflect new architecture focus.
+
 -   **[2026-05-12 23:39]**: Fixed 404 error for direct sub-path navigation. Implemented a full-stack Express server to handle SPA fallback and added `vercel.json` for Vercel support.
 -   **[2026-05-12 23:30]**: Implemented bi-directional URL routing for all core features. Linked `/control`, `/code`, `/tokens`, `/3d`, etc. to active UI states using `react-router-dom`.
 -   **[2026-05-11 04:43]**: Refined Safety Rules instructions to specify that tracking, comments, and change explanations must exist **inside the target code files** themselves. Updated `AGENTS.md`, `README.md`, `LLM.md`, and `SystemSpec.tsx`.

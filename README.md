@@ -104,6 +104,7 @@ Imagine you're building with LEGOs. This project gives you a super organized box
 
 ## Recent Updates
 
+- **Reactive Architecture Integration**: Registered a high-performance runtime specification in Shade DSL. The system now strictly separates React's declarative rendering from imperative mutation loops (GSAP/Three.js/Framer) to achieve zero-rerender motion.
 - **Deep Linking & Routing**: Every main action and panel (Control, Code, Console, Tokens, Measurements, 3D) is now mapped to a unique URL extension. The app supports multi-state URLs (e.g., `/3d/tokens`) which are deterministically sorted for state stability.
 - **Vercel & Container Support**: Implemented `vercel.json` for native Vercel SPA routing and an Express `server.ts` for AI Studio container preview. This ensures direct navigation to sub-paths works flawlessly across all environments without 404 errors.
 - **AI Agent Enhancements**: Implemented a dedicated input field for the Gemini API key in the Control Panel's Agent section, with local storage persistence for convenience. The AI window now consistently opens centered on the screen and always appears on top of other windows for improved visibility.

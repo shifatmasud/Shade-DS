@@ -88,6 +88,22 @@ Card
 
 ---
 
+## Reactive Architecture (Runtime Logic)
+
+The runtime follows a strict "Target → Mutate" pattern to ensure maximum performance and zero-rerender motion.
+
+1. **Declarative Structure**: React & React Three Fiber render the declarative scene/UI nodes once.
+2. **Intent Store**: Zustand stores shared intent, commands, and target state variables.
+3. **Imperative Access**: Runtime systems access state imperatively through:
+   - `useRef` (for object instances)
+   - `useFrame` (for per-frame logic)
+   - `useMotionValue` / `useTransform` (for Framer Motion reactive ties)
+   - `useGSAP` (for complex timelines)
+4. **Instruction Segregation**: State changes represent **instructions/targets only**, NOT per-frame animation interpolation.
+5. **Direct Mutation**: Framer Motion, GSAP, Rapier (Physics), and Three.js mutate objects directly inside their own runtime/update loops without triggering a per-frame React re-render.
+
+---
+
 ## Engineering Rules
 1. **No Tailwind**: Use JS style objects in `STYLE`.
 2. **No CSS Keyframes**: Use Framer Motion for UI, GSAP for R3F/External.

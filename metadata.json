@@ -1,5 +1,5 @@
 {
-  "name": "Shade DS",
-  "description": "Bidirectional Shade DSL Translator & Agent",
+  "name": "REVELO Shade DSL",
+  "description": "Architecture-first React to Shade DSL translator with Reactive Runtime support",
   "requestFramePermissions": []
 }
