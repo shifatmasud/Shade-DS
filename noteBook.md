@@ -14,6 +14,10 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+- **[2026-05-13 07:01]**: Polished 3D Scene and Hierarchy Documentation.
+    - Enhanced `RotatingBox` (Hero Cube) with faster auto X-rotation and dynamic Z-rotation.
+    - Rewrote `README.md` hierarchy section to use ELI5 LEGO-based terminology for better clarity.
+
 - **[2026-05-13 06:50]**: Restored GSAP animated Hero Cube.
     - Added `RotatingBox` back as a `kinematicVelocity` rigid body.
     - Integrated GSAP hover and color effects with physics collision detection.

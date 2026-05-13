@@ -152,7 +152,8 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1 }) => {
       const euler = new THREE.Euler().setFromQuaternion(quaternion);
       
       euler.y += delta * speed;
-      euler.x += delta * speed * 0.4;
+      euler.x += delta * speed * 0.8; // Increased X rotation speed for "auto x rotate" focus
+      euler.z += delta * speed * 0.2; // Added slight Z for more dynamic look
       
       rigidBodyRef.current.setNextKinematicRotation(new THREE.Quaternion().setFromEuler(euler));
     }

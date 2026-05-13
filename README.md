@@ -44,11 +44,11 @@ Imagine you're building with LEGOs. This project gives you a super organized box
 -   **`types/`**: A dictionary for our app's data shapes.
     -   `index.tsx`: Defines what a "Window" or a "Log Entry" looks like.
 -   **`components/`**: The LEGO pieces themselves, organized by strict complexity and import hierarchy:
-    -   **`Core/`**: Atomic. The most basic, single-purpose pieces (Button, Input, Toggle, etc.). **Constraint: Never combines packages, sections, pages, or apps.**
-    -   **`Package/`**: Combines Core pieces into functional units (`ControlPanel`, `FloatingWindow`). **Constraint: Packages combine cores, but never combine sections, pages, or apps.**
-    -   **`Section/`**: A whole section of the app (the `Dock` at the bottom, the main `Stage`). **Constraint: Sections combine packages & cores, but never combine pages or apps.**
-    -   **`Page/`**: A full screen you see (`Welcome` page). **Constraint: Pages combine sections, packages & cores, but never import apps.**
-    -   **`App/`**: The complete, running application (`MetaPrototype`). **Constraint: Apps combine packages, sections, packages & cores, but never export to packages, cores, pages, or sections.**
+    -   **`Core/`**: Tiny bricks. These are the simplest pieces (like a single Button or a Toggle). They are small and don't know about anything big.
+    -   **`Package/`**: Small builds. We use the tiny bricks to build something useful (like a Control Panel). They know about Cores, but not rooms.
+    -   **`Section/`**: Rooms. Putting several small builds together to make a whole space (like the Dock or the Stage). They know about Packages and Cores.
+    -   **`Page/`**: Full views. A whole screen you can see (like the Home page). They use Sections and everything under them to fill the view.
+    -   **`App/`**: The Masterpiece. The final, complete app that connects all the views and pieces together.
 -   **`README.md`**: This file! Your friendly guide.
 -   **`LLM.md`**: Special instructions for AI helpers.
 -   **`noteBook.md`**: A diary of tasks and progress.
