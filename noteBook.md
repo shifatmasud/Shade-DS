@@ -14,11 +14,10 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
-- **[2026-05-13 06:42]**: Integrated 3D Physics with Rapier.
-    - Installed `zustand`, `@react-three/rapier`, and `@dimforge/rapier3d-compat`.
-    - Rewrote `Scene3D` to use `<Physics>` and dynamic `<RigidBody>` cubes.
-    - Implemented draggable physics logic with impulses and pointer capture.
-    - Synced `importmap.js` for all new dependencies.
+- **[2026-05-13 06:50]**: Restored GSAP animated Hero Cube.
+    - Added `RotatingBox` back as a `kinematicVelocity` rigid body.
+    - Integrated GSAP hover and color effects with physics collision detection.
+    - Updated `Scene3D` to include both hero and spawned physics cubes.
 
 - **[2026-05-13 06:40]**: Migrated project to React 19.
     - Synced `importmap.js` with `package.json` (React 19.0.0, Three 0.183.2, GSAP 3.14.2).

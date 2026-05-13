@@ -6,7 +6,11 @@ import React, { useRef, useState, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Sky } from '@react-three/drei';
 import * as THREE from 'three';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-three/rapier';
+
+gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
 
 // STYLE: JS object style for overlay
@@ -115,6 +119,60 @@ const Floor = () => (
   </RigidBody>
 );
 
+const RotatingBox = ({ color = '#4f46e5', speed = 1 }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const rigidBodyRef = useRef<RapierRigidBody>(null);
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const [hovered, setHover] = useState(false);
+  
+  useGSAP(() => {
+    if (!meshRef.current || !materialRef.current) return;
+    const targetScale = hovered ? 1.5 : 1;
+    gsap.to(meshRef.current.scale, { 
+      x: targetScale, 
+      y: targetScale, 
+      z: targetScale, 
+      duration: 0.4,
+      ease: 'back.out(1.7)'
+    });
+    
+    gsap.to(materialRef.current.color, {
+      r: new THREE.Color(hovered ? '#ff0055' : color).r,
+      g: new THREE.Color(hovered ? '#ff0055' : color).g,
+      b: new THREE.Color(hovered ? '#ff0055' : color).b,
+      duration: 0.4
+    });
+  }, { dependencies: [hovered, color] });
+
+  useFrame((state, delta) => {
+    if (rigidBodyRef.current) {
+      // Manual kinematic rotation for physics interaction
+      const curRotation = rigidBodyRef.current.rotation();
+      const quaternion = new THREE.Quaternion(curRotation.x, curRotation.y, curRotation.z, curRotation.w);
+      const euler = new THREE.Euler().setFromQuaternion(quaternion);
+      
+      euler.y += delta * speed;
+      euler.x += delta * speed * 0.4;
+      
+      rigidBodyRef.current.setNextKinematicRotation(new THREE.Quaternion().setFromEuler(euler));
+    }
+  });
+
+  return (
+    <RigidBody ref={rigidBodyRef} type="kinematicVelocity" position={[0, 1, 0]} colliders="cuboid">
+      <mesh 
+        ref={meshRef} 
+        onPointerOver={() => setHover(true)} 
+        onPointerOut={() => setHover(false)} 
+        castShadow
+      >
+        <boxGeometry args={[2, 2, 2]} />
+        <meshStandardMaterial ref={materialRef} color={color} metalness={0.8} roughness={0.1} />
+      </mesh>
+    </RigidBody>
+  );
+};
+
 const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
   const { cubes, addCube } = usePhysicsStore();
 
@@ -143,6 +201,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
         <spotLight position={[10, 20, 10]} angle={0.3} penumbra={1} intensity={1500} castShadow />
         
         <Physics gravity={[0, -9.81, 0]}>
+          <RotatingBox />
           {cubes.map((cube) => (
             <PhysicsCube key={cube.id} {...cube} />
           ))}

@@ -104,7 +104,7 @@ Imagine you're building with LEGOs. This project gives you a super organized box
 
 ## Recent Updates
 
-- **Physics Integration**: Integrated High-performance 3D physics using `@react-three/rapier`. The 3D scene now features gravity, collisions, and real-time interactive physics actors managed via a centralized `zustand` store.
+- **Physics Integration**: Integrated High-performance 3D physics using `@react-three/rapier`. The 3D scene now features a GSAP-animated kinematic hero cube interacting with dynamic colorful physics actors, all managed via a centralized `zustand` store.
 - **React 19 Migration**: Synchronized `importmap.js` with `package.json` to move the entire ecosystem to React 19.0.0. Updated documentation to reflect the new framework version.
 - **Reactive Architecture Integration**: Registered a high-performance runtime specification in Shade DSL. The system now strictly separates React's declarative rendering from imperative mutation loops (GSAP/Three.js/Framer) to achieve zero-rerender motion.
 - **Deep Linking & Routing**: Every main action and panel (Control, Code, Console, Tokens, Measurements, 3D) is now mapped to a unique URL extension. The app supports multi-state URLs (e.g., `/3d/tokens`) which are deterministically sorted for state stability.
