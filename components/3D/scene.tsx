@@ -140,7 +140,7 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onClick }: { color?: string
 const Scene3D: React.FC<Scene3DProps> = ({ boxColor, rotationSpeed, onBoxClick, showSky = true }) => {
   return (
     <div style={{ width: '100%', height: '100%', minHeight: '400px', position: 'relative', overflow: 'hidden' }}>
-      <Canvas shadows dpr={[1, 2]}>
+      <Canvas shadows={{ type: THREE.PCFShadowMap }} dpr={[1, 2]}>
         <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={50} />
         <ambientLight intensity={0.5} />
         <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} castShadow />

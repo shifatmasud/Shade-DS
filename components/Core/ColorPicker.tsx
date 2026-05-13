@@ -229,14 +229,16 @@ const ColorPicker = React.forwardRef<HTMLDivElement, ColorPickerProps>(({ label,
       {createPortal(
         <AnimatePresence>
           {isOpen && (
-            <>
+            <React.Fragment key="color-picker-portal">
               {/* Overlay Backdrop to close */}
               <div 
+                key="backdrop"
                 style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9998 }} 
                 onClick={() => setIsOpen(false)} 
               />
               
               <motion.div
+                key="popover"
                 ref={popoverRef}
                 style={popoverStyle}
                 initial={{ opacity: 0, y: '-95%', scale: 0.95 }}
@@ -297,7 +299,7 @@ const ColorPicker = React.forwardRef<HTMLDivElement, ColorPickerProps>(({ label,
                     />
                 </div>
               </motion.div>
-            </>
+            </React.Fragment>
           )}
         </AnimatePresence>,
         document.body

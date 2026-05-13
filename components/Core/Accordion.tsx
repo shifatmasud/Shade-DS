@@ -49,6 +49,7 @@ const Accordion = React.forwardRef<HTMLDivElement, AccordionProps>(({ title, chi
       <AnimatePresence initial={false}>
         {isOpen && (
           <motion.div
+            key="accordion-content"
             style={contentStyle}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
