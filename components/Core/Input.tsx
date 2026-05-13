@@ -13,7 +13,7 @@ interface InputProps {
   style?: React.CSSProperties;
 }
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(({ label, value, onChange, type = 'text', style }, ref) => {
+const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', style }) => {
   const { theme } = useTheme();
 
   const baseInputStyle: React.CSSProperties = {
@@ -33,9 +33,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({ label, value, on
       <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.spacing['Space.S'], color: theme.Color.Base.Content[2] }}>
         {label}
       </label>
-      <input ref={ref} type={type} value={value} onChange={onChange} style={{ ...baseInputStyle, ...style }} />
+      <input type={type} value={value} onChange={onChange} style={{ ...baseInputStyle, ...style }} />
     </div>
   );
-});
+};
 
 export default Input;

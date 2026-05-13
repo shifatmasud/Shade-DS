@@ -8,10 +8,11 @@ Tracking all issues, from critical bugs to minor suggestions.
 
 ## Warning (Unexpected Behavior)
 
+- [ ] Physics: RigidBody tunneling may occur at very high velocities or low framerates. Consider implementing CCD (Continuous Collision Detection) if cubes frequently escape the floor.
 - [x] URL segments now support tracking all active states simultaneously (e.g., /tokens/3d). Fixed 404 error on direct navigation by implementing a full-stack Express server with index.html fallback and adding `vercel.json` for Vercel deployments.
 - ...
 
 ## Suggestion (Improvements)
-- [ ] Monitor component behavior post-React 18 downgrade for hydration mismatches or changed hook timing.
-- [ ] Add more interactive SVG animations to the System Spec window for each rule.
+
+-   [ ] Add more interactive SVG animations to the System Spec window for each rule.
 -   ...

@@ -14,16 +14,16 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
-- **[2026-05-13 05:46]**: Migrated to Zustand for global state.
-    - Created `hooks/useStore.ts` for atomic UI and Session state.
-    - Integrated logic for window management and API key persistence.
-    - Updated `importmap.js` and `package.json`.
+- **[2026-05-13 06:42]**: Integrated 3D Physics with Rapier.
+    - Installed `zustand`, `@react-three/rapier`, and `@dimforge/rapier3d-compat`.
+    - Rewrote `Scene3D` to use `<Physics>` and dynamic `<RigidBody>` cubes.
+    - Implemented draggable physics logic with impulses and pointer capture.
+    - Synced `importmap.js` for all new dependencies.
 
-- **[2026-05-13 05:30]**: Downgraded React to 18.3.1 and @react-three/fiber to 8.17.14.
-    - Updated `package.json` to lock versions.
-    - Added `@types/react` and `@types/react-dom` to devDependencies.
-    - Verified `index.tsx` for React 18 createRoot compatibility.
-    - Updated `README.md` and documentation files.
+- **[2026-05-13 06:40]**: Migrated project to React 19.
+    - Synced `importmap.js` with `package.json` (React 19.0.0, Three 0.183.2, GSAP 3.14.2).
+    - Updated `README.md` framework scanning and title.
+    - Updated developer notebook.
 
 - **[2026-05-13 05:22]**: Registered "Reactive Architecture" in Shade DSL skill.
     - Defined Target -> Mutate pattern for zero-rerender performance.

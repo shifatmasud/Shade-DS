@@ -4,8 +4,6 @@
  */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// [CHANGE]: Enforce React 18 createRoot pattern for stability.
-// [REVERT]: Replace with legacy render or update to 19 if needed.
 import { ThemeProvider, useTheme } from './Theme.tsx';
 import { BreakpointProvider } from './hooks/useBreakpoint.tsx';
 import { BrowserRouter } from 'react-router-dom';

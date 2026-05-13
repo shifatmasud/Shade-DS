@@ -21,7 +21,6 @@ import UndoRedo from '../Package/UndoRedo.tsx';
 import Confetti from '../Core/Confetti.tsx';
 import { Sliders, Code, Terminal } from 'phosphor-react';
 import { WindowId, WindowState, LogEntry, MetaButtonProps } from '../../types/index.tsx';
-import { useStore } from '../../hooks/useStore.ts';
 
 /**
  * 🏎️ Main Page
@@ -31,43 +30,47 @@ const Home = () => {
   const { theme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+  const [uiMode, setUiMode] = useState<'default' | 'lean'>('lean');
+  const [showThemeToggle, setShowThemeToggle] = useState(false);
   
-  // -- Global State (Zustand) --
-  const {
-    windows,
-    uiMode,
-    showMeasurements,
-    showTokens,
-    showThemeToggle,
-    view3D,
-    btnProps,
-    logs,
-    history,
-    future,
-    confettiTrigger,
-    geminiKey,
-    // Actions
-    toggleWindow,
-    setWindowState,
-    bringToFront,
-    updateWindowHeight,
-    updateBtnProps,
-    undo,
-    redo,
-    setUiMode,
-    toggleMeasurements,
-    toggleTokens,
-    toggleThemeToggle,
-    toggleView3D,
-    triggerConfetti,
-    setGeminiKey,
-    logEvent
-  } = useStore();
+  // -- App State --
+  const [btnProps, setBtnProps] = useState<MetaButtonProps>({
+    componentType: 'button',
+    label: 'Do Magic',
+    variant: 'primary',
+    size: 'L',
+    icon: 'ph-sparkle',
+    customFill: '',
+    customColor: '',
+    customRadius: '56px',
+    disabled: false,
+    forcedHover: false,
+    forcedFocus: false,
+    forcedActive: false,
+  });
   
-  // -- Local Refs for Animation Sync --
+  // -- View / Inspection State --
+  const [showMeasurements, setShowMeasurements] = useState(false);
+  const [showTokens, setShowTokens] = useState(false);
+  const [isAIControlEnabled, setIsAIControlEnabled] = useState(false);
+  const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem('geminiApiKey');
+    if (savedKey) {
+      setGeminiApiKey(savedKey);
+    }
+  }, []);
+  
+  // 3D Layer View State
+  const [view3D, setView3D] = useState(false);
   const layerSpacing = useMotionValue(0);
   const viewRotateX = useMotionValue(55);
   const viewRotateZ = useMotionValue(45);
+
+  // -- Confetti State --
+  const [confettiTrigger, setConfettiTrigger] = useState(0);
 
   // -- Real-time MotionValue for live UI updates --
   const radiusMotionValue = useMotionValue(parseInt(btnProps.customRadius) || 0);
@@ -87,6 +90,36 @@ const Home = () => {
     }
   }, [view3D, layerSpacing]);
 
+
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  
+  // -- History State --
+  const [history, setHistory] = useState<MetaButtonProps[]>([]);
+  const [future, setFuture] = useState<MetaButtonProps[]>([]);
+
+  // --- Window Management ---
+  const WINDOW_WIDTH = 400;
+  const CONTROL_PANEL_HEIGHT = 640; // Increased height for new 3D controls
+  const CODE_PANEL_HEIGHT = 408;
+  const CONSOLE_PANEL_HEIGHT = 200; // Increased slightly for better visibility
+
+  const handleResize = (id: WindowId, newHeight: number) => {
+    setWindows(prev => ({
+      ...prev,
+      [id]: { ...prev[id], height: newHeight },
+    }));
+  };
+
+  const [windows, setWindows] = useState<Record<WindowId, WindowState>>({
+    control: { id: 'control', title: 'Control', isOpen: false, zIndex: 1, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
+    code: { id: 'code', title: 'Code I/O', isOpen: false, zIndex: 2, x: -WINDOW_WIDTH / 2, y: -CODE_PANEL_HEIGHT / 2, height: CODE_PANEL_HEIGHT },
+    console: { id: 'console', title: 'Console', isOpen: false, zIndex: 3, x: -WINDOW_WIDTH / 2, y: -CONSOLE_PANEL_HEIGHT / 2, height: CONSOLE_PANEL_HEIGHT },
+    styles: { id: 'styles', title: 'Style Guide', isOpen: false, zIndex: 4, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
+    systemSpec: { id: 'systemSpec', title: 'System Spec', isOpen: false, zIndex: 5, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
+    ai: { id: 'ai', title: 'AI Agent', isOpen: false, zIndex: 6, x: -WINDOW_WIDTH / 2, y: -240, height: 480 },
+    settings: { id: 'settings', title: 'Settings', isOpen: false, zIndex: 7, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
+  });
+
   // --- Router Synchronization ---
 
   // Initial Sync from URL
@@ -96,17 +129,18 @@ const Home = () => {
 
     segments.forEach(path => {
         if (path === 'tokens') {
-            if (!showTokens) toggleTokens();
+            setShowTokens(true);
         } else if (path === 'measurements') {
-            if (!showMeasurements) toggleMeasurements();
+            setShowMeasurements(true);
         } else if (path === '3d') {
-            if (!view3D) toggleView3D();
+            setView3D(true);
         } else if (path === 'lean') {
             setUiMode('lean');
         } else if (path === 'default') {
             setUiMode('default');
         } else if (windows[path as WindowId]) {
             setWindowState(path as WindowId, true);
+            if (path === 'ai') setIsAIControlEnabled(true);
         }
     });
     logEvent(`URL Initialized with segments: ${segments.join(', ')}`);
@@ -131,7 +165,7 @@ const Home = () => {
       if (showTokens) activeStates.push('tokens');
       if (showMeasurements) activeStates.push('measurements');
       if (view3D) activeStates.push('3d');
-      if (uiMode !== 'lean') activeStates.push(uiMode); 
+      if (uiMode !== 'lean') activeStates.push(uiMode); // only push 'default' if it's not the lean mode (since lean is default in state)
       
       syncUrlToState(activeStates);
   }, [windows, showTokens, showMeasurements, view3D, uiMode]);
@@ -146,10 +180,73 @@ const Home = () => {
     }
   }, [btnProps, isCodeFocused]);
 
-  // -- Initial Log --
+  // -- Actions --
+
+  const logEvent = (msg: string) => {
+    const entry: LogEntry = {
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toLocaleTimeString(),
+      message: msg,
+    };
+    setLogs(prev => [...prev, entry].slice(-50));
+  };
+  
+  // Initial Log
   useEffect(() => {
       logEvent('System Ready. Home initialized.');
   }, []);
+
+  const updateBtnProps = (newProps: MetaButtonProps, saveHistory: boolean = true) => {
+    if (saveHistory) {
+      setHistory(prev => [...prev, btnProps]);
+      setFuture([]);
+    }
+    setBtnProps(newProps);
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const previous = history[history.length - 1];
+    const newHistory = history.slice(0, -1);
+    setFuture(prev => [btnProps, ...prev]);
+    setBtnProps(previous);
+    setHistory(newHistory);
+    logEvent('Undo performed');
+  };
+
+  const handleRedo = () => {
+    if (future.length === 0) return;
+    const next = future[0];
+    const newFuture = future.slice(1);
+    setHistory(prev => [...prev, btnProps]);
+    setBtnProps(next);
+    setFuture(newFuture);
+    logEvent('Redo performed');
+  };
+
+  const bringToFront = (id: WindowId) => {
+    setWindows(prev => {
+      const maxZ = Math.max(...Object.values(prev).map((w: WindowState) => w.zIndex));
+      if (prev[id].zIndex === maxZ) return prev;
+      return { ...prev, [id]: { ...prev[id], zIndex: maxZ + 1 } };
+    });
+  };
+
+  const setWindowState = (id: WindowId, open: boolean) => {
+    setWindows(prev => {
+      if (prev[id].isOpen === open) return prev;
+      const next = { ...prev, [id]: { ...prev[id], isOpen: open } };
+      if (open) {
+        const maxZ = Math.max(...Object.values(prev).map((w: WindowState) => w.zIndex));
+        next[id].zIndex = maxZ + 1;
+      }
+      return next;
+    });
+  };
+
+  const toggleWindow = (id: WindowId) => {
+    setWindowState(id, !windows[id].isOpen);
+  };
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(JSON.stringify(btnProps, null, 2));
@@ -158,10 +255,10 @@ const Home = () => {
   
   const handlePropChange = (keyOrObj: string | Partial<MetaButtonProps>, value?: any) => {
     if (typeof keyOrObj === 'string') {
-        updateBtnProps({ [keyOrObj]: value });
+        updateBtnProps({ ...btnProps, [keyOrObj]: value });
         logEvent(`Prop updated: ${keyOrObj} = ${value}`);
     } else {
-        updateBtnProps(keyOrObj);
+        updateBtnProps({ ...btnProps, ...keyOrObj });
         logEvent(`State updated: ${Object.keys(keyOrObj).join(', ')}`);
     }
   };
@@ -177,19 +274,48 @@ const Home = () => {
       const parsed = JSON.parse(newVal);
       updateBtnProps(parsed, true);
     } catch (err) {
-      // Invalid JSON
+      // Invalid JSON, just update text
     }
   };
 
+  const handleToggleMeasurements = () => {
+    setShowMeasurements(prev => !prev);
+    logEvent(`Measurements toggled: ${!showMeasurements ? 'On' : 'Off'}`);
+  };
+
+  const handleToggleTokens = () => {
+    setShowTokens(prev => !prev);
+    logEvent(`Tokens toggled: ${!showTokens ? 'On' : 'Off'}`);
+  };
+
+  const handleToggleAIControl = () => {
+    const newState = !isAIControlEnabled;
+    setIsAIControlEnabled(newState);
+    setWindows(prev => {
+      const maxZ = Math.max(...Object.values(prev).map((w: WindowState) => w.zIndex));
+      return {
+        ...prev,
+        ai: { ...prev.ai, isOpen: newState, zIndex: newState ? maxZ + 1 : prev.ai.zIndex }
+      };
+    });
+    logEvent(`AI Agent toggled: ${newState ? 'On' : 'Off'}`);
+  };
+
+  const handleGeminiApiKeyChange = (key: string) => {
+    setGeminiApiKey(key);
+    localStorage.setItem('geminiApiKey', key);
+    logEvent('Gemini API Key saved.');
+  };
+  
   const handleStageButtonClick = () => {
     logEvent('Component Interacted! (Triggered Action)');
-    triggerConfetti();
+    setConfettiTrigger(prev => prev + 1);
   };
 
   const undoRedoComponent = (
     <UndoRedo
-      onUndo={undo}
-      onRedo={redo}
+      onUndo={handleUndo}
+      onRedo={handleRedo}
       canUndo={history.length > 0}
       canRedo={future.length > 0}
     />
@@ -229,7 +355,7 @@ const Home = () => {
             key="control"
             {...windows.control}
             onClose={() => toggleWindow('control')}
-            onResize={(newHeight) => updateWindowHeight('control', newHeight)}
+            onResize={(newHeight) => handleResize('control', newHeight)}
             onFocus={() => bringToFront('control')}
             footer={undoRedoComponent}
           >
@@ -239,27 +365,27 @@ const Home = () => {
                 radiusMotionValue={radiusMotionValue}
                 onRadiusCommit={handleRadiusCommit}
                 showMeasurements={showMeasurements}
-                onToggleMeasurements={toggleMeasurements}
+                onToggleMeasurements={handleToggleMeasurements}
                 showTokens={showTokens}
-                onToggleTokens={toggleTokens}
+                onToggleTokens={handleToggleTokens}
                 showStyles={windows.styles.isOpen}
                 onToggleStyles={() => toggleWindow('styles')}
                 showSystemSpec={windows.systemSpec.isOpen}
                 onToggleSystemSpec={() => toggleWindow('systemSpec')}
                 // 3D Props
                 view3D={view3D}
-                onToggleView3D={toggleView3D}
+                onToggleView3D={() => setView3D(!view3D)}
                 layerSpacing={layerSpacing}
                 viewRotateX={viewRotateX}
                 viewRotateZ={viewRotateZ}
                 uiMode={uiMode}
                 onToggleUIMode={() => setUiMode(uiMode === 'default' ? 'lean' : 'default')}
                 showThemeToggle={showThemeToggle}
-                onToggleThemeButton={toggleThemeToggle}
-                isAIControlEnabled={windows.ai.isOpen}
-                onToggleAIControl={() => toggleWindow('ai')}
-                geminiApiKey={geminiKey}
-                onGeminiApiKeyChange={setGeminiKey}
+                onToggleThemeButton={() => setShowThemeToggle(!showThemeToggle)}
+                isAIControlEnabled={isAIControlEnabled}
+                onToggleAIControl={handleToggleAIControl}
+                geminiApiKey={geminiApiKey}
+                onGeminiApiKeyChange={handleGeminiApiKeyChange}
             />
           </FloatingWindow>
         )}
@@ -269,7 +395,7 @@ const Home = () => {
             key="code"
             {...windows.code}
             onClose={() => toggleWindow('code')}
-            onResize={(newHeight) => updateWindowHeight('code', newHeight)}
+            onResize={(newHeight) => handleResize('code', newHeight)}
             onFocus={() => bringToFront('code')}
             footer={undoRedoComponent}
           >
@@ -289,7 +415,7 @@ const Home = () => {
             key="console"
             {...windows.console}
             onClose={() => toggleWindow('console')}
-            onResize={(newHeight) => updateWindowHeight('console', newHeight)}
+            onResize={(newHeight) => handleResize('console', newHeight)}
             onFocus={() => bringToFront('console')}
             footer={undoRedoComponent}
           >
@@ -302,7 +428,7 @@ const Home = () => {
             key="styles"
             {...windows.styles}
             onClose={() => toggleWindow('styles')}
-            onResize={(newHeight) => updateWindowHeight('styles', newHeight)}
+            onResize={(newHeight) => handleResize('styles', newHeight)}
             onFocus={() => bringToFront('styles')}
           >
             <StyleGuidePanel />
@@ -314,7 +440,7 @@ const Home = () => {
             key="systemSpec"
             {...windows.systemSpec}
             onClose={() => toggleWindow('systemSpec')}
-            onResize={(newHeight) => updateWindowHeight('systemSpec', newHeight)}
+            onResize={(newHeight) => handleResize('systemSpec', newHeight)}
             onFocus={() => bringToFront('systemSpec')}
           >
             <SystemSpec />
@@ -327,14 +453,15 @@ const Home = () => {
             {...windows.ai}
             onClose={() => {
               toggleWindow('ai');
+              setIsAIControlEnabled(false);
             }}
-            onResize={(newHeight) => updateWindowHeight('ai', newHeight)}
+            onResize={(newHeight) => handleResize('ai', newHeight)}
             onFocus={() => bringToFront('ai')}
           >
             <AIPanel 
               appState={btnProps} 
               onUpdateState={(updates) => handlePropChange({ ...updates, componentType: 'custom' })}
-              apiKey={geminiKey}
+              apiKey={geminiApiKey}
             />
           </FloatingWindow>
         )}
@@ -353,23 +480,23 @@ const Home = () => {
           {...windows.control}
           onClose={() => toggleWindow('control')}
           onFocus={() => bringToFront('control')}
-          onResize={(newHeight) => updateWindowHeight('control', newHeight)}
+          onResize={(newHeight) => handleResize('control', newHeight)}
           footer={undoRedoComponent}
         >
           <TabbedPanel 
             panels={[
-              { id: 'control', title: 'Control', icon: <Sliders size={16} />, content: <ControlPanel btnProps={btnProps} onPropChange={handlePropChange} radiusMotionValue={radiusMotionValue} onRadiusCommit={handleRadiusCommit} showMeasurements={showMeasurements} onToggleMeasurements={toggleMeasurements} showTokens={showTokens} onToggleTokens={toggleTokens} 
+              { id: 'control', title: 'Control', icon: <Sliders size={16} />, content: <ControlPanel btnProps={btnProps} onPropChange={handlePropChange} radiusMotionValue={radiusMotionValue} onRadiusCommit={handleRadiusCommit} showMeasurements={showMeasurements} onToggleMeasurements={handleToggleMeasurements} showTokens={showTokens} onToggleTokens={handleToggleTokens} 
                 showStyles={windows.styles.isOpen}
                 onToggleStyles={() => toggleWindow('styles')}
                 showSystemSpec={windows.systemSpec.isOpen}
                 onToggleSystemSpec={() => toggleWindow('systemSpec')}
-                view3D={view3D} onToggleView3D={toggleView3D} layerSpacing={layerSpacing} viewRotateX={viewRotateX} viewRotateZ={viewRotateZ} uiMode={uiMode} onToggleUIMode={() => setUiMode(uiMode === 'default' ? 'lean' : 'default')}
+                view3D={view3D} onToggleView3D={() => setView3D(!view3D)} layerSpacing={layerSpacing} viewRotateX={viewRotateX} viewRotateZ={viewRotateZ} uiMode={uiMode} onToggleUIMode={() => setUiMode(prev => prev === 'default' ? 'lean' : 'default')}
                 showThemeToggle={showThemeToggle}
-                onToggleThemeButton={toggleThemeToggle}
-                isAIControlEnabled={windows.ai.isOpen}
-                onToggleAIControl={() => toggleWindow('ai')}
-                geminiApiKey={geminiKey}
-                onGeminiApiKeyChange={setGeminiKey} /> },
+                onToggleThemeButton={() => setShowThemeToggle(!showThemeToggle)}
+                isAIControlEnabled={isAIControlEnabled}
+                onToggleAIControl={handleToggleAIControl}
+                geminiApiKey={geminiApiKey}
+                onGeminiApiKeyChange={handleGeminiApiKeyChange} /> },
               { id: 'code', title: 'Code I/O', icon: <Code size={16} />, content: <CodePanel codeText={codeText} onCodeChange={handleCodeChange} onCopyCode={handleCopyCode} onFocus={() => setIsCodeFocused(true)} onBlur={() => setIsCodeFocused(false)} btnProps={btnProps} /> },
               { id: 'console', title: 'Console', icon: <Terminal size={16} />, content: <ConsolePanel logs={logs} /> },
             ]}

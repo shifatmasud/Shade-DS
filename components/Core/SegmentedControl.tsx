@@ -14,7 +14,7 @@ interface SegmentedControlProps {
   onSelect: (id: string) => void;
 }
 
-const SegmentedControl = React.forwardRef<HTMLDivElement, SegmentedControlProps>(({ items, activeId, onSelect }, ref) => {
+const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, onSelect }) => {
   const { theme } = useTheme();
 
   const containerStyle: React.CSSProperties = {
@@ -51,7 +51,7 @@ const SegmentedControl = React.forwardRef<HTMLDivElement, SegmentedControlProps>
   };
 
   return (
-    <div ref={ref} style={containerStyle}>
+    <div style={containerStyle}>
       {items.map((item) => {
         const isActive = item.id === activeId;
         return (
@@ -88,6 +88,6 @@ const SegmentedControl = React.forwardRef<HTMLDivElement, SegmentedControlProps>
       })}
     </div>
   );
-});
+};
 
 export default SegmentedControl;

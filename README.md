@@ -1,4 +1,4 @@
-# React 18 Meta Prototype & Design System Starter Kit
+# React 19 Meta Prototype & Design System Starter Kit
 
 [**Remix on AI Studio**](https://ai.studio/apps/4c5ad789-603f-46a9-bdad-8e14663811ed) | [**Vercel Demo**](https://shade-ds.vercel.app/)
 
@@ -8,7 +8,7 @@ This is a starter project for building modern, theme-aware React applications. I
 
 | Category | Details |
 | :--- | :--- |
-| **Framework** | React 18.2.0 (ESM via `importmap`) |
+| **Framework** | React 19.0.0 (ESM via `importmap`) |
 | **Styling** | CSS-in-JS (JS Objects), Semantic Design Tokens, No CSS Modules/Tailwind |
 | **Animation** | Framer Motion 12.x (Spring Physics, Layout Animations) |
 | **Typography** | Bebas Neue (Display), Cause (Quotes), Inter (UI), JetBrains Mono (Code) |
@@ -104,14 +104,14 @@ Imagine you're building with LEGOs. This project gives you a super organized box
 
 ## Recent Updates
 
+- **Physics Integration**: Integrated High-performance 3D physics using `@react-three/rapier`. The 3D scene now features gravity, collisions, and real-time interactive physics actors managed via a centralized `zustand` store.
+- **React 19 Migration**: Synchronized `importmap.js` with `package.json` to move the entire ecosystem to React 19.0.0. Updated documentation to reflect the new framework version.
 - **Reactive Architecture Integration**: Registered a high-performance runtime specification in Shade DSL. The system now strictly separates React's declarative rendering from imperative mutation loops (GSAP/Three.js/Framer) to achieve zero-rerender motion.
 - **Deep Linking & Routing**: Every main action and panel (Control, Code, Console, Tokens, Measurements, 3D) is now mapped to a unique URL extension. The app supports multi-state URLs (e.g., `/3d/tokens`) which are deterministically sorted for state stability.
 - **Vercel & Container Support**: Implemented `vercel.json` for native Vercel SPA routing and an Express `server.ts` for AI Studio container preview. This ensures direct navigation to sub-paths works flawlessly across all environments without 404 errors.
 - **AI Agent Enhancements**: Implemented a dedicated input field for the Gemini API key in the Control Panel's Agent section, with local storage persistence for convenience. The AI window now consistently opens centered on the screen and always appears on top of other windows for improved visibility.
 - **System Spec Window**: Added a dedicated floating window that outlines the project's core rules, engineering standards, and design system. Accessible via the "System Spec" toggle in the Inspector group.
 - **Interactive Visuals**: The System Spec window features custom SVG animations and a "Copy as Markdown" utility.
-- **Dependency Downgrade**: Transitioned core stack from React 19 to React 18.3.1 and @react-three/fiber from 9 to 8.17.14 to align with specific stability requirements and established modular patterns.
-- **Global State Management**: Migrated to **Zustand** for centralized, high-performance state management, implementing a Reactive Architecture (Target -> Mutate) that bridges modular React components with imperative animation systems.
 
 ## How to Get Started
 
