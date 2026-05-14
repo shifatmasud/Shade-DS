@@ -2,19 +2,19 @@
 
 [**Remix on AI Studio**](https://ai.studio/apps/4c5ad789-603f-46a9-bdad-8e14663811ed) | [**Vercel Demo**](https://shade-ds.vercel.app/)
 
-## Task: Hero Cube Auto-Rotation
-Implementing auto-rotation on the X-axis for the Hero Cube using GSAP for optimized movement timelines.
+## Task: Transition Optimization & Accordion Refresh
+Moving Lean Mode window into AnimatePresence for exit animation stability and restyling Accordion to a minimal, soft fill aesthetic.
 
 ### Architecture (IPO)
-- **Input**: Speed constants, Component Lifecycle.
-- **Process**: GSAP auto-play timeline targeting rotation.x.
-- **Output**: Smooth, infinite X-axis rotation in R3F scene.
+- **Input**: Prop states, UI Modes (Lean/Default), Theme Tokens.
+- **Process**: Relocate window instance inside Motion container; restyle Accordion using JS Object Styles.
+- **Output**: Seamless window transitions and a refined, integrated Accordion component.
 
 ### Action List
-1. [x] Research: Analyze `RotatingBox` in `scene.tsx`.
-2. [x] Model: Extract Shade DSL model for the component.
-3. [x] Execute: Implement `useGSAP` rotation logic.
-4. [x] Verify: Ensure smooth playback and no re-render loops.
+1. [x] Research: Locate window instantiation in `Home.tsx`.
+2. [x] Execute: Move Lean window into `AnimatePresence`.
+3. [x] Design: Restyle `Accordion.tsx` with softer backgrounds and refined typography.
+4. [x] Verify: Transition between modes and test Accordion expansion.
 5. [x] Document: Update noteBook and bugReport.
 
 ## Project Scan Sheet

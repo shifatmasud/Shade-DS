@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CaretDown } from 'phosphor-react';
+import { Plus } from 'phosphor-react';
 import { useTheme } from '../../Theme.tsx';
 
 interface AccordionProps {
@@ -12,50 +12,75 @@ interface AccordionProps {
 const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = false }) => {
   const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const containerStyle: React.CSSProperties = {
+    marginBottom: theme.spacing['Space.S'],
+    borderRadius: theme.radius['Radius.M'],
+    overflow: 'hidden',
+  };
 
   const headerStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: `${theme.spacing['Space.M']} 0`,
+    padding: `${theme.spacing['Space.M']} ${theme.spacing['Space.L']}`,
     cursor: 'pointer',
     userSelect: 'none',
-    borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`,
+    backgroundColor: 'transparent',
+    transition: `all ${theme.time['Time.2x']} ease`,
+    borderRadius: theme.radius['Radius.M'],
   };
 
   const titleStyle: React.CSSProperties = {
     ...theme.Type.Readable.Label.S,
-    color: theme.Color.Base.Content[2],
+    color: isHovered || isOpen ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2],
     textTransform: 'uppercase',
-    letterSpacing: '0.05em',
+    letterSpacing: '0.08em',
+    fontWeight: 600,
+    transition: `color ${theme.time['Time.2x']} ease`,
   };
 
-  const contentStyle: React.CSSProperties = {
-    padding: `${theme.spacing['Space.L']} 0`,
-    overflow: 'hidden',
+  const contentWrapperStyle: React.CSSProperties = {
+    padding: theme.spacing['Space.M'],
+    backgroundColor: theme.Color.Base.Surface[2],
+    borderRadius: theme.radius['Radius.M'],
+    margin: `0 ${theme.spacing['Space.L']} ${theme.spacing['Space.S']} ${theme.spacing['Space.L']}`,
   };
 
   return (
-    <div>
-      <div style={headerStyle} onClick={() => setIsOpen(!isOpen)}>
+    <div style={containerStyle}>
+      <div 
+        style={headerStyle} 
+        onClick={() => setIsOpen(!isOpen)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         <span style={titleStyle}>{title}</span>
         <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
+          initial={false}
+          animate={{ 
+            rotate: isOpen ? 45 : 0,
+            scale: isHovered ? 1.1 : 1,
+            color: isOpen ? theme.Color.Base.Content[1] : theme.Color.Base.Content[3]
+          }}
+          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
         >
-          <CaretDown size={16} color={theme.Color.Base.Content[3]} />
+          <Plus size={14} weight="bold" />
         </motion.div>
       </div>
       <AnimatePresence initial={false}>
         {isOpen && (
           <motion.div
-            style={contentStyle}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            key="content"
+            initial={{ height: 0, opacity: 0, y: -4 }}
+            animate={{ height: 'auto', opacity: 1, y: 0 }}
+            exit={{ height: 0, opacity: 0, y: -4 }}
+            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
           >
-            {children}
+            <div style={contentWrapperStyle}>
+              {children}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

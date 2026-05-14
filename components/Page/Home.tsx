@@ -465,43 +465,44 @@ const Home = () => {
             />
           </FloatingWindow>
         )}
+
+        {/* --- LEAN MODE WINDOW --- */}
+        {/* Moved inside AnimatePresence for exit transitions */}
+        {uiMode === 'lean' && windows.control.isOpen && (
+          <FloatingWindow
+            key="lean-window"
+            {...windows.control}
+            onClose={() => toggleWindow('control')}
+            onFocus={() => bringToFront('control')}
+            onResize={(newHeight) => handleResize('control', newHeight)}
+            footer={undoRedoComponent}
+          >
+            <TabbedPanel 
+              panels={[
+                { id: 'control', title: 'Control', icon: <Sliders size={16} />, content: <ControlPanel btnProps={btnProps} onPropChange={handlePropChange} radiusMotionValue={radiusMotionValue} onRadiusCommit={handleRadiusCommit} showMeasurements={showMeasurements} onToggleMeasurements={handleToggleMeasurements} showTokens={showTokens} onToggleTokens={handleToggleTokens} 
+                  showStyles={windows.styles.isOpen}
+                  onToggleStyles={() => toggleWindow('styles')}
+                  showSystemSpec={windows.systemSpec.isOpen}
+                  onToggleSystemSpec={() => toggleWindow('systemSpec')}
+                  view3D={view3D} onToggleView3D={() => setView3D(!view3D)} layerSpacing={layerSpacing} viewRotateX={viewRotateX} viewRotateZ={viewRotateZ} uiMode={uiMode} onToggleUIMode={() => setUiMode(prev => prev === 'default' ? 'lean' : 'default')}
+                  showThemeToggle={showThemeToggle}
+                  onToggleThemeButton={() => setShowThemeToggle(!showThemeToggle)}
+                  isAIControlEnabled={isAIControlEnabled}
+                  onToggleAIControl={handleToggleAIControl}
+                  geminiApiKey={geminiApiKey}
+                  onGeminiApiKeyChange={handleGeminiApiKeyChange} /> },
+                { id: 'code', title: 'Code I/O', icon: <Code size={16} />, content: <CodePanel codeText={codeText} onCodeChange={handleCodeChange} onCopyCode={handleCopyCode} onFocus={() => setIsCodeFocused(true)} onBlur={() => setIsCodeFocused(false)} btnProps={btnProps} /> },
+                { id: 'console', title: 'Console', icon: <Terminal size={16} />, content: <ConsolePanel logs={logs} /> },
+              ]}
+            />
+          </FloatingWindow>
+        )}
       </AnimatePresence>
 
       {uiMode === 'default' ? (
         <Dock windows={windows} toggleWindow={toggleWindow} uiMode={uiMode} />
       ) : (
         <Dock windows={{ settings: { id: 'settings', title: 'Settings', isOpen: windows.control.isOpen, zIndex: 1, x: 0, y: 0, height: 600 } }} toggleWindow={() => toggleWindow('control')} uiMode={uiMode} />
-      )}
-
-      {/* --- LEAN MODE WINDOW --- */}
-      {uiMode === 'lean' && windows.control.isOpen && (
-        <FloatingWindow
-          key="lean-window"
-          {...windows.control}
-          onClose={() => toggleWindow('control')}
-          onFocus={() => bringToFront('control')}
-          onResize={(newHeight) => handleResize('control', newHeight)}
-          footer={undoRedoComponent}
-        >
-          <TabbedPanel 
-            panels={[
-              { id: 'control', title: 'Control', icon: <Sliders size={16} />, content: <ControlPanel btnProps={btnProps} onPropChange={handlePropChange} radiusMotionValue={radiusMotionValue} onRadiusCommit={handleRadiusCommit} showMeasurements={showMeasurements} onToggleMeasurements={handleToggleMeasurements} showTokens={showTokens} onToggleTokens={handleToggleTokens} 
-                showStyles={windows.styles.isOpen}
-                onToggleStyles={() => toggleWindow('styles')}
-                showSystemSpec={windows.systemSpec.isOpen}
-                onToggleSystemSpec={() => toggleWindow('systemSpec')}
-                view3D={view3D} onToggleView3D={() => setView3D(!view3D)} layerSpacing={layerSpacing} viewRotateX={viewRotateX} viewRotateZ={viewRotateZ} uiMode={uiMode} onToggleUIMode={() => setUiMode(prev => prev === 'default' ? 'lean' : 'default')}
-                showThemeToggle={showThemeToggle}
-                onToggleThemeButton={() => setShowThemeToggle(!showThemeToggle)}
-                isAIControlEnabled={isAIControlEnabled}
-                onToggleAIControl={handleToggleAIControl}
-                geminiApiKey={geminiApiKey}
-                onGeminiApiKeyChange={handleGeminiApiKeyChange} /> },
-              { id: 'code', title: 'Code I/O', icon: <Code size={16} />, content: <CodePanel codeText={codeText} onCodeChange={handleCodeChange} onCopyCode={handleCopyCode} onFocus={() => setIsCodeFocused(true)} onBlur={() => setIsCodeFocused(false)} btnProps={btnProps} /> },
-              { id: 'console', title: 'Console', icon: <Terminal size={16} />, content: <ConsolePanel logs={logs} /> },
-            ]}
-          />
-        </FloatingWindow>
       )}
     </div>
   );
