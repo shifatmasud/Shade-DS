@@ -1,5 +1,5 @@
 {
-  "name": "Design System Starter Kit",
-  "description": "React 19 Meta Prototype & Design System Starter Kit with architectural focus",
+  "name": "Shade DSL Starter Kit",
+  "description": "Bidirectional Shade DSL React 19 starter for modular design systems and zero-rerender motion architecture.",
   "requestFramePermissions": []
 }

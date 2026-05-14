@@ -4,6 +4,11 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
+- **[2026-05-14 07:46]**: Documentation Refinement & "No Task in README" Enforcement.
+    - Removed Task, Architecture (IPO), and Action List sections from `README.md` as per new user rules.
+    - Updated `metadata.json` to "Shade DSL Starter Kit" with refined description.
+    - Verified architectural alignment between `AGENTS.md`, `LLM.md`, and `README.md`.
+
 - **[2026-05-14 07:39]**: Documentation & Repository Synchronization.
     - Synchronized `README.md` and `LLM.md` with the current 50+ component file tree.
     - Updated project descriptors to "Shade DSL Starter Kit" to match metadata.
