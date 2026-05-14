@@ -12,10 +12,6 @@ let reverb: Tone.Reverb | null = null;
 let windFilter: Tone.Filter | null = null;
 let windNoise: Tone.Noise | null = null;
 let windEnv: Tone.AmplitudeEnvelope | null = null;
-let woodSynth: Tone.MembraneSynth | null = null;
-let woodNoise: Tone.Noise | null = null;
-let woodEnv: Tone.AmplitudeEnvelope | null = null;
-let woodFilter: Tone.Filter | null = null;
 let rippleSynth: Tone.MembraneSynth | null = null;
 
 // Initialize audio context and chain
@@ -25,18 +21,19 @@ async function init() {
 
   initPromise = (async () => {
     try {
+      // Primary Tone start
       await Tone.start();
+      console.log('Tone.js: Context started', Tone.context.state);
 
-      // Master Reverb for space
+      // Master Reverb (reduced wet slightly to keep sounds direct/loud)
       reverb = new Tone.Reverb({
-        decay: 2.0,
-        preDelay: 0.02,
+        decay: 1.5,
+        preDelay: 0.01,
         wet: 0.1
       }).toDestination();
       await reverb.generate();
 
-      // --- WIND (Hover) Setup ---
-      // Deeper, more subtle wind
+      // --- WIND (Hover) ---
       windFilter = new Tone.Filter({
         type: 'bandpass',
         frequency: 800, 
@@ -51,45 +48,13 @@ async function init() {
       }).connect(windFilter);
 
       windNoise = new Tone.Noise('pink').connect(windEnv);
-      windNoise.volume.value = -3;
+      windNoise.volume.value = 0; // MAX Volume for testing
       windNoise.start();
 
       const windLFO = new Tone.LFO(0.3, 600, 1000).connect(windFilter.frequency);
       windLFO.start();
 
-      // --- WOOD (Click) Setup ---
-      // Mellow wood body
-      woodFilter = new Tone.Filter({
-        type: 'lowpass',
-        frequency: 1200 
-      }).connect(reverb);
-
-      woodEnv = new Tone.AmplitudeEnvelope({
-        attack: 0.001,
-        decay: 0.05,
-        sustain: 0,
-        release: 0.05
-      }).connect(woodFilter);
-
-      woodNoise = new Tone.Noise('pink').connect(woodEnv);
-      woodNoise.volume.value = -10;
-      woodNoise.start();
-
-      woodSynth = new Tone.MembraneSynth({
-        pitchDecay: 0.005,
-        octaves: 1,
-        oscillator: { type: 'sine' },
-        envelope: {
-          attack: 0.001,
-          decay: 0.08,
-          sustain: 0,
-          release: 0.08
-        }
-      }).connect(reverb);
-      woodSynth.volume.value = -15;
-
-      // --- WATER (Ripple) Setup ---
-      // Resonant "bloop" sound using a membrane synth for pitch glide
+      // --- WATER (Ripple/Bloop) ---
       rippleSynth = new Tone.MembraneSynth({
         pitchDecay: 0.05,
         octaves: 2,
@@ -101,33 +66,36 @@ async function init() {
           release: 0.1
         }
       }).connect(reverb);
-      rippleSynth.volume.value = -18;
+      rippleSynth.volume.value = 0; // MAX Volume for testing
       
       isInitialized = true;
+      console.log('Tone.js: Engine Ready');
     } catch (e) {
-      console.error('Failed to initialize Tone.js', e);
+      console.error('Tone.js: Init Error', e);
     }
   })();
   
   return initPromise;
 }
 
-// Global unlock mechanism for browsers that block audio until a user interaction.
+// Global unlock mechanism: Must be triggered by a genuine USER EVENT
 if (typeof window !== 'undefined') {
   const unlock = async () => {
-    try {
-      if (!isInitialized) {
-        await init();
-      } else if (Tone.context.state !== 'running') {
-        await Tone.context.resume();
-        await Tone.start();
-      }
-      
-      // Remove listeners after successful interaction
+    console.log('Tone.js: Attempting Global Unlock...', Tone.context.state);
+    
+    if (!isInitialized) {
+      await init();
+    }
+    
+    if (Tone.context.state !== 'running') {
+      await Tone.context.resume();
+      await Tone.start();
+    }
+
+    if (Tone.context.state === 'running') {
+      console.log('Tone.js: Context UNLOCKED and RUNNING');
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('click', unlock);
-    } catch (err) {
-      console.warn('Audio unlock failed:', err);
     }
   };
   window.addEventListener('pointerdown', unlock);
@@ -164,27 +132,27 @@ export async function playSound(type: SoundType) {
   switch (type) {
     case 'hover':
       if (windEnv) {
-        windEnv.triggerAttackRelease('0.3', time, 0.1);
+        windEnv.triggerAttackRelease('0.3', time, 0.2); // Slightly more powerful hover
       }
       break;
       
     case 'click':
       if (rippleSynth) {
-        // Pure "bloop" sound - subtle and clear
-        rippleSynth.triggerAttackRelease('C5', '0.05', time, 0.2);
+        // Pure "bloop" sound
+        rippleSynth.triggerAttackRelease('C5', '0.05', time, 0.8);
       }
       break;
       
     case 'press':
       if (rippleSynth) {
         // Deeper "bloop" for press
-        rippleSynth.triggerAttackRelease('G4', '0.08', time, 0.3);
+        rippleSynth.triggerAttackRelease('G4', '0.08', time, 1.0);
       }
       break;
       
     case 'drag':
       if (windEnv) {
-        windEnv.triggerAttackRelease('0.05', time, 0.05);
+        windEnv.triggerAttackRelease('0.05', time, 0.1);
       }
       break;
   }
