@@ -140,13 +140,24 @@ let lastScheduledTime = 0;
 
 export async function playSound(type: SoundType) {
   if (!isInitialized) {
+    console.log('SoundService: Initializing on playSound call');
     await init();
   }
   
-  // Ensure strict monotonicity for the scheduler to prevent overlapping errors
-  let time = Tone.now() + 0.01;
+  // Critical for Vercel/Production: Check and resume context state if it suspended
+  if (Tone.context.state !== 'running') {
+    try {
+      console.log('SoundService: Resuming Tone.context');
+      await Tone.context.resume();
+    } catch (e) {
+      console.warn('SoundService: Could not resume context', e);
+    }
+  }
+  
+  // Use a slightly larger lookahead (0.05) to ensure stability in production environments
+  let time = Tone.now() + 0.05;
   if (time <= lastScheduledTime) {
-    time = lastScheduledTime + 0.005; 
+    time = lastScheduledTime + 0.01; 
   }
   lastScheduledTime = time;
 
