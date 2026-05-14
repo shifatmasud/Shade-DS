@@ -4,9 +4,19 @@ A log of all tasks, ideas, and progress for this project.
 
 ## Done
 
-- **[2026-05-14 05:40]**: Optimized Lean Mode Transitions & Refined Accordion.
-    - Moved the Lean Mode `FloatingWindow` instantiation inside the main `AnimatePresence` block in `Home.tsx` to enable proper exit animations during UI mode switching.
-    - Redesigned `Accordion.tsx` using a minimal, "softer fill" aesthetic with subtle background highlights and rounded container transitions instead of simple border splits.
+- **[2026-05-14 06:14]**: Accordion refinement (Body Transparency).
+    - Removed `backgroundColor` and `borderRadius` from the Accordion body wrapper to make the content seamless and fully transparent, matching the minimal aesthetic requested.
+[diff_block_start]
+@@ -4,6 +4,11 @@
+ 
+ ## Done
+ 
++- **[2026-05-14 06:14]**: Accordion refinement (Body Transparency).
++    - Removed `backgroundColor` and `borderRadius` from the Accordion body wrapper to make the content seamless and fully transparent, matching the minimal aesthetic requested.
++
+ - **[2026-05-14 05:40]**: Optimized Lean Mode Transitions & Refined Accordion.
+     - Moved the Lean Mode `FloatingWindow` instantiation inside the main `AnimatePresence` block in `Home.tsx` to enable proper exit animations during UI mode switching.
+     - Redesigned `Accordion.tsx` using a minimal, "softer fill" aesthetic with subtle background highlights and rounded container transitions instead of simple border splits.
     - Adjusted animation easing in Accordion for a more "elastic" feel using custom Cubic Bezier curves.
 
 - **[2026-05-13]**: Implemented Hero Cube X-axis auto-rotation via `useGSAP`.

@@ -43,8 +43,6 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
 
   const contentWrapperStyle: React.CSSProperties = {
     padding: theme.spacing['Space.M'],
-    backgroundColor: theme.Color.Base.Surface[2],
-    borderRadius: theme.radius['Radius.M'],
     margin: `0 ${theme.spacing['Space.L']} ${theme.spacing['Space.S']} ${theme.spacing['Space.L']}`,
   };
 
