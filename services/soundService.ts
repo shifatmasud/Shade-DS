@@ -18,6 +18,7 @@ let windFilter: any = null;
 let windNoise: any = null;
 let windEnv: any = null;
 let rippleSynth: any = null;
+let clickSynth: any = null;
 
 async function getTone() {
   if (typeof window === 'undefined') return null;
@@ -47,9 +48,9 @@ async function init() {
 
       // Master Reverb (reduced wet slightly to keep sounds direct/loud)
       reverb = new T.Reverb({
-        decay: 1.5,
+        decay: 0.8,
         preDelay: 0.01,
-        wet: 0.1
+        wet: 0.05
       }).toDestination();
       await reverb.generate();
 
@@ -57,18 +58,18 @@ async function init() {
       windFilter = new T.Filter({
         type: 'bandpass',
         frequency: 800, 
-        Q: 0.8
+        Q: 1.2
       }).connect(reverb);
 
       windEnv = new T.AmplitudeEnvelope({
-        attack: 0.2,
-        decay: 0.4,
+        attack: 0.1,
+        decay: 0.2,
         sustain: 0,
-        release: 0.3
+        release: 0.1
       }).connect(windFilter);
 
       windNoise = new T.Noise('pink').connect(windEnv);
-      windNoise.volume.value = -8; 
+      windNoise.volume.value = -24; 
       windNoise.start();
 
       const windLFO = new T.LFO(0.3, 600, 1000).connect(windFilter.frequency);
@@ -76,17 +77,28 @@ async function init() {
 
       // --- WATER (Ripple/Bloop) ---
       rippleSynth = new T.MembraneSynth({
-        pitchDecay: 0.05,
-        octaves: 2,
+        pitchDecay: 0.15, // More pronounced pitch-down ease
+        octaves: 3.5,     // Steeper drop for organic feel
         oscillator: { type: 'sine' },
         envelope: {
-          attack: 0.001,
-          decay: 0.15,
+          attack: 0.002, // Sharper start
+          decay: 0.1,
           sustain: 0,
           release: 0.1
         }
       }).connect(reverb);
-      rippleSynth.volume.value = -18; 
+      rippleSynth.volume.value = -14; 
+
+      // --- CLICK (Mechanical Snap) ---
+      clickSynth = new T.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: {
+          attack: 0.001,
+          decay: 0.02, // Tiny burst
+          sustain: 0
+        }
+      }).connect(reverb);
+      clickSynth.volume.value = -28; 
       
       isInitialized = true;
       console.log('Tone.js: Engine Ready');
@@ -164,9 +176,13 @@ export async function playSound(type: SoundType) {
       break;
       
     case 'click':
-      if (rippleSynth) {
-        // Pure "bloop" sound - minimal and clean
-        rippleSynth.triggerAttackRelease('C5', '0.05', time, 0.4);
+      if (rippleSynth || clickSynth) {
+        // Kill any lingering airy noise from hover before clicking
+        if (windEnv) windEnv.triggerRelease(time);
+        
+        // Organic Click: Deep body with mechanical snap
+        if (rippleSynth) rippleSynth.triggerAttackRelease('C4', '0.05', time, 0.5);
+        if (clickSynth) clickSynth.triggerAttackRelease('0.05', time, 0.4);
       }
       break;
       
