@@ -1,4 +1,4 @@
-# REVELO Shade DSL
+# React 19 Meta Prototype & Design System Starter Kit
 
 [**Remix on AI Studio**](https://ai.studio/apps/4c5ad789-603f-46a9-bdad-8e14663811ed) | [**Vercel Demo**](https://shade-ds.vercel.app/)
 
@@ -48,7 +48,7 @@ We build apps like LEGO. Each piece has a specific size and place!
 -   **`Package/`**: Small LEGO sets built from bricks (Panels, Windows, Card components).
 -   **`Section/`**: Rooms made of sets (The Dock, The Main Stage).
 -   **`Page/`**: Full buildings (Home screen).
--   **`App/`**: The entire LEGO City (The full REVELO application).
+-   **`App/`**: The entire LEGO City (The full application).
 -   **`Framer/`**: The secret workshop where we translate complex designs into code.
 
 ## Directory Tree
@@ -68,7 +68,7 @@ We build apps like LEGO. Each piece has a specific size and place!
 │       ├── Dock.tsx
 │       └── Stage.tsx
 ├── Framer/
-│   ├── REVELO_Decompiled.tsx
+│   ├── Decompiled_Architecture.tsx
 │   └── ... (Design System Sync)
 ├── README.md
 ├── noteBook.md

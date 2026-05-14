@@ -1,5 +1,5 @@
 {
-  "name": "REVELO Shade DSL",
-  "description": "Architecture-first React to Shade DSL translator with Reactive Runtime support",
+  "name": "Design System Starter Kit",
+  "description": "React 19 Meta Prototype & Design System Starter Kit with architectural focus",
   "requestFramePermissions": []
 }

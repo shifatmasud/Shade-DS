@@ -11,7 +11,7 @@ Hello! You are an AI assistant helping to build this React application. Here are
 - `components/Section/Dock.tsx`, `components/Section/Stage.tsx`
 - `components/Package/`: `AIPanel`, `CodePanel`, `ConsolePanel`, `ControlPanel`, `FloatingWindow`, `SystemSpecWindow`, `UndoRedo`, `TokenBadge`, `TokenConnector`, `MeasurementTool`
 - `components/Core/`: `Accordion`, `Button`, `ColorPicker`, `DockIcon`, `Input`, `LogEntry`, `RangeSlider`, `Select`, `StateLayer`, `TextArea`, `Toggle`, `Confetti`, `AnimatedCounter`, `ApiInput`
-- `Framer/`: `REVELO_Decompiled.tsx`, `Styler.tsx`, `createStore.ts`
+- `Framer/`: `Decompiled_Architecture.tsx`, `Styler.tsx`, `createStore.ts`
 - `README.md`, `LLM.md`, `noteBook.md`, `bugReport.md`
 
 ## Simple Rules (ELI10 Version)

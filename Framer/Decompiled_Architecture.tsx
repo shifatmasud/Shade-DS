@@ -20,16 +20,16 @@ import gsap from "https://esm.sh/gsap@3.13.0";
 import ComponentPlaceholder from "https://framer.com/m/Component-Placeholder-tT4T.js@2q81HdTqDPDbdK8wHUgC";
 declare global {
     interface Window {
-        revelo: any;
+        shade: any;
     }
 }
 const version = "2.0.0";
 gsap.registerPlugin(ScrollTrigger);
 if (typeof window !== "undefined") {
-    window.revelo = {
+    window.shade = {
         version
     };
-    const css = `.revelo-fallback, .revelo-fallback * { color: #0000 !important; -webkit-text-stroke-color: #0000 !important; } .revelo .elements>:not(:first-child),.revelo .lines>:not(:first-child):not(p),.revelo .words>:not(:first-child),.revelo .chars>:not(:first-child) { inset:0; position:absolute; } .revelo [data-framer-name] {height:auto;width: 100% !important; opacity:1 !important} .elements *,.lines *,.words *,.chars *{transform-style:preserve-3d;} .lines{white-space:nowrap;}`
+    const css = `.shade-fallback, .shade-fallback * { color: #0000 !important; -webkit-text-stroke-color: #0000 !important; } .shade .elements>:not(:first-child),.shade .lines>:not(:first-child):not(p),.shade .words>:not(:first-child),.shade .chars>:not(:first-child) { inset:0; position:absolute; } .shade [data-framer-name] {height:auto;width: 100% !important; opacity:1 !important} .elements *,.lines *,.words *,.chars *{transform-style:preserve-3d;} .lines{white-space:nowrap;}`
       , head = document.head || document.getElementsByTagName("head")[0]
       , style = document.createElement("style");
     head.appendChild(style);
@@ -497,8 +497,8 @@ export default function Component({viewport, section, elements, lines, words, ch
                 style={{
                     width: "100%"
                 }}
-                title="Revelo"
-                text="<p>To add text to reveal on your page:<br/><br/>First, create a Text directly on Framer canvas (outside of any Breakpoint),<br/> and make sure to wrap it inside a Stack.<br/><br/>Then, select it via the 'Text Stack' dropdown in Revelo's properties panel.<br/>Or connect it using the component handle.<br/></p>" />;
+                title="Architecture"
+                text="<p>To add text to reveal on your page:<br/><br/>First, create a Text directly on Framer canvas (outside of any Breakpoint),<br/> and make sure to wrap it inside a Stack.<br/><br/>Then, select it via the 'Text Stack' dropdown in the properties panel.<br/>Or connect it using the component handle.<br/></p>" />;
         }
     }
     // const children = Children.map(textComponent, (child) =>
@@ -533,7 +533,7 @@ export default function Component({viewport, section, elements, lines, words, ch
     //     console.log(textComponent, children)
     // }
     const isStatic = linesArray.length === 0 && wordsArray.length === 0 && charsArray.length === 0 && elementsArray.length === 0;
-    // return <div className="revelo">{children}</div>
+    // return <div className="shade">{children}</div>
     const elementRef = useRef<HTMLDivElement>(null);
     const fallbackRef = useRef<HTMLDivElement>(null);
     const splitRef = useRef<HTMLDivElement>(null);
@@ -541,7 +541,7 @@ export default function Component({viewport, section, elements, lines, words, ch
     const [timeline,setTimeline] = useState<any>(null);
     const [reverseTimeline,setReverseTimeline] = useState<any>(null);
     useEffect( () => {
-        window.revelo.isLegacyMode = isLegacyMode;
+        window.shade.isLegacyMode = isLegacyMode;
         if (!linesArray.length && !wordsArray.length && !charsArray.length && !elementsArray.length)
             return;
         // if (!linesArray.length && !wordsArray.length && !charsArray.length) {
@@ -695,7 +695,7 @@ export default function Component({viewport, section, elements, lines, words, ch
                                 }, 0);
                                 // return
                                 // splitted[key].forEach((node) => {
-                                //     node.innerHTML = `<div>${node.innerHTML}</div><div class="revelo-clone">${node.innerHTML}</div>`
+                                //     node.innerHTML = `<div>${node.innerHTML}</div><div class="shade-clone">${node.innerHTML}</div>`
                                 // })
                                 if (value.perspective > 0) {
                                     parentNodes.forEach(node => {
@@ -999,7 +999,7 @@ export default function Component({viewport, section, elements, lines, words, ch
     }
     , [section, type, isOnFramerCanvas, preview, viewport, timeline, reverseTimeline, repeat, replay, reverse]);
     if (isStatic) {
-        return <div className="revelo">{children}</div>;
+        return <div className="shade">{children}</div>;
     }
     return (
         <Fragment>
@@ -1008,12 +1008,12 @@ export default function Component({viewport, section, elements, lines, words, ch
                 style={{
                     opacity: 0
                 }}
-                className="revelo"
+                className="shade"
             >
                 <div ref={splitRef}>{children}</div>
                 <div
                     ref={fallbackRef}
-                    className="revelo-fallback"
+                    className="shade-fallback"
                     style={{
                         position: "absolute",
                         inset: 0
@@ -1025,7 +1025,7 @@ export default function Component({viewport, section, elements, lines, words, ch
         </Fragment>
     );
 }
-Component.displayName = "Revelo";
+Component.displayName = "Architecture";
 addPropertyControls(Component, {
     textComponent: {
         title: "Text Stack",
@@ -1201,4 +1201,4 @@ addPropertyControls(Component, {
         }
     }
 }*/
-//# sourceMappingURL=./Revelo.map
+//# sourceMappingURL=./Architecture.map
