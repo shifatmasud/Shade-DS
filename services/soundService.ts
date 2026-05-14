@@ -2,17 +2,34 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import * as Tone from 'tone';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
+// We use dynamic imports for Tone to avoid SSR issues on platforms like Vercel
+let Tone: typeof import('tone') | null = null;
 let isInitialized = false;
 let initPromise: Promise<void> | null = null;
 
 // Instruments and Effects
-let reverb: Tone.Reverb | null = null;
-let windFilter: Tone.Filter | null = null;
-let windNoise: Tone.Noise | null = null;
-let windEnv: Tone.AmplitudeEnvelope | null = null;
-let rippleSynth: Tone.MembraneSynth | null = null;
+let reverb: any = null;
+let windFilter: any = null;
+let windNoise: any = null;
+let windEnv: any = null;
+let rippleSynth: any = null;
+
+async function getTone() {
+  if (typeof window === 'undefined') return null;
+  if (!Tone) {
+    try {
+      Tone = await import('tone');
+    } catch (e) {
+      console.error('Failed to load Tone.js module:', e);
+    }
+  }
+  return Tone;
+}
 
 // Initialize audio context and chain
 async function init() {
@@ -21,12 +38,15 @@ async function init() {
 
   initPromise = (async () => {
     try {
+      const T = await getTone();
+      if (!T) return;
+
       // Primary Tone start
-      await Tone.start();
-      console.log('Tone.js: Context started', Tone.context.state);
+      await T.start();
+      console.log('Tone.js: Context started', T.context.state);
 
       // Master Reverb (reduced wet slightly to keep sounds direct/loud)
-      reverb = new Tone.Reverb({
+      reverb = new T.Reverb({
         decay: 1.5,
         preDelay: 0.01,
         wet: 0.1
@@ -34,28 +54,28 @@ async function init() {
       await reverb.generate();
 
       // --- WIND (Hover) ---
-      windFilter = new Tone.Filter({
+      windFilter = new T.Filter({
         type: 'bandpass',
         frequency: 800, 
         Q: 0.8
       }).connect(reverb);
 
-      windEnv = new Tone.AmplitudeEnvelope({
+      windEnv = new T.AmplitudeEnvelope({
         attack: 0.2,
         decay: 0.4,
         sustain: 0,
         release: 0.3
       }).connect(windFilter);
 
-      windNoise = new Tone.Noise('pink').connect(windEnv);
+      windNoise = new T.Noise('pink').connect(windEnv);
       windNoise.volume.value = 0; // MAX Volume for testing
       windNoise.start();
 
-      const windLFO = new Tone.LFO(0.3, 600, 1000).connect(windFilter.frequency);
+      const windLFO = new T.LFO(0.3, 600, 1000).connect(windFilter.frequency);
       windLFO.start();
 
       // --- WATER (Ripple/Bloop) ---
-      rippleSynth = new Tone.MembraneSynth({
+      rippleSynth = new T.MembraneSynth({
         pitchDecay: 0.05,
         octaves: 2,
         oscillator: { type: 'sine' },
@@ -81,25 +101,30 @@ async function init() {
 // Global unlock mechanism: Must be triggered by a genuine USER EVENT
 if (typeof window !== 'undefined') {
   const unlock = async () => {
-    console.log('Tone.js: Attempting Global Unlock...', Tone.context.state);
-    
+    const T = await getTone();
+    if (!T) return;
+
     if (!isInitialized) {
       await init();
     }
     
-    if (Tone.context.state !== 'running') {
-      await Tone.context.resume();
-      await Tone.start();
+    if (T.context.state !== 'running') {
+      try {
+        await T.context.resume();
+        await T.start();
+      } catch (e) {
+        console.warn('Tone.js: Resume failed', e);
+      }
     }
 
-    if (Tone.context.state === 'running') {
+    if (T.context.state === 'running') {
       console.log('Tone.js: Context UNLOCKED and RUNNING');
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('click', unlock);
     }
   };
-  window.addEventListener('pointerdown', unlock);
-  window.addEventListener('click', unlock);
+  window.addEventListener('pointerdown', unlock, { passive: true });
+  window.addEventListener('click', unlock, { passive: true });
 }
 
 export type SoundType = 'click' | 'hover' | 'press' | 'drag';
@@ -107,23 +132,25 @@ export type SoundType = 'click' | 'hover' | 'press' | 'drag';
 let lastScheduledTime = 0;
 
 export async function playSound(type: SoundType) {
+  const T = await getTone();
+  if (!T) return;
+
   if (!isInitialized) {
-    console.log('SoundService: Initializing on playSound call');
     await init();
   }
   
   // Critical for Vercel/Production: Check and resume context state if it suspended
-  if (Tone.context.state !== 'running') {
+  if (T.context.state !== 'running') {
     try {
-      console.log('SoundService: Resuming Tone.context');
-      await Tone.context.resume();
+      await T.context.resume();
     } catch (e) {
-      console.warn('SoundService: Could not resume context', e);
+      // Silent fail if context can't resume
+      return;
     }
   }
   
   // Use a slightly larger lookahead (0.05) to ensure stability in production environments
-  let time = Tone.now() + 0.05;
+  let time = T.now() + 0.05;
   if (time <= lastScheduledTime) {
     time = lastScheduledTime + 0.01; 
   }
@@ -157,3 +184,4 @@ export async function playSound(type: SoundType) {
       break;
   }
 }
+
