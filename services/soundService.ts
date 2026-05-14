@@ -112,6 +112,28 @@ async function init() {
   return initPromise;
 }
 
+// Global unlock mechanism for browsers that block audio until a user interaction.
+if (typeof window !== 'undefined') {
+  const unlock = async () => {
+    try {
+      if (!isInitialized) {
+        await init();
+      } else if (Tone.context.state !== 'running') {
+        await Tone.context.resume();
+        await Tone.start();
+      }
+      
+      // Remove listeners after successful interaction
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('click', unlock);
+    } catch (err) {
+      console.warn('Audio unlock failed:', err);
+    }
+  };
+  window.addEventListener('pointerdown', unlock);
+  window.addEventListener('click', unlock);
+}
+
 export type SoundType = 'click' | 'hover' | 'press' | 'drag';
 
 let lastScheduledTime = 0;
