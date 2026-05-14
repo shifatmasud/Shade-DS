@@ -1,38 +1,35 @@
-# React 19 Meta Prototype & Design System Starter Kit
+# REVELO Shade DSL
 
 [**Remix on AI Studio**](https://ai.studio/apps/4c5ad789-603f-46a9-bdad-8e14663811ed) | [**Vercel Demo**](https://shade-ds.vercel.app/)
 
-## Task: Transition Optimization & Accordion Refresh
-Moving Lean Mode window into AnimatePresence for exit animation stability and restyling Accordion to a minimal, soft fill aesthetic.
+## Task: Maintenance & System Synchronization
+Synchronizing the project documentation with the current file tree and logging recent architectural refinements.
 
 ### Architecture (IPO)
-- **Input**: Prop states, UI Modes (Lean/Default), Theme Tokens.
-- **Process**: Relocate window instance inside Motion container; restyle Accordion using JS Object Styles.
-- **Output**: Seamless window transitions and a refined, integrated Accordion component.
+- **Input**: Current file system state, noteBook logs, metadata.
+- **Process**: Mapping the modular hierarchy and describing the reactive runtime specification.
+- **Output**: Aligned multi-tier documentation (README, LLM, Notebook).
 
 ### Action List
-1. [x] Research: Locate window instantiation in `Home.tsx`.
-2. [x] Execute: Move Lean window into `AnimatePresence`.
-3. [x] Design: Restyle `Accordion.tsx` with softer backgrounds and refined typography.
-4. [x] Verify: Transition between modes and test Accordion expansion.
-5. [x] Document: Update noteBook and bugReport.
+1. [x] Research: Audit the `/components` and `/Framer` directories.
+2. [x] Execute: Update `README.md` and `LLM.md` with accurate file paths.
+3. [x] Design: Clean up the Task section for next-milestone readiness.
+4. [x] Document: Update `noteBook.md` and `bugReport.md` with latest status.
 
 ## Project Scan Sheet
 
 | Category | Details |
 | :--- | :--- |
-| **Framework** | React 19.0.0 (ESM via `importmap`) |
-| **Styling** | CSS-in-JS (JS Objects), Semantic Design Tokens, No CSS Modules/Tailwind |
-| **Animation** | Framer Motion 12.x (Spring Physics, Layout Animations) |
-| **Typography** | Bebas Neue (Display), Cause (Quotes), Inter (UI), JetBrains Mono (Code) |
-| **Icons** | Phosphor Icons (Web Component) |
-| **State Management** | React Context (`Theme`, `Breakpoint`), Local State, History Stack (Undo/Redo) |
-| **Architecture** | Atomic-based (Strict): `Core` → `Package` → `Section` → `Page` → `App` |
-| **Key Components** | Floating Windows, Draggable Dock, State Layer (Ripple), Element Anatomy Inspector |
-| **Theme System** | Light/Dark Modes, Responsive Tokens, Feedback States (Success, Warning, Error, Active) |
-| **Inputs** | Range Sliders, Color Pickers, Toggles, Selects, TextAreas |
-| **Visuals** | Confetti System, Blueprint Overlays, Token Badges, Glassmorphism |
-| **Intelligence** | Shade DSL (Bidirectional Translator & Architecture Extractor) |
+| **Framework** | React 19.x (ESM via `importmap`), Express Backend |
+| **Styling** | JS Object Styles (Architecture-first), No Tailwind/Native CSS |
+| **Animation** | Framer Motion (UI Transitions), GSAP (Three.js/Timing) |
+| **Typography** | Bebas Neue (Hero), Inter (Standard), JetBrains Mono (Data), Cause (Quotes) |
+| **Icons** | Phosphor Icons (Modular Integration) |
+| **State Management** | Zustand (Global/Physics), Reaction Bus, React Context (Theme) |
+| **Architecture** | **Bidirectional Shade DSL**: Core → Package → Section → Page → App |
+| **Key Systems** | High-performance Physics (Rapier), 3D Visualization (Fiber), Floating Windows |
+| **Intelligence** | Gemini API Integration (AI Panel), Code Decompiler (Shade DSL) |
+| **Visual Design** | State Layer + Ripple Layer Physics, Glassmorphic Panels, Dynamic Tokens |
 
 ## Shade DSL (Agent Skill)
 
@@ -43,29 +40,16 @@ This project is equipped with **Shade DSL**, a bidirectional translation layer b
 
 Refer to `/skills/shade_dsl/SKILL.md` for full specifications.
 
-## What's Inside? (ELI10 Version)
+## Directory Structure (ELI10 Version)
 
-Imagine you're building with LEGOs. This project gives you a super organized box of special LEGO pieces to build an amazing app.
+We build apps like LEGO. Each piece has a specific size and place!
 
--   **`index.html`**: The front door to our app.
--   **`index.tsx`**: The main brain of the app.
--   **`importmap.js`**: A map that tells our app where to find its tools (like React).
--   **`Theme.tsx`**: The "master closet" for our app's style (colors, fonts, etc.).
--   **`hooks/`**: Special tools (custom hooks).
-    -   `useBreakpoint.tsx`: Checks if you're on a phone, tablet, or desktop.
-    -   `useElementAnatomy.tsx`: A special ruler that precisely measures a component and its inner parts.
--   **`types/`**: A dictionary for our app's data shapes.
-    -   `index.tsx`: Defines what a "Window" or a "Log Entry" looks like.
--   **`components/`**: The LEGO pieces themselves, organized by strict complexity and import hierarchy:
-    -   **`Core/`**: Tiny bricks. These are the simplest pieces (like a single Button or a Toggle). They are small and don't know about anything big.
-    -   **`Package/`**: Small builds. We use the tiny bricks to build something useful (like a Control Panel). They know about Cores, but not rooms.
-    -   **`Section/`**: Rooms. Putting several small builds together to make a whole space (like the Dock or the Stage). They know about Packages and Cores.
-    -   **`Page/`**: Full views. A whole screen you can see (like the Home page). They use Sections and everything under them to fill the view.
-    -   **`App/`**: The Masterpiece. The final, complete app that connects all the views and pieces together.
--   **`README.md`**: This file! Your friendly guide.
--   **`LLM.md`**: Special instructions for AI helpers.
--   **`noteBook.md`**: A diary of tasks and progress.
--   **`bugReport.md`**: A list of bugs to fix.
+-   **`Core/`**: Individual LEGO bricks (Buttons, Inputs, Toggles). Simple and pure.
+-   **`Package/`**: Small LEGO sets built from bricks (Panels, Windows, Card components).
+-   **`Section/`**: Rooms made of sets (The Dock, The Main Stage).
+-   **`Page/`**: Full buildings (Home screen).
+-   **`App/`**: The entire LEGO City (The full REVELO application).
+-   **`Framer/`**: The secret workshop where we translate complex designs into code.
 
 ## Directory Tree
 
@@ -73,58 +57,31 @@ Imagine you're building with LEGOs. This project gives you a super organized box
 .
 ├── components/
 │   ├── App/
-│   │   └── MetaPrototype.tsx
+│   │   └── App.tsx
 │   ├── Core/
-│   │   ├── AnimatedCounter.tsx
-│   │   ├── Button.tsx
-│   │   ├── ColorPicker.tsx
-│   │   ├── Confetti.tsx
-│   │   ├── DockIcon.tsx
-│   │   ├── Input.tsx
-│   │   ├── LogEntry.tsx
-│   │   ├── RangeSlider.tsx
-│   │   ├── Select.tsx
-│   │   ├── StateLayer.tsx
-│   │   ├── TextArea.tsx
-│   │   ├── ThemeToggleButton.tsx
-│   │   └── Toggle.tsx
+│   │   └── ... (20+ Atomic Components)
 │   ├── Package/
-│   │   ├── CodePanel.tsx
-│   │   ├── ConsolePanel.tsx
-│   │   ├── ControlPanel.tsx
-│   │   ├── FloatingWindow.tsx
-│   │   └── UndoRedo.tsx
+│   │   └── ... (15+ Modular Panels)
 │   ├── Page/
-│   │   └── Welcome.tsx
+│   │   └── Home.tsx
 │   └── Section/
 │       ├── Dock.tsx
 │       └── Stage.tsx
-├── hooks/
-│   ├── useBreakpoint.tsx
-│   └── useElementAnatomy.tsx
-├── types/
-│   └── index.tsx
+├── Framer/
+│   ├── REVELO_Decompiled.tsx
+│   └── ... (Design System Sync)
 ├── README.md
-├── LLM.md
 ├── noteBook.md
 ├── bugReport.md
-├── Theme.tsx
-├── importmap.js
-├── index.html
-├── index.tsx
-├── metadata.json
+└── index.tsx
 ```
 
 ## Recent Updates
 
-- **Physics Integration**: Integrated High-performance 3D physics using `@react-three/rapier`. The 3D scene now features a GSAP-animated kinematic hero cube interacting with dynamic colorful physics actors, all managed via a centralized `zustand` store.
-- **React 19 Migration**: Synchronized `importmap.js` with `package.json` to move the entire ecosystem to React 19.0.0. Updated documentation to reflect the new framework version.
-- **Reactive Architecture Integration**: Registered a high-performance runtime specification in Shade DSL. The system now strictly separates React's declarative rendering from imperative mutation loops (GSAP/Three.js/Framer) to achieve zero-rerender motion.
-- **Deep Linking & Routing**: Every main action and panel (Control, Code, Console, Tokens, Measurements, 3D) is now mapped to a unique URL extension. The app supports multi-state URLs (e.g., `/3d/tokens`) which are deterministically sorted for state stability.
-- **Vercel & Container Support**: Implemented `vercel.json` for native Vercel SPA routing and an Express `server.ts` for AI Studio container preview. This ensures direct navigation to sub-paths works flawlessly across all environments without 404 errors.
-- **AI Agent Enhancements**: Implemented a dedicated input field for the Gemini API key in the Control Panel's Agent section, with local storage persistence for convenience. The AI window now consistently opens centered on the screen and always appears on top of other windows for improved visibility.
-- **System Spec Window**: Added a dedicated floating window that outlines the project's core rules, engineering standards, and design system. Accessible via the "System Spec" toggle in the Inspector group.
-- **Interactive Visuals**: The System Spec window features custom SVG animations and a "Copy as Markdown" utility.
+- **Accordion Refinement**: Optimized `Accordion.tsx` for a "soft fill" aesthetic. Removed body background colors for a seamless, transparent expansion that integrates better with the glassmorphic environment.
+- **Transition Stabilization**: Relocated Lean Mode windows into an `AnimatePresence` block inside `Home.tsx`, ensuring smooth exit animations when switching between UI modes.
+- **Physics & 3D Sync**: Integrated kinematic hero cubes with GSAP timelines for deterministic rotation while maintaining dynamic Rapier physics collisions.
+- **System Documentation**: Synchronized all Tier-3 documentation files to match the current 50+ component architecture and the React 19 environment.
 
 ## How to Get Started
 

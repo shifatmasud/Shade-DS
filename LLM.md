@@ -4,39 +4,15 @@ Hello! You are an AI assistant helping to build this React application. Here are
 
 ## File Paths
 
--   `index.html`
--   `index.tsx`
--   `importmap.js`
--   `metadata.json`
--   `Theme.tsx`
--   `hooks/useBreakpoint.tsx`
--   `hooks/useElementAnatomy.tsx`
--   `types/index.tsx`
--   `components/App/MetaPrototype.tsx`
--   `components/Core/AnimatedCounter.tsx`
--   `components/Core/Button.tsx`
--   `components/Core/ColorPicker.tsx`
--   `components/Core/DockIcon.tsx`
--   `components/Core/Input.tsx`
--   `components/Core/LogEntry.tsx`
--   `components/Core/RangeSlider.tsx`
--   `components/Core/Select.tsx`
--   `components/Core/StateLayer.tsx`
--   `components/Core/TextArea.tsx`
--   `components/Core/ThemeToggleButton.tsx`
--   `components/Core/Toggle.tsx`
--   `components/Package/CodePanel.tsx`
--   `components/Package/ConsolePanel.tsx`
--   `components/Package/ControlPanel.tsx`
--   `components/Package/FloatingWindow.tsx`
--   `components/Package/UndoRedo.tsx`
--   `components/Page/Welcome.tsx`
--   `components/Section/Dock.tsx`
--   `components/Section/Stage.tsx`
--   `README.md`
--   `LLM.md`
--   `noteBook.md`
--   `bugReport.md`
+- `index.html`, `index.tsx`, `importmap.js`, `metadata.json`, `Theme.tsx`
+- `hooks/useBreakpoint.tsx`, `hooks/useElementAnatomy.tsx`, `hooks/useOutsideClick.ts`
+- `components/App/App.tsx`
+- `components/Page/Home.tsx`
+- `components/Section/Dock.tsx`, `components/Section/Stage.tsx`
+- `components/Package/`: `AIPanel`, `CodePanel`, `ConsolePanel`, `ControlPanel`, `FloatingWindow`, `SystemSpecWindow`, `UndoRedo`, `TokenBadge`, `TokenConnector`, `MeasurementTool`
+- `components/Core/`: `Accordion`, `Button`, `ColorPicker`, `DockIcon`, `Input`, `LogEntry`, `RangeSlider`, `Select`, `StateLayer`, `TextArea`, `Toggle`, `Confetti`, `AnimatedCounter`, `ApiInput`
+- `Framer/`: `REVELO_Decompiled.tsx`, `Styler.tsx`, `createStore.ts`
+- `README.md`, `LLM.md`, `noteBook.md`, `bugReport.md`
 
 ## Simple Rules (ELI10 Version)
 

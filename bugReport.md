@@ -8,9 +8,9 @@ Tracking all issues, from critical bugs to minor suggestions.
 
 ## Warning (Unexpected Behavior)
 
-- [x] UI Mode Transition: Lean Mode window lacked exit animations when switching modes or closing due to placement outside `AnimatePresence`. Relocated to main animation loop in `Home.tsx`.
 - [ ] Physics: RigidBody tunneling may occur at very high velocities or low framerates. Consider implementing CCD (Continuous Collision Detection) if cubes frequently escape the floor.
-- [x] URL segments now support tracking all active states simultaneously (e.g., /tokens/3d). Fixed 404 error on direct navigation by implementing a full-stack Express server with index.html fallback and adding `vercel.json` for Vercel deployments.
+- [x] UI Mode Transition: Lean Mode window lacked exit animations. Fixed by relocating to `AnimatePresence` loop.
+- [x] URL segments / Direct navigation: Fixed 404s via Express fallback and `vercel.json`.
 - ...
 
 ## Suggestion (Improvements)
