@@ -7,6 +7,7 @@ import { useTheme } from '../../Theme.tsx';
 import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
 import StateLayer from './StateLayer.tsx';
 import RippleLayer, { Ripple } from './RippleLayer.tsx';
+import { playSound } from '../../services/soundService';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
 export type ButtonSize = 'S' | 'M' | 'L';
@@ -81,6 +82,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     const { width, height } = getCoords(e);
     setDimensions({ width, height });
     setIsHovered(true);
+    playSound('hover');
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -114,6 +116,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     }
 
     setRipples(prev => [...prev, { id: Date.now() + Math.random(), x, y }]);
+    playSound('click');
 
     // Forward event
     if (onClick) onClick();
