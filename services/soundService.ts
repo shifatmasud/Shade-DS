@@ -4,11 +4,21 @@
  */
 import * as Tone from 'tone';
 
-let synth: Tone.PolySynth | null = null;
 let isInitialized = false;
 let initPromise: Promise<void> | null = null;
 
-// Initialize audio context
+// Instruments and Effects
+let reverb: Tone.Reverb | null = null;
+let windFilter: Tone.Filter | null = null;
+let windNoise: Tone.Noise | null = null;
+let windEnv: Tone.AmplitudeEnvelope | null = null;
+let woodSynth: Tone.MembraneSynth | null = null;
+let woodNoise: Tone.Noise | null = null;
+let woodEnv: Tone.AmplitudeEnvelope | null = null;
+let woodFilter: Tone.Filter | null = null;
+let rippleSynth: Tone.MembraneSynth | null = null;
+
+// Initialize audio context and chain
 async function init() {
   if (isInitialized) return;
   if (initPromise) return initPromise;
@@ -16,14 +26,82 @@ async function init() {
   initPromise = (async () => {
     try {
       await Tone.start();
-      // PolySynth allows multiple sounds to overlap, preventing scheduling clashes on a single voice
-      synth = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.1 }
+
+      // Master Reverb for space
+      reverb = new Tone.Reverb({
+        decay: 2.0,
+        preDelay: 0.02,
+        wet: 0.1
       }).toDestination();
-      
-      // Limit polyphony for UI sounds
-      synth.maxPolyphony = 8;
+      await reverb.generate();
+
+      // --- WIND (Hover) Setup ---
+      // Deeper, more subtle wind
+      windFilter = new Tone.Filter({
+        type: 'bandpass',
+        frequency: 800, 
+        Q: 0.8
+      }).connect(reverb);
+
+      windEnv = new Tone.AmplitudeEnvelope({
+        attack: 0.2,
+        decay: 0.4,
+        sustain: 0,
+        release: 0.3
+      }).connect(windFilter);
+
+      windNoise = new Tone.Noise('pink').connect(windEnv);
+      windNoise.volume.value = -3;
+      windNoise.start();
+
+      const windLFO = new Tone.LFO(0.3, 600, 1000).connect(windFilter.frequency);
+      windLFO.start();
+
+      // --- WOOD (Click) Setup ---
+      // Mellow wood body
+      woodFilter = new Tone.Filter({
+        type: 'lowpass',
+        frequency: 1200 
+      }).connect(reverb);
+
+      woodEnv = new Tone.AmplitudeEnvelope({
+        attack: 0.001,
+        decay: 0.05,
+        sustain: 0,
+        release: 0.05
+      }).connect(woodFilter);
+
+      woodNoise = new Tone.Noise('pink').connect(woodEnv);
+      woodNoise.volume.value = -10;
+      woodNoise.start();
+
+      woodSynth = new Tone.MembraneSynth({
+        pitchDecay: 0.005,
+        octaves: 1,
+        oscillator: { type: 'sine' },
+        envelope: {
+          attack: 0.001,
+          decay: 0.08,
+          sustain: 0,
+          release: 0.08
+        }
+      }).connect(reverb);
+      woodSynth.volume.value = -15;
+
+      // --- WATER (Ripple) Setup ---
+      // Resonant "bloop" sound using a membrane synth for pitch glide
+      rippleSynth = new Tone.MembraneSynth({
+        pitchDecay: 0.05,
+        octaves: 2,
+        oscillator: { type: 'sine' },
+        envelope: {
+          attack: 0.001,
+          decay: 0.15,
+          sustain: 0,
+          release: 0.1
+        }
+      }).connect(reverb);
+      rippleSynth.volume.value = -18;
       
       isInitialized = true;
     } catch (e) {
@@ -36,7 +114,6 @@ async function init() {
 
 export type SoundType = 'click' | 'hover' | 'press' | 'drag';
 
-// Tracking last scheduled time to prevent "Start time must be strictly greater than previous start time" error
 let lastScheduledTime = 0;
 
 export async function playSound(type: SoundType) {
@@ -44,33 +121,38 @@ export async function playSound(type: SoundType) {
     await init();
   }
   
-  if (!synth) return;
-
-  // Use Tone.now() with a small lookahead buffer
+  // Ensure strict monotonicity for the scheduler to prevent overlapping errors
   let time = Tone.now() + 0.01;
-  
-  // Ensure strict monotonicity for the scheduler
   if (time <= lastScheduledTime) {
-    time = lastScheduledTime + 0.001; 
+    time = lastScheduledTime + 0.005; 
   }
   lastScheduledTime = time;
 
   switch (type) {
     case 'hover':
-      // Gentle, short high pitch
-      synth.triggerAttackRelease('A6', '0.02', time, 0.05);
+      if (windEnv) {
+        windEnv.triggerAttackRelease('0.3', time, 0.1);
+      }
       break;
+      
     case 'click':
-      // Satisfying click
-      synth.triggerAttackRelease('C5', '0.05', time, 0.2);
+      if (rippleSynth) {
+        // Pure "bloop" sound - subtle and clear
+        rippleSynth.triggerAttackRelease('C5', '0.05', time, 0.2);
+      }
       break;
+      
     case 'press':
-      // Lower, heavier press
-      synth.triggerAttackRelease('G4', '0.1', time, 0.2);
+      if (rippleSynth) {
+        // Deeper "bloop" for press
+        rippleSynth.triggerAttackRelease('G4', '0.08', time, 0.3);
+      }
       break;
+      
     case 'drag':
-      // Continuous, low-pass filter noise
-      synth.triggerAttackRelease('E4', '0.05', time, 0.1);
+      if (windEnv) {
+        windEnv.triggerAttackRelease('0.05', time, 0.05);
+      }
       break;
   }
 }
