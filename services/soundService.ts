@@ -68,7 +68,7 @@ async function init() {
       }).connect(windFilter);
 
       windNoise = new T.Noise('pink').connect(windEnv);
-      windNoise.volume.value = 0; // MAX Volume for testing
+      windNoise.volume.value = -8; 
       windNoise.start();
 
       const windLFO = new T.LFO(0.3, 600, 1000).connect(windFilter.frequency);
@@ -86,7 +86,7 @@ async function init() {
           release: 0.1
         }
       }).connect(reverb);
-      rippleSynth.volume.value = 0; // MAX Volume for testing
+      rippleSynth.volume.value = -18; 
       
       isInitialized = true;
       console.log('Tone.js: Engine Ready');
@@ -165,15 +165,15 @@ export async function playSound(type: SoundType) {
       
     case 'click':
       if (rippleSynth) {
-        // Pure "bloop" sound
-        rippleSynth.triggerAttackRelease('C5', '0.05', time, 0.8);
+        // Pure "bloop" sound - minimal and clean
+        rippleSynth.triggerAttackRelease('C5', '0.05', time, 0.4);
       }
       break;
       
     case 'press':
       if (rippleSynth) {
-        // Deeper "bloop" for press
-        rippleSynth.triggerAttackRelease('G4', '0.08', time, 1.0);
+        // Subtle deeper bloop for press
+        rippleSynth.triggerAttackRelease('G4', '0.08', time, 0.5);
       }
       break;
       
