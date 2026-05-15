@@ -2,11 +2,12 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import RangeSlider from './RangeSlider.tsx';
+import { playSound } from '../../services/soundService.ts';
 
 // --- COLOR UTILS ---
 
@@ -73,7 +74,7 @@ function HSLToHex(h: number, s: number, l: number) {
 }
 
 interface ColorPickerProps {
-  label: string;
+  label?: string;
   value: string;
   onChange: (e: any) => void;
   onCommit?: (value: string) => void;
@@ -81,16 +82,166 @@ interface ColorPickerProps {
 }
 
 const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCommit, style }) => {
+  /**
+   * RECENT CHANGES:
+   * - Density: 2 rings (outer: 12 blobs@R62, inner: 6 blobs@R36) + central white blob.
+   * - Palette: Inner ring (High Sat/High Light 90%), Outer ring (Vibrant).
+   * - Optimization: Increased blob size (52px) to minimize gaps and added glow to white center blob.
+   * 
+   * TO UNDO: Revert blob size to 42px and ring counts/radii.
+   */
   const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
   
   const [hsl, setHsl] = useState({ h: 0, s: 0, l: 0 });
-  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
   const lastEmittedHex = useRef(value);
 
-  // Sync internal HSL with external hex updates
+  // Memoize helper to avoid recreation
+  const coords = useMemo(() => {
+    const getCoords = (index: number, total: number, radius: number) => {
+        const angle = (index / total) * Math.PI * 2 - Math.PI / 2;
+        return {
+            x: Math.cos(angle) * radius,
+            y: Math.sin(angle) * radius
+        };
+    };
+    return getCoords;
+  }, []);
+
+  // Vibrant/Soft color rings
+  const ringInner = useMemo(() => {
+    const colors = [];
+    const count = 6; 
+    for(let i = 0; i < count; i++) {
+        // Distinct vibrant cool palette: High Saturation, High Lightness
+        const hue = (i * (360/count)) % 360;
+        colors.push(HSLToHex(hue, 60, 90));
+    }
+    return colors;
+  }, []);
+
+  const ringOuter = useMemo(() => {
+    const colors = [];
+    const count = 12; 
+    for(let i = 0; i < count; i++) {
+        const hue = (i * (360/count)) % 360;
+        // Vibrant palette
+        colors.push(HSLToHex(hue, 95, 55));
+    }
+    return colors;
+  }, []);
+
+  const ringsData = useMemo(() => [
+    { colors: ringOuter, radius: 62, delay: 0.1 }, 
+    { colors: ringInner, radius: 36, delay: 0 },
+    { colors: ['#FFFFFF'], radius: 0, delay: 0 }  // Central white blob at origin
+  ], [ringInner, ringOuter]);
+
+  const selectColor = React.useCallback((color: string) => {
+    playSound('click');
+    setHsl(hexToHSL(color));
+    lastEmittedHex.current = color;
+    onChange({ target: { value: color } });
+    if (onCommit) onCommit(color);
+  }, [onChange, onCommit]);
+
+  // Styles using JS objects as per Shade DSL
+  const STYLES = useMemo(() => ({
+    container: {
+        position: 'relative' as const,
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: theme.spacing['Space.S'],
+        ...style
+    },
+    label: {
+        ...theme.Type.Readable.Label.S,
+        color: theme.Color.Base.Content[2],
+        userSelect: 'none' as const
+    },
+    swatchContainer: {
+        position: 'relative' as const,
+        width: '40px',
+        height: '40px',
+        borderRadius: '50%',
+        cursor: 'pointer',
+        display: 'grid',
+        placeItems: 'center',
+        background: theme.Color.Base.Surface[2],
+        border: `1px solid ${theme.Color.Base.Surface[3]}`,
+        boxShadow: theme.effects['Effect.Shadow.Drop.2'],
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        flexShrink: 0
+    },
+    innerSwatch: {
+        width: '28px',
+        height: '28px',
+        borderRadius: '50%',
+    },
+    popoverRoot: {
+        position: 'fixed' as const,
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        pointerEvents: 'none' as const,
+        zIndex: 9999,
+        display: 'grid',
+        placeItems: 'center'
+    },
+    menuContainer: {
+        position: 'relative' as const,
+        display: 'flex',
+        flexDirection: 'column' as const,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '24px', 
+        pointerEvents: 'auto' as const,
+        zIndex: 10
+    },
+    spatialRoot: {
+        position: 'relative' as const,
+        width: '220px',
+        height: '220px',
+        display: 'grid',
+        placeItems: 'center'
+    },
+    ring: {
+        position: 'absolute' as const,
+        width: '100%',
+        height: '100%',
+        borderRadius: '50%',
+        background: `radial-gradient(circle, ${theme.Color.Base.Surface[1]}55 0%, transparent 70%)`,
+        boxShadow: `0 0 60px ${theme.Color.Base.Surface[1]}22`,
+        pointerEvents: 'none' as const
+    },
+    blob: (color: string) => ({
+        position: 'absolute' as const,
+        width: '52px',
+        height: '52px',
+        borderRadius: '50%',
+        backgroundColor: color,
+        border: 'none',
+        cursor: 'pointer',
+        boxShadow: `0 4px 15px ${color}66, 0 0 20px ${color}33`,
+    }),
+    slidersPanel: {
+        width: '280px',
+        backgroundColor: theme.Color.Base.Surface[1],
+        border: `1px solid ${theme.Color.Base.Surface[3]}`,
+        borderRadius: theme.radius['Radius.M'],
+        boxShadow: theme.effects['Effect.Shadow.Drop.3'],
+        padding: theme.spacing['Space.L'],
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: '12px',
+        pointerEvents: 'auto' as const,
+        zIndex: 10
+    }
+}), [theme, style]);
+
+  // Update logic with memoization and effect hooks
   useEffect(() => {
     if (value.toLowerCase() === lastEmittedHex.current.toLowerCase()) return;
     if (value.startsWith('#') && (value.length === 4 || value.length === 7)) {
@@ -109,25 +260,15 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     lightMV.set(hsl.l);
   }, [hsl, hueMV, satMV, lightMV]);
 
-  const updateColor = (newHsl: { h: number, s: number, l: number }, isFinal: boolean = false) => {
-    setHsl(newHsl);
-    const hex = HSLToHex(newHsl.h, newHsl.s, newHsl.l);
-    lastEmittedHex.current = hex;
-    onChange({ target: { value: hex } });
-    if (isFinal && onCommit) onCommit(hex);
-  };
-
-  const handleToggle = () => {
-    if (!isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      // Position logic: above the swatch, aligned to left
-      setPopoverPos({
-        top: rect.top - 8, // Added gap
-        left: rect.left,
-      });
-    }
-    setIsOpen(!isOpen);
-  };
+  const updateColor = useMemo(() => {
+    return (newHsl: { h: number, s: number, l: number }, isFinal: boolean = false) => {
+        setHsl(newHsl);
+        const hex = HSLToHex(newHsl.h, newHsl.s, newHsl.l);
+        lastEmittedHex.current = hex;
+        onChange({ target: { value: hex } });
+        if (isFinal && onCommit) onCommit(hex);
+    };
+  }, [onChange, onCommit]);
 
   const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
@@ -137,162 +278,159 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     }
   };
 
-  const handlePresetClick = (color: string) => {
-    onChange({ target: { value: color } });
-    setHsl(hexToHSL(color));
-    lastEmittedHex.current = color;
-    if (onCommit) onCommit(color);
+  const handleToggle = () => {
+    if (!isOpen) {
+        playSound('click');
+    }
+    setIsOpen(!isOpen);
   };
 
-  const presets = [
-    '#FFFFFF', '#F5F5F5', '#888888', '#333333', '#000000',
-    theme.Color.Focus.Content[1], 
-    theme.Color.Success.Content[1],
-    theme.Color.Warning.Content[1],
-    theme.Color.Error.Content[1],
-    theme.Color.Active.Content[1],
-    '#FF0055', '#00CC88', '#3366FF', '#FF9900', '#CC00FF',
-  ];
+  const hueGradient = useMemo(() => `linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)`, []);
+  const satGradient = useMemo(() => `linear-gradient(to right, ${HSLToHex(hsl.h, 0, hsl.l)}, ${HSLToHex(hsl.h, 100, hsl.l)})`, [hsl.h, hsl.l]);
+  const lightGradient = useMemo(() => `linear-gradient(to right, #000, ${HSLToHex(hsl.h, hsl.s, 50)}, #fff)`, [hsl.h, hsl.s]);
 
-  const swatchStyle: React.CSSProperties = {
-    width: '42px',
-    height: '42px',
-    borderRadius: theme.radius['Radius.S'],
-    backgroundColor: value,
-    border: `1px solid ${theme.Color.Base.Surface[3]}`,
-    cursor: 'pointer',
-    flexShrink: 0,
-    boxShadow: theme.effects['Effect.Shadow.Inset.1'],
-  };
+  // Spatial Rings UI - Memoized at top level to avoid hook violation and fix slider lag
+  const spatialRingsUI = useMemo(() => (
+    <div style={STYLES.spatialRoot}>
+        <motion.div 
+            style={STYLES.ring}
+            animate={{ 
+                scale: [1, 1.05, 1],
+                opacity: [0.3, 0.5, 0.3]
+            }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+        />
 
-  const inputStyle: React.CSSProperties = {
-    flex: 1,
-    padding: theme.spacing['Space.S'],
-    height: '42px',
-    borderRadius: theme.radius['Radius.S'],
-    border: `1px solid ${theme.Color.Base.Surface[3]}`,
-    backgroundColor: theme.Color.Base.Surface[2],
-    color: theme.Color.Base.Content[1],
-    fontFamily: theme.Type.Expressive.Data.fontFamily,
-    fontSize: '13px',
-    outline: 'none',
-    textTransform: 'uppercase',
-  };
-
-  const popoverStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: popoverPos.top,
-    left: popoverPos.left,
-    width: '300px',
-    transform: 'translateY(-100%)', // Anchor bottom-left to top-left of trigger
-    backgroundColor: theme.Color.Base.Surface[1],
-    border: `1px solid ${theme.Color.Base.Surface[3]}`,
-    borderRadius: theme.radius['Radius.M'],
-    boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-    zIndex: 9999,
-    padding: theme.spacing['Space.L'],
-    pointerEvents: 'auto',
-  };
-
-  const hueGradient = `linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)`;
-  const satGradient = `linear-gradient(to right, ${HSLToHex(hsl.h, 0, hsl.l)}, ${HSLToHex(hsl.h, 100, hsl.l)})`;
-  const lightGradient = `linear-gradient(to right, #000, ${HSLToHex(hsl.h, hsl.s, 50)}, #fff)`;
+        {ringsData.map((ring, rIndex) => (
+            <React.Fragment key={`ring-${rIndex}`}>
+                {ring.colors.map((color, i) => {
+                    const { x, y } = coords(i, ring.colors.length, ring.radius);
+                    return (
+                        <motion.div
+                            key={`${color}-${rIndex}-${i}`}
+                            initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
+                            animate={{ x, y, opacity: 1, scale: 1 }}
+                            exit={{ x: 0, y: 0, opacity: 0, scale: 0 }}
+                            transition={{ 
+                                type: 'spring', 
+                                damping: 18, 
+                                stiffness: 180,
+                                delay: ring.delay + (i * 0.02)
+                            }}
+                            style={STYLES.blob(color)}
+                            onClick={() => selectColor(color)}
+                            whileHover={{ 
+                                scale: 1.2, 
+                                zIndex: 10,
+                                boxShadow: `0 8px 30px ${color}aa, 0 0 40px ${color}55`
+                            }}
+                            whileTap={{ scale: 0.85 }}
+                        />
+                    );
+                })}
+            </React.Fragment>
+        ))}
+    </div>
+  ), [ringsData, coords, selectColor, STYLES.spatialRoot, STYLES.ring, STYLES.blob]);
 
   return (
-    <div ref={triggerRef} style={{ position: 'relative', ...style }} onPointerDown={(e) => e.stopPropagation()}>
-      <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.spacing['Space.S'], color: theme.Color.Base.Content[2] }}>
-        {label}
-      </label>
+    <div style={STYLES.container}>
+      {label && <label style={STYLES.label}>{label}</label>}
       
-      <div style={{ display: 'flex', gap: theme.spacing['Space.S'] }}>
-        <motion.div 
-            style={swatchStyle} 
+      <div ref={triggerRef} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <motion.div 
+            style={STYLES.swatchContainer}
             onClick={handleToggle}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-        />
-        <input 
+            whileHover={{ scale: 1.1, boxShadow: theme.effects['Effect.Shadow.Drop.3'] }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <div style={{...STYLES.innerSwatch, backgroundColor: value, boxShadow: `0 0 10px ${value}44` }} />
+          </motion.div>
+          
+          <input 
             type="text" 
             value={value} 
-            onChange={handleHexChange} 
-            style={inputStyle} 
-            placeholder="#000000"
-            maxLength={7}
-        />
+            onChange={handleHexChange}
+            style={{
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: theme.Color.Base.Content[1],
+                fontFamily: theme.Type.Expressive.Data.fontFamily,
+                fontSize: '11px',
+                width: '60px',
+                opacity: 0.6,
+                textTransform: 'uppercase'
+            }}
+          />
       </div>
 
       {createPortal(
         <AnimatePresence>
           {isOpen && (
-            <>
-              {/* Overlay Backdrop to close */}
-              <div 
-                style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9998 }} 
-                onClick={() => setIsOpen(false)} 
-              />
-              
-              <motion.div
-                ref={popoverRef}
-                style={popoverStyle}
-                initial={{ opacity: 0, y: '-95%', scale: 0.95 }}
-                animate={{ opacity: 1, y: '-100%', scale: 1 }}
-                exit={{ opacity: 0, y: '-95%', scale: 0.95 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                {/* Presets Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '16px' }}>
-                    {presets.map((color) => (
-                        <motion.button
-                            key={color}
-                            onClick={() => handlePresetClick(color)}
-                            style={{
-                                width: '100%',
-                                aspectRatio: '1/1',
-                                borderRadius: '50%',
-                                backgroundColor: color,
-                                border: `2px solid ${value.toLowerCase() === color.toLowerCase() ? theme.Color.Base.Content[1] : 'transparent'}`,
-                                cursor: 'pointer',
-                                outline: 'none',
-                                boxShadow: theme.effects['Effect.Shadow.Drop.1'],
-                            }}
-                            whileHover={{ scale: 1.2, zIndex: 2 }}
-                            whileTap={{ scale: 0.9 }}
+            <div style={STYLES.popoverRoot}>
+                {/* Backdrop with Blur */}
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    style={{ 
+                        position: 'absolute', 
+                        inset: 0, 
+                        background: 'rgba(0,0,0,0.6)', 
+                        backdropFilter: 'blur(10px)', 
+                        pointerEvents: 'auto' 
+                    }}
+                    onClick={() => setIsOpen(false)}
+                />
+
+                <motion.div
+                    style={STYLES.menuContainer}
+                    initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                >
+                    {/* Spatial Rings Section */}
+                    {spatialRingsUI}
+
+                    {/* HSL Sliders Panel - Flex Layout, No overlap */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        transition={{ delay: 0.3 }}
+                        style={STYLES.slidersPanel}
+                        onPointerDown={(e) => e.stopPropagation()}
+                    >
+                        <RangeSlider 
+                            label="Hue" 
+                            motionValue={hueMV} 
+                            min={0} max={360} 
+                            trackBackground={hueGradient}
+                            onChange={(v) => updateColor({ ...hsl, h: v }, false)}
+                            onCommit={(v) => updateColor({ ...hsl, h: v }, true)}
                         />
-                    ))}
-                </div>
+                        <RangeSlider 
+                            label="Saturation" 
+                            motionValue={satMV} 
+                            min={0} max={100} 
+                            trackBackground={satGradient}
+                            onChange={(v) => updateColor({ ...hsl, s: v }, false)}
+                            onCommit={(v) => updateColor({ ...hsl, s: v }, true)}
+                        />
+                        <RangeSlider 
+                            label="Lightness" 
+                            motionValue={lightMV} 
+                            min={0} max={100} 
+                            trackBackground={lightGradient}
+                            onChange={(v) => updateColor({ ...hsl, l: v }, false)}
+                            onCommit={(v) => updateColor({ ...hsl, l: v }, true)}
+                        />
+                    </motion.div>
 
-                <div style={{ height: '1px', backgroundColor: theme.Color.Base.Surface[3], marginBottom: '16px' }} />
-
-                {/* HSL Controls */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <RangeSlider 
-                        label="Hue" 
-                        motionValue={hueMV} 
-                        min={0} max={360} 
-                        trackBackground={hueGradient}
-                        onChange={(v) => updateColor({ ...hsl, h: v }, false)}
-                        onCommit={(v) => updateColor({ ...hsl, h: v }, true)}
-                    />
-                    <RangeSlider 
-                        label="Saturation" 
-                        motionValue={satMV} 
-                        min={0} max={100} 
-                        trackBackground={satGradient}
-                        onChange={(v) => updateColor({ ...hsl, s: v }, false)}
-                        onCommit={(v) => updateColor({ ...hsl, s: v }, true)}
-                    />
-                    <RangeSlider 
-                        label="Lightness" 
-                        motionValue={lightMV} 
-                        min={0} max={100} 
-                        trackBackground={lightGradient}
-                        onChange={(v) => updateColor({ ...hsl, l: v }, false)}
-                        onCommit={(v) => updateColor({ ...hsl, l: v }, true)}
-                    />
-                </div>
-              </motion.div>
-            </>
+                </motion.div>
+            </div>
           )}
         </AnimatePresence>,
         document.body
