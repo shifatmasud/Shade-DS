@@ -8,6 +8,13 @@ A log of all tasks, ideas, and progress for this project.
     - Removed "System Spec" section from `README.md` to follow new documentation restrictions.
     - Cleaned up duplicate entries in `noteBook.md`.
 
+- **[2026-05-15 05:08]**: RangeSlider Physical Overhaul (Heavy Mechanical).
+    - Implemented high-inertia lag using `useSpring` (mass: 2.5, stiffness: 15, damping: 8).
+    - Intensified tilt mapping (60° max at 250 normalized velocity units) for visceral response.
+    - Adjusted `transformOrigin` to `50% 29px` to pivot rotation exactly at the handle tangent.
+    - Resolved transform conflict between CSS and Motion for precise center alignment.
+    - Verified consistent spatial lag across diverse slider ranges (HSL vs Corner Radius).
+
 - **[2026-05-15 05:01]**: RangeSlider Normalization & Mechanical Feel.
     - Normalized velocity rotation by mapping `motionValue` to `[0, 100]` before processing, ensuring consistent lag across diverse ranges (HSL vs. Corner Radius).
     - Reduced spring stiffness (20) and increased mass (1.5) for a slower, more deliberate "heavy mechanical" lag.

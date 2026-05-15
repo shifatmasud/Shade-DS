@@ -14,6 +14,6 @@ Tracking all issues, from critical bugs to minor suggestions.
 - ...
 
 ## Suggestion (Improvements)
-- [x] Range Slider Tooltip: Handle now shows current value with animated counter and velocity rotation.
+- [x] Range Slider Tooltip: Heavy mechanical lag (60° tilt) with bouncy spring physics and precise handle anchoring.
 - [ ] Add more interactive SVG animations to the System Spec window for each rule.
 -   ...

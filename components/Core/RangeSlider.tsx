@@ -46,19 +46,21 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   const velocity = useVelocity(normalizedValue);
   
   // mapping normalized velocity (percentage per second) to rotation
-  const rawRotate = useTransform(velocity, [-500, 500], [60, -60]);
-  const skew = useTransform(velocity, [-500, 500], [-12, 12]);
+  // 60deg max reached at 2.5 track-widths per second for intensity
+  const rawRotate = useTransform(velocity, [-250, 250], [60, -60]);
+  const rawSkew = useTransform(velocity, [-250, 250], [-15, 15]);
 
-  // Add severe lag for visceral feel as requested
+  // High-inertia lag spring for "heavy mechanical" feel
   const lagRotate = useSpring(rawRotate, {
-    stiffness: 20, // Even lower stiffness for more intense lag
-    damping: 10,    // Lower damping for more bounciness
-    mass: 1.5      // Heavier mass for physical presence
+    stiffness: 15, // Extremely low stiffness for intense lag
+    damping: 8,    // Low damping for visceral bounce
+    mass: 2.5      // Heavy mass for inertia
   });
 
-  const lagSkew = useSpring(skew, {
-    stiffness: 20,
-    damping: 10
+  const lagSkew = useSpring(rawSkew, {
+    stiffness: 15,
+    damping: 8,
+    mass: 2.5
   });
 
   // Sync internal state with external motion value updates (e.g. undo/redo)
