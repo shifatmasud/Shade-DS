@@ -67,6 +67,7 @@ We build apps like LEGO. Each piece has a specific size and place!
 - **Accordion Refinement**: Optimized `Accordion.tsx` for a "soft fill" aesthetic. Removed body background colors for a seamless, transparent expansion that integrates better with the glassmorphic environment.
 - **Transition Stabilization**: Relocated Lean Mode windows into an `AnimatePresence` block inside `Home.tsx`, ensuring smooth exit animations when switching between UI modes.
 - **Physics & 3D Sync**: Integrated kinematic hero cubes with GSAP timelines for deterministic rotation while maintaining dynamic Rapier physics collisions.
+- **Dynamic Slider Tooltips**: Enhanced `RangeSlider.tsx` with visceral physical feedback. The tooltip now uses `useSpring` on velocity-based rotation (60° max) with a precise pivot point at the arrow tip, creating a heavy "lag" feel and bouncy tactile response.
 - **System Documentation**: Synchronized all Tier-3 documentation files to match the current 50+ component architecture and the React 19 environment.
 
 ## How to Get Started

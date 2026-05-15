@@ -14,6 +14,6 @@ Tracking all issues, from critical bugs to minor suggestions.
 - ...
 
 ## Suggestion (Improvements)
-
--   [ ] Add more interactive SVG animations to the System Spec window for each rule.
+- [x] Range Slider Tooltip: Handle now shows current value with animated counter and velocity rotation.
+- [ ] Add more interactive SVG animations to the System Spec window for each rule.
 -   ...

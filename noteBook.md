@@ -8,6 +8,12 @@ A log of all tasks, ideas, and progress for this project.
     - Removed "System Spec" section from `README.md` to follow new documentation restrictions.
     - Cleaned up duplicate entries in `noteBook.md`.
 
+- **[2026-05-15 04:51]**: Deep Physical Feedback for RangeSlider.
+    - Implemented `useSpring` (stiffness: 30, damping: 15) on velocity rotation for enhanced lag.
+    - Adjusted `transformOrigin` to `50% 29px` to pivot rotation exactly at the arrow's tip on the handle.
+    - Fixed rotation hierarchy to keep tooltip body anchored to the arrow.
+    - Added `mass: 1.2` to the lag spring for a heavier, more tactile inertia feel.
+
 - **[2026-05-14 07:46]**: Documentation Refinement & "No Task in README" Enforcement.
     - Removed Task, Architecture (IPO), and Action List sections from `README.md` as per new user rules.
     - Updated `metadata.json` to "Shade DSL Starter Kit" with refined description.

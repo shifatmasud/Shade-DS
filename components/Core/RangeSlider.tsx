@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useRef, useEffect, useState } from 'react';
-import { type MotionValue } from 'framer-motion';
+import { type MotionValue, motion, useVelocity, useTransform, AnimatePresence, useSpring } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import AnimatedCounter from './AnimatedCounter.tsx';
 
@@ -37,8 +37,27 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   });
   
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState<string | number>('');
+
+  // Velocity based rotation for tooltip - high intensity bounciness
+  const velocity = useVelocity(motionValue);
+  // mapping velocity to wider rotation range (60deg max) for more pronounced lag
+  const rawRotate = useTransform(velocity, [-1000, 1000], [60, -60]);
+  const skew = useTransform(velocity, [-1000, 1000], [-12, 12]);
+
+  // Add severe lag for visceral feel as requested
+  const lagRotate = useSpring(rawRotate, {
+    stiffness: 30, // Lower stiffness = slower response/more lag
+    damping: 15,    // Lower damping = more bounciness
+    mass: 1.2
+  });
+
+  const lagSkew = useSpring(skew, {
+    stiffness: 30,
+    damping: 15
+  });
 
   // Sync internal state with external motion value updates (e.g. undo/redo)
   useEffect(() => {
@@ -144,6 +163,47 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     fontVariantNumeric: 'tabular-nums',
   };
 
+  const tooltipStyle: React.CSSProperties = {
+    position: 'absolute',
+    bottom: 'calc(100% + 10px)', // Precise offset for arrow tip
+    left: '50%',
+    backgroundColor: theme.Color.Accent.Surface[1],
+    color: theme.Color.Accent.Content[1],
+    padding: `${theme.spacing['Space.XS']} ${theme.spacing['Space.S']}`,
+    borderRadius: theme.radius['Radius.S'],
+    fontSize: '12px',
+    fontFamily: theme.Type.Expressive.Data.fontFamily,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    pointerEvents: 'none',
+    boxShadow: theme.effects['Effect.Shadow.Drop.2'],
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '32px',
+    height: '24px',
+    zIndex: 100,
+  };
+
+  const arrowStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 0,
+    height: 0,
+    borderLeft: '5px solid transparent',
+    borderRight: '5px solid transparent',
+    borderTop: `5px solid ${theme.Color.Accent.Surface[1]}`,
+  };
+
+  // Tactile bouncy spring config
+  const tactileSpring = {
+    type: 'spring' as const,
+    damping: 12,
+    stiffness: 60,
+    mass: 1,
+  };
 
   return (
     <div onPointerDown={(e) => e.stopPropagation()}>
@@ -158,7 +218,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
             ref={trackRef}
             style={{ 
                 flex: 1, 
-                height: '24px', 
+                height: '32px', // Increased hit area
                 display: 'flex', 
                 alignItems: 'center', 
                 cursor: 'pointer',
@@ -167,6 +227,8 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
             <div style={{ 
                 position: 'relative', 
@@ -190,21 +252,59 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                   }} />
                 )}
                 
-                {/* Thumb */}
+                {/* Thumb Container for Positioning */}
                 <div style={{
                     position: 'absolute',
                     top: '50%',
                     left: `${percentage}%`,
+                    transform: 'translate(-50%, -50%)',
                     width: '18px',
                     height: '18px',
-                    backgroundColor: theme.Color.Base.Surface[1],
-                    border: `2px solid ${theme.Color.Accent.Surface[1]}`,
-                    borderRadius: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    boxShadow: theme.effects['Effect.Shadow.Drop.1'],
-                    transition: 'transform 0.1s ease',
-                    transformOrigin: 'center'
-                }} />
+                    pointerEvents: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10,
+                }}>
+                    <AnimatePresence>
+                        {(isDragging || isHovered) && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 12, scale: 0.8, rotate: 0 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 12, scale: 0.8 }}
+                                transition={tactileSpring}
+                                style={{
+                                    ...tooltipStyle,
+                                    x: "-50%",
+                                    rotate: lagRotate,
+                                    skewX: lagSkew,
+                                    transformOrigin: '50% 29px', // 24px height + 5px arrow
+                                }}
+                            >
+                                <AnimatedCounter value={Math.round(internalValue)} useFormatting={false} />
+                                <div style={arrowStyle} />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Thumb Visual */}
+                    <motion.div 
+                        animate={{ 
+                            scale: isDragging ? 1.25 : 1,
+                            backgroundColor: isDragging ? theme.Color.Base.Surface[1] : theme.Color.Base.Surface[1]
+                        }}
+                        transition={tactileSpring}
+                        style={{
+                            width: '18px',
+                            height: '18px',
+                            backgroundColor: theme.Color.Base.Surface[1],
+                            border: `2px solid ${theme.Color.Accent.Surface[1]}`,
+                            borderRadius: '50%',
+                            boxShadow: theme.effects['Effect.Shadow.Drop.1'],
+                            position: 'relative'
+                        }} 
+                    />
+                </div>
             </div>
         </div>
 
