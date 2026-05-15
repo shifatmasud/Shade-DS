@@ -8,6 +8,11 @@ A log of all tasks, ideas, and progress for this project.
     - Removed "System Spec" section from `README.md` to follow new documentation restrictions.
     - Cleaned up duplicate entries in `noteBook.md`.
 
+- **[2026-05-15 22:05]**: ColorPicker Hover Stability Fix.
+    - Removed `zIndex: 10` from `whileHover` state on spatial blobs.
+    - Ensured blobs and rings maintain original depth during interaction to prevent visual stacking flickers.
+    - Added in-file tracking comments for architecture preservation.
+
 - **[2026-05-15 05:08]**: RangeSlider Physical Overhaul (Heavy Mechanical).
     - Implemented high-inertia lag using `useSpring` (mass: 2.5, stiffness: 15, damping: 8).
     - Intensified tilt mapping (60° max at 250 normalized velocity units) for visceral response.

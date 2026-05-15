@@ -305,6 +305,11 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
             <React.Fragment key={`ring-${rIndex}`}>
                 {ring.colors.map((color, i) => {
                     const { x, y } = coords(i, ring.colors.length, ring.radius);
+                    /** 
+                     * STABILITY FIX [2026-05-15]: 
+                     * Removed zIndex: 10 from whileHover to ensure zero depth-shifting on blobs.
+                     * TO UNDO: Add 'zIndex: 10' back to whileHover object below.
+                     */
                     return (
                         <motion.div
                             key={`${color}-${rIndex}-${i}`}
@@ -321,7 +326,6 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
                             onClick={() => selectColor(color)}
                             whileHover={{ 
                                 scale: 1.2, 
-                                zIndex: 10,
                                 boxShadow: `0 8px 30px ${color}aa, 0 0 40px ${color}55`
                             }}
                             whileTap={{ scale: 0.85 }}

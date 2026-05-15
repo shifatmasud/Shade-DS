@@ -64,6 +64,7 @@ We build apps like LEGO. Each piece has a specific size and place!
 
 ## Recent Updates
 
+- **ColorPicker Stability**: Fixed depth-shifting issue where spatial blobs would change `z-index` on hover. The palette rings and blobs now maintain stable layering.
 - **Accordion Refinement**: Optimized `Accordion.tsx` for a "soft fill" aesthetic. Removed body background colors for a seamless, transparent expansion that integrates better with the glassmorphic environment.
 - **Transition Stabilization**: Relocated Lean Mode windows into an `AnimatePresence` block inside `Home.tsx`, ensuring smooth exit animations when switching between UI modes.
 - **Physics & 3D Sync**: Integrated kinematic hero cubes with GSAP timelines for deterministic rotation while maintaining dynamic Rapier physics collisions.
