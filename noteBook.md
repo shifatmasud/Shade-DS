@@ -8,11 +8,11 @@ A log of all tasks, ideas, and progress for this project.
     - Removed "System Spec" section from `README.md` to follow new documentation restrictions.
     - Cleaned up duplicate entries in `noteBook.md`.
 
-- **[2026-05-15 04:51]**: Deep Physical Feedback for RangeSlider.
-    - Implemented `useSpring` (stiffness: 30, damping: 15) on velocity rotation for enhanced lag.
-    - Adjusted `transformOrigin` to `50% 29px` to pivot rotation exactly at the arrow's tip on the handle.
-    - Fixed rotation hierarchy to keep tooltip body anchored to the arrow.
-    - Added `mass: 1.2` to the lag spring for a heavier, more tactile inertia feel.
+- **[2026-05-15 05:01]**: RangeSlider Normalization & Mechanical Feel.
+    - Normalized velocity rotation by mapping `motionValue` to `[0, 100]` before processing, ensuring consistent lag across diverse ranges (HSL vs. Corner Radius).
+    - Reduced spring stiffness (20) and increased mass (1.5) for a slower, more deliberate "heavy mechanical" lag.
+    - Adjusted vertical offset (`bottom: calc(100% + 5px)`) to anchor the arrow tip exactly on the handle's tangent.
+    - Standardized tooltip aesthetics across all UI instances.
 
 - **[2026-05-14 07:46]**: Documentation Refinement & "No Task in README" Enforcement.
     - Removed Task, Architecture (IPO), and Action List sections from `README.md` as per new user rules.

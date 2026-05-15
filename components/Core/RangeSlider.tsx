@@ -41,22 +41,24 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState<string | number>('');
 
-  // Velocity based rotation for tooltip - high intensity bounciness
-  const velocity = useVelocity(motionValue);
-  // mapping velocity to wider rotation range (60deg max) for more pronounced lag
-  const rawRotate = useTransform(velocity, [-1000, 1000], [60, -60]);
-  const skew = useTransform(velocity, [-1000, 1000], [-12, 12]);
+  // Velocity based rotation for tooltip - normalized across ranges for consistent feel
+  const normalizedValue = useTransform(motionValue, [min, max], [0, 100]);
+  const velocity = useVelocity(normalizedValue);
+  
+  // mapping normalized velocity (percentage per second) to rotation
+  const rawRotate = useTransform(velocity, [-500, 500], [60, -60]);
+  const skew = useTransform(velocity, [-500, 500], [-12, 12]);
 
   // Add severe lag for visceral feel as requested
   const lagRotate = useSpring(rawRotate, {
-    stiffness: 30, // Lower stiffness = slower response/more lag
-    damping: 15,    // Lower damping = more bounciness
-    mass: 1.2
+    stiffness: 20, // Even lower stiffness for more intense lag
+    damping: 10,    // Lower damping for more bounciness
+    mass: 1.5      // Heavier mass for physical presence
   });
 
   const lagSkew = useSpring(skew, {
-    stiffness: 30,
-    damping: 15
+    stiffness: 20,
+    damping: 10
   });
 
   // Sync internal state with external motion value updates (e.g. undo/redo)
@@ -165,7 +167,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
 
   const tooltipStyle: React.CSSProperties = {
     position: 'absolute',
-    bottom: 'calc(100% + 10px)', // Precise offset for arrow tip
+    bottom: 'calc(100% + 5px)', // Arrow is 5px tall, so this makes tip touch handle exactly
     left: '50%',
     backgroundColor: theme.Color.Accent.Surface[1],
     color: theme.Color.Accent.Content[1],
