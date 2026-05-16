@@ -43,7 +43,7 @@ const Dock: React.FC<DockProps> = ({ windows, toggleWindow, uiMode = 'default' }
           padding: theme.space['Space.S'],
           backgroundColor: `${theme.Color.Base.Surface[1]}aa`,
           backdropFilter: 'blur(16px)',
-          borderRadius: theme.radius['Radius.L'], // Peel shape
+          borderRadius: theme.radius['Radius.Full'], // Peel shape
           boxShadow: theme.effects['Effect.Shadow.Drop.3'],
           border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
           zIndex: 1000,

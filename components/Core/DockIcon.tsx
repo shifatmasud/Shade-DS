@@ -20,7 +20,7 @@ const DockIcon: React.FC<DockIconProps> = ({ icon, isActive, onClick }) => {
       style={{
         width: '48px',
         height: '48px',
-        borderRadius: '16px',
+        borderRadius: 'Radius.Full',
         border: 'none',
         backgroundColor: isActive ? theme.Color.Accent.Surface[1] : 'rgba(0,0,0,0)',
         color: isActive ? theme.Color.Accent.Content[1] : theme.Color.Base.Content[2],
