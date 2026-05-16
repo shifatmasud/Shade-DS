@@ -81,6 +81,12 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
 
   // LOGIC: Initialize WiggleBones
   useEffect(() => {
+    if (meshRef.current) {
+      meshRef.current.bind(skeleton);
+    }
+  }, [skeleton]);
+
+  useEffect(() => {
     // Only child bones wiggle; root (index 0) remains static
     const config = { velocity: 0.15, damping: 0.1, stiffness: 0.1 };
     wiggleBones.current = skeleton.bones.slice(1).map(bone => new WiggleBone(bone, config));
@@ -98,15 +104,14 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
 
   return (
     <group>
+      <primitive object={bonesGroup} />
       <skinnedMesh 
         ref={meshRef}
         geometry={geometry}
         skeleton={skeleton}
-        bindMatrix={bindMatrix}
         castShadow
         receiveShadow
       >
-        <primitive object={bonesGroup} />
         <meshStandardMaterial 
           color={color} 
           metalness={0.6} 
