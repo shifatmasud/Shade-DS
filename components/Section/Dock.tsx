@@ -40,7 +40,7 @@ const Dock: React.FC<DockProps> = ({ windows, toggleWindow, uiMode = 'default' }
           x: '-50%',
           display: 'flex',
           gap: theme.space['Space.S'],
-          padding: theme.space['Space.S'],
+          padding: theme.space['Space.M'],
           backgroundColor: `${theme.Color.Base.Surface[1]}aa`,
           backdropFilter: 'blur(16px)',
           borderRadius: theme.radius['Radius.Full'], // Peel shape

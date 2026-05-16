@@ -20,7 +20,7 @@ const DockIcon: React.FC<DockIconProps> = ({ icon, isActive, onClick }) => {
       style={{
         width: '48px',
         height: '48px',
-        borderRadius: 'Radius.Full',
+        borderRadius: theme.radius['Radius.Full'],
         border: 'none',
         backgroundColor: isActive ? theme.Color.Accent.Surface[1] : 'rgba(0,0,0,0)',
         color: isActive ? theme.Color.Accent.Content[1] : theme.Color.Base.Content[2],
@@ -29,7 +29,7 @@ const DockIcon: React.FC<DockIconProps> = ({ icon, isActive, onClick }) => {
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: theme.Type.Expressive.Headline.S.fontSize,
-        overflow: "clip"
+        overflow: "hidden"
       }}
       whileHover={{ scale: 1.1, backgroundColor: isActive ? theme.Color.Accent.Surface[1] : theme.Color.Base.Surface[2] }}
       whileTap={{ scale: 0.95 }}
