@@ -16,22 +16,26 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
   const meshRef = useRef<THREE.SkinnedMesh>(null);
   const wiggleBones = useRef<any[]>([]);
 
-  const { geometry, skeleton, bonesGroup } = useMemo(() => {
+  const { geometry, skeleton, bonesGroup, bindMatrix } = useMemo(() => {
     // 1. Create Bones: A linear chain of 5 bones (4 segments)
     const numBones = 5;
     const bones: THREE.Bone[] = [];
-    const interval = size / (numBones - 1);
+    
+    // Smaller internal chain
+    const chainHeight = size * 0.8;
+    const interval = chainHeight / (numBones - 1);
 
     for (let i = 0; i < numBones; i++) {
       const bone = new THREE.Bone();
+
       if (i === 0) {
-        // Root at origin bottom
-        bone.position.set(0, -size / 2, 0);
+        // Start slightly inside bottom
+        bone.position.set(0, -chainHeight / 2, 0);
       } else {
-        // Child bones offset upward
         bone.position.set(0, interval, 0);
         bones[i - 1].add(bone);
       }
+
       bones.push(bone);
     }
 
@@ -39,9 +43,10 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
     bonesGroup.add(bones[0]); // Root bone is child of group
 
     const skeleton = new THREE.Skeleton(bones);
+    const bindMatrix = new THREE.Matrix4();
 
     // 2. Create Skinned Geometry
-    const geo = new THREE.BoxGeometry(size, size, size, 8, 8, 8);
+    const geo = new THREE.BoxGeometry(size, size, size, 1, 12, 1);
     
     const skinIndices = [];
     const skinWeights = [];
@@ -71,7 +76,7 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
     geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4));
     geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4));
 
-    return { geometry: geo, skeleton, bonesGroup };
+    return { geometry: geo, skeleton, bonesGroup, bindMatrix };
   }, [size]);
 
   // LOGIC: Initialize WiggleBones
@@ -97,6 +102,7 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
         ref={meshRef}
         geometry={geometry}
         skeleton={skeleton}
+        bindMatrix={bindMatrix}
         castShadow
         receiveShadow
       >
