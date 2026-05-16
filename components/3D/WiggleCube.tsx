@@ -5,55 +5,35 @@ import { useFrame } from '@react-three/fiber';
 import { WiggleBone } from 'wiggle';
 
 /**
- * COMPONENT: SimpleBox
- * UPDATED: Replaces WiggleCube for main rotating element. Normal cube geometry.
- * To undo: Swap back to GellyBox/WigglingBox in scene.tsx
+ * COMPONENT: JellyBox
+ * Renders a physics-enabled cube that behaves like jelly (gelatinous) using WiggleBone.
+ * Architecture:
+ * DATA -> Skeleton + Highly subdivided SkinnedGeometry
+ * LOGIC -> WiggleBone updates on each frame with "premium" spring constants
+ * RENDER -> SkinnedMesh
  */
-export const SimpleBox = ({ color, size = 1 }: { color: string, size?: number }) => {
-  return (
-    <mesh castShadow receiveShadow>
-      <boxGeometry args={[size, size, size]} />
-      <meshStandardMaterial 
-        color={color} 
-        metalness={0.6} 
-        roughness={0.2} 
-        emissive={color}
-        emissiveIntensity={0.1}
-      />
-    </mesh>
-  );
-};
-
-/**
- * COMPONENT: GellyBox
- * UPDATED: Enhanced jiggle physics and cuboid geometry for premium feel.
- * To undo: Restore WigglingBox signature and simpler physics.
- */
-export const GellyBox = ({ color, size = 1, width = 1, height = 1.5, depth = 1 }: { color: string, size?: number, width?: number, height?: number, depth?: number }) => {
+export const JellyBox = ({ color, size = 1 }: { color: string, size?: number }) => {
   const meshRef = useRef<THREE.SkinnedMesh>(null);
   const wiggleBones = useRef<any[]>([]);
 
-  // Scale based on size prop if provided, otherwise use explicit dimensions
-  const w = size !== 1 ? size : width;
-  const h = size !== 1 ? size * 1.5 : height;
-  const d = size !== 1 ? size : depth;
-
   const { geometry, skeleton, bonesGroup } = useMemo(() => {
-    // 1. Create Bones: A linear chain of 7 bones for smoother deformation
-    const numBones = 7;
+    // 1. Create Bones: A linear chain for vertical jiggle
+    const numBones = 8; // Increased for "premium" smoothness
     const bones: THREE.Bone[] = [];
     
-    const totalHeight = h;
-    const interval = totalHeight / (numBones - 1);
+    const chainHeight = size * 0.9;
+    const interval = chainHeight / (numBones - 1);
 
     for (let i = 0; i < numBones; i++) {
       const bone = new THREE.Bone();
+
       if (i === 0) {
-        bone.position.set(0, -totalHeight / 2, 0);
+        bone.position.set(0, -chainHeight / 2, 0);
       } else {
         bone.position.set(0, interval, 0);
         bones[i - 1].add(bone);
       }
+
       bones.push(bone);
     }
 
@@ -62,8 +42,8 @@ export const GellyBox = ({ color, size = 1, width = 1, height = 1.5, depth = 1 }
 
     const skeleton = new THREE.Skeleton(bones);
 
-    // 2. Create Skinned Geometry (Subdivided for jelly look)
-    const geo = new THREE.BoxGeometry(w, h, d, 4, 16, 4);
+    // 2. Create Skinned Geometry with high tessellation
+    const geo = new THREE.BoxGeometry(size, size, size, 4, 20, 4);
     
     const skinIndices = [];
     const skinWeights = [];
@@ -72,9 +52,8 @@ export const GellyBox = ({ color, size = 1, width = 1, height = 1.5, depth = 1 }
 
     for (let i = 0; i < posAttr.count; i++) {
       v.fromBufferAttribute(posAttr, i);
-      const y = v.y; // Range: [-h/2, h/2]
-      
-      const u = Math.max(0, Math.min(1, (y + h / 2) / h));
+      const y = v.y;
+      const u = Math.max(0, Math.min(1, (y + size / 2) / size));
       
       const segmentHeight = 1 / (numBones - 1);
       const rawSegment = u / segmentHeight;
@@ -92,7 +71,7 @@ export const GellyBox = ({ color, size = 1, width = 1, height = 1.5, depth = 1 }
     geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4));
 
     return { geometry: geo, skeleton, bonesGroup };
-  }, [w, h, d]);
+  }, [size]);
 
   useEffect(() => {
     if (meshRef.current) {
@@ -101,8 +80,14 @@ export const GellyBox = ({ color, size = 1, width = 1, height = 1.5, depth = 1 }
   }, [skeleton]);
 
   useEffect(() => {
-    // Premium Configuration: High stiffness but enough damping for that "gelly" settle
-    const config = { velocity: 0.1, damping: 0.25, stiffness: 0.4 };
+    // "Premium" Jiggle: Lower stiffness for more "gelly" feel, 
+    // higher damping to prevent infinite vibrating,
+    // and higher velocity sensitivity for responsiveness.
+    const config = { 
+      velocity: 0.15, // More reactive to motion
+      damping: 0.25,  // Smooth settling
+      stiffness: 0.15 // Soft, gelatinous feel
+    };
     wiggleBones.current = skeleton.bones.slice(1).map(bone => new WiggleBone(bone, config));
 
     return () => {
@@ -125,14 +110,14 @@ export const GellyBox = ({ color, size = 1, width = 1, height = 1.5, depth = 1 }
         castShadow
         receiveShadow
       >
-        <meshStandardMaterial 
+        <meshPhysicalMaterial 
           color={color} 
-          metalness={0.4} 
+          metalness={0.1} 
           roughness={0.1} 
+          transmission={0.4} // Jelly-like translucency
+          thickness={0.5}
           emissive={color}
           emissiveIntensity={0.2}
-          transparent={true}
-          opacity={0.9}
         />
       </skinnedMesh>
     </group>

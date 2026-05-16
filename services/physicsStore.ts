@@ -4,7 +4,6 @@ interface CubeData {
   id: string;
   color: string;
   position: [number, number, number];
-  size?: number;
 }
 
 interface PhysicsStore {
@@ -17,9 +16,9 @@ const COLORS = ['#ff0055', '#00ff88', '#0088ff', '#ffaa00', '#aa00ff'];
 
 export const usePhysicsStore = create<PhysicsStore>((set) => ({
   cubes: [
-    { id: '1', color: COLORS[0], position: [0, 5, 0], size: 0.8 },
-    { id: '2', color: COLORS[1], position: [1, 6, 0], size: 1.2 },
-    { id: '3', color: COLORS[2], position: [-1, 7, 0], size: 0.5 },
+    { id: '1', color: COLORS[0], position: [0, 5, 0] },
+    { id: '2', color: COLORS[1], position: [1, 6, 0] },
+    { id: '3', color: COLORS[2], position: [-1, 7, 0] },
   ],
   addCube: (cube) => set((state) => ({ cubes: [...state.cubes, cube] })),
   reset: () => set({ cubes: [] }),

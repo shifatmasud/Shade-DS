@@ -12,8 +12,15 @@ import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-thre
 
 gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
-import { SimpleBox, GellyBox } from './WiggleCube';
+import { JellyBox } from './WiggleCube';
 import AnimatedCounter from '../Core/AnimatedCounter';
+
+const NormalBox = ({ color, size = 1 }: { color: string, size?: number }) => (
+  <mesh castShadow receiveShadow>
+    <boxGeometry args={[size, size, size]} />
+    <meshStandardMaterial color={color} metalness={0.6} roughness={0.2} />
+  </mesh>
+);
 
 // STYLE: JS object style for overlay
 const overlayStyle: React.CSSProperties = {
@@ -60,7 +67,7 @@ const buttonStyle: React.CSSProperties = {
   transition: 'all 0.2s ease',
 };
 
-const PhysicsCube = ({ color, position, id, size = 1, onDragStart, onDragEnd }: { color: string; position: [number, number, number]; id: string; size?: number; onDragStart?: () => void; onDragEnd?: () => void }) => {
+const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: string; position: [number, number, number]; id: string; onDragStart?: () => void; onDragEnd?: () => void }) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const [hovered, setHover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -124,7 +131,7 @@ const PhysicsCube = ({ color, position, id, size = 1, onDragStart, onDragEnd }: 
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
         >
-          <GellyBox color={hovered ? '#fff' : color} size={size} />
+          <JellyBox color={hovered ? '#fff' : color} />
         </group>
       </RigidBody>
   );
@@ -235,7 +242,7 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
       >
-        <SimpleBox color={color} size={2} />
+        <NormalBox color={color} size={2} />
       </group>
     </RigidBody>
   );
@@ -273,7 +280,6 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
       id: Math.random().toString(36),
       color: randomColor,
       position: [(Math.random() - 0.5) * 4, 10, (Math.random() - 0.5) * 4],
-      size: 0.5 + Math.random() * 0.8,
     });
   };
 
@@ -281,7 +287,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
     <div style={{ width: '100%', height: '100%', minHeight: '400px', position: 'relative', overflow: 'hidden', background: '#050505' }}>
       <div style={overlayStyle}>
         <button style={buttonStyle} onClick={spawnCube}>
-          Spawn Gelly Mesh
+          Spawn Jelly Cube
         </button>
       </div>
 

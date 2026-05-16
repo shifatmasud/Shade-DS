@@ -17,28 +17,41 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
   const { theme } = useTheme();
 
   const baseInputStyle: React.CSSProperties = {
-    // UPDATED: Height 44px, full rounded (Pill style), premium surface color
-    // To undo: Change height to auto/32px, borderRadius to Radius.S, bg to Surface[1]
     width: '100%',
-    height: '44px',
+    height: '42px',
     padding: `0 ${theme.spacing['Space.M']}`,
-    borderRadius: theme.radius['Radius.Full'],
+    borderRadius: theme.radius['Radius.S'],
     border: `1px solid ${theme.Color.Base.Surface[3]}`,
-    backgroundColor: theme.Color.Base.Surface[2],
+    backgroundColor: theme.Color.Base.Surface[1],
     color: theme.Color.Base.Content[1],
     fontFamily: theme.Type.Readable.Body.M.fontFamily,
     fontSize: '14px',
     outline: 'none',
-    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)',
+    transition: 'all 0.2s ease',
   };
 
   return (
     <div onPointerDown={(e) => e.stopPropagation()}>
-      <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.spacing['Space.S'], color: theme.Color.Base.Content[2] }}>
+      <label style={{ 
+        ...theme.Type.Readable.Label.S, 
+        fontSize: '10px',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        display: 'block', 
+        marginBottom: '6px', 
+        color: theme.Color.Base.Content[2],
+        opacity: 0.8
+      }}>
         {label}
       </label>
-      <input type={type} value={value} onChange={onChange} style={{ ...baseInputStyle, ...style }} />
+      <input 
+        type={type} 
+        value={value} 
+        onChange={onChange} 
+        style={{ ...baseInputStyle, ...style }} 
+        onFocus={(e) => e.currentTarget.style.borderColor = theme.Color.Base.Content[1]}
+        onBlur={(e) => e.currentTarget.style.borderColor = theme.Color.Base.Surface[3]}
+      />
     </div>
   );
 };
