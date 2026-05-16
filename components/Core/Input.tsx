@@ -17,15 +17,20 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
   const { theme } = useTheme();
 
   const baseInputStyle: React.CSSProperties = {
+    // UPDATED: Height 44px, full rounded (Pill style), premium surface color
+    // To undo: Change height to auto/32px, borderRadius to Radius.S, bg to Surface[1]
     width: '100%',
-    padding: theme.spacing['Space.S'],
-    borderRadius: theme.radius['Radius.S'],
+    height: '44px',
+    padding: `0 ${theme.spacing['Space.M']}`,
+    borderRadius: theme.radius['Radius.Full'],
     border: `1px solid ${theme.Color.Base.Surface[3]}`,
     backgroundColor: theme.Color.Base.Surface[2],
     color: theme.Color.Base.Content[1],
     fontFamily: theme.Type.Readable.Body.M.fontFamily,
     fontSize: '14px',
     outline: 'none',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)',
   };
 
   return (

@@ -12,7 +12,7 @@ import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-thre
 
 gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
-import { WigglingBox as Box } from './WiggleCube';
+import { SimpleBox, GellyBox } from './WiggleCube';
 import AnimatedCounter from '../Core/AnimatedCounter';
 
 // STYLE: JS object style for overlay
@@ -60,7 +60,7 @@ const buttonStyle: React.CSSProperties = {
   transition: 'all 0.2s ease',
 };
 
-const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: string; position: [number, number, number]; id: string; onDragStart?: () => void; onDragEnd?: () => void }) => {
+const PhysicsCube = ({ color, position, id, size = 1, onDragStart, onDragEnd }: { color: string; position: [number, number, number]; id: string; size?: number; onDragStart?: () => void; onDragEnd?: () => void }) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const [hovered, setHover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -124,7 +124,7 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
         >
-          <Box color={hovered ? '#fff' : color} />
+          <GellyBox color={hovered ? '#fff' : color} size={size} />
         </group>
       </RigidBody>
   );
@@ -235,7 +235,7 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
       >
-        <Box color={color} size={2} />
+        <SimpleBox color={color} size={2} />
       </group>
     </RigidBody>
   );
@@ -273,6 +273,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
       id: Math.random().toString(36),
       color: randomColor,
       position: [(Math.random() - 0.5) * 4, 10, (Math.random() - 0.5) * 4],
+      size: 0.5 + Math.random() * 0.8,
     });
   };
 
@@ -280,7 +281,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
     <div style={{ width: '100%', height: '100%', minHeight: '400px', position: 'relative', overflow: 'hidden', background: '#050505' }}>
       <div style={overlayStyle}>
         <button style={buttonStyle} onClick={spawnCube}>
-          Spawn Wiggle Cube
+          Spawn Gelly Mesh
         </button>
       </div>
 
@@ -300,21 +301,8 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
           maxPolarAngle={Math.PI / 2.1} 
         />
         
-        <ambientLight intensity={0.2} />
-        <spotLight 
-          position={[10, 15, 10]} 
-          angle={0.15} 
-          penumbra={1} 
-          intensity={2000} 
-          castShadow 
-          shadow-mapSize-width={2048} 
-          shadow-mapSize-height={2048} 
-        />
-        <directionalLight 
-          position={[-5, 5, -5]} 
-          intensity={2} 
-          color="#ffffff" 
-        />
+        <ambientLight intensity={0.5} />
+        <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
         
         <Physics gravity={[0, -9.81, 0]}>
           <RotatingBox 
@@ -332,16 +320,8 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
           <Floor />
         </Physics>
         
-        {showSky && <Sky sunPosition={[100, 10, 100]} />}
-        <Environment preset="studio" />
-        <ContactShadows 
-          position={[0, -2, 0]} 
-          opacity={0.4} 
-          scale={20} 
-          blur={2} 
-          far={4.5} 
-          color="#000000" 
-        />
+        {showSky && <Sky sunPosition={[1, 0.2, 1]} />}
+        <Environment preset="city" />
       </Canvas>
       
       <div style={fpsStyle}>

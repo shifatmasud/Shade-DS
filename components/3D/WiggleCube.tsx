@@ -5,48 +5,65 @@ import { useFrame } from '@react-three/fiber';
 import { WiggleBone } from 'wiggle';
 
 /**
- * COMPONENT: WigglingBox
- * Renders a physics-enabled cube that jiggles using WiggleBone.
- * Architecture:
- * DATA -> Skeleton + SkinnedGeometry
- * LOGIC -> WiggleBone updates on each frame
- * RENDER -> SkinnedMesh
+ * COMPONENT: SimpleBox
+ * UPDATED: Replaces WiggleCube for main rotating element. Normal cube geometry.
+ * To undo: Swap back to GellyBox/WigglingBox in scene.tsx
  */
-export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number }) => {
+export const SimpleBox = ({ color, size = 1 }: { color: string, size?: number }) => {
+  return (
+    <mesh castShadow receiveShadow>
+      <boxGeometry args={[size, size, size]} />
+      <meshStandardMaterial 
+        color={color} 
+        metalness={0.6} 
+        roughness={0.2} 
+        emissive={color}
+        emissiveIntensity={0.1}
+      />
+    </mesh>
+  );
+};
+
+/**
+ * COMPONENT: GellyBox
+ * UPDATED: Enhanced jiggle physics and cuboid geometry for premium feel.
+ * To undo: Restore WigglingBox signature and simpler physics.
+ */
+export const GellyBox = ({ color, size = 1, width = 1, height = 1.5, depth = 1 }: { color: string, size?: number, width?: number, height?: number, depth?: number }) => {
   const meshRef = useRef<THREE.SkinnedMesh>(null);
   const wiggleBones = useRef<any[]>([]);
 
-  const { geometry, skeleton, bonesGroup, bindMatrix } = useMemo(() => {
-    // 1. Create Bones: A linear chain of 5 bones (4 segments)
-    const numBones = 5;
+  // Scale based on size prop if provided, otherwise use explicit dimensions
+  const w = size !== 1 ? size : width;
+  const h = size !== 1 ? size * 1.5 : height;
+  const d = size !== 1 ? size : depth;
+
+  const { geometry, skeleton, bonesGroup } = useMemo(() => {
+    // 1. Create Bones: A linear chain of 7 bones for smoother deformation
+    const numBones = 7;
     const bones: THREE.Bone[] = [];
     
-    // Smaller internal chain
-    const chainHeight = size * 0.8;
-    const interval = chainHeight / (numBones - 1);
+    const totalHeight = h;
+    const interval = totalHeight / (numBones - 1);
 
     for (let i = 0; i < numBones; i++) {
       const bone = new THREE.Bone();
-
       if (i === 0) {
-        // Start slightly inside bottom
-        bone.position.set(0, -chainHeight / 2, 0);
+        bone.position.set(0, -totalHeight / 2, 0);
       } else {
         bone.position.set(0, interval, 0);
         bones[i - 1].add(bone);
       }
-
       bones.push(bone);
     }
 
     const bonesGroup = new THREE.Group();
-    bonesGroup.add(bones[0]); // Root bone is child of group
+    bonesGroup.add(bones[0]);
 
     const skeleton = new THREE.Skeleton(bones);
-    const bindMatrix = new THREE.Matrix4();
 
-    // 2. Create Skinned Geometry
-    const geo = new THREE.BoxGeometry(size, size, size, 1, 12, 1);
+    // 2. Create Skinned Geometry (Subdivided for jelly look)
+    const geo = new THREE.BoxGeometry(w, h, d, 4, 16, 4);
     
     const skinIndices = [];
     const skinWeights = [];
@@ -55,12 +72,10 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
 
     for (let i = 0; i < posAttr.count; i++) {
       v.fromBufferAttribute(posAttr, i);
-      const y = v.y; // Range: [-size/2, size/2]
+      const y = v.y; // Range: [-h/2, h/2]
       
-      // Normalize y to [0, 1] range
-      const u = Math.max(0, Math.min(1, (y + size / 2) / size));
+      const u = Math.max(0, Math.min(1, (y + h / 2) / h));
       
-      // Calculate indices and weights for the linear segments
       const segmentHeight = 1 / (numBones - 1);
       const rawSegment = u / segmentHeight;
       const segmentIndex = Math.floor(rawSegment);
@@ -76,10 +91,9 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
     geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4));
     geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4));
 
-    return { geometry: geo, skeleton, bonesGroup, bindMatrix };
-  }, [size]);
+    return { geometry: geo, skeleton, bonesGroup };
+  }, [w, h, d]);
 
-  // LOGIC: Initialize WiggleBones
   useEffect(() => {
     if (meshRef.current) {
       meshRef.current.bind(skeleton);
@@ -87,8 +101,8 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
   }, [skeleton]);
 
   useEffect(() => {
-    // REASON: Extremely subtle deformation to avoid artifacts and feel premium.
-    const config = { velocity: 0.005, damping: 0.4, stiffness: 0.6 };
+    // Premium Configuration: High stiffness but enough damping for that "gelly" settle
+    const config = { velocity: 0.1, damping: 0.25, stiffness: 0.4 };
     wiggleBones.current = skeleton.bones.slice(1).map(bone => new WiggleBone(bone, config));
 
     return () => {
@@ -97,7 +111,6 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
     };
   }, [skeleton]);
 
-  // EFFECT: Update wiggle bones per frame
   useFrame(() => {
     wiggleBones.current.forEach(wb => wb.update());
   });
@@ -112,15 +125,14 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
         castShadow
         receiveShadow
       >
-        <meshPhysicalMaterial 
+        <meshStandardMaterial 
           color={color} 
-          metalness={0.9} 
+          metalness={0.4} 
           roughness={0.1} 
-          clearcoat={1}
-          clearcoatRoughness={0.1}
           emissive={color}
-          emissiveIntensity={0.05}
-          reflectivity={1}
+          emissiveIntensity={0.2}
+          transparent={true}
+          opacity={0.9}
         />
       </skinnedMesh>
     </group>
