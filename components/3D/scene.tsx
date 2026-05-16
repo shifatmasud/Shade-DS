@@ -300,8 +300,21 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
           maxPolarAngle={Math.PI / 2.1} 
         />
         
-        <ambientLight intensity={0.5} />
-        <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+        <ambientLight intensity={0.2} />
+        <spotLight 
+          position={[10, 15, 10]} 
+          angle={0.15} 
+          penumbra={1} 
+          intensity={2000} 
+          castShadow 
+          shadow-mapSize-width={2048} 
+          shadow-mapSize-height={2048} 
+        />
+        <directionalLight 
+          position={[-5, 5, -5]} 
+          intensity={2} 
+          color="#ffffff" 
+        />
         
         <Physics gravity={[0, -9.81, 0]}>
           <RotatingBox 
@@ -319,8 +332,16 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
           <Floor />
         </Physics>
         
-        {showSky && <Sky sunPosition={[1, 0.2, 1]} />}
-        <Environment preset="city" />
+        {showSky && <Sky sunPosition={[100, 10, 100]} />}
+        <Environment preset="studio" />
+        <ContactShadows 
+          position={[0, -2, 0]} 
+          opacity={0.4} 
+          scale={20} 
+          blur={2} 
+          far={4.5} 
+          color="#000000" 
+        />
       </Canvas>
       
       <div style={fpsStyle}>

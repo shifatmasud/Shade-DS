@@ -87,9 +87,8 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
   }, [skeleton]);
 
   useEffect(() => {
-    // Only child bones wiggle; root (index 0) remains static
-    // Subtle but reactive: Lower velocity influence, higher stiffness and damping
-    const config = { velocity: 0.05, damping: 0.2, stiffness: 0.3 };
+    // REASON: Extremely subtle deformation to avoid artifacts and feel premium.
+    const config = { velocity: 0.005, damping: 0.4, stiffness: 0.6 };
     wiggleBones.current = skeleton.bones.slice(1).map(bone => new WiggleBone(bone, config));
 
     return () => {
@@ -113,12 +112,15 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
         castShadow
         receiveShadow
       >
-        <meshStandardMaterial 
+        <meshPhysicalMaterial 
           color={color} 
-          metalness={0.6} 
-          roughness={0.2} 
+          metalness={0.9} 
+          roughness={0.1} 
+          clearcoat={1}
+          clearcoatRoughness={0.1}
           emissive={color}
-          emissiveIntensity={0.1}
+          emissiveIntensity={0.05}
+          reflectivity={1}
         />
       </skinnedMesh>
     </group>
