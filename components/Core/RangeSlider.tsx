@@ -134,7 +134,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   const percentage = Math.max(0, Math.min(100, ((internalValue - min) / (max - min)) * 100));
 
   const numberInputContainerStyle: React.CSSProperties = {
-    width: theme.space['Space.64'],
+    width: theme.space['Space.7XL'],
     height: theme.space['Space.XL'],
     position: 'relative',
     fontFamily: theme.Type.Readable.Body.M.fontFamily,
@@ -184,7 +184,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: theme.space['Space.XXL'],
+    minWidth: theme.space['Space.2XL'],
     height: theme.space['Space.XL'],
     zIndex: 100,
   };
@@ -222,7 +222,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
             ref={trackRef}
             style={{ 
                 flex: 1, 
-                height: theme.space['Space.XXL'], // Increased hit area
+                height: theme.space['Space.2XL'], // Increased hit area
                 display: 'flex', 
                 alignItems: 'center', 
                 cursor: 'pointer',

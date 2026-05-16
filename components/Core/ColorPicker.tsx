@@ -162,8 +162,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     },
     swatchContainer: {
         position: 'relative' as const,
-        width: theme.space['Space.40'],
-        height: theme.space['Space.40'],
+        width: theme.space['Space.3XL'],
+        height: theme.space['Space.3XL'],
         borderRadius: '50%',
         cursor: 'pointer',
         display: 'grid',
@@ -175,8 +175,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
         flexShrink: 0
     },
     innerSwatch: {
-        width: theme.space['Space.XXL'], // Approximated from 28px
-        height: theme.space['Space.XXL'],
+        width: theme.space['Space.2XL'], // Approximated from 28px
+        height: theme.space['Space.2XL'],
         borderRadius: '50%',
     },
     popoverRoot: {
@@ -202,8 +202,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     },
     spatialRoot: {
         position: 'relative' as const,
-        width: theme.space['Space.200'],
-        height: theme.space['Space.200'],
+        width: theme.space['Space.12XL'],
+        height: theme.space['Space.12XL'],
         display: 'grid',
         placeItems: 'center'
     },
@@ -218,8 +218,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     },
     blob: (color: string) => ({
         position: 'absolute' as const,
-        width: theme.space['Space.56'], // Approximated from 52px
-        height: theme.space['Space.56'],
+        width: theme.space['Space.6XL'], // Approximated from 52px
+        height: theme.space['Space.6XL'],
         borderRadius: '50%',
         backgroundColor: color,
         border: 'none',
@@ -227,7 +227,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
         boxShadow: `0 4px 15px ${color}66, 0 0 20px ${color}33`,
     }),
     slidersPanel: {
-        width: theme.space['Space.280'] || '280px',
+        width: theme.space['Space.13XL'] || '280px',
         backgroundColor: theme.Color.Base.Surface[1],
         border: `1px solid ${theme.Color.Base.Surface[3]}`,
         borderRadius: theme.radius['Radius.M'],
@@ -362,7 +362,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
                 color: theme.Color.Base.Content[1],
                 fontFamily: theme.Type.Expressive.Data.fontFamily,
                 fontSize: theme.Type.Readable.Label.S.fontSize,
-                width: theme.space['Space.64'], // Approximated from 60px
+                width: theme.space['Space.7XL'], // Approximated from 60px
                 opacity: 0.6,
                 textTransform: 'uppercase'
             }}

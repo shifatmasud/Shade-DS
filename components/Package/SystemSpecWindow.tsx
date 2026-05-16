@@ -139,7 +139,7 @@ const SystemSpecWindow = () => {
   const badgeStyle: React.CSSProperties = {
     fontFamily: 'JetBrains Mono, monospace',
     fontSize: theme.Type.Readable.Label.S.fontSize,
-    padding: `${theme.space['Space.XXS']} ${theme.space['Space.XS']}`,
+    padding: `${theme.space['Space.2XS']} ${theme.space['Space.XS']}`,
     borderRadius: theme.radius['Radius.S'],
     backgroundColor: theme.Color.Base.Surface[3],
     color: theme.Color.Base.Content[3],
@@ -220,7 +220,7 @@ const SystemSpecWindow = () => {
         
         {/* Visual: Complexity Slider Animation */}
         <div style={{ 
-          height: theme.space['Space.64'], 
+          height: theme.space['Space.7XL'], 
           backgroundColor: theme.Color.Base.Surface[2], 
           borderRadius: theme.radius['Radius.M'],
           marginTop: theme.space['Space.S'],
@@ -232,8 +232,8 @@ const SystemSpecWindow = () => {
         }}>
           <motion.div 
             style={{ 
-              width: theme.space['Space.40'], 
-              height: theme.space['Space.40'], 
+              width: theme.space['Space.3XL'], 
+              height: theme.space['Space.3XL'], 
               borderRadius: '50%', 
               border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Focus.Content[1]}`,
               display: 'flex',
@@ -296,7 +296,7 @@ const SystemSpecWindow = () => {
         
         {/* Visual: Reactive Flow Animation */}
         <div style={{ 
-          height: theme.space['Space.80'], 
+          height: theme.space['Space.8XL'], 
           marginTop: theme.space['Space.S'],
           display: 'flex',
           alignItems: 'center',
@@ -360,7 +360,7 @@ const SystemSpecWindow = () => {
       </section>
 
       {/* Documentation Rules */}
-      <section style={{ ...sectionStyle, borderBottom: 'none', paddingBottom: theme.space['Space.40'] }}>
+      <section style={{ ...sectionStyle, borderBottom: 'none', paddingBottom: theme.space['Space.3XL'] }}>
         <h2 style={titleStyle}><FileText size={20} /> Documentation Rules</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.S'] }}>
         {['README.md', 'noteBook.md', 'bugReport.md'].map((file) => (

@@ -18,7 +18,16 @@ import AnimatedCounter from '../Core/AnimatedCounter';
 const NormalBox = ({ color, size = 1 }: { color: string, size?: number }) => (
   <mesh castShadow receiveShadow>
     <boxGeometry args={[size, size, size]} />
-    <meshStandardMaterial color={color} metalness={0.6} roughness={0.2} />
+    <meshPhysicalMaterial 
+      color={color} 
+      metalness={0.0} 
+      roughness={0.15} 
+      transmission={0.8} 
+      thickness={1.5}
+      ior={1.45}
+      transparent
+      opacity={0.8}
+    />
   </mesh>
 );
 
@@ -227,33 +236,41 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
     position: 'absolute',
     bottom: theme.space['Space.L'],
     right: theme.space['Space.L'],
-    background: theme.Color.Base.Surface[1],
-    color: theme.Color.Base.Content[2],
+    background: 'rgba(255, 255, 255, 0.03)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    color: '#ffffff',
     padding: `${theme.space['Space.XS']} ${theme.space['Space.M']}`,
-    borderRadius: theme.radius['Radius.S'],
+    borderRadius: '12px',
     fontFamily: theme.Type.Readable.Body.M.fontFamily,
-    fontSize: theme.Type.Readable.Label.M.fontSize,
+    fontSize: '12px',
     pointerEvents: 'none',
     zIndex: 100,
-    border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     display: 'flex',
     alignItems: 'center',
-    gap: theme.space['Space.XXS'],
-    opacity: 0.8,
+    gap: theme.space['Space.2XS'],
   };
 
   const buttonStyle: React.CSSProperties = {
-    padding: `${theme.space['Space.S']} ${theme.space['Space.M']}`,
-    background: theme.Color.Base.Surface[2],
-    backdropFilter: 'blur(10px)',
-    border: `1px solid ${theme.Color.Base.Surface[3]}`,
-    borderRadius: theme.radius['Radius.S'],
-    color: theme.Color.Base.Content[1],
-    fontSize: theme.Type.Readable.Label.M.fontSize,
+    padding: `12px 20px`,
+    background: 'rgba(255, 255, 255, 0.05)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    borderRadius: '14px',
+    color: '#ffffff',
+    fontSize: '13px',
+    fontWeight: 500,
     fontFamily: theme.Type.Readable.Body.M.fontFamily,
     cursor: 'pointer',
     pointerEvents: 'auto',
-    transition: 'all 0.2s ease',
+    transition: 'all 0.3s cubic-bezier(0.23, 1, 0.32, 1)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
   };
   useEffect(() => {
     let frameCount = 0;

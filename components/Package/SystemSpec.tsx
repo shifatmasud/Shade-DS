@@ -167,7 +167,7 @@ Inside the target file:
     fontSize: theme.Type.Expressive.Data.fontSize,
     color: theme.Color.Base.Content[3],
     backgroundColor: theme.Color.Base.Surface[2],
-    padding: `${theme.space['Space.XXS']} ${theme.space['Space.XS']}`,
+    padding: `${theme.space['Space.2XS']} ${theme.space['Space.XS']}`,
     borderRadius: theme.radius['Radius.S'],
   };
 
@@ -342,7 +342,7 @@ Inside the target file:
               display: 'grid', 
               gridTemplateColumns: 'repeat(2, 1fr)', 
               gap: theme.space['Space.S'],
-              marginTop: theme.space['Space.XXS'] 
+              marginTop: theme.space['Space.2XS'] 
             }}>
               {[
                 { role: 'Hero', font: 'Bebas Neue', style: { fontFamily: 'Bebas Neue', fontSize: theme.Type.Readable.Title.L.fontSize } },
@@ -357,7 +357,7 @@ Inside the target file:
                   border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: theme.space['Space.XXS']
+                  gap: theme.space['Space.2XS']
                 }}>
                   <div style={{ ...itemStyle, fontSize: theme.Type.Readable.Label.S.fontSize, opacity: 0.5, textTransform: 'uppercase' }}>{item.role}</div>
                   <div style={{ ...itemStyle, ...item.style, color: theme.Color.Base.Content[1] }}>{item.font}</div>
@@ -372,7 +372,7 @@ Inside the target file:
               <Target size={16} /> Tokens
             </div>
             <code style={dataStyle}>Category.Purpose.Context.Level</code>
-            <p style={{ ...itemStyle, fontSize: theme.Type.Readable.Body.S.fontSize, marginTop: theme.space['Space.XXS'] }}>Never use literal values.</p>
+            <p style={{ ...itemStyle, fontSize: theme.Type.Readable.Body.S.fontSize, marginTop: theme.space['Space.2XS'] }}>Never use literal values.</p>
           </div>
 
           {/* Motion */}

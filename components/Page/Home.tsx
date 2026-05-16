@@ -100,8 +100,8 @@ const Home = () => {
   // --- Window Management ---
   const WINDOW_WIDTH = parseInt(theme.space['Space.Panel.Width']) || 400;
   const CONTROL_PANEL_HEIGHT = parseInt(theme.space['Space.Panel.Height']) || 640;
-  const CODE_PANEL_HEIGHT = parseInt(theme.space['Space.400']) || 408;
-  const CONSOLE_PANEL_HEIGHT = parseInt(theme.space['Space.200']) || 200;
+  const CODE_PANEL_HEIGHT = parseInt(theme.space['Space.14XL']) || 408;
+  const CONSOLE_PANEL_HEIGHT = parseInt(theme.space['Space.12XL']) || 200;
 
   const handleResize = (id: WindowId, newHeight: number) => {
     setWindows(prev => ({

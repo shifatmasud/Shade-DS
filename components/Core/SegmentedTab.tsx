@@ -18,12 +18,12 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
   return (
     <div style={{
       display: 'flex',
-      padding: theme.space['Space.XXS'],
+      padding: theme.space['Space.2XS'],
       backgroundColor: theme.Color.Base.Surface[2],
       borderRadius: theme.radius['Radius.M'],
       border: `1px solid ${theme.Color.Base.Surface[3]}`,
       position: 'relative',
-      gap: theme.space['Space.XXS'],
+      gap: theme.space['Space.2XS'],
     }}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
@@ -56,7 +56,7 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
                   position: 'absolute',
                   inset: 0,
                   backgroundColor: theme.Color.Base.Surface[1],
-                  borderRadius: `calc(${theme.radius['Radius.M']} - ${theme.space['Space.XXS']})`,
+                  borderRadius: `calc(${theme.radius['Radius.M']} - ${theme.space['Space.2XS']})`,
                   boxShadow: theme.effects['Effect.Shadow.Drop.1'],
                   border: `1px solid ${theme.Color.Base.Surface[3]}`,
                   zIndex: -1,

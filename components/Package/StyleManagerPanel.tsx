@@ -32,7 +32,7 @@ const StyleManagerPanel: React.FC = () => {
 
   const renderSpacingSample = (name: string, value: string) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.M'], padding: `${theme.space['Space.S']} 0` }}>
-      <div style={{ width: theme.space['Space.120'] || '120px' }}>
+      <div style={{ width: theme.space['Space.10XL'] || '120px' }}>
         <p style={{ ...theme.Type.Readable.Label.M, margin: 0 }}>{name}</p>
         <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], margin: 0 }}>{value}</p>
       </div>

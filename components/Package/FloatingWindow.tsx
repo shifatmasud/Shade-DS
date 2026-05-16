@@ -60,7 +60,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
   };
 
   const headerStyle: React.CSSProperties = {
-    height: theme.space['Space.XXXL'],
+    height: theme.space['Space.5XL'],
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -81,7 +81,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
   };
 
   const footerStyle: React.CSSProperties = {
-    height: theme.space['Space.XXXL'],
+    height: theme.space['Space.5XL'],
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-start',

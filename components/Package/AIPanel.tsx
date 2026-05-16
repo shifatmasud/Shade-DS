@@ -237,12 +237,12 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                     cursor: 'pointer',
                     color: theme.Color.Base.Content[3],
                     opacity: 0.5,
-                    padding: `${theme.space['Space.XXS']} ${theme.space['Space.XS']}`,
+                    padding: `${theme.space['Space.2XS']} ${theme.space['Space.XS']}`,
                     display: 'flex',
                     alignItems: 'center',
                     gap: theme.space['Space.XS'],
                     fontSize: theme.Type.Readable.Label.S.fontSize,
-                    marginTop: `calc(-1 * ${theme.space['Space.XXS']})`,
+                    marginTop: `calc(-1 * ${theme.space['Space.2XS']})`,
                   }}
                 >
                   {copiedIndex === i ? <><Check size={10} color={theme.Color.Success.Content[1]} /> Copied</> : <><Copy size={10} /> Copy</>}
@@ -250,7 +250,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
               </div>
             ))}
             {isLoading && (
-              <div style={{ display: 'flex', gap: theme.space['Space.XS'], padding: theme.space['Space.XXS'] }}>
+              <div style={{ display: 'flex', gap: theme.space['Space.XS'], padding: theme.space['Space.2XS'] }}>
                 <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
                 <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
                 <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
@@ -290,7 +290,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
             fontSize: theme.Type.Readable.Label.M.fontSize,
             outline: 'none',
             resize: 'none',
-            maxHeight: theme.space['Space.150'] || '150px',
+            maxHeight: theme.space['Space.11XL'] || '150px',
             lineHeight: '1.4',
           }}
         />
@@ -298,8 +298,8 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
           onClick={handleSend}
           disabled={isLoading || !input.trim()}
           style={{
-            width: theme.space['Space.XXL'],
-            height: theme.space['Space.XXL'],
+            width: theme.space['Space.2XL'],
+            height: theme.space['Space.2XL'],
             borderRadius: theme.radius['Radius.M'],
             backgroundColor: theme.Color.Base.Content[1],
             color: theme.Color.Base.Surface[1],
@@ -310,7 +310,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
             justifyContent: 'center',
             opacity: isLoading || !input.trim() ? 0.5 : 1,
             flexShrink: 0,
-            marginBottom: theme.space['Space.XXS'],
+            marginBottom: theme.space['Space.2XS'],
           }}
         >
           <PaperPlaneTilt size={16} weight="bold" />

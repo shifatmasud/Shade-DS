@@ -84,25 +84,26 @@ const typography = {
 };
 
 const space = { 
-  'Space.XXS': px(Base.Unit.Space * 0.5), // 2
+  'Space.2XS': px(Base.Unit.Space * 0.5), // 2
   'Space.XS': px(Base.Unit.Space * 1),   // 4
   'Space.S': px(Base.Unit.Space * 2),    // 8
   'Space.M': px(Base.Unit.Space * 3),    // 12
   'Space.L': px(Base.Unit.Space * 4),    // 16
   'Space.XL': px(Base.Unit.Space * 6),   // 24
-  'Space.XXL': px(Base.Unit.Space * 8),  // 32
-  'Space.XXXL': px(Base.Unit.Space * 12), // 48
-  'Space.40': px(Base.Unit.Space * 10),
-  'Space.44': px(Base.Unit.Space * 11),
-  'Space.56': px(Base.Unit.Space * 14),
-  'Space.64': px(Base.Unit.Space * 16),
-  'Space.80': px(Base.Unit.Space * 20),
-  'Space.100': px(Base.Unit.Space * 25),
-  'Space.120': px(Base.Unit.Space * 30),
-  'Space.150': px(Base.Unit.Space * 37),
-  'Space.200': px(Base.Unit.Space * 50),
-  'Space.280': px(Base.Unit.Space * 70),
-  'Space.400': px(Base.Unit.Space * 100),
+  'Space.2XL': px(Base.Unit.Space * 8),  // 32
+  'Space.3XL': px(Base.Unit.Space * 10), // 40
+  'Space.4XL': px(Base.Unit.Space * 11), // 44
+  'Space.5XL': px(Base.Unit.Space * 12), // 48
+  'Space.6XL': px(Base.Unit.Space * 14), // 56
+  'Space.7XL': px(Base.Unit.Space * 16), // 64
+  'Space.8XL': px(Base.Unit.Space * 20), // 80
+  'Space.9XL': px(Base.Unit.Space * 25), // 100
+  'Space.10XL': px(Base.Unit.Space * 30), // 120
+  'Space.11XL': px(Base.Unit.Space * 37), // 150
+  'Space.12XL': px(Base.Unit.Space * 50), // 200
+  'Space.13XL': px(Base.Unit.Space * 70), // 280
+  'Space.14XL': px(Base.Unit.Space * 100), // 400
+
   'Space.Panel.Width': px(Base.Unit.Space * 100), // 400
   'Space.Panel.Height': px(Base.Unit.Space * 150) // 600
 };
@@ -111,11 +112,11 @@ const effects = { 'Effect.Shadow.Drop.1': '0 2px 4px rgba(0,0,0,0.1)', 'Effect.S
 const time = { 'Time.1x': `${Base.Unit.Time * 1}ms`, 'Time.2x': `${Base.Unit.Time * 2}ms`, 'Time.3x': `${Base.Unit.Time * 3}ms`, 'Time.4x': `${Base.Unit.Time * 4}ms`, 'Time.Subtle.1': `${Base.Unit.Time * 1 + 50}ms`, 'Time.Subtle.2': `${Base.Unit.Time * 2 + 50}ms` };
 const opacity = { 'Opacity.Subtle': 0.1, 'Opacity.Light': 0.2, 'Opacity.Medium': 0.5, 'Opacity.High': 0.8, 'Opacity.Disabled': 0.4, 'Opacity.Hover': 0.08, 'Opacity.Pressed': 0.12 };
 const height = { 
-  'Height.XS': space['Space.XXL'],  // 32px
-  'Height.S': space['Space.40'],    // 40px
-  'Height.M': space['Space.44'],    // 44px
-  'Height.L': space['Space.56'],    // 56px
-  'Height.XL': space['Space.64'],   // 64px
+  'Height.XS': space['Space.2XL'],  // 32px
+  'Height.S': space['Space.3XL'],   // 40px
+  'Height.M': space['Space.4XL'],   // 44px
+  'Height.L': space['Space.6XL'],   // 56px
+  'Height.XL': space['Space.7XL'],  // 64px
   'Height.Half': px(Base.Unit.Space * 45) 
 };
 const border = { 'Border.Width.Main': '1px', 'Border.Width.Thick': '2px', 'Border.Style.Main': 'solid' };

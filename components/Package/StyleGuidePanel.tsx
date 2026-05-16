@@ -50,7 +50,7 @@ const StyleGuidePanel: React.FC = () => {
     const ms = parseInt(duration) || 0;
     return (
       <div style={{ 
-        width: theme.space['Space.150'] || 150, 
+        width: theme.space['Space.11XL'] || 150, 
         height: theme.space['Space.XS'], 
         backgroundColor: theme.Color.Base.Surface[3], 
         borderRadius: theme.radius['Radius.Full'], 
@@ -191,7 +191,7 @@ const StyleGuidePanel: React.FC = () => {
               key={name}
               label={name}
               value={value as string}
-              preview={<div style={{ width: theme.space['Space.40'], height: theme.space['Space.XL'], borderRadius: theme.radius['Radius.S'], backgroundColor: theme.Color.Base.Surface[1], boxShadow: value as string }} />}
+              preview={<div style={{ width: theme.space['Space.3XL'], height: theme.space['Space.XL'], borderRadius: theme.radius['Radius.S'], backgroundColor: theme.Color.Base.Surface[1], boxShadow: value as string }} />}
             />
           ))}
         </div>
