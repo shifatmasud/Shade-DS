@@ -88,7 +88,8 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
 
   useEffect(() => {
     // Only child bones wiggle; root (index 0) remains static
-    const config = { velocity: 0.15, damping: 0.1, stiffness: 0.1 };
+    // Subtle but reactive: Lower velocity influence, higher stiffness and damping
+    const config = { velocity: 0.05, damping: 0.2, stiffness: 0.3 };
     wiggleBones.current = skeleton.bones.slice(1).map(bone => new WiggleBone(bone, config));
 
     return () => {
