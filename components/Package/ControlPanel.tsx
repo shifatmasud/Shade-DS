@@ -123,7 +123,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
       <Accordion title="Component">
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.L'] }}>
-          <Select
+          <Select<any>
             label="Component Type"
             value={btnProps.componentType}
             onChange={(e) => onPropChange({ 
@@ -149,7 +149,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           {isButton && (
             <div style={{ display: 'flex', gap: theme.spacing['Space.M'] }}>
               <div style={{ flex: 1 }}>
-                <Select
+                <Select<any>
                   label="Variant"
                   value={btnProps.variant}
                   onChange={(e) => onPropChange('variant', e.target.value)}
@@ -163,7 +163,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <Select
+                <Select<any>
                   label="Size"
                   value={btnProps.size}
                   onChange={(e) => onPropChange('size', e.target.value)}
@@ -178,7 +178,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           )}
 
           {isButton && (
-            <Select
+            <Select<any>
               label="Icon (Phosphor)"
               value={btnProps.icon || ''}
               onChange={(e) => onPropChange('icon', e.target.value)}
@@ -224,7 +224,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
       <Accordion title="State">
         <div style={{ width: '100%' }}>
-          <Select 
+          <Select<any> 
               label="Interaction State"
               value={currentInteraction}
               onChange={handleInteractionChange}

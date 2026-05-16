@@ -21,7 +21,7 @@ const Digit: React.FC<DigitProps> = ({ digit }) => {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'flex-start',
+      justifyContent:'center',
     } as React.CSSProperties,
   };
 

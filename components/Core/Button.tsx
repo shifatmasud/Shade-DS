@@ -146,20 +146,20 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         };
       case 'outline':
         return {
-          background: 'transparent',
+          backgroundColor: 'rgba(0,0,0,0)',
           color: baseContent,
           border: `1px solid ${theme.Color.Base.Content[3]}`,
         };
       case 'destructive':
         return {
-          background: customFill || theme.Color.Error.Surface[1],
+          backgroundColor: customFill || theme.Color.Error.Surface[1],
           color: customColor || theme.Color.Error.Content[1],
           border: `1px solid ${theme.Color.Error.Content[1]}`,
           boxShadow: theme.effects['Effect.Shadow.Drop.2'],
         };
       case 'tertiary':
         return {
-          background: 'transparent',
+          backgroundColor: 'rgba(0,0,0,0)',
           color: baseContent,
           border: 'none',
           boxShadow: 'none',

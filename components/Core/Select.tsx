@@ -2,149 +2,228 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import ReactDOM from 'react-dom';
+import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import useOutsideClick from '../../hooks/useOutsideClick.ts';
 
-interface SelectProps {
+/**
+ * SHADE DSL ARCHITECTURE
+ * ----------------------
+ * DATA: 
+ *   - props: { label, value, onChange, options }
+ *   - state: isOpen (boolean)
+ * 
+ * LOGIC:
+ *   - action.toggle: Toggles open state
+ *   - action.select: Selects option and closes
+ *   - effect.clickOutside: Closes on blur
+ * 
+ * RENDER:
+ *   - view.container: Relative wrapper
+ *   - element.label: Minimal uppercase tag
+ *   - element.trigger: Clean input-like button
+ *   - view.overlay: Relative-absolute floating menu
+ *   - element.item: Interactive option row
+ */
+
+interface SelectProps<T extends string = string> {
   label: string;
-  value: string;
-  onChange: (e: any) => void; // Using any to simulate event payload
-  options: { value: string; label: string }[];
+  value: T;
+  onChange: (e: { target: { value: T } }) => void;
+  options: { value: T; label: string }[];
   style?: React.CSSProperties;
 }
 
-const Select: React.FC<SelectProps> = ({ label, value, onChange, options, style }) => {
+const Select = <T extends string = string>({ label, value, onChange, options, style }: SelectProps<T>) => {
   const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
 
-  // Find label for current value
-  const currentLabel = options.find(opt => opt.value === value)?.label || value;
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [mouseY, setMouseY] = useState(0);
+  const [isHoveringMenu, setIsHoveringMenu] = useState(false);
 
-  const handleClose = useCallback((event: MouseEvent | TouchEvent) => {
-    if (triggerRef.current && triggerRef.current.contains(event.target as Node)) {
-      return;
-    }
+  const currentOption = options.find(opt => opt.value === value);
+  const currentLabel = currentOption?.label || value;
+
+  const handleClose = useCallback(() => {
     setIsOpen(false);
+    setIsHoveringMenu(false);
+    setHoveredIndex(null);
   }, []);
+  
+  useOutsideClick(containerRef, handleClose);
 
-  useOutsideClick(dropdownRef, handleClose);
-
-  useEffect(() => {
-    if (isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPosition({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      });
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      setMouseY(e.clientY - rect.top);
     }
-  }, [isOpen]);
+  };
 
   const handleSelect = (newValue: string) => {
-    // Simulate a change event
-    onChange({ target: { value: newValue } });
+    onChange({ target: { value: newValue } as any });
     setIsOpen(false);
+    setIsHoveringMenu(false);
+    setHoveredIndex(null);
   };
 
-  const triggerStyle: React.CSSProperties = {
-    width: '100%',
-    padding: theme.spacing['Space.S'],
-    borderRadius: theme.radius['Radius.S'],
-    border: `1px solid ${isOpen ? theme.Color.Focus.Content[1] : theme.Color.Base.Surface[3]}`,
-    backgroundColor: theme.Color.Base.Surface[2],
-    color: theme.Color.Base.Content[1],
-    fontFamily: theme.Type.Readable.Body.M.fontFamily,
-    fontSize: '14px',
-    cursor: 'pointer',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    outline: 'none',
-    transition: `border-color ${theme.time['Time.2x']} ease`,
-  };
+  const ITEM_HEIGHT = 34;
 
-  const dropdownStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    width: '100%',
-    marginTop: theme.spacing['Space.XS'],
-    backgroundColor: theme.Color.Base.Surface[2],
-    border: `1px solid ${theme.Color.Base.Surface[3]}`,
-    borderRadius: theme.radius['Radius.S'],
-    boxShadow: theme.effects['Effect.Shadow.Drop.2'],
-    zIndex: 100,
-    overflow: 'hidden',
-    padding: theme.spacing['Space.XS'],
+  // STYLE OBJECTS
+  const styles = {
+    container: {
+      position: 'relative' as const,
+      width: '100%',
+      ...style,
+    },
+    label: {
+      ...theme.Type.Readable.Label.S,
+      fontSize: '10px',
+      textTransform: 'uppercase' as const,
+      letterSpacing: '0.05em',
+      marginBottom: '6px',
+      color: theme.Color.Base.Content[2],
+      opacity: 0.8,
+    },
+    trigger: {
+      width: '100%',
+      height: '42px',
+      padding: `0 ${theme.spacing['Space.M']}`,
+      borderRadius: theme.radius['Radius.S'],
+      border: `1px solid ${isOpen ? theme.Color.Base.Content[1] : theme.Color.Base.Surface[3]}`,
+      backgroundColor: theme.Color.Base.Surface[1],
+      color: theme.Color.Base.Content[1],
+      fontFamily: theme.Type.Readable.Body.M.fontFamily,
+      fontSize: '14px',
+      cursor: 'pointer',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      outline: 'none',
+      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+      fontWeight: 500,
+    },
+    overlay: {
+      position: 'absolute' as const,
+      top: 'calc(100% + 4px)',
+      left: 0,
+      width: '100%',
+      backgroundColor: theme.Color.Base.Surface[1],
+      border: `1px solid ${theme.Color.Base.Surface[3]}`,
+      borderRadius: theme.radius['Radius.S'],
+      boxShadow: '0 10px 30px -10px rgba(0,0,0,0.1)',
+      zIndex: 1000,
+      overflow: 'hidden',
+      padding: '4px',
+    },
+    option: (isSelected: boolean) => ({
+      position: 'relative' as const,
+      zIndex: 1,
+      height: `${ITEM_HEIGHT}px`,
+      padding: '0 12px',
+      cursor: 'pointer',
+      borderRadius: '4px',
+      color: isSelected ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2],
+      backgroundColor: 'rgba(0, 0, 0, 0)',
+      fontFamily: theme.Type.Readable.Body.M.fontFamily,
+      fontSize: '13px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      transition: 'color 0.15s ease',
+    })
   };
 
   return (
-    <div style={{ position: 'relative' }} onPointerDown={(e) => e.stopPropagation()}>
-      <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.spacing['Space.S'], color: theme.Color.Base.Content[2] }}>
-        {label}
-      </label>
+    <div ref={containerRef} style={styles.container} onPointerDown={(e) => e.stopPropagation()}>
+      <div style={styles.label}>{label}</div>
       
-      {/* Trigger Button */}
       <motion.button
-        ref={triggerRef}
-        style={triggerStyle}
+        style={styles.trigger}
         onClick={() => setIsOpen(!isOpen)}
-        whileTap={{ scale: 0.98 }}
+        whileHover={{ borderColor: theme.Color.Base.Content[2] }}
+        whileTap={{ scale: 0.995 }}
         type="button"
       >
-        <span>{currentLabel}</span>
-        <motion.i 
-            className="ph-bold ph-caret-down" 
-            animate={{ rotate: isOpen ? 180 : 0 }}
-        />
+        <span style={{ opacity: currentOption ? 1 : 0.5 }}>{currentLabel}</span>
+        <motion.span
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          style={{ display: 'flex', alignItems: 'center' }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </motion.span>
       </motion.button>
 
-      {/* Dropdown Menu Portal */}
-      {isOpen && ReactDOM.createPortal(
-        <AnimatePresence>
+      <AnimatePresence>
+        {isOpen && (
           <motion.div
             ref={dropdownRef}
-            style={{...dropdownStyle, top: position.top, left: position.left, width: position.width}}
-            initial={{ opacity: 0, y: -10, scaleY: 0.9 }}
-            animate={{ opacity: 1, y: 0, scaleY: 1 }}
-            exit={{ opacity: 0, y: -10, scaleY: 0.9 }}
-            transition={{ duration: 0.15 }}
+            style={styles.overlay}
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+            onMouseMove={handleMouseMove}
+            onMouseEnter={() => setIsHoveringMenu(true)}
+            onMouseLeave={() => {
+                setIsHoveringMenu(false);
+                setHoveredIndex(null);
+            }}
           >
-            {options.map((option) => (
+            <div style={{ maxHeight: '240px', overflowY: 'auto', position: 'relative' }}>
+              {/* FLUID HIGHLIGHT */}
               <motion.div
-                key={option.value}
-                onClick={() => handleSelect(option.value)}
                 style={{
-                  padding: `${theme.spacing['Space.S']} ${theme.spacing['Space.M']}`,
-                  cursor: 'pointer',
-                  borderRadius: theme.radius['Radius.S'],
-                  color: option.value === value ? theme.Color.Accent.Content[1] : theme.Color.Base.Content[1],
-                  backgroundColor: option.value === value ? theme.Color.Accent.Surface[1] : 'transparent',
-                  fontFamily: theme.Type.Readable.Body.M.fontFamily,
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '2px'
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  height: ITEM_HEIGHT,
+                  borderRadius: '4px',
+                  backgroundColor: theme.Color.Base.Surface[2],
+                  pointerEvents: 'none',
+                  zIndex: 0,
                 }}
-                whileHover={{ 
-                    backgroundColor: option.value === value ? theme.Color.Accent.Surface[1] : theme.Color.Base.Surface[3] 
+                animate={{
+                  y: hoveredIndex !== null ? hoveredIndex * ITEM_HEIGHT : mouseY - (ITEM_HEIGHT / 2),
+                  opacity: isHoveringMenu ? 1 : 0,
+                  scale: isHoveringMenu ? 1 : 0.95,
                 }}
-              >
-                {option.label}
-                {option.value === value && <i className="ph-bold ph-check" />}
-              </motion.div>
-            ))}
+                transition={{
+                  type: 'spring',
+                  stiffness: 400,
+                  damping: 35,
+                  mass: 0.8
+                }}
+              />
+
+              {options.map((option, idx) => (
+                <motion.div
+                  key={option.value}
+                  onClick={() => handleSelect(option.value)}
+                  style={styles.option(option.value === value)}
+                  onMouseEnter={() => setHoveredIndex(idx)}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span style={{ position: 'relative', zIndex: 1 }}>{option.label}</span>
+                  {option.value === value && (
+                    <motion.span layoutId="active-check" style={{ position: 'relative', zIndex: 1 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </motion.span>
+                  )}
+                </motion.div>
+              ))}
+            </div>
           </motion.div>
-        </AnimatePresence>,
-        document.body
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 };

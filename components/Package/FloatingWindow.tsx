@@ -57,7 +57,6 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     zIndex: zIndex,
     display: 'flex',
     flexDirection: 'column',
-    overflow: 'hidden',
   };
 
   const headerStyle: React.CSSProperties = {

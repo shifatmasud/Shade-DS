@@ -17,7 +17,6 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
   const containerStyle: React.CSSProperties = {
     marginBottom: theme.spacing['Space.S'],
     borderRadius: theme.radius['Radius.M'],
-    overflow: 'hidden',
   };
 
   const headerStyle: React.CSSProperties = {

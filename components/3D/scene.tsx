@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Sky } from '@react-three/drei';
 import * as THREE from 'three';
@@ -12,6 +12,8 @@ import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-thre
 
 gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
+import { WigglingBox as Box } from './WiggleCube';
+import AnimatedCounter from '../Core/AnimatedCounter';
 
 // STYLE: JS object style for overlay
 const overlayStyle: React.CSSProperties = {
@@ -23,6 +25,25 @@ const overlayStyle: React.CSSProperties = {
   gap: '8px',
   pointerEvents: 'none',
   zIndex: 10,
+};
+
+const fpsStyle: React.CSSProperties = {
+  position: 'absolute',
+  bottom: '20px',
+  right: '20px',
+  background: 'rgba(0, 0, 0, 0.5)',
+  color: '#00ff00',
+  padding: '4px 12px',
+  borderRadius: '6px',
+  fontFamily: 'JetBrains Mono, monospace',
+  fontSize: '14px',
+  pointerEvents: 'none',
+  zIndex: 100,
+  border: '1px solid rgba(0, 255, 0, 0.3)',
+  boxShadow: '0 0 15px rgba(0, 255, 0, 0.1)',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
 };
 
 const buttonStyle: React.CSSProperties = {
@@ -39,74 +60,73 @@ const buttonStyle: React.CSSProperties = {
   transition: 'all 0.2s ease',
 };
 
-const PhysicsCube = ({ color, position, id }: { color: string; position: [number, number, number]; id: string }) => {
+const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: string; position: [number, number, number]; id: string; onDragStart?: () => void; onDragEnd?: () => void }) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const [hovered, setHover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const dragPlane = useRef(new THREE.Plane());
+  const dragOffset = useRef(new THREE.Vector3());
 
-  // LOGIC: Action for dragging
-  // In a real production app, we'd use a mouse joint. 
-  // For this "tiny" implementation, we'll just set next kinematic translation if we were kinematic,
-  // but since we want physics interaction, we'll just let it be dynamic and maybe "lift" it on click.
-  
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
     setIsDragging(true);
+    onDragStart?.();
     e.target.setPointerCapture(e.pointerId);
+
+    // LOGIC: Create a drag plane parallel to the camera at the depth of the object
+    const camera = e.camera;
+    const planeNormal = new THREE.Vector3().subVectors(camera.position, e.point).normalize();
+    dragPlane.current.setFromNormalAndCoplanarPoint(planeNormal, e.point);
     
-    // Apply an upward impulse when picked up
-    rigidBodyRef.current?.applyImpulse({ x: 0, y: 5, z: 0 }, true);
+    // Store offset for smooth pickup without centering jump
+    const currentPos = rigidBodyRef.current?.translation();
+    if (currentPos) {
+      dragOffset.current.set(currentPos.x - e.point.x, currentPos.y - e.point.y, currentPos.z - e.point.z);
+    }
   };
 
   const handlePointerUp = (e: any) => {
     setIsDragging(false);
+    onDragEnd?.();
     e.target.releasePointerCapture(e.pointerId);
+    
+    // UI: Clear velocities on release to prevent physical explosions
+    rigidBodyRef.current?.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    rigidBodyRef.current?.setAngvel({ x: 0, y: 0, z: 0 }, true);
   };
 
   useFrame((state) => {
     if (isDragging && rigidBodyRef.current) {
-      // Move towards pointer position in 3D space
-      const vector = new THREE.Vector3(
-        (state.pointer.x * state.viewport.width) / 2,
-        (state.pointer.y * state.viewport.height) / 2,
-        0
-      );
+      const intersection = new THREE.Vector3();
+      state.raycaster.ray.intersectPlane(dragPlane.current, intersection);
       
-      const currentPos = rigidBodyRef.current.translation();
-      const dx = vector.x - currentPos.x;
-      const dy = vector.y - currentPos.y;
+      const targetPos = intersection.add(dragOffset.current);
       
-      // Apply force towards mouse
-      rigidBodyRef.current.applyImpulse({ x: dx * 0.5, y: dy * 0.5, z: 0 }, true);
+      // SYNC: Direct cursor-following through kinematic translation
+      rigidBodyRef.current.setNextKinematicTranslation(targetPos);
     }
   });
 
   return (
-    <RigidBody 
-      ref={rigidBodyRef} 
-      position={position} 
-      colliders="cuboid" 
-      restitution={0.7}
-      friction={0.5}
-      name={`cube-${id}`}
-    >
-      <mesh 
-        onPointerOver={() => setHover(true)} 
-        onPointerOut={() => setHover(false)}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        castShadow
+      <RigidBody 
+        ref={rigidBodyRef} 
+        position={position} 
+        type={isDragging ? "kinematicPosition" : "dynamic"}
+        colliders="cuboid" 
+        restitution={0.7}
+        friction={0.5}
+        ccd={true}
+        name={`cube-${id}`}
       >
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial 
-          color={color} 
-          emissive={hovered ? color : 'black'} 
-          emissiveIntensity={hovered ? 0.5 : 0}
-          roughness={0.1}
-          metalness={0.8}
-        />
-      </mesh>
-    </RigidBody>
+        <group
+          onPointerOver={() => setHover(true)} 
+          onPointerOut={() => setHover(false)}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+        >
+          <Box color={hovered ? '#fff' : color} />
+        </group>
+      </RigidBody>
   );
 };
 
@@ -119,92 +139,133 @@ const Floor = () => (
   </RigidBody>
 );
 
-const RotatingBox = ({ color = '#4f46e5', speed = 1 }) => {
+const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: { color?: string; speed?: number; onDragStart?: () => void; onDragEnd?: () => void }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const rotationRef = useRef({ x: 0, y: 0, z: 0 });
   const [hovered, setHover] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  
+  const dragPlane = useRef(new THREE.Plane());
+  const dragOffset = useRef(new THREE.Vector3());
+  const currentTranslation = useRef(new THREE.Vector3(0, 1, 0));
+
+  const handlePointerDown = (e: any) => {
+    e.stopPropagation();
+    setIsDragging(true);
+    onDragStart?.();
+    e.target.setPointerCapture(e.pointerId);
+
+    const camera = e.camera;
+    const planeNormal = new THREE.Vector3().subVectors(camera.position, e.point).normalize();
+    dragPlane.current.setFromNormalAndCoplanarPoint(planeNormal, e.point);
+    
+    const currentPos = rigidBodyRef.current?.translation();
+    if (currentPos) {
+      dragOffset.current.set(currentPos.x - e.point.x, currentPos.y - e.point.y, currentPos.z - e.point.z);
+    }
+  };
+
+  const handlePointerUp = (e: any) => {
+    setIsDragging(false);
+    onDragEnd?.();
+    e.target.releasePointerCapture(e.pointerId);
+  };
   
   useGSAP(() => {
-    if (!meshRef.current || !materialRef.current) return;
-    const targetScale = hovered ? 1.5 : 1;
+    if (!materialRef.current) return;
     
-    // UI: Adaptive scale on hover
-    gsap.to(meshRef.current.scale, { 
-      x: targetScale, 
-      y: targetScale, 
-      z: targetScale, 
-      duration: 0.4,
-      ease: 'back.out(1.7)'
-    });
-    
-    // UI: Semantic color shift
-    gsap.to(materialRef.current.color, {
-      r: new THREE.Color(hovered ? '#ff0055' : color).r,
-      g: new THREE.Color(hovered ? '#ff0055' : color).g,
-      b: new THREE.Color(hovered ? '#ff0055' : color).b,
+    // UI: Semantic color and emissive intensity shift
+    gsap.to(materialRef.current, {
+      emissiveIntensity: (hovered || isDragging) ? 0.6 : 0,
       duration: 0.4
     });
-  }, { dependencies: [hovered, color] });
 
-  // LOGIC: Hero cube auto-rotation on X-axis using useGSAP timeline
-  useGSAP(() => {
-    if (!meshRef.current) return;
-    
-    // Set initial rotation to avoid jump
-    gsap.set(meshRef.current.rotation, { x: 0 });
-    
-    // Infinite X rotation timeline
-    gsap.to(meshRef.current.rotation, {
-      x: Math.PI * 2,
-      duration: 4 / speed,
-      repeat: -1,
-      ease: 'none'
+    gsap.to(materialRef.current.color, {
+      r: new THREE.Color(hovered ? '#6366f1' : color).r,
+      g: new THREE.Color(hovered ? '#6366f1' : color).g,
+      b: new THREE.Color(hovered ? '#6366f1' : color).b,
+      duration: 0.4
     });
-    
-    return () => gsap.killTweensOf(meshRef.current.rotation);
-  }, { dependencies: [speed] });
+  }, { dependencies: [hovered, color, isDragging] });
 
   useFrame((state, delta) => {
-    if (rigidBodyRef.current && meshRef.current) {
-      // Manual kinematic rotation for physics interaction (Y and Z)
-      const curRotation = rigidBodyRef.current.rotation();
-      const quaternion = new THREE.Quaternion(curRotation.x, curRotation.y, curRotation.z, curRotation.w);
-      const euler = new THREE.Euler().setFromQuaternion(quaternion);
+    if (rigidBodyRef.current) {
+      // LOGIC: Stable rotation accumulation to avoid physical feedback jitter
+      rotationRef.current.x += delta * speed * (isDragging ? 2 : 0.8);
+      rotationRef.current.y += delta * speed * (isDragging ? 2 : 1);
+      rotationRef.current.z += delta * speed * 0.2;
       
-      // Keep Y and Z dynamic in useFrame for variability
-      euler.y += delta * speed;
-      euler.z += delta * speed * 0.2;
+      const quat = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(
+          rotationRef.current.x,
+          rotationRef.current.y,
+          rotationRef.current.z
+        )
+      );
+
+      // Translation logic
+      if (isDragging) {
+        const intersection = new THREE.Vector3();
+        state.raycaster.ray.intersectPlane(dragPlane.current, intersection);
+        currentTranslation.current.copy(intersection.add(dragOffset.current));
+      } else {
+        // Return to resting position smoothly
+        currentTranslation.current.lerp(new THREE.Vector3(0, 1, 0), 0.1);
+      }
       
-      // SYNC: Pull X rotation from GSAP-controlled mesh and apply to physics body
-      // This ensures zero-rerender performance while maintaining physics collisions
-      const finalQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-        meshRef.current.rotation.x,
-        euler.y,
-        euler.z
-      ));
-      
-      rigidBodyRef.current.setNextKinematicRotation(finalQuaternion);
+      // SYNC: Smooth kinematic updates
+      rigidBodyRef.current.setNextKinematicTranslation(currentTranslation.current);
+      rigidBodyRef.current.setNextKinematicRotation(quat);
     }
   });
 
   return (
-    <RigidBody ref={rigidBodyRef} type="kinematicVelocity" position={[0, 1, 0]} colliders="cuboid">
-      <mesh 
-        ref={meshRef} 
+    <RigidBody 
+      ref={rigidBodyRef} 
+      type="kinematicPosition" 
+      position={[0, 1, 0]} 
+      colliders="cuboid"
+      ccd={true}
+    >
+      <group
         onPointerOver={() => setHover(true)} 
         onPointerOut={() => setHover(false)} 
-        castShadow
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
       >
-        <boxGeometry args={[2, 2, 2]} />
-        <meshStandardMaterial ref={materialRef} color={color} metalness={0.8} roughness={0.1} />
-      </mesh>
+        <Box color={color} size={2} />
+      </group>
     </RigidBody>
   );
 };
 
 const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
   const { cubes, addCube } = usePhysicsStore();
+  const [controlsEnabled, setControlsEnabled] = useState(true);
+  const [fps, setFps] = useState(0);
+
+  // LOGIC: FPS calculation loop
+  useEffect(() => {
+    let frameCount = 0;
+    let lastTime = performance.now();
+    let requestId: number;
+
+    const loop = () => {
+      frameCount++;
+      const now = performance.now();
+      if (now >= lastTime + 1000) {
+        setFps(Math.round((frameCount * 1000) / (now - lastTime)));
+        frameCount = 0;
+        lastTime = now;
+      }
+      requestId = requestAnimationFrame(loop);
+    };
+
+    requestId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(requestId);
+  }, []);
 
   const spawnCube = () => {
     const randomColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
@@ -219,29 +280,53 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
     <div style={{ width: '100%', height: '100%', minHeight: '400px', position: 'relative', overflow: 'hidden', background: '#050505' }}>
       <div style={overlayStyle}>
         <button style={buttonStyle} onClick={spawnCube}>
-          Spawn Cube
+          Spawn Wiggle Cube
         </button>
       </div>
 
-      <Canvas shadows dpr={[1, 2]}>
+      <Canvas 
+        shadows={{ type: THREE.PCFShadowMap }} 
+        dpr={[1, 2]}
+        gl={{ 
+          antialias: true,
+          powerPreference: 'high-performance'
+        }}
+      >
         <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={50} />
-        <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 2.1} />
+        <OrbitControls 
+          makeDefault 
+          enabled={controlsEnabled}
+          minPolarAngle={0} 
+          maxPolarAngle={Math.PI / 2.1} 
+        />
         
         <ambientLight intensity={0.5} />
-        <spotLight position={[10, 20, 10]} angle={0.3} penumbra={1} intensity={1500} castShadow />
+        <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
         
         <Physics gravity={[0, -9.81, 0]}>
-          <RotatingBox />
+          <RotatingBox 
+            onDragStart={() => setControlsEnabled(false)} 
+            onDragEnd={() => setControlsEnabled(true)} 
+          />
           {cubes.map((cube) => (
-            <PhysicsCube key={cube.id} {...cube} />
+            <PhysicsCube 
+              key={cube.id} 
+              {...cube} 
+              onDragStart={() => setControlsEnabled(false)} 
+              onDragEnd={() => setControlsEnabled(true)} 
+            />
           ))}
           <Floor />
         </Physics>
         
-        <ContactShadows position={[0, -1.45, 0]} opacity={0.6} scale={20} blur={2} far={4.5} />
-        {showSky && <Sky sunPosition={[100, 20, 100]} />}
+        {showSky && <Sky sunPosition={[1, 0.2, 1]} />}
         <Environment preset="city" />
       </Canvas>
+      
+      <div style={fpsStyle}>
+        <span style={{ opacity: 0.6 }}>FPS</span>
+        <AnimatedCounter value={fps} useFormatting={false} />
+      </div>
     </div>
   );
 };

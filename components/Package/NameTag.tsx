@@ -27,17 +27,6 @@ const NameTag: React.FC = () => {
       justifyContent: 'center',
       color: '#FFFFFF',
     },
-    punchHole: {
-      width: '40px',
-      height: '12px',
-      backgroundColor: theme.Color.Base.Surface[1],
-      borderRadius: '6px',
-      position: 'absolute',
-      top: '12px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
-    },
     content: {
       flex: 1,
       display: 'flex',

@@ -1,5 +1,6 @@
 {
-  "name": "Shade DSL Starter Kit",
-  "description": "Bidirectional Shade DSL React 19 starter for modular design systems and zero-rerender motion architecture.",
-  "requestFramePermissions": []
+  "name": "Wiggle Bones Sandbox",
+  "description": "A 3D playground featuring physics-enabled cubes that jiggle using WiggleBone for Three.js, with real-time FPS monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
