@@ -17,37 +17,30 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
   const wiggleBones = useRef<any[]>([]);
 
   const { geometry, skeleton, root } = useMemo(() => {
-    // 1. Create Star-Rig Bones: Root centered, 2 bones per axis (total 13 bones)
-    const bones: THREE.Bone[] = [];
+    // 1. Create Bones: A linear chain from bottom to top
     const rootBone = new THREE.Bone();
-    rootBone.name = "root";
-    bones.push(rootBone);
+    const b1 = new THREE.Bone();
+    const b2 = new THREE.Bone();
+    const b3 = new THREE.Bone();
 
-    const axes = [
-      { name: 'up', dir: [0, 1, 0] },
-      { name: 'down', dir: [0, -1, 0] },
-      { name: 'left', dir: [-1, 0, 0] },
-      { name: 'right', dir: [1, 0, 0] },
-      { name: 'front', dir: [0, 0, 1] },
-      { name: 'back', dir: [0, 0, -1] }
-    ];
+    // LOGIC: Divide the cube height (size) into 3 segments
+    const interval = size / 3;
+    
+    // Root bone at the very bottom
+    rootBone.position.set(0, -size / 2, 0);
+    // Chain going upwards
+    b1.position.set(0, interval, 0);
+    b2.position.set(0, interval, 0);
+    b3.position.set(0, interval, 0);
 
-    axes.forEach(axis => {
-      const b1 = new THREE.Bone();
-      const b2 = new THREE.Bone();
-      
-      const step = size / 4;
-      b1.position.set(axis.dir[0] * step, axis.dir[1] * step, axis.dir[2] * step);
-      b2.position.set(axis.dir[0] * step, axis.dir[1] * step, axis.dir[2] * step);
-      
-      rootBone.add(b1);
-      b1.add(b2);
-      bones.push(b1, b2);
-    });
+    rootBone.add(b1);
+    b1.add(b2);
+    b2.add(b3);
 
+    const bones = [rootBone, b1, b2, b3];
     const skeleton = new THREE.Skeleton(bones);
 
-    // 2. Create Skinned Geometry with axis-aligned weights
+    // 2. Create Skinned Geometry with skin weights mapped to height
     const geo = new THREE.BoxGeometry(size, size, size, 12, 12, 12);
     
     const skinIndices = [];
@@ -57,44 +50,25 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
 
     for (let i = 0; i < posAttr.count; i++) {
       v.fromBufferAttribute(posAttr, i);
+      const y = v.y; // Range: [-size/2, size/2]
       
-      // Find primary axis for weighting
-      const absX = Math.abs(v.x);
-      const absY = Math.abs(v.y);
-      const absZ = Math.abs(v.z);
-      const max = Math.max(absX, absY, absZ);
+      // Normalize y to [0, 1] range for skinning (0 at bottom, 1 at top)
+      const u = (y + size / 2) / size;
       
-      let boneIdx1 = 0;
-      let boneIdx2 = 0;
-      let weight = 0;
-
-      const halfSize = size / 2;
-
-      if (max === absY) {
-        const isPos = v.y > 0;
-        boneIdx1 = isPos ? 1 : 3;
-        boneIdx2 = isPos ? 2 : 4;
-        weight = absY / halfSize;
-      } else if (max === absX) {
-        const isPos = v.x > 0;
-        boneIdx1 = isPos ? 7 : 5;
-        boneIdx2 = isPos ? 8 : 6;
-        weight = absX / halfSize;
-      } else {
-        const isPos = v.z > 0;
-        boneIdx1 = isPos ? 11 : 9;
-        boneIdx2 = isPos ? 12 : 10;
-        weight = absZ / halfSize;
-      }
-
-      // Linear blend: 0 -> 0.5 (Root to B1), 0.5 -> 1.0 (B1 to B2)
-      if (weight < 0.5) {
-        const t = weight / 0.5;
-        skinIndices.push(0, boneIdx1, 0, 0);
+      if (u < 1/3) {
+        // Between root(0) and b1(1)
+        const t = u * 3;
+        skinIndices.push(0, 1, 0, 0);
+        skinWeights.push(1 - t, t, 0, 0);
+      } else if (u < 2/3) {
+        // Between b1(1) and b2(2)
+        const t = (u - 1/3) * 3;
+        skinIndices.push(1, 2, 0, 0);
         skinWeights.push(1 - t, t, 0, 0);
       } else {
-        const t = (weight - 0.5) / 0.5;
-        skinIndices.push(boneIdx1, boneIdx2, 0, 0);
+        // Between b2(2) and b3(3)
+        const t = Math.min((u - 2/3) * 3, 1);
+        skinIndices.push(2, 3, 0, 0);
         skinWeights.push(1 - t, t, 0, 0);
       }
     }
@@ -105,20 +79,16 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
     return { geometry: geo, skeleton, root: rootBone };
   }, [size]);
 
-  // LOGIC: Initialize WiggleBones for all 12 dynamic joints
+  // LOGIC: Initialize WiggleBones
   useEffect(() => {
-    const instances = skeleton.bones
-      .slice(1) // Skip root
-      .map(bone => new WiggleBone(bone, { 
-        velocity: 0.25, 
-        damping: 0.3, 
-        stiffness: 0.15 
-      }));
+    // Only child bones wiggle; root stays attached to the "input" body
+    const wb1 = new WiggleBone(skeleton.bones[1], { velocity: 0.25, damping: 0.15, stiffness: 0.1 });
+    const wb2 = new WiggleBone(skeleton.bones[2], { velocity: 0.25, damping: 0.15, stiffness: 0.1 });
+    const wb3 = new WiggleBone(skeleton.bones[3], { velocity: 0.25, damping: 0.15, stiffness: 0.1 });
     
-    wiggleBones.current = instances;
+    wiggleBones.current = [wb1, wb2, wb3];
 
     return () => {
-      instances.forEach(wb => wb.dispose?.());
       wiggleBones.current = [];
     };
   }, [skeleton]);
@@ -130,7 +100,6 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
 
   return (
     <group>
-      <primitive object={root} />
       <skinnedMesh 
         ref={meshRef}
         geometry={geometry}
@@ -138,6 +107,7 @@ export const WigglingBox = ({ color, size = 1 }: { color: string, size?: number 
         castShadow
         receiveShadow
       >
+        <primitive object={root} />
         <meshStandardMaterial 
           color={color} 
           metalness={0.6} 
