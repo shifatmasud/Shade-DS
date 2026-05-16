@@ -28,7 +28,7 @@ const DockIcon: React.FC<DockIconProps> = ({ icon, isActive, onClick }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '24px',
+        fontSize: theme.Type.Expressive.Headline.S.fontSize,
       }}
       whileHover={{ scale: 1.1, backgroundColor: isActive ? theme.Color.Accent.Surface[1] : theme.Color.Base.Surface[2] }}
       whileTap={{ scale: 0.95 }}

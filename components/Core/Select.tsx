@@ -70,8 +70,6 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
     setHoveredIndex(null);
   };
 
-  const ITEM_HEIGHT = 34;
-
   // STYLE OBJECTS
   const styles = {
     container: {
@@ -81,59 +79,59 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
     },
     label: {
       ...theme.Type.Readable.Label.S,
-      fontSize: '10px',
+      fontSize: theme.Type.Readable.Label.S.fontSize,
       textTransform: 'uppercase' as const,
       letterSpacing: '0.05em',
-      marginBottom: '6px',
+      marginBottom: theme.space['Space.XS'],
       color: theme.Color.Base.Content[2],
-      opacity: 0.8,
+      opacity: theme.opacity['Opacity.High'],
     },
     trigger: {
       width: '100%',
-      height: '42px',
-      padding: `0 ${theme.spacing['Space.M']}`,
+      height: theme.height['Height.M'],
+      padding: `0 ${theme.space['Space.M']}`,
       borderRadius: theme.radius['Radius.S'],
-      border: `1px solid ${isOpen ? theme.Color.Base.Content[1] : theme.Color.Base.Surface[3]}`,
+      border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${isOpen ? theme.Color.Base.Content[1] : theme.Color.Base.Surface[3]}`,
       backgroundColor: theme.Color.Base.Surface[1],
       color: theme.Color.Base.Content[1],
       fontFamily: theme.Type.Readable.Body.M.fontFamily,
-      fontSize: '14px',
+      fontSize: theme.Type.Readable.Body.M.fontSize,
       cursor: 'pointer',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       outline: 'none',
-      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+      transition: `all ${theme.time['Time.2x']} cubic-bezier(0.4, 0, 0.2, 1)`,
       fontWeight: 500,
     },
     overlay: {
       position: 'absolute' as const,
-      top: 'calc(100% + 4px)',
+      top: `calc(100% + ${theme.space['Space.XS']})`,
       left: 0,
       width: '100%',
       backgroundColor: theme.Color.Base.Surface[1],
-      border: `1px solid ${theme.Color.Base.Surface[3]}`,
+      border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`,
       borderRadius: theme.radius['Radius.S'],
-      boxShadow: '0 10px 30px -10px rgba(0,0,0,0.1)',
+      boxShadow: theme.effects['Effect.Shadow.Drop.2'],
       zIndex: 1000,
       overflow: 'hidden',
-      padding: '4px',
+      padding: theme.space['Space.XS'],
     },
     option: (isSelected: boolean) => ({
       position: 'relative' as const,
       zIndex: 1,
-      height: `${ITEM_HEIGHT}px`,
-      padding: '0 12px',
+      height: theme.height['Height.XS'],
+      padding: `0 ${theme.space['Space.M']}`,
       cursor: 'pointer',
-      borderRadius: '4px',
+      borderRadius: theme.radius['Radius.S'],
       color: isSelected ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2],
-      backgroundColor: 'rgba(0, 0, 0, 0)',
+      backgroundColor: 'transparent',
       fontFamily: theme.Type.Readable.Body.M.fontFamily,
-      fontSize: '13px',
+      fontSize: theme.Type.Readable.Body.S.fontSize,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      transition: 'color 0.15s ease',
+      transition: `color ${theme.time['Time.1x']} ease`,
     })
   };
 
@@ -183,14 +181,14 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
                   position: 'absolute',
                   left: 0,
                   right: 0,
-                  height: ITEM_HEIGHT,
-                  borderRadius: '4px',
+                  height: theme.height['Height.XS'],
+                  borderRadius: theme.radius['Radius.S'],
                   backgroundColor: theme.Color.Base.Surface[2],
                   pointerEvents: 'none',
                   zIndex: 0,
                 }}
                 animate={{
-                  y: hoveredIndex !== null ? hoveredIndex * ITEM_HEIGHT : mouseY - (ITEM_HEIGHT / 2),
+                  y: hoveredIndex !== null ? hoveredIndex * parseInt(theme.height['Height.XS']) : mouseY - (parseInt(theme.height['Height.XS']) / 2),
                   opacity: isHoveringMenu ? 1 : 0,
                   scale: isHoveringMenu ? 1 : 0.95,
                 }}

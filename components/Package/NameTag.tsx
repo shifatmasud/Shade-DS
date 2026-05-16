@@ -7,15 +7,15 @@ const NameTag: React.FC = () => {
   
   const tagStyles: { [key: string]: React.CSSProperties } = {
     container: {
-      width: '320px',
+      width: theme.space['Space.Panel.Width'],
       height: '420px',
       backgroundColor: theme.Color.Base.Surface[1],
-      borderRadius: '24px',
+      borderRadius: theme.radius['Radius.L'],
       boxShadow: theme.effects['Effect.Shadow.Drop.3'],
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
-      border: `1px solid ${theme.Color.Base.Surface[3]}`,
+      border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
       position: 'relative',
     },
     header: {
@@ -33,7 +33,7 @@ const NameTag: React.FC = () => {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: theme.spacing['Space.XL'],
+      padding: theme.space['Space.XL'],
       textAlign: 'center',
     }
   };

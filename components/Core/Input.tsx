@@ -18,29 +18,29 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
 
   const baseInputStyle: React.CSSProperties = {
     width: '100%',
-    height: '42px',
-    padding: `0 ${theme.spacing['Space.M']}`,
+    height: theme.height['Height.M'],
+    padding: `0 ${theme.space['Space.M']}`,
     borderRadius: theme.radius['Radius.S'],
-    border: `1px solid ${theme.Color.Base.Surface[3]}`,
+    border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`,
     backgroundColor: theme.Color.Base.Surface[1],
     color: theme.Color.Base.Content[1],
     fontFamily: theme.Type.Readable.Body.M.fontFamily,
-    fontSize: '14px',
+    fontSize: theme.Type.Readable.Body.M.fontSize,
     outline: 'none',
-    transition: 'all 0.2s ease',
+    transition: `all ${theme.time['Time.2x']} ease`,
   };
 
   return (
     <div onPointerDown={(e) => e.stopPropagation()}>
       <label style={{ 
         ...theme.Type.Readable.Label.S, 
-        fontSize: '10px',
+        fontSize: theme.Type.Readable.Label.S.fontSize,
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
         display: 'block', 
-        marginBottom: '6px', 
+        marginBottom: theme.space['Space.XS'], 
         color: theme.Color.Base.Content[2],
-        opacity: 0.8
+        opacity: theme.opacity['Opacity.High']
       }}>
         {label}
       </label>

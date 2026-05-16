@@ -188,10 +188,10 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
           <div
             ref={scrollRef}
             style={{
-              padding: '16px',
+              padding: theme.space['Space.L'],
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px',
+              gap: theme.space['Space.M'],
             }}
           >
             {messages.map((msg, i) => (
@@ -201,15 +201,15 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  gap: '4px',
+                  gap: theme.space['Space.XS'],
                 }}
               >
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: theme.space['Space.XS'],
                   color: theme.Color.Base.Content[3],
-                  fontSize: '9px',
+                  fontSize: theme.Type.Readable.Label.S.fontSize,
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                   fontWeight: 600,
@@ -217,11 +217,11 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                   {msg.role === 'user' ? <><User size={10} /> You</> : <><Robot size={10} /> Agent</>}
                 </div>
                 <div style={{
-                  padding: '10px 14px',
+                  padding: `${theme.space['Space.S']} ${theme.space['Space.M']}`,
                   borderRadius: msg.role === 'user' ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
                   backgroundColor: msg.role === 'user' ? theme.Color.Base.Surface[3] : theme.Color.Base.Surface[2],
                   color: theme.Color.Base.Content[1],
-                  fontSize: '12px',
+                  fontSize: theme.Type.Readable.Label.M.fontSize,
                   lineHeight: '1.4',
                   maxWidth: '90%',
                   position: 'relative',
@@ -237,12 +237,12 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                     cursor: 'pointer',
                     color: theme.Color.Base.Content[3],
                     opacity: 0.5,
-                    padding: '2px 4px',
+                    padding: `${theme.space['Space.XXS']} ${theme.space['Space.XS']}`,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '10px',
-                    marginTop: '-2px',
+                    gap: theme.space['Space.XS'],
+                    fontSize: theme.Type.Readable.Label.S.fontSize,
+                    marginTop: `calc(-1 * ${theme.space['Space.XXS']})`,
                   }}
                 >
                   {copiedIndex === i ? <><Check size={10} color={theme.Color.Success.Content[1]} /> Copied</> : <><Copy size={10} /> Copy</>}
@@ -250,10 +250,10 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
               </div>
             ))}
             {isLoading && (
-              <div style={{ display: 'flex', gap: '6px', padding: '4px' }}>
-                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
+              <div style={{ display: 'flex', gap: theme.space['Space.XS'], padding: theme.space['Space.XXS'] }}>
+                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
+                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
+                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
               </div>
             )}
           </div>
@@ -262,11 +262,11 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
 
       {/* Input */}
       <div style={{
-        padding: '12px',
-        borderTop: `1px solid ${theme.Color.Base.Surface[3]}`,
+        padding: theme.space['Space.M'],
+        borderTop: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
         display: 'flex',
         alignItems: 'flex-end',
-        gap: '8px',
+        gap: theme.space['Space.S'],
       }}>
         <textarea
           ref={textareaRef}
@@ -283,14 +283,14 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
           style={{
             flex: 1,
             backgroundColor: theme.Color.Base.Surface[2],
-            border: `1px solid ${theme.Color.Base.Surface[3]}`,
-            borderRadius: '10px',
-            padding: '8px 12px',
+            border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+            borderRadius: theme.radius['Radius.M'],
+            padding: `${theme.space['Space.S']} ${theme.space['Space.M']}`,
             color: theme.Color.Base.Content[1],
-            fontSize: '12px',
+            fontSize: theme.Type.Readable.Label.M.fontSize,
             outline: 'none',
             resize: 'none',
-            maxHeight: '150px',
+            maxHeight: theme.space['Space.150'] || '150px',
             lineHeight: '1.4',
           }}
         />
@@ -298,9 +298,9 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
           onClick={handleSend}
           disabled={isLoading || !input.trim()}
           style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '10px',
+            width: theme.space['Space.XXL'],
+            height: theme.space['Space.XXL'],
+            borderRadius: theme.radius['Radius.M'],
             backgroundColor: theme.Color.Base.Content[1],
             color: theme.Color.Base.Surface[1],
             border: 'none',
@@ -310,7 +310,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
             justifyContent: 'center',
             opacity: isLoading || !input.trim() ? 0.5 : 1,
             flexShrink: 0,
-            marginBottom: '2px',
+            marginBottom: theme.space['Space.XXS'],
           }}
         >
           <PaperPlaneTilt size={16} weight="bold" />

@@ -20,7 +20,7 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
   const containerStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    padding: theme.spacing['Space.XS'],
+    padding: theme.space['Space.XS'],
     backgroundColor: theme.Color.Base.Surface[2],
     borderRadius: theme.radius['Radius.Full'],
     boxShadow: theme.effects['Effect.Shadow.Inset.1'],
@@ -31,7 +31,7 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: `${theme.spacing['Space.S']} ${theme.spacing['Space.M']}`,
+    padding: `${theme.space['Space.S']} ${theme.space['Space.M']}`,
     cursor: 'pointer',
     userSelect: 'none',
     zIndex: 2,
@@ -69,7 +69,7 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
               initial={{ width: 0, marginLeft: 0 }}
               animate={{
                 width: isActive ? 'auto' : 0,
-                marginLeft: isActive ? theme.spacing['Space.S'] : 0,
+                marginLeft: isActive ? theme.space['Space.S'] : 0,
               }}
               transition={{ type: 'spring', damping: 20, stiffness: 200 }}
             >

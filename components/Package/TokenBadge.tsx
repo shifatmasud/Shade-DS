@@ -37,7 +37,7 @@ const TokenBadge: React.FC<TokenBadgeProps> = ({ label, variant, x, y, delay }) 
         backgroundColor: fillColor,
         border: `1px solid ${strokeColor}`,
         color: strokeColor,
-        fontSize: '10px',
+        fontSize: theme.Type.Readable.Label.S.fontSize,
         fontFamily: theme.Type.Expressive.Data.fontFamily,
         fontWeight: 'bold',
         display: 'flex',

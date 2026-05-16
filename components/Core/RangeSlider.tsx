@@ -134,11 +134,11 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   const percentage = Math.max(0, Math.min(100, ((internalValue - min) / (max - min)) * 100));
 
   const numberInputContainerStyle: React.CSSProperties = {
-    width: '60px',
-    height: '24px',
+    width: theme.space['Space.64'],
+    height: theme.space['Space.XL'],
     position: 'relative',
     fontFamily: theme.Type.Readable.Body.M.fontFamily,
-    fontSize: '14px',
+    fontSize: theme.Type.Readable.Body.M.fontSize,
     textAlign: 'center',
     color: theme.Color.Base.Content[1],
   };
@@ -147,7 +147,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     width: '100%',
     height: '100%',
     boxSizing: 'border-box',
-    padding: `0 ${theme.spacing['Space.XS']}`,
+    padding: `0 ${theme.space['Space.XS']}`,
     borderRadius: theme.radius['Radius.S'],
     border: `1px solid ${theme.Color.Base.Surface[3]}`,
     backgroundColor: theme.Color.Base.Surface[2],
@@ -173,9 +173,9 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     left: '50%',
     backgroundColor: theme.Color.Accent.Surface[1],
     color: theme.Color.Accent.Content[1],
-    padding: `${theme.spacing['Space.XS']} ${theme.spacing['Space.S']}`,
+    padding: `${theme.space['Space.XS']} ${theme.space['Space.S']}`,
     borderRadius: theme.radius['Radius.S'],
-    fontSize: '12px',
+    fontSize: theme.Type.Readable.Label.M.fontSize,
     fontFamily: theme.Type.Expressive.Data.fontFamily,
     fontWeight: 600,
     whiteSpace: 'nowrap',
@@ -184,8 +184,8 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: '32px',
-    height: '24px',
+    minWidth: theme.space['Space.XXL'],
+    height: theme.space['Space.XL'],
     zIndex: 100,
   };
 
@@ -211,18 +211,18 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
 
   return (
     <div onPointerDown={(e) => e.stopPropagation()}>
-      <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.spacing['Space.S'], color: theme.Color.Base.Content[2] }}>
+      <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.space['Space.S'], color: theme.Color.Base.Content[2] }}>
         {label}
       </label>
       
-      <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing['Space.S'] }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}>
         
         {/* Custom Track */}
         <div 
             ref={trackRef}
             style={{ 
                 flex: 1, 
-                height: '32px', // Increased hit area
+                height: theme.space['Space.XXL'], // Increased hit area
                 display: 'flex', 
                 alignItems: 'center', 
                 cursor: 'pointer',
@@ -262,8 +262,8 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                     top: '50%',
                     left: `${percentage}%`,
                     transform: 'translate(-50%, -50%)',
-                    width: '18px',
-                    height: '18px',
+                    width: theme.space['Space.L'], // Approximated from 18px
+                    height: theme.space['Space.L'],
                     pointerEvents: 'none',
                     display: 'flex',
                     alignItems: 'center',
@@ -299,8 +299,8 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                         }}
                         transition={tactileSpring}
                         style={{
-                            width: '18px',
-                            height: '18px',
+                            width: theme.space['Space.L'], // Approximated from 18px
+                            height: theme.space['Space.L'],
                             backgroundColor: theme.Color.Base.Surface[1],
                             border: `2px solid ${theme.Color.Accent.Surface[1]}`,
                             borderRadius: '50%',

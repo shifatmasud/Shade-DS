@@ -146,20 +146,20 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         };
       case 'outline':
         return {
-          backgroundColor: 'rgba(0,0,0,0)',
+          backgroundColor: 'transparent',
           color: baseContent,
-          border: `1px solid ${theme.Color.Base.Content[3]}`,
+          border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Content[3]}`,
         };
       case 'destructive':
         return {
           backgroundColor: customFill || theme.Color.Error.Surface[1],
           color: customColor || theme.Color.Error.Content[1],
-          border: `1px solid ${theme.Color.Error.Content[1]}`,
+          border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Error.Content[1]}`,
           boxShadow: theme.effects['Effect.Shadow.Drop.2'],
         };
       case 'tertiary':
         return {
-          backgroundColor: 'rgba(0,0,0,0)',
+          backgroundColor: 'transparent',
           color: baseContent,
           border: 'none',
           boxShadow: 'none',
@@ -175,10 +175,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   const getSizeStyles = () => {
     switch (size) {
-      case 'S': return { height: '32px', padding: `0 ${theme.spacing['Space.M']}`, fontSize: theme.Type.Readable.Label.S.fontSize };
-      case 'L': return { height: '56px', padding: `0 ${theme.spacing['Space.XL']}`, fontSize: theme.Type.Readable.Label.L.fontSize };
+      case 'S': return { height: theme.height['Height.XS'], padding: `0 ${theme.space['Space.M']}`, fontSize: theme.Type.Readable.Label.S.fontSize };
+      case 'L': return { height: theme.height['Height.L'], padding: `0 ${theme.space['Space.XL']}`, fontSize: theme.Type.Readable.Label.L.fontSize };
       case 'M': 
-      default: return { height: '44px', padding: `0 ${theme.spacing['Space.L']}`, fontSize: theme.Type.Readable.Label.M.fontSize };
+      default: return { height: theme.height['Height.M'], padding: `0 ${theme.space['Space.L']}`, fontSize: theme.Type.Readable.Label.M.fontSize };
     }
   };
 
@@ -191,9 +191,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing['Space.S'],
+    gap: theme.space['Space.S'],
     cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.4 : 1, // Premium disabled state
+    opacity: disabled ? theme.opacity['Opacity.Disabled'] : 1, 
     filter: disabled ? 'grayscale(100%)' : 'none',
     overflow: 'visible',
     fontWeight: 600,
@@ -209,7 +209,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   let feedbackColor = variant === 'primary' ? theme.Color.Accent.Content[1] : (variant === 'destructive' ? theme.Color.Error.Content[1] : theme.Color.Base.Content[1]);
   
   // State Layer Opacity
-  const stateLayerOpacity = 0.1; 
+  const stateLayerOpacity = theme.opacity['Opacity.Subtle']; 
 
   // Layer wrapper styles for 3D
   const layerWrapperStyle: React.CSSProperties = {
@@ -228,7 +228,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     zIndex: 1,
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing['Space.S'],
+    gap: theme.space['Space.S'],
     pointerEvents: 'none',
     userSelect: 'none',
   };
@@ -315,9 +315,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       >
          <div style={{
              position: 'absolute',
-             top: '-4px', left: '-4px', right: '-4px', bottom: '-4px', // 4px offset ring
+             top: `calc(-1 * ${theme.space['Space.XS']})`, 
+             left: `calc(-1 * ${theme.space['Space.XS']})`, 
+             right: `calc(-1 * ${theme.space['Space.XS']})`, 
+             bottom: `calc(-1 * ${theme.space['Space.XS']})`, 
              borderRadius: 'inherit',
-             border: `2px solid ${theme.Color.Focus.Content[1]}`,
+             border: `${theme.border['Border.Width.Thick']} ${theme.border['Border.Style.Main']} ${theme.Color.Focus.Content[1]}`,
              pointerEvents: 'none',
              boxShadow: forcedFocus ? `0 0 12px ${theme.Color.Focus.Surface[1]}` : 'none',
              borderColor: theme.Color.Focus.Content[1],

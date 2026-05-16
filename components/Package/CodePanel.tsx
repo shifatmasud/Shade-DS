@@ -38,12 +38,12 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
           onClick={handleCopyClick}
           style={{
             position: 'absolute',
-            top: theme.spacing['Space.S'],
-            right: theme.spacing['Space.S'],
+            top: theme.space['Space.S'],
+            right: theme.space['Space.S'],
             background: theme.Color.Base.Surface[1],
-            border: `1px solid ${theme.Color.Base.Surface[3]}`,
+            border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
             borderRadius: theme.radius['Radius.S'],
-            padding: '6px',
+            padding: theme.space['Space.XS'],
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -58,9 +58,9 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
           <AnimatedCopyIcon isCopied={isCopied} />
         </motion.button>
       </div>
-      <div style={{ marginTop: theme.spacing['Space.L'] }}>
-        <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.spacing['Space.S'] }}>REACT USAGE</p>
-        <pre style={{ ...theme.Type.Expressive.Data, fontSize: '11px', color: theme.Color.Base.Content[2], backgroundColor: 'transparent', padding: 0, margin: 0, whiteSpace: 'pre-wrap' }}>
+      <div style={{ marginTop: theme.space['Space.L'] }}>
+        <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'] }}>REACT USAGE</p>
+        <pre style={{ ...theme.Type.Expressive.Data, fontSize: theme.Type.Readable.Label.S.fontSize, color: theme.Color.Base.Content[2], backgroundColor: 'transparent', padding: 0, margin: 0, whiteSpace: 'pre-wrap' }}>
           {`<Button\n  label="${btnProps.label}"\n  variant="${btnProps.variant}"\n  size="${btnProps.size}"\n  icon="${btnProps.icon}"\n  customRadius="${btnProps.customRadius}"\n/>`}
         </pre>
       </div>

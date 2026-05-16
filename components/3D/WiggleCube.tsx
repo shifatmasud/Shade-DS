@@ -80,13 +80,12 @@ export const JellyBox = ({ color, size = 1 }: { color: string, size?: number }) 
   }, [skeleton]);
 
   useEffect(() => {
-    // "Premium" Jiggle: Lower stiffness for more "gelly" feel, 
-    // higher damping to prevent infinite vibrating,
-    // and higher velocity sensitivity for responsiveness.
+    // "Premium" Jiggle: 99% reduction in velocity intensity.
+    // Higher stiffness for more control, while maintaining the "gelly" feel.
     const config = { 
-      velocity: 0.15, // More reactive to motion
-      damping: 0.25,  // Smooth settling
-      stiffness: 0.15 // Soft, gelatinous feel
+      velocity: 0.0015, // Decreased by 99% (from 0.15)
+      damping: 0.35,    // More stable settling
+      stiffness: 0.8    // Snappier return to original state
     };
     wiggleBones.current = skeleton.bones.slice(1).map(bone => new WiggleBone(bone, config));
 

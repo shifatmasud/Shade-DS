@@ -36,9 +36,9 @@ const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs }) => {
               ...emptyTextStyle, 
               color: theme.Color.Base.Content[3],
               opacity: 0.5,
-              padding: theme.spacing['Space.S'],
+              padding: theme.space['Space.S'],
               textAlign: 'center',
-              marginTop: theme.spacing['Space.M']
+              marginTop: theme.space['Space.M']
           }}>
             Waiting for system events...
           </div>

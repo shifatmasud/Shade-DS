@@ -10,19 +10,19 @@ const StyleGuidePanel: React.FC = () => {
   const { theme } = useTheme();
 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div style={{ marginBottom: theme.spacing['Space.XL'] }}>
+    <div style={{ marginBottom: theme.space['Space.XL'] }}>
       <h3 style={{ 
         ...theme.Type.Readable.Title.S, 
         color: theme.Color.Base.Content[3],
         textTransform: 'uppercase',
         letterSpacing: '0.1em',
-        marginBottom: theme.spacing['Space.M'],
-        borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`,
-        paddingBottom: theme.spacing['Space.XS']
+        marginBottom: theme.space['Space.M'],
+        borderBottom: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+        paddingBottom: theme.space['Space.XS']
       }}>
         {title}
       </h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.M'] }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
         {children}
       </div>
     </div>
@@ -33,14 +33,14 @@ const StyleGuidePanel: React.FC = () => {
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'space-between',
-      padding: theme.spacing['Space.S'],
+      padding: theme.space['Space.S'],
       backgroundColor: theme.Color.Base.Surface[2],
       borderRadius: theme.radius['Radius.M'],
-      border: `1px solid ${theme.Color.Base.Surface[3]}`
+      border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`
     }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         <span style={{ ...theme.Type.Readable.Label.M, color: theme.Color.Base.Content[1] }}>{label}</span>
-        <span style={{ ...theme.Type.Expressive.Data, color: theme.Color.Base.Content[3], fontSize: '10px' }}>{value}</span>
+        <span style={{ ...theme.Type.Expressive.Data, color: theme.Color.Base.Content[3], fontSize: theme.Type.Readable.Label.S.fontSize }}>{value}</span>
       </div>
       {preview && <div>{preview}</div>}
     </div>
@@ -50,15 +50,15 @@ const StyleGuidePanel: React.FC = () => {
     const ms = parseInt(duration) || 0;
     return (
       <div style={{ 
-        width: 150, 
-        height: 4, 
+        width: theme.space['Space.150'] || 150, 
+        height: theme.space['Space.XS'], 
         backgroundColor: theme.Color.Base.Surface[3], 
         borderRadius: theme.radius['Radius.Full'], 
         overflow: 'hidden',
         position: 'relative',
       }}>
         <motion.div
-          initial={{ left: "-8px" }}
+          initial={{ left: `calc(-1 * ${theme.space['Space.S']})` }}
           animate={{ left: "100%" }}
           transition={{ 
             duration: ms / 1000, 
@@ -68,7 +68,7 @@ const StyleGuidePanel: React.FC = () => {
           style={{
             position: 'absolute',
             top: 0,
-            width: '8px',
+            width: theme.space['Space.S'],
             height: '100%',
             background: `linear-gradient(90deg, transparent, ${theme.Color.Accent.Surface[1]}, transparent)`,
             boxShadow: `0 0 12px ${theme.Color.Accent.Surface[1]}`,
@@ -79,9 +79,9 @@ const StyleGuidePanel: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: theme.spacing['Space.L'], height: '100%', overflowY: 'auto' }}>
+    <div style={{ padding: theme.space['Space.L'], height: '100%', overflowY: 'auto' }}>
       <Section title="Colors">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing['Space.S'] }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.space['Space.S'] }}>
           {Object.entries(theme.Color).map(([category, types]) => (
             Object.entries(types).map(([type, levels]) => (
               Object.entries(levels as any).map(([level, value]) => (
@@ -89,7 +89,7 @@ const StyleGuidePanel: React.FC = () => {
                   key={`${category}.${type}.${level}`}
                   label={`${category}.${type}.${level}`}
                   value={value as string}
-                  preview={<div style={{ width: 24, height: 24, borderRadius: 4, backgroundColor: value as string, border: `1px solid ${theme.Color.Base.Surface[3]}` }} />}
+                  preview={<div style={{ width: theme.space['Space.XL'], height: theme.space['Space.XL'], borderRadius: theme.radius['Radius.S'], backgroundColor: value as string, border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}` }} />}
                 />
               ))
             ))
@@ -98,26 +98,26 @@ const StyleGuidePanel: React.FC = () => {
       </Section>
 
       <Section title="Typography">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.L'] }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           {/* Expressive */}
           <div>
-            <h4 style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[3], marginBottom: theme.spacing['Space.S'] }}>Expressive</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.M'] }}>
+            <h4 style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[3], marginBottom: theme.space['Space.S'] }}>Expressive</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
                {Object.entries(theme.Type.Expressive).map(([name, style]: [string, any]) => {
                  if (name === 'Display' || name === 'Headline') {
                     return Object.entries(style).map(([size, s]: [string, any]) => (
-                        <div key={`expressive-${name}-${size}`} style={{ padding: theme.spacing['Space.M'], backgroundColor: theme.Color.Base.Surface[2], borderRadius: theme.radius['Radius.M'] }}>
-                            <div style={{ ...s, color: theme.Color.Base.Content[1], marginBottom: theme.spacing['Space.XS'] }}>{name} {size}</div>
-                            <div style={{ ...theme.Type.Expressive.Data, fontSize: '10px', color: theme.Color.Base.Content[3] }}>
+                        <div key={`expressive-${name}-${size}`} style={{ padding: theme.space['Space.M'], backgroundColor: theme.Color.Base.Surface[2], borderRadius: theme.radius['Radius.M'] }}>
+                            <div style={{ ...s, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.XS'] }}>{name} {size}</div>
+                            <div style={{ ...theme.Type.Expressive.Data, fontSize: theme.Type.Readable.Label.S.fontSize, color: theme.Color.Base.Content[3] }}>
                                 {s.fontFamily} | {typeof s.fontSize === 'object' ? s.fontSize.desktop : s.fontSize} | {s.fontWeight}
                             </div>
                         </div>
                     ));
                  }
                  return (
-                    <div key={`expressive-${name}`} style={{ padding: theme.spacing['Space.M'], backgroundColor: theme.Color.Base.Surface[2], borderRadius: theme.radius['Radius.M'] }}>
-                        <div style={{ ...style, color: theme.Color.Base.Content[1], marginBottom: theme.spacing['Space.XS'] }}>{name} Sample</div>
-                        <div style={{ ...theme.Type.Expressive.Data, fontSize: '10px', color: theme.Color.Base.Content[3] }}>
+                    <div key={`expressive-${name}`} style={{ padding: theme.space['Space.M'], backgroundColor: theme.Color.Base.Surface[2], borderRadius: theme.radius['Radius.M'] }}>
+                        <div style={{ ...style, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.XS'] }}>{name} Sample</div>
+                        <div style={{ ...theme.Type.Expressive.Data, fontSize: theme.Type.Readable.Label.S.fontSize, color: theme.Color.Base.Content[3] }}>
                             {style.fontFamily} | {style.fontSize} | {style.fontWeight}
                         </div>
                     </div>
@@ -128,13 +128,13 @@ const StyleGuidePanel: React.FC = () => {
 
           {/* Readable */}
           <div>
-            <h4 style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[3], marginBottom: theme.spacing['Space.S'] }}>Readable</h4>
-             <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.M'] }}>
+            <h4 style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[3], marginBottom: theme.space['Space.S'] }}>Readable</h4>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
                {Object.entries(theme.Type.Readable).map(([name, style]: [string, any]) => (
                   Object.entries(style).map(([size, s]: [string, any]) => (
-                    <div key={`readable-${name}-${size}`} style={{ padding: theme.spacing['Space.M'], backgroundColor: theme.Color.Base.Surface[2], borderRadius: theme.radius['Radius.M'] }}>
-                        <div style={{ ...s, color: theme.Color.Base.Content[1], marginBottom: theme.spacing['Space.XS'] }}>{name} {size}</div>
-                        <div style={{ ...theme.Type.Expressive.Data, fontSize: '10px', color: theme.Color.Base.Content[3] }}>
+                    <div key={`readable-${name}-${size}`} style={{ padding: theme.space['Space.M'], backgroundColor: theme.Color.Base.Surface[2], borderRadius: theme.radius['Radius.M'] }}>
+                        <div style={{ ...s, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.XS'] }}>{name} {size}</div>
+                        <div style={{ ...theme.Type.Expressive.Data, fontSize: theme.Type.Readable.Label.S.fontSize, color: theme.Color.Base.Content[3] }}>
                             {s.fontFamily} | {typeof s.fontSize === 'object' ? s.fontSize.desktop : s.fontSize} | {s.fontWeight}
                         </div>
                     </div>
@@ -146,33 +146,33 @@ const StyleGuidePanel: React.FC = () => {
       </Section>
 
       <Section title="Space">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing['Space.S'] }}>
-          {Object.entries(theme.spacing).map(([name, value]) => (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.space['Space.S'] }}>
+          {Object.entries(theme.space).map(([name, value]) => (
             <TokenRow 
               key={name}
               label={name}
               value={value as string}
-              preview={<div style={{ width: value as string, height: 8, backgroundColor: theme.Color.Accent.Surface[1], borderRadius: 2 }} />}
+              preview={<div style={{ width: value as string, height: theme.space['Space.S'], backgroundColor: theme.Color.Accent.Surface[1], borderRadius: theme.radius['Radius.S'] }} />}
             />
           ))}
         </div>
       </Section>
 
       <Section title="Radius">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing['Space.S'] }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.space['Space.S'] }}>
           {Object.entries(theme.radius).map(([name, value]) => (
             <TokenRow 
               key={name}
               label={name}
               value={value as string}
-              preview={<div style={{ width: 24, height: 24, borderRadius: value as string, border: `2px solid ${theme.Color.Accent.Surface[1]}` }} />}
+              preview={<div style={{ width: theme.space['Space.XL'], height: theme.space['Space.XL'], borderRadius: value as string, border: `${theme.border['Border.Width.Thick']} solid ${theme.Color.Accent.Surface[1]}` }} />}
             />
           ))}
         </div>
       </Section>
 
       <Section title="Time">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.spacing['Space.S'] }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.space['Space.S'] }}>
           {Object.entries(theme.time).map(([name, value]) => (
             <TokenRow 
               key={name}
@@ -185,13 +185,13 @@ const StyleGuidePanel: React.FC = () => {
       </Section>
 
       <Section title="Effects">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.S'] }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.S'] }}>
           {Object.entries(theme.effects).map(([name, value]) => (
             <TokenRow 
               key={name}
               label={name}
               value={value as string}
-              preview={<div style={{ width: 40, height: 24, borderRadius: 4, backgroundColor: theme.Color.Base.Surface[1], boxShadow: value as string }} />}
+              preview={<div style={{ width: theme.space['Space.40'], height: theme.space['Space.XL'], borderRadius: theme.radius['Radius.S'], backgroundColor: theme.Color.Base.Surface[1], boxShadow: value as string }} />}
             />
           ))}
         </div>

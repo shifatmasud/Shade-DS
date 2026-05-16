@@ -102,7 +102,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   return (
     <>
       <Accordion title="Global" defaultOpen>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.M'] }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <Toggle
             label="Lean UI Mode"
             isOn={uiMode === 'lean'}
@@ -122,13 +122,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </Accordion>
 
       <Accordion title="Component">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.L'] }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           <Select<any>
             label="Component Type"
             value={btnProps.componentType}
             onChange={(e) => onPropChange({ 
                 componentType: e.target.value,
-                customRadius: e.target.value === 'nametag' ? '24px' : e.target.value === 'card' ? '40px' : e.target.value === 'slot' ? '0px' : e.target.value === 'custom' ? '12px' : '56px',
+                customRadius: e.target.value === 'nametag' ? theme.radius['Radius.L'] : e.target.value === 'card' ? theme.radius['Radius.XL'] || theme.radius['Radius.XL'] : e.target.value === 'slot' ? '0px' : e.target.value === 'custom' ? theme.radius['Radius.M'] : theme.height['Height.L'],
                 variant: e.target.value === 'nametag' || e.target.value === 'card' ? 'secondary' : 'primary'
             })}
             options={[
@@ -147,7 +147,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           />
 
           {isButton && (
-            <div style={{ display: 'flex', gap: theme.spacing['Space.M'] }}>
+            <div style={{ display: 'flex', gap: theme.space['Space.M'] }}>
               <div style={{ flex: 1 }}>
                 <Select<any>
                   label="Variant"
@@ -196,7 +196,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </Accordion>
 
       <Accordion title="Appearance">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.L'] }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           <RangeSlider
             label="Corner Radius"
             motionValue={radiusMotionValue}
@@ -205,7 +205,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             max={56}
           />
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.M'], width: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'], width: '100%' }}>
             {!isTertiary && (
               <ColorPicker
                 label="Fill Color"
@@ -240,7 +240,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </Accordion>
 
       <Accordion title="Agent">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.M'] }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <Toggle
             label="AI Control"
             isOn={isAIControlEnabled}
@@ -257,7 +257,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </Accordion>
 
       <Accordion title="Inspector">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing['Space.M'] }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <Toggle
             label="Show Measurements"
             isOn={showMeasurements}
@@ -286,14 +286,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           
           {view3D && (
             <div style={{ 
-              marginTop: theme.spacing['Space.S'], 
-              padding: theme.spacing['Space.M'], 
+              marginTop: theme.space['Space.S'], 
+              padding: theme.space['Space.M'], 
               backgroundColor: theme.Color.Base.Surface[2], 
               borderRadius: theme.radius['Radius.M'],
-              border: `1px solid ${theme.Color.Base.Surface[3]}`,
+              border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
               display: 'flex',
               flexDirection: 'column',
-              gap: theme.spacing['Space.M']
+              gap: theme.space['Space.M']
             }}>
                <RangeSlider
                 label="Layer Spacing"

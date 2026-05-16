@@ -98,10 +98,10 @@ const Home = () => {
   const [future, setFuture] = useState<MetaButtonProps[]>([]);
 
   // --- Window Management ---
-  const WINDOW_WIDTH = 400;
-  const CONTROL_PANEL_HEIGHT = 640; // Increased height for new 3D controls
-  const CODE_PANEL_HEIGHT = 408;
-  const CONSOLE_PANEL_HEIGHT = 200; // Increased slightly for better visibility
+  const WINDOW_WIDTH = parseInt(theme.space['Space.Panel.Width']) || 400;
+  const CONTROL_PANEL_HEIGHT = parseInt(theme.space['Space.Panel.Height']) || 640;
+  const CODE_PANEL_HEIGHT = parseInt(theme.space['Space.400']) || 408;
+  const CONSOLE_PANEL_HEIGHT = parseInt(theme.space['Space.200']) || 200;
 
   const handleResize = (id: WindowId, newHeight: number) => {
     setWindows(prev => ({
@@ -332,7 +332,7 @@ const Home = () => {
       alignItems: 'center',
       justifyContent: 'center',
     }}>
-            <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 1001, display: 'flex', gap: '10px' }}>
+            <div style={{ position: 'fixed', top: theme.space['Space.XL'], right: theme.space['Space.XL'], zIndex: 1001, display: 'flex', gap: theme.space['Space.M'] }}>
                 {showThemeToggle && <ThemeToggleButton />}
       </div>
       <Confetti trigger={confettiTrigger} />

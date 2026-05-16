@@ -33,7 +33,7 @@ const UndoRedo: React.FC<UndoRedoProps> = ({ onUndo, onRedo, canUndo, canRedo })
     <div
       style={{
         display: 'flex',
-        gap: theme.spacing['Space.XS'],
+        gap: theme.space['Space.XS'],
       }}
     >
       <motion.button

@@ -15,7 +15,7 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
   const [isHovered, setIsHovered] = useState(false);
 
   const containerStyle: React.CSSProperties = {
-    marginBottom: theme.spacing['Space.S'],
+    marginBottom: theme.space['Space.S'],
     borderRadius: theme.radius['Radius.M'],
   };
 
@@ -23,7 +23,7 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: `${theme.spacing['Space.M']} ${theme.spacing['Space.L']}`,
+    padding: `${theme.space['Space.M']} ${theme.space['Space.L']}`,
     cursor: 'pointer',
     userSelect: 'none',
     backgroundColor: 'transparent',
@@ -41,8 +41,8 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
   };
 
   const contentWrapperStyle: React.CSSProperties = {
-    padding: theme.spacing['Space.M'],
-    margin: `0 ${theme.spacing['Space.L']} ${theme.spacing['Space.S']} ${theme.spacing['Space.L']}`,
+    padding: theme.space['Space.M'],
+    margin: `0 ${theme.space['Space.L']} ${theme.space['Space.S']} ${theme.space['Space.L']}`,
   };
 
   return (
@@ -63,7 +63,7 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
           }}
           transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
         >
-          <Plus size={14} weight="bold" />
+          <Plus size={parseInt(theme.space['Space.L'])} weight="bold" />
         </motion.div>
       </div>
       <AnimatePresence initial={false}>

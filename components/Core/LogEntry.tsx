@@ -51,7 +51,7 @@ const LogEntry: React.FC<LogEntryProps> = ({ log }) => {
         padding: '4px 0',
         borderBottom: `1px solid ${theme.Color.Base.Surface[3]}33`, // Subtle separator
         ...typeStyles, 
-        fontSize: '11px', 
+        fontSize: theme.Type.Readable.Label.S.fontSize, 
         lineHeight: '1.6',
         width: '100%'
     }}>

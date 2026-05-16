@@ -55,7 +55,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
   const zMedia = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v * 3}px)`);
 
   // --- Dynamic Inner Radius Logic ---
-  const paddingValue = parseInt(theme.spacing['Space.XL']) || 24;
+  const paddingValue = parseInt(theme.space['Space.XL']) || 24;
   
   const getNumericRadius = (r: string | MotionValue<string> | undefined): number => {
     if (!r) return 0;
@@ -132,18 +132,18 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
 
   const styles: React.CSSProperties = {
     position: 'relative',
-    width: '320px', 
-    padding: theme.spacing['Space.XL'], 
+    width: theme.space['Space.Panel.Width'], 
+    padding: theme.space['Space.XL'], 
     cursor: disabled ? 'not-allowed' : 'pointer',
     backgroundColor: bgColor,
     color: contentColor1,
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing['Space.XL'], // 24px gap between Media and Content Area
+    gap: theme.space['Space.XL'], // 24px gap between Media and Content Area
     boxShadow: theme.effects['Effect.Shadow.Drop.2'],
     transformStyle: 'preserve-3d',
-    border: variant === 'outline' ? `1px solid ${theme.Color.Base.Content[3]}` : `1px solid ${theme.Color.Base.Surface[3]}`,
-    opacity: disabled ? 0.5 : 1,
+    border: variant === 'outline' ? `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Content[3]}` : `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`,
+    opacity: disabled ? theme.opacity['Opacity.Medium'] : 1,
     transition: `background-color ${theme.time['Time.2x']} ease, border-color ${theme.time['Time.2x']} ease`,
     userSelect: 'none',
   };
@@ -192,9 +192,12 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
       >
          <div style={{
              position: 'absolute',
-             top: '-4px', left: '-4px', right: '-4px', bottom: '-4px', // 4px offset ring
+             top: `calc(-1 * ${theme.space['Space.XS']})`, 
+             left: `calc(-1 * ${theme.space['Space.XS']})`, 
+             right: `calc(-1 * ${theme.space['Space.XS']})`, 
+             bottom: `calc(-1 * ${theme.space['Space.XS']})`, 
              borderRadius: 'inherit',
-             border: `2px solid ${theme.Color.Focus.Content[1]}`,
+             border: `${theme.border['Border.Width.Thick']} ${theme.border['Border.Style.Main']} ${theme.Color.Focus.Content[1]}`,
              pointerEvents: 'none',
              boxShadow: forcedFocus ? `0 0 12px ${theme.Color.Focus.Surface[1]}` : 'none',
          }} />
@@ -209,7 +212,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             width={dimensions.width} 
             height={dimensions.height}
             forced={forcedHover}
-            opacity={0.06}
+            opacity={theme.opacity['Opacity.Hover']}
         />
       </motion.div>
       
@@ -221,14 +224,14 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             width={dimensions.width} 
             height={dimensions.height}
             forced={forcedActive}
-            opacity={0.15}
+            opacity={theme.opacity['Opacity.Pressed']}
         />
       </motion.div>
 
       <motion.div 
         className="card-media"
         style={{ 
-            height: '180px', 
+            height: theme.height['Height.Half'], 
             backgroundColor: theme.Color.Base.Surface[2], 
             borderRadius: innerRadiusMV, 
             display: 'flex',
@@ -237,22 +240,22 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             transform: zMedia,
             position: 'relative',
             overflow: 'hidden',
-            border: `1px solid ${theme.Color.Base.Surface[3]}`,
+            border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`,
             ... (view3D ? { border: getDebugBorder(colors.media) } : {})
         }}
       >
           <div style={{ 
               position: 'absolute', 
               inset: 0, 
-              opacity: 0.1, 
+              opacity: theme.opacity['Opacity.Subtle'], 
               background: `repeating-linear-gradient(45deg, transparent, transparent 10px, ${theme.Color.Base.Content[3]} 10px, ${theme.Color.Base.Content[3]} 11px)` 
           }} />
           
           <motion.div
             animate={{ scale: effectiveHover ? 1.1 : 1, opacity: effectiveHover ? 0.6 : 0.4 }}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: theme.spacing['Space.XL'] }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: theme.space['Space.XL'] }}
           >
-            <i className="ph-bold ph-image" draggable={false} style={{ fontSize: '48px', color: theme.Color.Base.Content[2] }} />
+            <i className="ph-bold ph-image" draggable={false} style={{ fontSize: theme.Type.Expressive.Display.L.fontSize, color: theme.Color.Base.Content[2] }} />
             <span draggable={false} style={{ 
               ...theme.Type.Readable.Label.S, 
               color: theme.Color.Base.Content[2], 
@@ -270,7 +273,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
           transform: zContent, 
           display: 'flex', 
           flexDirection: 'column', 
-          gap: theme.spacing['Space.XS'], // Unified 4px rhythm within the text block
+          gap: theme.space['Space.XS'], // Unified 4px rhythm within the text block
           border: getDebugBorder(colors.content)
       }}>
         <span draggable={false} style={{ 
@@ -287,7 +290,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             ...theme.Type.Expressive.Headline.S, 
             margin: 0, 
             color: contentColor1,
-            fontSize: '32px', 
+            fontSize: theme.Type.Expressive.Headline.L.fontSize, 
             lineHeight: 1
         }}>
             {label}

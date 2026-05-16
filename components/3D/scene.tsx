@@ -22,51 +22,6 @@ const NormalBox = ({ color, size = 1 }: { color: string, size?: number }) => (
   </mesh>
 );
 
-// STYLE: JS object style for overlay
-const overlayStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: '20px',
-  left: '20px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '8px',
-  pointerEvents: 'none',
-  zIndex: 10,
-};
-
-const fpsStyle: React.CSSProperties = {
-  position: 'absolute',
-  bottom: '20px',
-  right: '20px',
-  background: 'rgba(0, 0, 0, 0.5)',
-  color: '#00ff00',
-  padding: '4px 12px',
-  borderRadius: '6px',
-  fontFamily: 'JetBrains Mono, monospace',
-  fontSize: '14px',
-  pointerEvents: 'none',
-  zIndex: 100,
-  border: '1px solid rgba(0, 255, 0, 0.3)',
-  boxShadow: '0 0 15px rgba(0, 255, 0, 0.1)',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '6px',
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: '8px 16px',
-  background: 'rgba(255, 255, 255, 0.1)',
-  backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255, 255, 255, 0.2)',
-  borderRadius: '8px',
-  color: 'white',
-  fontSize: '12px',
-  fontFamily: 'Inter, sans-serif',
-  cursor: 'pointer',
-  pointerEvents: 'auto',
-  transition: 'all 0.2s ease',
-};
-
 const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: string; position: [number, number, number]; id: string; onDragStart?: () => void; onDragEnd?: () => void }) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const [hovered, setHover] = useState(false);
@@ -248,12 +203,58 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
   );
 };
 
+import { useTheme } from '../../Theme';
+
 const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
+  const { theme } = useTheme();
   const { cubes, addCube } = usePhysicsStore();
   const [controlsEnabled, setControlsEnabled] = useState(true);
   const [fps, setFps] = useState(0);
 
-  // LOGIC: FPS calculation loop
+  // STYLE: Derived from theme
+  const overlayStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: theme.space['Space.L'],
+    left: theme.space['Space.L'],
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.space['Space.S'],
+    pointerEvents: 'none',
+    zIndex: 10,
+  };
+
+  const fpsStyle: React.CSSProperties = {
+    position: 'absolute',
+    bottom: theme.space['Space.L'],
+    right: theme.space['Space.L'],
+    background: theme.Color.Base.Surface[1],
+    color: theme.Color.Base.Content[2],
+    padding: `${theme.space['Space.XS']} ${theme.space['Space.M']}`,
+    borderRadius: theme.radius['Radius.S'],
+    fontFamily: theme.Type.Readable.Body.M.fontFamily,
+    fontSize: theme.Type.Readable.Label.M.fontSize,
+    pointerEvents: 'none',
+    zIndex: 100,
+    border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.space['Space.XXS'],
+    opacity: 0.8,
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    padding: `${theme.space['Space.S']} ${theme.space['Space.M']}`,
+    background: theme.Color.Base.Surface[2],
+    backdropFilter: 'blur(10px)',
+    border: `1px solid ${theme.Color.Base.Surface[3]}`,
+    borderRadius: theme.radius['Radius.S'],
+    color: theme.Color.Base.Content[1],
+    fontSize: theme.Type.Readable.Label.M.fontSize,
+    fontFamily: theme.Type.Readable.Body.M.fontFamily,
+    cursor: 'pointer',
+    pointerEvents: 'auto',
+    transition: 'all 0.2s ease',
+  };
   useEffect(() => {
     let frameCount = 0;
     let lastTime = performance.now();

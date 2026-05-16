@@ -18,12 +18,12 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
   return (
     <div style={{
       display: 'flex',
-      padding: '2px',
+      padding: theme.space['Space.XXS'],
       backgroundColor: theme.Color.Base.Surface[2],
       borderRadius: theme.radius['Radius.M'],
       border: `1px solid ${theme.Color.Base.Surface[3]}`,
       position: 'relative',
-      gap: '2px',
+      gap: theme.space['Space.XXS'],
     }}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
@@ -36,8 +36,8 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: theme.spacing['Space.S'],
-              padding: `${theme.spacing['Space.XS']} ${theme.spacing['Space.M']}`,
+              gap: theme.space['Space.S'],
+              padding: `${theme.space['Space.XS']} ${theme.space['Space.M']}`,
               backgroundColor: 'transparent',
               border: 'none',
               color: isActive ? theme.Color.Base.Content[1] : theme.Color.Base.Content[3],
@@ -56,7 +56,7 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
                   position: 'absolute',
                   inset: 0,
                   backgroundColor: theme.Color.Base.Surface[1],
-                  borderRadius: `calc(${theme.radius['Radius.M']} - 2px)`,
+                  borderRadius: `calc(${theme.radius['Radius.M']} - ${theme.space['Space.XXS']})`,
                   boxShadow: theme.effects['Effect.Shadow.Drop.1'],
                   border: `1px solid ${theme.Color.Base.Surface[3]}`,
                   zIndex: -1,
@@ -68,7 +68,7 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
                 }}
               />
             )}
-            <span style={{ display: 'flex', alignItems: 'center', gap: theme.spacing['Space.S'], opacity: isActive ? 1 : 0.7 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], opacity: isActive ? 1 : 0.7 }}>
               {tab.icon}
               {tab.title}
             </span>

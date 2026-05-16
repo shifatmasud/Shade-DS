@@ -35,17 +35,17 @@ const Dock: React.FC<DockProps> = ({ windows, toggleWindow, uiMode = 'default' }
         dragMomentum={false}
         style={{
           position: 'absolute',
-          bottom: theme.spacing['Space.L'],
+          bottom: theme.space['Space.L'],
           left: '50%',
           x: '-50%',
           display: 'flex',
-          gap: theme.spacing['Space.S'],
-          padding: theme.spacing['Space.S'],
+          gap: theme.space['Space.S'],
+          padding: theme.space['Space.S'],
           backgroundColor: `${theme.Color.Base.Surface[1]}aa`,
           backdropFilter: 'blur(16px)',
-          borderRadius: '24px', // Peel shape
+          borderRadius: theme.radius['Radius.L'], // Peel shape
           boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-          border: `1px solid ${theme.Color.Base.Surface[3]}`,
+          border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
           zIndex: 1000,
         }}
       >

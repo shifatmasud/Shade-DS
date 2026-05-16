@@ -46,20 +46,20 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
         onClick={() => setShowDialog(true)}
         style={{
           position: 'absolute',
-          top: theme.spacing['Space.M'],
-          right: theme.spacing['Space.M'],
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
+          top: theme.space['Space.M'],
+          right: theme.space['Space.M'],
+          width: theme.space['Space.40'],
+          height: theme.space['Space.40'],
+          borderRadius: theme.radius['Radius.Full'],
           backgroundColor: theme.Color.Base.Surface[1],
-          border: `1px solid ${theme.Color.Base.Content[3]}`,
+          border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Content[3]}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 10,
           color: theme.Color.Base.Content[1],
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          boxShadow: theme.effects['Effect.Shadow.Drop.2'],
         }}
       >
         <Info size={20} />
@@ -81,7 +81,7 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
               alignItems: 'center',
               justifyContent: 'center',
               zIndex: 100,
-              padding: theme.spacing['Space.L'],
+              padding: theme.space['Space.L'],
             }}
             onClick={() => setShowDialog(false)}
           >
@@ -92,12 +92,12 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
               style={{
                 backgroundColor: theme.Color.Base.Surface[1],
                 borderRadius: theme.radius['Radius.L'],
-                padding: theme.spacing['Space.L'],
-                maxWidth: '400px',
+                padding: theme.space['Space.L'],
+                maxWidth: theme.space['Space.Panel.Width'],
                 width: '100%',
                 position: 'relative',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
-                border: `1px solid ${theme.Color.Base.Content[3]}`,
+                boxShadow: theme.effects['Effect.Shadow.Drop.3'],
+                border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Content[3]}`,
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -105,8 +105,8 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
                 onClick={() => setShowDialog(false)}
                 style={{
                   position: 'absolute',
-                  top: theme.spacing['Space.M'],
-                  right: theme.spacing['Space.M'],
+                  top: theme.space['Space.M'],
+                  right: theme.space['Space.M'],
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
@@ -116,16 +116,16 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
                 <X size={20} />
               </button>
 
-              <h2 style={{ ...theme.Type.Expressive.Headline.M, color: theme.Color.Base.Content[1], marginBottom: theme.spacing['Space.M'] }}>
+              <h2 style={{ ...theme.Type.Expressive.Headline.M, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.M'] }}>
                 Viewport Slot
               </h2>
               
               <div style={{ 
                 backgroundColor: theme.Color.Base.Surface[2], 
-                padding: theme.spacing['Space.M'], 
+                padding: theme.space['Space.M'], 
                 borderRadius: theme.radius['Radius.M'],
-                marginBottom: theme.spacing['Space.L'],
-                border: `1px dashed ${theme.Color.Base.Content[3]}`,
+                marginBottom: theme.space['Space.L'],
+                border: `${theme.border['Border.Width.Main']} dashed ${theme.Color.Base.Content[3]}`,
               }}>
                 <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[2], lineHeight: 1.5 }}>
                   {instructionText}
@@ -136,7 +136,7 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
                 onClick={handleCopy}
                 style={{
                   width: '100%',
-                  padding: theme.spacing['Space.M'],
+                  padding: theme.space['Space.M'],
                   borderRadius: theme.radius['Radius.M'],
                   backgroundColor: theme.Color.Active.Surface[1],
                   color: theme.Color.Active.Content[1],
@@ -144,7 +144,7 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: theme.spacing['Space.S'],
+                  gap: theme.space['Space.S'],
                   cursor: 'pointer',
                   ...theme.Type.Readable.Body.M,
                   fontWeight: 600,
@@ -162,8 +162,8 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
       {!showDialog && (
         <div style={{ 
           position: 'absolute', 
-          bottom: theme.spacing['Space.M'], 
-          left: theme.spacing['Space.M'],
+          bottom: theme.space['Space.M'], 
+          left: theme.space['Space.M'],
           pointerEvents: 'none',
           opacity: 0.6
         }}>

@@ -22,10 +22,10 @@ const ThemeToggleButton = () => {
   const styles: { [key: string]: React.CSSProperties } = {
     button: {
       position: 'absolute',
-      top: theme.spacing['Space.L'],
-      right: theme.spacing['Space.L'],
-      width: '44px',
-      height: '44px',
+      top: theme.space['Space.L'],
+      right: theme.space['Space.L'],
+      width: theme.space['Space.44'],
+      height: theme.space['Space.44'],
       borderRadius: theme.radius['Radius.Full'],
       backgroundColor: theme.Color.Base.Surface['2'],
       border: 'none',
@@ -40,7 +40,7 @@ const ThemeToggleButton = () => {
       touchAction: 'none',
     },
     icon: {
-      fontSize: '24px',
+      fontSize: theme.Type.Expressive.Headline.S.fontSize,
       lineHeight: '0', // Prevents layout shifts from line-height
       pointerEvents: 'none',
       display: 'block',

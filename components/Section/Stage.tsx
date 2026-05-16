@@ -33,13 +33,13 @@ const CustomPlaceholder = () => {
             borderRadius: theme.radius['Radius.M'],
             border: `2px dashed ${theme.Color.Base.Surface[3]}`,
             color: theme.Color.Base.Content[3],
-            gap: theme.spacing['Space.S'],
-            padding: theme.spacing['Space.L'],
+            gap: theme.space['Space.S'],
+            padding: theme.space['Space.L'],
             textAlign: 'center'
         }}>
             <Code size={32} weight="duotone" />
             <div style={{ ...theme.Type.Readable.Label.S }}>Empty Custom Component</div>
-            <div style={{ ...theme.Type.Readable.Body.S, fontSize: '10px', opacity: 0.6 }}>
+            <div style={{ ...theme.Type.Readable.Body.S, fontSize: theme.Type.Readable.Label.S.fontSize, opacity: 0.6 }}>
                 Use the Agent panel to generate code or edit manually in the Code panel.
             </div>
         </div>
@@ -56,13 +56,13 @@ const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
       flexDirection: 'column',
       alignItems: 'flex-start',
       justifyContent: 'center',
-      padding: '16px',
+      padding: theme.space['Space.M'],
       backgroundColor: theme.Color.Error.Surface[1],
       color: theme.Color.Error.Content[1],
-      borderRadius: '8px',
+      borderRadius: theme.radius['Radius.M'],
       border: `1px solid ${theme.Color.Error.Content[1]}`,
       fontFamily: 'monospace',
-      fontSize: '12px',
+      fontSize: theme.Type.Readable.Label.M.fontSize,
     }}>
       <strong>Component failed to render.</strong>
       <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginTop: '8px' }}>
@@ -132,7 +132,7 @@ const DimensionLine = ({
 
     const style: React.CSSProperties = {
         ...theme.Type.Expressive.Data,
-        fontSize: '10px',
+        fontSize: theme.Type.Readable.Label.S.fontSize,
         fill: color,
         textAnchor: 'middle',
         dominantBaseline: 'middle',
@@ -363,7 +363,7 @@ const HUDItem: React.FC<{ layer: any, gap: MotionValue<number>, isLast: boolean 
            }} />
            <span style={{ 
                fontFamily: theme.Type.Expressive.Data.fontFamily,
-               fontSize: '10px', fontWeight: 'bold', color: layer.stroke,
+               fontSize: theme.Type.Readable.Label.S.fontSize, fontWeight: 'bold', color: layer.stroke,
                backgroundColor: layer.fill, padding: '0 8px', height: '20px',
                borderRadius: '10px', border: `1px solid ${layer.stroke}`,
                whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1
@@ -406,7 +406,7 @@ const LayerStackHUD = ({ layerSpacing, isCard }: { layerSpacing: MotionValue<num
             <span style={{ 
                 ...theme.Type.Readable.Label.S, 
                 color: theme.Color.Base.Content[3], 
-                marginBottom: theme.spacing['Space.S'], 
+                marginBottom: theme.space['Space.S'], 
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
                 paddingLeft: '20px' 
@@ -505,7 +505,7 @@ const Stage: React.FC<StageProps> = ({
                   ) : (
                     <>
                       <LiveProvider code={stagedCode} scope={reactLiveScope}>
-                        <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.spacing['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: '12px' }} />
+                        <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.space['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: theme.Type.Readable.Label.M.fontSize }} />
                         <ErrorBoundary FallbackComponent={ErrorFallback}>
                           <LivePreview style={{ width: '100%', height: '100%' }} />
                         </ErrorBoundary>
@@ -519,7 +519,7 @@ const Stage: React.FC<StageProps> = ({
                             exit={{ opacity: 0, y: 10 }}
                             style={{
                               position: 'absolute',
-                              bottom: theme.spacing['Space.M'],
+                              bottom: theme.space['Space.M'],
                               left: '50%',
                               transform: 'translateX(-50%)',
                               zIndex: 10,

@@ -152,7 +152,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
         position: 'relative' as const,
         display: 'flex',
         flexDirection: 'column' as const,
-        gap: theme.spacing['Space.S'],
+        gap: theme.space['Space.S'],
         ...style
     },
     label: {
@@ -162,8 +162,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     },
     swatchContainer: {
         position: 'relative' as const,
-        width: '40px',
-        height: '40px',
+        width: theme.space['Space.40'],
+        height: theme.space['Space.40'],
         borderRadius: '50%',
         cursor: 'pointer',
         display: 'grid',
@@ -175,8 +175,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
         flexShrink: 0
     },
     innerSwatch: {
-        width: '28px',
-        height: '28px',
+        width: theme.space['Space.XXL'], // Approximated from 28px
+        height: theme.space['Space.XXL'],
         borderRadius: '50%',
     },
     popoverRoot: {
@@ -196,14 +196,14 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
         flexDirection: 'column' as const,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '24px', 
+        gap: theme.space['Space.XL'], 
         pointerEvents: 'auto' as const,
         zIndex: 10
     },
     spatialRoot: {
         position: 'relative' as const,
-        width: '220px',
-        height: '220px',
+        width: theme.space['Space.200'],
+        height: theme.space['Space.200'],
         display: 'grid',
         placeItems: 'center'
     },
@@ -218,8 +218,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     },
     blob: (color: string) => ({
         position: 'absolute' as const,
-        width: '52px',
-        height: '52px',
+        width: theme.space['Space.56'], // Approximated from 52px
+        height: theme.space['Space.56'],
         borderRadius: '50%',
         backgroundColor: color,
         border: 'none',
@@ -227,15 +227,15 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
         boxShadow: `0 4px 15px ${color}66, 0 0 20px ${color}33`,
     }),
     slidersPanel: {
-        width: '280px',
+        width: theme.space['Space.280'] || '280px',
         backgroundColor: theme.Color.Base.Surface[1],
         border: `1px solid ${theme.Color.Base.Surface[3]}`,
         borderRadius: theme.radius['Radius.M'],
         boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-        padding: theme.spacing['Space.L'],
+        padding: theme.space['Space.L'],
         display: 'flex',
         flexDirection: 'column' as const,
-        gap: '12px',
+        gap: theme.space['Space.M'],
         pointerEvents: 'auto' as const,
         zIndex: 10
     }
@@ -341,7 +341,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     <div style={STYLES.container}>
       {label && <label style={STYLES.label}>{label}</label>}
       
-      <div ref={triggerRef} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div ref={triggerRef} style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}>
           <motion.div 
             style={STYLES.swatchContainer}
             onClick={handleToggle}
@@ -361,8 +361,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
                 outline: 'none',
                 color: theme.Color.Base.Content[1],
                 fontFamily: theme.Type.Expressive.Data.fontFamily,
-                fontSize: '11px',
-                width: '60px',
+                fontSize: theme.Type.Readable.Label.S.fontSize,
+                width: theme.space['Space.64'], // Approximated from 60px
                 opacity: 0.6,
                 textTransform: 'uppercase'
             }}

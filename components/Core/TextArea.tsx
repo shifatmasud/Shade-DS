@@ -19,9 +19,9 @@ const TextArea: React.FC<TextAreaProps> = ({ value, onChange, onFocus, onBlur, s
   const baseStyle: React.CSSProperties = {
     ...theme.Type.Expressive.Data,
     width: '100%',
-    minHeight: '200px',
+    minHeight: theme.space['Space.200'],
     backgroundColor: theme.Color.Base.Surface[3],
-    padding: theme.spacing['Space.M'],
+    padding: theme.space['Space.M'],
     borderRadius: theme.radius['Radius.M'],
     border: 'none',
     color: theme.Color.Base.Content[1],

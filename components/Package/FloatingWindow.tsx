@@ -46,26 +46,26 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     position: 'absolute',
     top: '50%',
     left: '50%',
-    width: '400px',
+    width: theme.space['Space.Panel.Width'],
     height: 'auto',
-    maxHeight: '600px',
+    maxHeight: theme.space['Space.Panel.Height'],
     backgroundColor: `${theme.Color.Base.Surface[1]}dd`,
     backdropFilter: 'blur(20px)',
     borderRadius: theme.radius['Radius.L'],
     boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-    border: themeName === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+    border: themeName === 'dark' ? `${theme.border['Border.Width.Main']} solid rgba(255, 255, 255, 0.1)` : `${theme.border['Border.Width.Main']} solid rgba(0, 0, 0, 0.1)`,
     zIndex: zIndex,
     display: 'flex',
     flexDirection: 'column',
   };
 
   const headerStyle: React.CSSProperties = {
-    height: '48px',
+    height: theme.space['Space.XXXL'],
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: `0 ${theme.spacing['Space.L']}`,
-    borderBottom: `1px solid ${theme.Color.Base.Surface[2]}`,
+    padding: `0 ${theme.space['Space.L']}`,
+    borderBottom: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[2]}`,
     cursor: 'grab',
     userSelect: 'none',
     flexShrink: 0,
@@ -73,7 +73,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
   };
 
   const contentStyle: React.CSSProperties = {
-    padding: theme.spacing['Space.L'],
+    padding: theme.space['Space.L'],
     overflowY: 'auto',
     flex: 1,
     color: theme.Color.Base.Content[1],
@@ -81,12 +81,12 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
   };
 
   const footerStyle: React.CSSProperties = {
-    height: '48px',
+    height: theme.space['Space.XXXL'],
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    padding: `0 ${theme.spacing['Space.L']}`,
-    borderTop: `1px solid ${theme.Color.Base.Surface[2]}`,
+    padding: `0 ${theme.space['Space.L']}`,
+    borderTop: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[2]}`,
     cursor: 'grab',
     userSelect: 'none',
     
@@ -120,9 +120,9 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
           <motion.button
             onClick={(e) => { e.stopPropagation(); onClose(); }}
             style={{
-              width: '14px',
-              height: '14px',
-              borderRadius: '50%',
+              width: theme.space['Space.M'], // Approximated from 14px to token
+              height: theme.space['Space.M'],
+              borderRadius: theme.radius['Radius.Full'],
               backgroundColor: theme.Color.Error.Content[1],
               border: 'none',
               cursor: 'pointer',

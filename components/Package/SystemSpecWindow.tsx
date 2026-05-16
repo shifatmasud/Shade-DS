@@ -100,22 +100,22 @@ const SystemSpecWindow = () => {
   };
 
   const sectionStyle: React.CSSProperties = {
-    padding: theme.spacing['Space.L'],
+    padding: theme.space['Space.L'],
     borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`,
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing['Space.M'],
+    gap: theme.space['Space.M'],
   };
 
   const titleStyle: React.CSSProperties = {
     fontFamily: 'Bebas Neue, sans-serif',
-    fontSize: '24px',
+    fontSize: theme.Type.Expressive.Headline.S.fontSize,
     letterSpacing: '0.05em',
     color: theme.Color.Base.Content[1],
     margin: 0,
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing['Space.S'],
+    gap: theme.space['Space.S'],
   };
 
   const listStyle: React.CSSProperties = {
@@ -124,23 +124,23 @@ const SystemSpecWindow = () => {
     margin: 0,
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing['Space.S'],
+    gap: theme.space['Space.S'],
   };
 
   const itemStyle: React.CSSProperties = {
     fontFamily: 'Inter, sans-serif',
-    fontSize: '14px',
+    fontSize: theme.Type.Readable.Body.M.fontSize,
     lineHeight: '1.5',
     color: theme.Color.Base.Content[2],
     display: 'flex',
-    gap: theme.spacing['Space.S'],
+    gap: theme.space['Space.S'],
   };
 
   const badgeStyle: React.CSSProperties = {
     fontFamily: 'JetBrains Mono, monospace',
-    fontSize: '10px',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    fontSize: theme.Type.Readable.Label.S.fontSize,
+    padding: `${theme.space['Space.XXS']} ${theme.space['Space.XS']}`,
+    borderRadius: theme.radius['Radius.S'],
     backgroundColor: theme.Color.Base.Surface[3],
     color: theme.Color.Base.Content[3],
     textTransform: 'uppercase',
@@ -158,8 +158,8 @@ const SystemSpecWindow = () => {
     }}>
       {/* Header with Copy Button */}
       <div style={{ 
-        padding: theme.spacing['Space.M'], 
-        borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`,
+        padding: theme.space['Space.M'], 
+        borderBottom: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -168,28 +168,28 @@ const SystemSpecWindow = () => {
         backgroundColor: theme.Color.Base.Surface[1],
         zIndex: 10,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing['Space.S'] }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}>
           <Shield size={20} weight="fill" color={theme.Color.Focus.Content[1]} />
-          <span style={{ fontFamily: 'Bebas Neue', fontSize: '18px' }}>System Protocol v1.0</span>
+          <span style={{ fontFamily: 'Bebas Neue', fontSize: theme.Type.Readable.Title.L.fontSize }}>System Protocol v1.0</span>
         </div>
         <button 
           onClick={handleCopy}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            border: `1px solid ${theme.Color.Base.Surface[3]}`,
+            gap: theme.space['Space.XS'],
+            padding: `${theme.space['Space.XS']} ${theme.space['Space.M']}`,
+            borderRadius: theme.radius['Radius.S'],
+            border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
             backgroundColor: theme.Color.Base.Surface[2],
             color: theme.Color.Base.Content[1],
             cursor: 'pointer',
-            fontSize: '12px',
+            fontSize: theme.Type.Readable.Label.M.fontSize,
             fontFamily: 'Inter',
             transition: 'all 0.2s ease',
           }}
         >
-          {copied ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+          {copied ? <Check size={14} color={theme.Color.Success.Content[1]} /> : <Copy size={14} />}
           {copied ? 'Copied!' : 'Copy Markdown'}
         </button>
       </div>
@@ -220,10 +220,10 @@ const SystemSpecWindow = () => {
         
         {/* Visual: Complexity Slider Animation */}
         <div style={{ 
-          height: '60px', 
+          height: theme.space['Space.64'], 
           backgroundColor: theme.Color.Base.Surface[2], 
-          borderRadius: '8px',
-          marginTop: '8px',
+          borderRadius: theme.radius['Radius.M'],
+          marginTop: theme.space['Space.S'],
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -232,10 +232,10 @@ const SystemSpecWindow = () => {
         }}>
           <motion.div 
             style={{ 
-              width: '40px', 
-              height: '40px', 
+              width: theme.space['Space.40'], 
+              height: theme.space['Space.40'], 
               borderRadius: '50%', 
-              border: `2px solid ${theme.Color.Focus.Content[1]}`,
+              border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Focus.Content[1]}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
@@ -246,9 +246,9 @@ const SystemSpecWindow = () => {
             }}
             transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
           >
-            <div style={{ width: '4px', height: '4px', backgroundColor: theme.Color.Focus.Content[1], borderRadius: '50%' }} />
+            <div style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], backgroundColor: theme.Color.Focus.Content[1], borderRadius: '50%' }} />
           </motion.div>
-          <div style={{ position: 'absolute', bottom: 4, fontSize: '8px', fontFamily: 'JetBrains Mono', opacity: 0.5 }}>
+          <div style={{ position: 'absolute', bottom: theme.space['Space.XS'], fontSize: theme.Type.Readable.Label.S.fontSize, fontFamily: 'JetBrains Mono', opacity: 0.5 }}>
             AUTO_ABSTRACTION_ACTIVE
           </div>
         </div>
@@ -257,18 +257,18 @@ const SystemSpecWindow = () => {
       {/* Execution Rules */}
       <section style={sectionStyle}>
         <h2 style={titleStyle}><Play size={20} /> Execution Rules</h2>
-        <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+        <div style={{ display: 'flex', gap: theme.space['Space.S'], marginTop: theme.space['Space.XS'] }}>
           {['Summary', 'Architecture', 'Action List'].map((step, i) => (
             <div key={i} style={{ 
               flex: 1, 
-              padding: '10px', 
+              padding: theme.space['Space.M'], 
               backgroundColor: theme.Color.Base.Surface[2], 
-              borderRadius: '6px',
-              border: `1px solid ${theme.Color.Base.Surface[3]}`,
+              borderRadius: theme.radius['Radius.S'],
+              border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '10px', fontFamily: 'JetBrains Mono', opacity: 0.5, marginBottom: '4px' }}>STEP 0{i+1}</div>
-              <div style={{ fontSize: '12px', fontWeight: 600 }}>{step}</div>
+              <div style={{ fontSize: theme.Type.Readable.Label.S.fontSize, fontFamily: 'JetBrains Mono', opacity: 0.5, marginBottom: theme.space['Space.XS'] }}>STEP 0{i+1}</div>
+              <div style={{ fontSize: theme.Type.Readable.Label.M.fontSize, fontWeight: 600 }}>{step}</div>
             </div>
           ))}
         </div>
@@ -288,7 +288,7 @@ const SystemSpecWindow = () => {
             "Reactive Architecture (FSM/Event Bus)."
           ].map((rule, i) => (
             <li key={i} style={itemStyle}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: theme.Color.Focus.Content[1], marginTop: '6px' }} />
+              <div style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Focus.Content[1], marginTop: theme.space['Space.XS'] }} />
               {rule}
             </li>
           ))}
@@ -296,23 +296,23 @@ const SystemSpecWindow = () => {
         
         {/* Visual: Reactive Flow Animation */}
         <div style={{ 
-          height: '80px', 
-          marginTop: '8px',
+          height: theme.space['Space.80'], 
+          marginTop: theme.space['Space.S'],
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 20px'
+          padding: `0 ${theme.space['Space.XL']}`
         }}>
           {[1, 2, 3, 4].map((node) => (
             <React.Fragment key={node}>
               <motion.div 
-                style={{ width: '12px', height: '12px', backgroundColor: theme.Color.Focus.Content[1], borderRadius: '2px' }}
+                style={{ width: theme.space['Space.M'], height: theme.space['Space.M'], backgroundColor: theme.Color.Focus.Content[1], borderRadius: theme.radius['Radius.S'] }}
                 animate={{ scale: [1, 1.5, 1] }}
                 transition={{ duration: 1, repeat: Infinity, delay: node * 0.2 }}
               />
               {node < 4 && (
                 <motion.div 
-                  style={{ height: '1px', flex: 1, backgroundColor: theme.Color.Base.Surface[3] }}
+                  style={{ height: theme.border['Border.Width.Main'], flex: 1, backgroundColor: theme.Color.Base.Surface[3] }}
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: 1 }}
                   transition={{ duration: 0.5, delay: node * 0.2 }}
@@ -327,31 +327,31 @@ const SystemSpecWindow = () => {
       <section style={sectionStyle}>
         <h2 style={titleStyle}><Palette size={20} /> Design Rules</h2>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.space['Space.M'] }}>
           <div>
             <div style={badgeStyle}>Typography</div>
-            <div style={{ fontFamily: 'Bebas Neue', fontSize: '20px' }}>BEBAS NEUE</div>
-            <div style={{ fontFamily: 'Inter', fontSize: '12px' }}>Inter Body</div>
-            <div style={{ fontFamily: 'JetBrains Mono', fontSize: '10px' }}>JetBrains Mono Data</div>
-            <div style={{ fontFamily: 'Cause', fontSize: '12px', fontStyle: 'italic' }}>"Cause Quotes"</div>
+            <div style={{ fontFamily: 'Bebas Neue', fontSize: theme.Type.Readable.Title.L.fontSize }}>BEBAS NEUE</div>
+            <div style={{ fontFamily: 'Inter', fontSize: theme.Type.Readable.Label.M.fontSize }}>Inter Body</div>
+            <div style={{ fontFamily: 'JetBrains Mono', fontSize: theme.Type.Readable.Label.S.fontSize }}>JetBrains Mono Data</div>
+            <div style={{ fontFamily: 'Cause', fontSize: theme.Type.Readable.Label.M.fontSize, fontStyle: 'italic' }}>"Cause Quotes"</div>
           </div>
           <div>
             <div style={badgeStyle}>Motion</div>
-            <div style={{ fontSize: '12px' }}>Base: 100ms</div>
-            <div style={{ fontSize: '12px' }}>Default: 300ms</div>
-            <div style={{ fontSize: '12px' }}>Grid: 4pt system</div>
+            <div style={{ fontSize: theme.Type.Readable.Label.M.fontSize }}>Base: 100ms</div>
+            <div style={{ fontSize: theme.Type.Readable.Label.M.fontSize }}>Default: 300ms</div>
+            <div style={{ fontSize: theme.Type.Readable.Label.M.fontSize }}>Grid: 4pt system</div>
           </div>
         </div>
 
-        <div style={{ marginTop: '12px' }}>
+        <div style={{ marginTop: theme.space['Space.M'] }}>
           <div style={badgeStyle}>Tokens</div>
           <code style={{ 
             display: 'block', 
-            padding: '8px', 
+            padding: theme.space['Space.S'], 
             backgroundColor: theme.Color.Base.Surface[3], 
-            borderRadius: '4px',
-            fontSize: '11px',
-            marginTop: '4px',
+            borderRadius: theme.radius['Radius.S'],
+            fontSize: theme.Type.Readable.Label.S.fontSize,
+            marginTop: theme.space['Space.XS'],
             fontFamily: 'JetBrains Mono'
           }}>
             Category.Purpose.Context.Level
@@ -360,24 +360,24 @@ const SystemSpecWindow = () => {
       </section>
 
       {/* Documentation Rules */}
-      <section style={{ ...sectionStyle, borderBottom: 'none', paddingBottom: '40px' }}>
+      <section style={{ ...sectionStyle, borderBottom: 'none', paddingBottom: theme.space['Space.40'] }}>
         <h2 style={titleStyle}><FileText size={20} /> Documentation Rules</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {['README.md', 'noteBook.md', 'bugReport.md'].map((file) => (
-            <div key={file} style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '10px',
-              padding: '10px',
-              backgroundColor: theme.Color.Base.Surface[2],
-              borderRadius: '6px',
-              border: `1px solid ${theme.Color.Base.Surface[3]}`
-            }}>
-              <FileText size={16} />
-              <span style={{ fontSize: '13px', fontFamily: 'JetBrains Mono' }}>{file}</span>
-              <div style={{ marginLeft: 'auto', fontSize: '10px', color: '#10b981' }}>PERSISTENT</div>
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.S'] }}>
+        {['README.md', 'noteBook.md', 'bugReport.md'].map((file) => (
+          <div key={file} style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: theme.space['Space.M'],
+            padding: theme.space['Space.M'],
+            backgroundColor: theme.Color.Base.Surface[2],
+            borderRadius: theme.radius['Radius.S'],
+            border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`
+          }}>
+            <FileText size={16} />
+            <span style={{ fontSize: theme.Type.Readable.Label.L.fontSize, fontFamily: 'JetBrains Mono' }}>{file}</span>
+            <div style={{ marginLeft: 'auto', fontSize: theme.Type.Readable.Label.S.fontSize, color: theme.Color.Success.Content[1] }}>PERSISTENT</div>
+          </div>
+        ))}
         </div>
       </section>
     </div>
