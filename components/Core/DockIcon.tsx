@@ -14,24 +14,34 @@ interface DockIconProps {
 
 const DockIcon: React.FC<DockIconProps> = ({ icon, isActive, onClick }) => {
   const { theme } = useTheme();
+  
+  // 🔮 STYLE.Active: Soft active state configuration
+  const activeBg = isActive ? `${theme.Color.Accent.Surface[1]}15` : 'rgba(0,0,0,0)'; // 15% opacity tint
+  const activeColor = isActive ? theme.Color.Accent.Surface[1] : theme.Color.Base.Content[2];
+
   return (
     <motion.button
       onClick={onClick}
       style={{
+        position: 'relative',
         width: '48px',
         height: '48px',
         borderRadius: theme.radius['Radius.Full'],
         border: 'none',
-        backgroundColor: isActive ? theme.Color.Accent.Surface[1] : 'rgba(0,0,0,0)',
-        color: isActive ? theme.Color.Accent.Content[1] : theme.Color.Base.Content[2],
+        backgroundColor: activeBg,
+        color: activeColor,
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: theme.Type.Expressive.Headline.S.fontSize,
-        overflow: "hidden"
+        overflow: "hidden",
+        transition: 'background-color 0.3s ease, color 0.3s ease'
       }}
-      whileHover={{ scale: 1.1, backgroundColor: isActive ? theme.Color.Accent.Surface[1] : theme.Color.Base.Surface[2] }}
+      whileHover={{ 
+        scale: 1.1, 
+        backgroundColor: isActive ? `${theme.Color.Accent.Surface[1]}25` : theme.Color.Base.Surface[2] 
+      }}
       whileTap={{ scale: 0.95 }}
     >
       <i className={`ph-bold ${icon}`} />
