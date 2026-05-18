@@ -11,10 +11,17 @@ interface CustomScrollbarProps {
 
 const CustomScrollbar: React.FC<CustomScrollbarProps> = ({ children }) => {
   return (
-    <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
-      <div style={{ height: '100%', width: '100%', overflowY: 'hidden' }}>
-        {children}
-      </div>
+    <div 
+      className="custom-scrollbar-viewport"
+      style={{ 
+        position: 'relative', 
+        height: '100%', 
+        width: '100%', 
+        overflow: 'auto',
+        WebkitOverflowScrolling: 'touch'
+      }}
+    >
+      {children}
     </div>
   );
 };

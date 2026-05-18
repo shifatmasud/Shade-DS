@@ -99,7 +99,7 @@ const space = {
   'Space.8XL': px(Base.Unit.Space * 20), // 80
   'Space.9XL': px(Base.Unit.Space * 25), // 100
   'Space.10XL': px(Base.Unit.Space * 30), // 120
-  'Space.11XL': px(Base.Unit.Space * 37), // 150
+  'Space.11XL': px(Base.Unit.Space * 37), // 148
   'Space.12XL': px(Base.Unit.Space * 50), // 200
   'Space.13XL': px(Base.Unit.Space * 70), // 280
   'Space.14XL': px(Base.Unit.Space * 100), // 400
@@ -157,10 +157,31 @@ const GlobalStyles = ({ theme }: { theme: any }) => {
       html, body, #root { height: 100%; margin: 0; padding: 0; font-family: ${typography.Type.Readable.Body.M.fontFamily}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
       body { transition: background-color ${time['Time.3x']} ease; }
       
-      ::-webkit-scrollbar { width: 8px; height: 8px; }
-      ::-webkit-scrollbar-track { background: ${theme.Color.Base.Surface[1]}; }
-      ::-webkit-scrollbar-thumb { background: ${theme.Color.Base.Surface[3]}; border-radius: 4px; }
-      ::-webkit-scrollbar-thumb:hover { background: ${theme.Color.Base.Content[3]}; }
+      /* Custom Scrollbar Styles */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: ${theme.Color.Base.Surface[3]} transparent;
+      }
+
+      ::-webkit-scrollbar { 
+        width: ${theme.space['Space.XS']}; 
+        height: ${theme.space['Space.XS']}; 
+      }
+      ::-webkit-scrollbar-track { 
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb { 
+        background: ${theme.Color.Base.Surface[3]}; 
+        border-radius: 10px;
+        border: 1px solid transparent;
+        background-clip: content-box;
+      }
+      ::-webkit-scrollbar-thumb:hover { 
+        background: ${theme.Color.Base.Content[3]}; 
+        border-radius: 10px;
+        border: 1px solid transparent;
+        background-clip: content-box;
+      }
     `;
     return <style>{globalCss}</style>;
 };
