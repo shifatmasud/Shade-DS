@@ -1,6 +1,6 @@
 {
-  "name": "Wiggle Bones Sandbox",
-  "description": "A 3D playground featuring physics-enabled cubes that jiggle using WiggleBone for Three.js, with real-time FPS monitoring.",
+  "name": "Shade DS Sandbox",
+  "description": "A playground featuring a react 19 DS.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
