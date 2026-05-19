@@ -26,7 +26,12 @@ import { RenderTarget } from "framer"
 //   HOOK: useScroll with target tracking (viewport-relative)
 //   HOOK: ResizeObserver to track element/viewport changes
 //   STATE: Capture initial scroll progress on mount to anchor the layout
-//   CALC: Offset = (Current - Initial) * ViewportRange * (Speed - 1)
+//   CALC: Offset = ScrollY * (1 - speed/100)
+//   RESULT: Translates inversely to keep pace with speed multiplier
+//   EXAMPLES: 
+//     Speed 0% (Fixed): Offset = ScrollY (Cancels natural scroll)
+//     Speed 100% (1:1): Offset = 0 (Natural scroll)
+//     Speed 200% (2x): Offset = -ScrollY (Doubles natural move)
 // RENDER:
 //   VIEW: Invisible handle (visible on canvas) triggering direct mutations
 //   MUTATION: Uses translate property to avoid nuking 'transform' stack
@@ -38,7 +43,9 @@ export function ScrollSpeedModifier(props) {
     const [isClient, setIsClient] = React.useState(false)
     
     // 🌐 Hydration & Mount Safety
-    React.useEffect(() => setIsClient(true), [])
+    React.useEffect(() => {
+        setIsClient(true)
+    }, [])
 
     // 🔍 Find the target component
     React.useLayoutEffect(() => {
@@ -68,15 +75,16 @@ export function ScrollSpeedModifier(props) {
     const { scrollY, scrollX } = useScroll()
 
     // 📏 Parallax Math
-    // Speed 100% (1.0) -> factor 0 (0px offset)
-    // Speed 150% (1.5) -> factor 0.5 (50% extra travel)
+    // speed 100% (1.0) -> offset 0
+    // speed 0% (0.0) -> offset matches scroll exactly (factor 1.0)
+    // speed > 100% -> negative offset (faster travel, e.g. 200% = -1:1)
+    // speed < 100% -> positive offset (slower/sticky travel)
     const multiplier = speed / 100
-    const factor = multiplier - 1
+    const factor = 1 - multiplier
 
-    // 📍 Root-Anchored Logic
-    // We map scroll pixels directly to translation pixels.
-    // Offset is 0 when scroll is 0 (Top of Page Anchor).
-    // This ensures we "never touch from state styles" at the root level.
+    // 📍 Absolute Page Logic (Fixed/Parallax relative to page top)
+    // logic: if speed = 200% (multiplier 2), offset = -1 * scroll (Doubles move up)
+    // logic: if speed = 0% (multiplier 0), offset = 1 * scroll (Cancels move up)
     const offsetX = useTransform(scrollX, (val) => val * factor)
     const offsetY = useTransform(scrollY, (val) => val * factor)
     
