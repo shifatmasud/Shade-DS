@@ -1,11 +1,11 @@
 import * as React from "react"
 import { addPropertyControls, ControlType } from "framer"
-import { motion, useScroll, useSpring, useTransform, useMotionValue } from "framer-motion"
+import { motion, useScroll, useSpring, useTransform, useVelocity } from "framer-motion"
 
 /**
  * @framerDisableUnlink
- * @framerIntrinsicWidth 0
- * @framerIntrinsicHeight 0
+ * @framerIntrinsicWidth 20
+ * @framerIntrinsicHeight 20
  * 
  * Scroll Speed Modifier (Parallax)
  * Uses high-performance useScroll with target tracking to create buttery 
@@ -13,91 +13,144 @@ import { motion, useScroll, useSpring, useTransform, useMotionValue } from "fram
  * it to a translation offset.
  */
 
+import { RenderTarget } from "framer"
+
 // Shade DSL Architecture
 // COMPONENT: ScrollSpeedModifier
 // DATA: 
-//   props.speed (number, 100 = 1x)
-//   props.levels (number, target depth)
-//   props.axis ("x" | "y")
-//   props.smoothing (Spring config)
+//   props.speed (percentage)
+//   props.levels (climb depth)
+//   props.transition (Smooth spring settings)
+//   state.isClient (Hydration guard)
 // LOGIC:
-//   HOOK: useScroll with target-based section tracking
-//   HOOK: useTransform mapping progress [0, 1] to parallax distance
-//   PHYSICS: useSpring for inertia and release
-//   SYNC: Procedural transform application to target DOM
+//   HOOK: useScroll with target tracking (viewport-relative)
+//   HOOK: ResizeObserver to track element/viewport changes
+//   STATE: Capture initial scroll progress on mount to anchor the layout
+//   CALC: Offset = (Current - Initial) * ViewportRange * (Speed - 1)
 // RENDER:
-//   VIEW: Invisible tracking ghost
+//   VIEW: Invisible handle (visible on canvas) triggering direct mutations
+//   MUTATION: Uses translate property to avoid nuking 'transform' stack
 
 export function ScrollSpeedModifier(props) {
     const { speed, levels, enabled, transition } = props
     const ref = React.useRef<HTMLDivElement>(null)
     const [targetElement, setTargetElement] = React.useState<HTMLElement | null>(null)
+    const [isClient, setIsClient] = React.useState(false)
     
-    // Stable ref for useScroll viewport tracking
-    const internalTargetRef = React.useRef<HTMLElement>(null)
+    // 🌐 Hydration & Mount Safety
+    React.useEffect(() => setIsClient(true), [])
 
-    // 🔍 Find the target component to modify
+    // 🔍 Find the target component
     React.useLayoutEffect(() => {
+        if (!isClient) return
         const element = ref.current
         if (!element) return
 
         let target: HTMLElement | null = element
-        for (let i = 0; i < levels; i++) {
-            target = target?.parentElement || null
-            if (!target) break
+        try {
+            for (let i = 0; i < levels; i++) {
+                const next = target?.parentElement || null
+                // Failsafe: Don't climb past the main app container or body
+                if (!next || next.tagName === "BODY" || next.tagName === "HTML") break
+                target = next
+            }
+        } catch (e) {
+            console.warn("ScrollSpeedModifier: Target finding failed", e)
         }
         
-        if (target) {
+        if (target && target !== targetElement) {
             setTargetElement(target)
-            // @ts-ignore - assigning to read-only current for useScroll compatibility
-            internalTargetRef.current = target
         }
-    }, [levels])
+    }, [levels, isClient, targetElement])
 
-    // 🌊 Track intersection progress for both axes
-    const { scrollYProgress, scrollXProgress } = useScroll({
-        target: internalTargetRef,
-        offset: ["start end", "end start"]
-    })
+    // 🌊 Track global document-level scroll
+    // This respects "The root html div should be the anchor"
+    const { scrollY, scrollX } = useScroll()
 
-    // 📐 Parallax Calculation
-    // multiplier 1 (100%) -> factor 0 -> no offset
+    // 📏 Parallax Math
+    // Speed 100% (1.0) -> factor 0 (0px offset)
+    // Speed 150% (1.5) -> factor 0.5 (50% extra travel)
     const multiplier = speed / 100
     const factor = multiplier - 1
-    
-    // Base unit for parallax movement. We'll use 300px as a reference range.
-    const parallaxRange = 300 * factor 
 
-    // Map [0, 1] progress to translation range
-    const rawX = useTransform(scrollXProgress, [0, 1], [parallaxRange, -parallaxRange])
-    const rawY = useTransform(scrollYProgress, [0, 1], [parallaxRange, -parallaxRange])
+    // 📍 Root-Anchored Logic
+    // We map scroll pixels directly to translation pixels.
+    // Offset is 0 when scroll is 0 (Top of Page Anchor).
+    // This ensures we "never touch from state styles" at the root level.
+    const offsetX = useTransform(scrollX, (val) => val * factor)
+    const offsetY = useTransform(scrollY, (val) => val * factor)
     
-    // ✨ Smooth with physics using the Transition control settings
-    const smoothX = useSpring(rawX, transition)
-    const smoothY = useSpring(rawY, transition)
+    // ✨ Smooth with spring
+    const smoothX = useSpring(offsetX, transition)
+    const smoothY = useSpring(offsetY, transition)
 
-    // 🚀 High-performance direct DOM mutation
+    // 🚀 Apply transforms directly
+    // Using a ref to store original styles for perfect restoration
+    const originalStyles = React.useRef<Record<string, string>>({})
+
     React.useEffect(() => {
-        if (!targetElement || !enabled) return
+        if (!targetElement || !enabled || !isClient) return
+
+        const target = targetElement as HTMLElement
+        const style = target.style as any
+        
+        // SAVE original styles for perfect restoration
+        originalStyles.current = {
+            translate: style.translate || "",
+            transform: style.transform || "",
+            willChange: style.willChange || ""
+        }
+
+        // Optimization: Prepare GPU for smooth translation
+        style.willChange = "transform, translate"
 
         const updateStyles = () => {
+            if (!enabled || !target) return
+            
             const x = smoothX.get()
             const y = smoothY.get()
-            // We use translate instead of 3d as requested
-            targetElement.style.transform = `translate(${x}px, ${y}px)`
+            
+            // Failsafe: Avoid applying near-zero values to keep DOM clean
+            // This ensures we revert to natural styles when sitting at the anchor.
+            if (Math.abs(x) < 0.05 && Math.abs(y) < 0.05) {
+                if (style.translate) style.translate = ""
+                // Only touch transform if we previously modified it and it's not in the original
+                if (style.transform && !originalStyles.current.transform) style.transform = ""
+                return
+            }
+
+            // Using 'translate' property (modern, composable, non-destructive)
+            // It won't overwrite existing 'transform' (like scale or rotate)
+            if ('translate' in style) {
+                style.translate = `${x.toFixed(2)}px ${y.toFixed(2)}px`
+            } else {
+                // Failsafe: Fallback for older environments
+                const existing = originalStyles.current.transform || ""
+                const translateStr = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`
+                style.transform = existing ? `${existing} ${translateStr}` : translateStr
+            }
         }
 
         const unsubX = smoothX.on("change", updateStyles)
         const unsubY = smoothY.on("change", updateStyles)
         
+        // Initial sync
         updateStyles()
 
         return () => {
             unsubX()
             unsubY()
-            if (targetElement) targetElement.style.transform = ""
+            // RESTORE original state explicitly
+            if (target) {
+                style.translate = originalStyles.current.translate || ""
+                style.transform = originalStyles.current.transform || ""
+                style.willChange = originalStyles.current.willChange || ""
+            }
         }
-    }, [targetElement, enabled, smoothX, smoothY])
+    }, [targetElement, enabled, smoothX, smoothY, isClient])
+
+    // Only render handles if on Canvas
+    const isOnCanvas = RenderTarget.current() === RenderTarget.canvas
 
     return (
         <motion.div
@@ -105,19 +158,31 @@ export function ScrollSpeedModifier(props) {
             initial={false}
             style={{ 
                 position: "absolute", 
-                width: 0, 
-                height: 0, 
-                visibility: "hidden",
-                pointerEvents: "none"
+                width: 20, 
+                height: 20, 
+                borderRadius: 10,
+                border: "2px solid #0099FF",
+                background: "rgba(0, 153, 255, 0.2)",
+                display: isOnCanvas ? "flex" : "none",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: isOnCanvas ? "auto" : "none",
+                zIndex: 999
             }}
             data-framer-name="Scroll Speed Modifier"
-        />
+        >
+            {isOnCanvas && (
+                <div style={{ fontSize: 8, color: "#0099FF", fontWeight: "bold" }}>PX</div>
+            )}
+        </motion.div>
     )
 }
 
+ScrollSpeedModifier.displayName = "ScrollSpeedModifier"
+
 ScrollSpeedModifier.defaultProps = {
     speed: 100,
-    levels: 1,
+    levels: 2,
     enabled: true,
     transition: {
         type: "spring",
@@ -146,7 +211,7 @@ addPropertyControls(ScrollSpeedModifier, {
     levels: {
         type: ControlType.Number,
         title: "DOM Levels",
-        defaultValue: 1,
+        defaultValue: 2,
         min: 1,
         max: 10,
         step: 1,
