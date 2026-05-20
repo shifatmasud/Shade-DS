@@ -37,7 +37,7 @@ import { RenderTarget } from "framer"
 //   MUTATION: Uses translate property to avoid nuking 'transform' stack
 
 export function ScrollSpeedModifier(props) {
-    const { speed, levels, enabled, transition } = props
+    const { speed, levels, enabled, transition, direction = "y" } = props
     const ref = React.useRef<HTMLDivElement>(null)
     const [targetElement, setTargetElement] = React.useState<HTMLElement | null>(null)
     const [isClient, setIsClient] = React.useState(false)
@@ -82,11 +82,21 @@ export function ScrollSpeedModifier(props) {
     const multiplier = speed / 100
     const factor = 1 - multiplier
 
-    // 📍 Absolute Page Logic (Fixed/Parallax relative to page top)
-    // logic: if speed = 200% (multiplier 2), offset = -1 * scroll (Doubles move up)
-    // logic: if speed = 0% (multiplier 0), offset = 1 * scroll (Cancels move up)
-    const offsetX = useTransform(scrollX, (val) => val * factor)
-    const offsetY = useTransform(scrollY, (val) => val * factor)
+    /* 
+     * [CHANGE EXPLANATION]:
+     * Added 'direction' support to enable "Horizontal offset X on vertical Scroll Y" (y-to-x).
+     * This dynamically maps vertical page scrolling progress to horizontal displacement.
+     * 
+     * [HOW TO UNDO CHANGE]:
+     * To revert to standard behavior, delete the direction property checks,
+     * set 'offsetX' to map 'scrollX' and 'offsetY' to map 'scrollY' directly,
+     * and remove the 'direction' controller properties at the bottom of the file.
+     */
+    const xSource = direction === "y-to-x" ? scrollY : null
+    const ySource = direction === "y" ? scrollY : null
+
+    const offsetX = useTransform(scrollY, (val) => direction === "y-to-x" ? val * factor : 0)
+    const offsetY = useTransform(scrollY, (val) => direction === "y" ? val * factor : 0)
     
     // ✨ Smooth with spring
     const smoothX = useSpring(offsetX, transition)
@@ -189,6 +199,7 @@ export function ScrollSpeedModifier(props) {
 ScrollSpeedModifier.displayName = "ScrollSpeedModifier"
 
 ScrollSpeedModifier.defaultProps = {
+    direction: "y",
     speed: 100,
     levels: 2,
     enabled: true,
@@ -205,6 +216,13 @@ addPropertyControls(ScrollSpeedModifier, {
         type: ControlType.Boolean,
         title: "Enabled",
         defaultValue: true,
+    },
+    direction: {
+        type: ControlType.Enum,
+        title: "Direction",
+        options: ["y", "y-to-x"],
+        optionTitles: ["Vertical (Y)", "Horizontal on Vertical Scroll (Y to X)"],
+        defaultValue: "y",
     },
     speed: {
         type: ControlType.Number,
