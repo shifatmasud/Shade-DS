@@ -360,8 +360,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
                 border: 'none',
                 outline: 'none',
                 color: theme.Color.Base.Content[1],
-                fontFamily: theme.Type.Expressive.Data.fontFamily,
-                fontSize: theme.Type.Readable.Label.S.fontSize,
+                ...theme.Type.Expressive.Data,
                 width: theme.space['Space.7XL'], // Approximated from 60px
                 opacity: 0.6,
                 textTransform: 'uppercase'

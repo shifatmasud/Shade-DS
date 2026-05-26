@@ -10,6 +10,7 @@ When the user requests architecture extraction, modular code generation, or DSL 
 - You avoid boilerplate.
 - You preserve hierarchy (Core → Package → Section → Page → App).
 - You use JS Style objects (no Tailwind).
+- You always apply typography via object spread (...theme.Type).
 - You use Framer Motion for UI and GSAP for timelines.
 
 ## Workflow Integration

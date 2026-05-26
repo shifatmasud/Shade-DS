@@ -66,8 +66,7 @@ const ApiInput: React.FC<ApiInputProps> = ({
               outline: 'none',
               padding: '8px 12px',
               color: theme.Color.Base.Content[1],
-              fontSize: theme.Type.Readable.Label.M.fontSize,
-              fontFamily: 'var(--font-mono)',
+              ...theme.Type.Expressive.Data,
             }}
           />
           <button
@@ -116,7 +115,7 @@ const ApiInput: React.FC<ApiInputProps> = ({
                 style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
               >
                 <Check size={14} weight="bold" />
-                <span style={{ fontSize: theme.Type.Readable.Label.S.fontSize, fontWeight: 700 }}>SAVED</span>
+                <span style={{ ...theme.Type.Readable.Label.S, fontWeight: 700 }}>SAVED</span>
               </motion.div>
             ) : (
               <motion.div
@@ -127,7 +126,7 @@ const ApiInput: React.FC<ApiInputProps> = ({
                 style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
               >
                 <FloppyDisk size={14} weight="bold" />
-                <span style={{ fontSize: theme.Type.Readable.Label.S.fontSize, fontWeight: 700 }}>SAVE</span>
+                <span style={{ ...theme.Type.Readable.Label.S, fontWeight: 700 }}>SAVE</span>
               </motion.div>
             )}
           </AnimatePresence>

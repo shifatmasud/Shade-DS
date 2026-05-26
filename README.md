@@ -70,6 +70,7 @@ We build apps like LEGO. Each piece has a specific size and place!
 - **Physics & 3D Sync**: Integrated kinematic hero cubes with GSAP timelines for deterministic rotation while maintaining dynamic Rapier physics collisions.
 - **Dynamic Slider Tooltips**: Enhanced `RangeSlider.tsx` with visceral physical feedback. The tooltip now uses `useSpring` on normalized velocity-based rotation (up to 60° lag) with a heavy inertia feel (`mass: 2.5`, `stiffness: 15`) and precise pivot anchoring on the handle.
 - **System Documentation**: Synchronized all Tier-3 documentation files to match the current 50+ component architecture and the React 19 environment.
+- **Typography Standardization**: Mandated the use of object spread (`...theme.Type`) for all typography tokens to ensure architectural consistency and simplify maintenance across the 50+ component library. Refactored all Core and Package components to adhere to this pattern.
 
 ## How to Get Started
 

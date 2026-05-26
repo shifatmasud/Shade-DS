@@ -175,10 +175,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   const getSizeStyles = () => {
     switch (size) {
-      case 'S': return { height: theme.height['Height.XS'], padding: `0 ${theme.space['Space.M']}`, fontSize: theme.Type.Readable.Label.S.fontSize };
-      case 'L': return { height: theme.height['Height.L'], padding: `0 ${theme.space['Space.XL']}`, fontSize: theme.Type.Readable.Label.L.fontSize };
+      case 'S': return { height: theme.height['Height.XS'], padding: `0 ${theme.space['Space.M']}`, ...theme.Type.Readable.Label.S };
+      case 'L': return { height: theme.height['Height.L'], padding: `0 ${theme.space['Space.XL']}`, ...theme.Type.Readable.Label.L };
       case 'M': 
-      default: return { height: theme.height['Height.M'], padding: `0 ${theme.space['Space.L']}`, fontSize: theme.Type.Readable.Label.M.fontSize };
+      default: return { height: theme.height['Height.M'], padding: `0 ${theme.space['Space.L']}`, ...theme.Type.Readable.Label.M };
     }
   };
 
@@ -197,7 +197,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     filter: disabled ? 'grayscale(100%)' : 'none',
     overflow: 'visible',
     fontWeight: 600,
-    fontFamily: theme.Type.Readable.Label.M.fontFamily,
+    ...theme.Type.Readable.Label.M,
     transformStyle: 'preserve-3d',
     ...variantStyles,
     ...sizeStyles,

@@ -13,3 +13,11 @@
 - **Stiffness**: 0.8 (Snappy return)
 - **Damping**: 0.95 (Stable settling)
 - **Mass**: 1.0
+
+## 2026-05-26: Typography Standardized
+- **Issue**: Inconsistent typography application using individual properties (`fontSize`, `fontFamily`).
+- **Solution**: Force object spread for all typography tokens (`...theme.Type.Category.Context.Level`).
+- **Implementation**:
+    - Updated `SystemSpec` UI with new rule.
+    - Refactored Core and Package components to spread tokens.
+    - Codified in `AGENTS.md` and system metadata.

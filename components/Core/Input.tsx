@@ -24,8 +24,7 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
     border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`,
     backgroundColor: theme.Color.Base.Surface[1],
     color: theme.Color.Base.Content[1],
-    fontFamily: theme.Type.Readable.Body.M.fontFamily,
-    fontSize: theme.Type.Readable.Body.M.fontSize,
+    ...theme.Type.Readable.Body.M,
     outline: 'none',
     transition: `all ${theme.time['Time.2x']} ease`,
   };
@@ -34,7 +33,6 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
     <div onPointerDown={(e) => e.stopPropagation()}>
       <label style={{ 
         ...theme.Type.Readable.Label.S, 
-        fontSize: theme.Type.Readable.Label.S.fontSize,
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
         display: 'block', 

@@ -40,7 +40,7 @@ const ThemeToggleButton = () => {
       touchAction: 'none',
     },
     icon: {
-      fontSize: theme.Type.Expressive.Headline.S.fontSize,
+      ...theme.Type.Expressive.Headline.S,
       lineHeight: '0', // Prevents layout shifts from line-height
       pointerEvents: 'none',
       display: 'block',

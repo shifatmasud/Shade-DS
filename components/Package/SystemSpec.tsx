@@ -53,12 +53,13 @@ Before any task, generate:
 ## Engineering Rules
 
 1. No Tailwind. Use JS style object.
-2. No CSS keyframes. Use Framer Motion.
-3. GSAP only for Three.js & external timelines.
-4. Mobile gestures replace hover (touch drag = mouse move).
-5. No native OS UI components. Use custom components.
-6. Modular Components folder structure: Core → Package → Section → Page → App.
-7. Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer
+2. Always apply typography via object spread (...theme.Type).
+3. No CSS keyframes. Use Framer Motion.
+4. GSAP only for Three.js & external timelines.
+5. Mobile gestures replace hover (touch drag = mouse move).
+6. No native OS UI components. Use custom components.
+7. Modular Components folder structure: Core → Package → Section → Page → App.
+8. Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer
 
 ---
 
@@ -137,8 +138,7 @@ Inside the target file:
   };
 
   const headerStyle: React.CSSProperties = {
-    fontFamily: 'Bebas Neue',
-    fontSize: theme.Type.Expressive.Headline.S.fontSize,
+    ...theme.Type.Expressive.Headline.S,
     letterSpacing: '0.05em',
     color: theme.Color.Base.Content[1],
     display: 'flex',
@@ -154,8 +154,7 @@ Inside the target file:
   };
 
   const itemStyle: React.CSSProperties = {
-    fontFamily: 'Inter',
-    fontSize: theme.Type.Readable.Body.M.fontSize,
+    ...theme.Type.Readable.Body.M,
     lineHeight: '1.5',
     color: theme.Color.Base.Content[2],
     display: 'flex',
@@ -163,8 +162,7 @@ Inside the target file:
   };
 
   const dataStyle: React.CSSProperties = {
-    fontFamily: 'JetBrains Mono',
-    fontSize: theme.Type.Expressive.Data.fontSize,
+    ...theme.Type.Expressive.Data,
     color: theme.Color.Base.Content[3],
     backgroundColor: theme.Color.Base.Surface[2],
     padding: `${theme.space['Space.2XS']} ${theme.space['Space.XS']}`,
@@ -172,9 +170,8 @@ Inside the target file:
   };
 
   const quoteStyle: React.CSSProperties = {
-    fontFamily: 'Cause',
+    ...theme.Type.Expressive.Quote,
     fontStyle: 'italic',
-    fontSize: theme.Type.Expressive.Quote.fontSize,
     color: theme.Color.Base.Content[2],
     borderLeft: `${theme.border['Border.Width.Thick']} solid ${theme.Color.Base.Surface[4]}`,
     paddingLeft: theme.space['Space.M'],
@@ -197,10 +194,10 @@ Inside the target file:
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h1 style={{ fontFamily: 'Bebas Neue', fontSize: theme.Type.Expressive.Display.L.fontSize, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.S'] }}>
+          <h1 style={{ ...theme.Type.Expressive.Display.L, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.S'] }}>
             SYSTEM SPEC
           </h1>
-          <p style={{ fontFamily: 'Inter', fontSize: theme.Type.Readable.Body.M.fontSize, color: theme.Color.Base.Content[3], maxWidth: theme.space['Space.Panel.Width'] || '400px', margin: '0 auto' }}>
+          <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[3], maxWidth: theme.space['Space.Panel.Width'] || '400px', margin: '0 auto' }}>
             The fundamental laws governing the creation of this digital artifact.
           </p>
         </motion.div>
@@ -267,7 +264,7 @@ Inside the target file:
           <Play size={20} weight="bold" />
           EXECUTION RULES
         </div>
-        <p style={{ ...itemStyle, fontSize: theme.Type.Readable.Body.S.fontSize, opacity: 0.7 }}>Before any task, generate:</p>
+        <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, opacity: 0.7 }}>Before any task, generate:</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: theme.space['Space.S'] }}>
           {[
             { label: 'Summary', icon: <FileText size={24} /> },
@@ -289,7 +286,7 @@ Inside the target file:
               whileHover={{ scale: 1.05, backgroundColor: theme.Color.Base.Surface[3] }}
             >
               <div style={{ color: theme.Color.Base.Content[1] }}>{item.icon}</div>
-              <div style={{ fontFamily: 'Bebas Neue', fontSize: theme.Type.Readable.Label.M.fontSize }}>{item.label}</div>
+              <div style={{ ...theme.Type.Readable.Label.M }}>{item.label}</div>
             </motion.div>
           ))}
         </div>
@@ -304,6 +301,7 @@ Inside the target file:
         <ul style={listStyle}>
           {[
             { text: "No Tailwind. Use JS style object.", icon: <Lightning size={16} /> },
+            { text: "Always apply typography via object spread (...theme.Type).", icon: <TextT size={16} /> },
             { text: "No CSS keyframes. Use Framer Motion.", icon: <Cube size={16} /> },
             { text: "GSAP only for Three.js & external timelines.", icon: <Play size={16} /> },
             { text: "Mobile gestures replace hover.", icon: <DeviceMobile size={16} /> },
@@ -335,7 +333,7 @@ Inside the target file:
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           {/* Typography */}
           <div>
-            <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], fontSize: theme.Type.Readable.Label.M.fontSize, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               <TextT size={16} /> Typography
             </div>
             <div style={{ 
@@ -345,10 +343,10 @@ Inside the target file:
               marginTop: theme.space['Space.2XS'] 
             }}>
               {[
-                { role: 'Hero', font: 'Bebas Neue', style: { fontFamily: 'Bebas Neue', fontSize: theme.Type.Readable.Title.L.fontSize } },
-                { role: 'Body', font: 'Inter', style: { fontFamily: 'Inter', fontSize: theme.Type.Readable.Body.M.fontSize } },
-                { role: 'Data', font: 'JetBrains Mono', style: { fontFamily: 'JetBrains Mono', fontSize: theme.Type.Expressive.Data.fontSize } },
-                { role: 'Quotes', font: 'Cause', style: { fontFamily: 'Cause', fontSize: theme.Type.Expressive.Quote.fontSize, fontStyle: 'italic' } },
+                { role: 'Hero', font: 'Bebas Neue', style: { ...theme.Type.Readable.Title.L } },
+                { role: 'Body', font: 'Inter', style: { ...theme.Type.Readable.Body.M } },
+                { role: 'Data', font: 'JetBrains Mono', style: { ...theme.Type.Expressive.Data } },
+                { role: 'Quotes', font: 'Cause', style: { ...theme.Type.Expressive.Quote, fontStyle: 'italic' } },
               ].map((item, i) => (
                 <div key={i} style={{ 
                   backgroundColor: theme.Color.Base.Surface[2],
@@ -359,7 +357,7 @@ Inside the target file:
                   flexDirection: 'column',
                   gap: theme.space['Space.2XS']
                 }}>
-                  <div style={{ ...itemStyle, fontSize: theme.Type.Readable.Label.S.fontSize, opacity: 0.5, textTransform: 'uppercase' }}>{item.role}</div>
+                  <div style={{ ...itemStyle, ...theme.Type.Readable.Label.S, opacity: 0.5, textTransform: 'uppercase' }}>{item.role}</div>
                   <div style={{ ...itemStyle, ...item.style, color: theme.Color.Base.Content[1] }}>{item.font}</div>
                 </div>
               ))}
@@ -368,26 +366,26 @@ Inside the target file:
 
           {/* Tokens */}
           <div>
-            <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], fontSize: theme.Type.Readable.Label.M.fontSize, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               <Target size={16} /> Tokens
             </div>
             <code style={dataStyle}>Category.Purpose.Context.Level</code>
-            <p style={{ ...itemStyle, fontSize: theme.Type.Readable.Body.S.fontSize, marginTop: theme.space['Space.2XS'] }}>Never use literal values.</p>
+            <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, marginTop: theme.space['Space.2XS'] }}>Never use literal values.</p>
           </div>
 
           {/* Motion */}
           <div>
-            <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], fontSize: theme.Type.Readable.Label.M.fontSize, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               <Lightning size={16} /> Motion
             </div>
             <div style={{ display: 'flex', gap: theme.space['Space.XL'] }}>
               <div>
-                <div style={{ fontSize: theme.Type.Readable.Label.S.fontSize, opacity: 0.5 }}>BASE</div>
-                <div style={{ fontFamily: 'JetBrains Mono', fontSize: theme.Type.Readable.Body.L.fontSize }}>100ms</div>
+                <div style={{ ...theme.Type.Readable.Label.S, opacity: 0.5 }}>BASE</div>
+                <div style={{ ...theme.Type.Readable.Body.L }}>100ms</div>
               </div>
               <div>
-                <div style={{ fontSize: theme.Type.Readable.Label.S.fontSize, opacity: 0.5 }}>DEFAULT</div>
-                <div style={{ fontFamily: 'JetBrains Mono', fontSize: theme.Type.Readable.Body.L.fontSize }}>300ms</div>
+                <div style={{ ...theme.Type.Readable.Label.S, opacity: 0.5 }}>DEFAULT</div>
+                <div style={{ ...theme.Type.Readable.Body.L }}>300ms</div>
               </div>
             </div>
           </div>
@@ -419,7 +417,7 @@ Inside the target file:
           <Check size={20} weight="bold" />
           SAFETY RULES
         </div>
-        <p style={{ ...itemStyle, fontSize: theme.Type.Readable.Body.S.fontSize, opacity: 0.7 }}>When change, write, update code (inside target file):</p>
+        <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, opacity: 0.7 }}>When change, write, update code (inside target file):</p>
         <ul style={listStyle}>
           {[
             "Track errors.",
@@ -458,8 +456,7 @@ Inside the target file:
             border: 'none',
             backgroundColor: theme.Color.Base.Content[1],
             color: theme.Color.Base.Surface[1],
-            fontFamily: 'Bebas Neue',
-            fontSize: theme.Type.Readable.Title.L.fontSize,
+            ...theme.Type.Readable.Title.L,
             cursor: 'pointer',
             boxShadow: theme.effects['Effect.Shadow.Drop.2'],
             transition: 'background-color 0.2s'

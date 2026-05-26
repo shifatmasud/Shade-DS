@@ -34,7 +34,7 @@ const DockIcon: React.FC<DockIconProps> = ({ icon, isActive, onClick }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: theme.Type.Expressive.Headline.S.fontSize,
+        ...theme.Type.Expressive.Headline.S,
         overflow: "hidden",
         transition: 'background-color 0.3s ease, color 0.3s ease'
       }}

@@ -39,7 +39,7 @@ const CustomPlaceholder = () => {
         }}>
             <Code size={32} weight="duotone" />
             <div style={{ ...theme.Type.Readable.Label.S }}>Empty Custom Component</div>
-            <div style={{ ...theme.Type.Readable.Body.S, fontSize: theme.Type.Readable.Label.S.fontSize, opacity: 0.6 }}>
+            <div style={{ ...theme.Type.Readable.Label.S, opacity: 0.6 }}>
                 Use the Agent panel to generate code or edit manually in the Code panel.
             </div>
         </div>
@@ -61,8 +61,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
       color: theme.Color.Error.Content[1],
       borderRadius: theme.radius['Radius.M'],
       border: `1px solid ${theme.Color.Error.Content[1]}`,
-      fontFamily: 'monospace',
-      fontSize: theme.Type.Readable.Label.M.fontSize,
+      ...theme.Type.Expressive.Data,
     }}>
       <strong>Component failed to render.</strong>
       <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginTop: '8px' }}>
@@ -132,7 +131,6 @@ const DimensionLine = ({
 
     const style: React.CSSProperties = {
         ...theme.Type.Expressive.Data,
-        fontSize: theme.Type.Readable.Label.S.fontSize,
         fill: color,
         textAnchor: 'middle',
         dominantBaseline: 'middle',
@@ -362,8 +360,7 @@ const HUDItem: React.FC<{ layer: any, gap: MotionValue<number>, isLast: boolean 
                flexShrink: 0
            }} />
            <span style={{ 
-               fontFamily: theme.Type.Expressive.Data.fontFamily,
-               fontSize: theme.Type.Readable.Label.S.fontSize, fontWeight: 'bold', color: layer.stroke,
+               ...theme.Type.Expressive.Data, fontWeight: 'bold', color: layer.stroke,
                backgroundColor: layer.fill, padding: '0 8px', height: '20px',
                borderRadius: '10px', border: `1px solid ${layer.stroke}`,
                whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1
@@ -505,7 +502,7 @@ const Stage: React.FC<StageProps> = ({
                   ) : (
                     <>
                       <LiveProvider code={stagedCode} scope={reactLiveScope}>
-                        <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.space['Space.M'], borderRadius: theme.radius['Radius.M'], fontSize: theme.Type.Readable.Label.M.fontSize }} />
+                        <LiveError style={{ backgroundColor: theme.Color.Error.Surface[1], color: theme.Color.Error.Content[1], padding: theme.space['Space.M'], borderRadius: theme.radius['Radius.M'], ...theme.Type.Readable.Label.M }} />
                         <ErrorBoundary FallbackComponent={ErrorFallback}>
                           <LivePreview style={{ width: '100%', height: '100%' }} />
                         </ErrorBoundary>

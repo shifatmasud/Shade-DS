@@ -73,7 +73,7 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
               }}
               transition={{ type: 'spring', damping: 20, stiffness: 200 }}
             >
-              <span style={{ fontSize: theme.Type.Readable.Label.M.fontSize }}>{item.label}</span>
+              <span style={{ ...theme.Type.Readable.Label.M }}>{item.label}</span>
             </motion.div>
             
             {isActive && (
