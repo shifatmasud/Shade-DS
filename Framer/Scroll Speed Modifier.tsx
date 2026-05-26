@@ -37,7 +37,7 @@ import { RenderTarget } from "framer"
 //   MUTATION: Uses translate property to avoid nuking 'transform' stack
 
 export function ScrollSpeedModifier(props) {
-    const { speed, levels, enabled, transition, direction = "y" } = props
+    const { speed, levels, enabled, transition, direction = "y", invert = false } = props
     const ref = React.useRef<HTMLDivElement>(null)
     const [targetElement, setTargetElement] = React.useState<HTMLElement | null>(null)
     const [isClient, setIsClient] = React.useState(false)
@@ -80,17 +80,22 @@ export function ScrollSpeedModifier(props) {
     // speed > 100% -> negative offset (faster travel, e.g. 200% = -1:1)
     // speed < 100% -> positive offset (slower/sticky travel)
     const multiplier = speed / 100
-    const factor = 1 - multiplier
+    let factor = 1 - multiplier
+    if (invert) {
+        factor = -factor
+    }
 
     /* 
      * [CHANGE EXPLANATION]:
      * Added 'direction' support to enable "Horizontal offset X on vertical Scroll Y" (y-to-x).
      * This dynamically maps vertical page scrolling progress to horizontal displacement.
+     * Also added 'invert' prop to optionally reverse the translation offset direction,
+     * which is especially useful for speed < 100%.
      * 
      * [HOW TO UNDO CHANGE]:
-     * To revert to standard behavior, delete the direction property checks,
+     * To revert to standard behavior, delete the direction and invert property checks,
      * set 'offsetX' to map 'scrollX' and 'offsetY' to map 'scrollY' directly,
-     * and remove the 'direction' controller properties at the bottom of the file.
+     * and remove the 'direction' and 'invert' controller properties at the bottom of the file.
      */
     const xSource = direction === "y-to-x" ? scrollY : null
     const ySource = direction === "y" ? scrollY : null
@@ -201,6 +206,7 @@ ScrollSpeedModifier.displayName = "ScrollSpeedModifier"
 ScrollSpeedModifier.defaultProps = {
     direction: "y",
     speed: 100,
+    invert: false,
     levels: 2,
     enabled: true,
     transition: {
@@ -233,6 +239,12 @@ addPropertyControls(ScrollSpeedModifier, {
         step: 1,
         displayStepper: true,
         description: "100% is normal. >100% is faster. <100% is slower.",
+    },
+    invert: {
+        type: ControlType.Boolean,
+        title: "Invert Offset",
+        defaultValue: false,
+        description: "Invert translation offset (useful for speeds < 100%)."
     },
     levels: {
         type: ControlType.Number,

@@ -11,6 +11,8 @@ export default function ForceInjector(props) {
     const {
         localForce = {},
         globalForce = {},
+        section,
+        viewport = "bottom",
     } = props
 
     // Extract nested values with defaults
@@ -82,9 +84,136 @@ export default function ForceInjector(props) {
         setIsClient(true)
     }, [])
 
+    /*
+     * ----------------------------------------------------------------------------------
+     * EXPLANATION OF CHANGES (MODIFICATION LOG):
+     * 1. Added `section` and `viewport` to the component props extraction.
+     * 2. Introduced `sectionElement` state and polling logic to resolve/find DOM targets.
+     * 3. Integrated `IntersectionObserver` with dynamic `rootMargin` aligned to top/center/bottom.
+     * 4. Adjusted the main `useEffect` to depend on `sectionInView` and exit early if false,
+     *    preventing window event listeners from running when section is out-of-view.
+     * 5. Tracked all operations safely within try-catch blocks to prevent run-time exceptions.
+     * 
+     * HOW TO UNDO CHANGES:
+     * To revert back to the original behavior (always-on listeners ignoring section views):
+     * 1. Remove the sectionInView dependency from the main useEffect: `}, [isClient, localForce, globalForce, sectionInView])` -> `}, [isClient, localForce, globalForce])`
+     * 2. Delete the guard condition `if (!sectionInView) return` at the start of that hook.
+     * 3. Delete section/viewport state variables and properties from addPropertyControls/defaultProps.
+     * ----------------------------------------------------------------------------------
+     */
+
+    // --- SECTION IN-VIEW TRACKING ---
+    // Track errors during element discovery or intersection API usage
+    const [sectionElement, setSectionElement] = useState<HTMLElement | null>(null)
+    
+    // Determine if we have a section parameter configured
+    const hasSectionConfigured = !!(
+        typeof section === "string" 
+            ? section 
+            : section?.section || section?.id || section?.current
+    )
+    
+    // If no section is configured, default to true; otherwise wait for Observer
+    const [sectionInView, setSectionInView] = useState(!hasSectionConfigured)
+
+    // Sync state when hasSectionConfigured changes
+    useEffect(() => {
+        setSectionInView(!hasSectionConfigured)
+    }, [hasSectionConfigured])
+
+    // Locate section element in Framer DOM (with polling for late-hydration fallback)
     useEffect(() => {
         if (!isClient) return
         if (RenderTarget.current() === RenderTarget.canvas) return
+
+        const effectiveId = typeof section === "string" ? section : section?.section || section?.id
+        if (!effectiveId && !section?.current) {
+            setSectionElement(null)
+            return
+        }
+
+        const findSection = () => {
+            try {
+                if (section?.current) {
+                    setSectionElement(section.current)
+                    return true
+                }
+
+                // Try finding by exact id, data-attribute, or name
+                const el = document.querySelector(`[id="${effectiveId}"], [data-framer-section-id="${effectiveId}"], [data-framer-name="${effectiveId}"]`)
+                if (el) {
+                    setSectionElement(el as HTMLElement)
+                    return true
+                }
+
+                // Pattern matching query fallback
+                const selectors = [
+                    `[id^="${effectiveId}"]`,
+                    `[id$="${effectiveId}"]`,
+                    `[id*="-${effectiveId}"]`,
+                    `[id*="${effectiveId}-"]`,
+                    `[data-framer-name^="${effectiveId}"]`,
+                    `[data-framer-name$="${effectiveId}"]`,
+                    `[data-framer-name*="${effectiveId}"]`,
+                ]
+                const found = document.querySelector(selectors.join(","))
+                if (found) {
+                    setSectionElement(found as HTMLElement)
+                    return true
+                }
+            } catch (err) {
+                console.warn("[ForceInjector] Error finding section element:", err)
+            }
+            return false
+        }
+
+        if (findSection()) return
+
+        // Wait/poll for the element if it loads asynchronously
+        const interval = window.setInterval(() => {
+            if (findSection()) {
+                clearInterval(interval)
+            }
+        }, 1000)
+
+        return () => window.clearInterval(interval)
+    }, [isClient, section])
+
+    // Monitor section element intersection with appropriate viewport alignment
+    useEffect(() => {
+        if (!sectionElement) return
+
+        let rootMargin = "0px"
+        if (viewport === "center") {
+            rootMargin = "-50% 0px -50% 0px" // Targets the vertical center of screen
+        } else if (viewport === "top") {
+            rootMargin = "-100% 0px 0px 0px" // Targets the top of screen
+        }
+
+        try {
+            const observer = new IntersectionObserver(([entry]) => {
+                setSectionInView(entry.isIntersecting)
+            }, {
+                rootMargin,
+                threshold: 0,
+            })
+
+            observer.observe(sectionElement)
+            return () => observer.disconnect()
+        } catch (err) {
+            console.warn("[ForceInjector] IntersectionObserver failed:", err)
+            // Safety fallback: allow event listeners if observer errors out
+            setSectionInView(true)
+        }
+    }, [sectionElement, viewport])
+    // --- END SECTION IN-VIEW TRACKING ---
+
+    useEffect(() => {
+        if (!isClient) return
+        if (RenderTarget.current() === RenderTarget.canvas) return
+
+        // Early exit: only register global listeners if target section is in-view
+        if (!sectionInView) return
 
         const el = containerRef.current
         if (!el) return
@@ -313,8 +442,13 @@ export default function ForceInjector(props) {
             window.removeEventListener("resize", updateCenter)
             target.style.touchAction = originalTouchAction
             if (animationRef.current) animationRef.current.stop()
+            
+            // Clean/Reset transforms to zero state upon effect removal
+            try {
+                target.style.transform = ""
+            } catch (err) {}
         }
-    }, [isClient, localForce, globalForce])
+    }, [isClient, localForce, globalForce, sectionInView])
 
     if (!isClient) return null
 
@@ -338,6 +472,8 @@ export default function ForceInjector(props) {
 ForceInjector.displayName = "Force Injector"
 
 ForceInjector.defaultProps = {
+    section: "",
+    viewport: "bottom",
     localForce: {
         radius: 100,
         push: {
@@ -394,6 +530,22 @@ ForceInjector.defaultProps = {
 }
 
 addPropertyControls(ForceInjector, {
+    section: {
+        title: "Section",
+        // @ts-ignore
+        type: ControlType.ScrollSectionRef
+    },
+    viewport: {
+        type: ControlType.Enum,
+        defaultValue: "bottom",
+        displaySegmentedControl: true,
+        segmentedControlDirection: "horizontal",
+        options: ["top", "center", "bottom"],
+        // @ts-ignore
+        optionIcons: ["align-top", "align-middle", "align-bottom"],
+  
+        description: "───────────"
+    },
     localForce: {
         type: ControlType.Object,
         title: "Local Force",
