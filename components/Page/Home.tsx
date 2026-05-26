@@ -111,13 +111,13 @@ const Home = () => {
   };
 
   const [windows, setWindows] = useState<Record<WindowId, WindowState>>({
-    control: { id: 'control', title: 'Control', isOpen: false, zIndex: 1, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
-    code: { id: 'code', title: 'Code I/O', isOpen: false, zIndex: 2, x: -WINDOW_WIDTH / 2, y: -CODE_PANEL_HEIGHT / 2, height: CODE_PANEL_HEIGHT },
-    console: { id: 'console', title: 'Console', isOpen: false, zIndex: 3, x: -WINDOW_WIDTH / 2, y: -CONSOLE_PANEL_HEIGHT / 2, height: CONSOLE_PANEL_HEIGHT },
-    styles: { id: 'styles', title: 'Style Guide', isOpen: false, zIndex: 4, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
-    systemSpec: { id: 'systemSpec', title: 'System Spec', isOpen: false, zIndex: 5, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
-    ai: { id: 'ai', title: 'AI Agent', isOpen: false, zIndex: 6, x: -WINDOW_WIDTH / 2, y: -240, height: 480 },
-    settings: { id: 'settings', title: 'Settings', isOpen: false, zIndex: 7, x: -WINDOW_WIDTH / 2, y: -CONTROL_PANEL_HEIGHT / 2, height: CONTROL_PANEL_HEIGHT },
+    control: { id: 'control', title: 'Control', isOpen: false, zIndex: 1, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
+    code: { id: 'code', title: 'Code I/O', isOpen: false, zIndex: 2, x: 0, y: 0, height: CODE_PANEL_HEIGHT },
+    console: { id: 'console', title: 'Console', isOpen: false, zIndex: 3, x: 0, y: 0, height: CONSOLE_PANEL_HEIGHT },
+    styles: { id: 'styles', title: 'Style Guide', isOpen: false, zIndex: 4, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
+    systemSpec: { id: 'systemSpec', title: 'System Spec', isOpen: false, zIndex: 5, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
+    ai: { id: 'ai', title: 'AI Agent', isOpen: false, zIndex: 6, x: 0, y: 0, height: 480 },
+    settings: { id: 'settings', title: 'Settings', isOpen: false, zIndex: 7, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
   });
 
   // --- Router Synchronization ---
