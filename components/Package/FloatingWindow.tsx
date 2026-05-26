@@ -52,13 +52,18 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     backgroundColor: `${theme.Color.Base.Surface[1]}dd`,
     backdropFilter: 'blur(20px)',
     borderRadius: theme.radius['Radius.L'],
-    boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-    border: themeName === 'dark' ? `${theme.border['Border.Width.Main']} solid rgba(255, 255, 255, 0.1)` : `${theme.border['Border.Width.Main']} solid rgba(0, 0, 0, 0.1)`,
+    boxShadow: themeName === 'dark'
+      ? `0 0 1px 0px rgba(255, 255, 255, 0.12), inset 0 0 1px 0px rgba(255, 255, 255, 0.12), ${theme.effects['Effect.Shadow.Drop.3']}`
+      : `0 0 1px 0px rgba(0, 0, 0, 0.08), inset 0 0 1px 0px rgba(0, 0, 0, 0.08), ${theme.effects['Effect.Shadow.Drop.3']}`,
+    /* 
+     * SHADE DSL REWRITE: Replaced 1px border with double box shadow glass glows.
+     * To undo: restore separate border and boxShadow.
+     */
+    border: 'none',
     zIndex: zIndex,
     display: 'flex',
     flexDirection: 'column',
-    translateX: '-50%',
-    translateY: '-50%',
+    translate: '-50% -50%',
   };
 
   const headerStyle: React.CSSProperties = {

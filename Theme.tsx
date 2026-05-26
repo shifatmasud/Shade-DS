@@ -119,7 +119,26 @@ const height = {
   'Height.XL': space['Space.7XL'],  // 64px
   'Height.Half': px(Base.Unit.Space * 45) 
 };
-const border = { 'Border.Width.Main': '1px', 'Border.Width.Thick': '2px', 'Border.Style.Main': 'solid' };
+const border = { 
+  'Border.Width.Main': '1px', 
+  'Border.Width.Thick': '2px', 
+  'Border.Style.Main': 'solid',
+  /* 
+   * SHADE DSL STYLING REWRITE:
+   * - Added getBorder1px & getOutline2px helpers to replace standard borders with 
+   *   lush 3D box-shadow glows and crisp 2px inset-aligned outline properties.
+   * - To undo: revert getBorder1px -> { border: `1px solid ${color}` }, getOutline2px -> { border: `2px solid ${color}` }.
+   */
+  getBorder1px: (color: string) => ({
+    border: 'none',
+    boxShadow: `0 0 1px 0px ${color}, inset 0 0 1px 0px ${color}`
+  }),
+  getOutline2px: (color: string) => ({
+    border: 'none',
+    outline: `2px solid ${color}`,
+    outlineOffset: '-2px'
+  })
+};
 
 const rawTheme = { Type: typography.Type, space, radius, effects, time, opacity, height, border };
 
@@ -186,7 +205,9 @@ const GlobalStyles = ({ theme }: { theme: any }) => {
     return <style>{globalCss}</style>;
 };
 
-type Resolved<T> = T extends { mobile: any } | { tablet: any } | { desktop: any }
+type Resolved<T> = T extends Function
+  ? T
+  : T extends { mobile: any } | { tablet: any } | { desktop: any }
   ? T[keyof T]
   : T extends object
   ? { [P in keyof T]: Resolved<T[P]> }

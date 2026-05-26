@@ -140,9 +140,15 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
     display: 'flex',
     flexDirection: 'column',
     gap: theme.space['Space.XL'], // 24px gap between Media and Content Area
-    boxShadow: theme.effects['Effect.Shadow.Drop.2'],
+    boxShadow: variant === 'outline'
+      ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`
+      : `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`,
     transformStyle: 'preserve-3d',
-    border: variant === 'outline' ? `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Content[3]}` : `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`,
+    /* 
+     * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow, merged above inside boxShadow.
+     * To undo: restore separate border: ... and boxShadow: theme.effects['Effect.Shadow.Drop.2']
+     */
+    border: 'none',
     opacity: disabled ? theme.opacity['Opacity.Medium'] : 1,
     transition: `background-color ${theme.time['Time.2x']} ease, border-color ${theme.time['Time.2x']} ease`,
     userSelect: 'none',
@@ -172,7 +178,13 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
       onClick={handleClick}
       animate={{
         y: effectiveHover ? -12 : 0,
-        boxShadow: effectiveHover ? theme.effects['Effect.Shadow.Drop.3'] : theme.effects['Effect.Shadow.Drop.2'],
+        boxShadow: effectiveHover 
+          ? (variant === 'outline'
+              ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}, ${theme.effects['Effect.Shadow.Drop.3']}`
+              : `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.3']}`)
+          : (variant === 'outline'
+              ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`
+              : `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`),
       }}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}
     >
@@ -197,7 +209,11 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
              right: `calc(-1 * ${theme.space['Space.XS']})`, 
              bottom: `calc(-1 * ${theme.space['Space.XS']})`, 
              borderRadius: 'inherit',
-             border: `${theme.border['Border.Width.Thick']} ${theme.border['Border.Style.Main']} ${theme.Color.Focus.Content[1]}`,
+             /* 
+              * SHADE DSL REWRITE: Replaced 2px focus ring border with CSS outline.
+              * To undo: restore: border: `${theme.border['Border.Width.Thick']} ${theme.border['Border.Style.Main']} ${theme.Color.Focus.Content[1]}`
+              */
+             ...theme.border.getOutline2px(theme.Color.Focus.Content[1]),
              pointerEvents: 'none',
              boxShadow: forcedFocus ? `0 0 12px ${theme.Color.Focus.Surface[1]}` : 'none',
          }} />
@@ -240,7 +256,11 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             transform: zMedia,
             position: 'relative',
             overflow: 'hidden',
-            border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`,
+            /* 
+             * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
+             * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`
+             */
+            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
             ... (view3D ? { border: getDebugBorder(colors.media) } : {})
         }}
       >

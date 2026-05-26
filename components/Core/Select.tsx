@@ -90,7 +90,11 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
       height: theme.height['Height.M'],
       padding: `0 ${theme.space['Space.M']}`,
       borderRadius: theme.radius['Radius.S'],
-      border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${isOpen ? theme.Color.Base.Content[1] : theme.Color.Base.Surface[3]}`,
+      /* 
+       * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
+       * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${isOpen ? theme.Color.Base.Content[1] : theme.Color.Base.Surface[3]}`
+       */
+      ...theme.border.getBorder1px(isOpen ? theme.Color.Base.Content[1] : theme.Color.Base.Surface[3]),
       backgroundColor: theme.Color.Base.Surface[1],
       color: theme.Color.Base.Content[1],
       ...theme.Type.Readable.Body.M,
@@ -108,9 +112,13 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
       left: 0,
       width: '100%',
       backgroundColor: theme.Color.Base.Surface[1],
-      border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`,
+      /* 
+       * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow, merged with Drop-shadow.
+       * To undo: restore separate border and boxShadow.
+       */
+      border: 'none',
+      boxShadow: `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`,
       borderRadius: theme.radius['Radius.S'],
-      boxShadow: theme.effects['Effect.Shadow.Drop.2'],
       zIndex: 1000,
       overflow: 'hidden',
       padding: theme.space['Space.XS'],
@@ -139,7 +147,7 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
       <motion.button
         style={styles.trigger}
         onClick={() => setIsOpen(!isOpen)}
-        whileHover={{ borderColor: theme.Color.Base.Content[2] }}
+        whileHover={{ boxShadow: `0 0 1px 0px ${theme.Color.Base.Content[2]}, inset 0 0 1px 0px ${theme.Color.Base.Content[2]}` }}
         whileTap={{ scale: 0.995 }}
         type="button"
       >

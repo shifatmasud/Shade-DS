@@ -44,8 +44,12 @@ const Dock: React.FC<DockProps> = ({ windows, toggleWindow, uiMode = 'default' }
           backgroundColor: `${theme.Color.Base.Surface[1]}aa`,
           backdropFilter: 'blur(16px)',
           borderRadius: theme.radius['Radius.Full'], // Peel shape
-          boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-          border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+          boxShadow: `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.3']}`,
+          /* 
+           * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow merged inside boxShadow.
+           * To undo: restore separate border and boxShadow.
+           */
+          border: 'none',
           zIndex: 1000,
         }}
       >

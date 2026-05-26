@@ -11,11 +11,15 @@ const NameTag: React.FC = () => {
       height: '420px',
       backgroundColor: theme.Color.Base.Surface[1],
       borderRadius: theme.radius['Radius.L'],
-      boxShadow: theme.effects['Effect.Shadow.Drop.3'],
+      boxShadow: `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.3']}`,
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
-      border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+      /* 
+       * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow merged inside boxShadow.
+       * To undo: restore separate border and boxShadow.
+       */
+      border: 'none',
       position: 'relative',
     },
     header: {

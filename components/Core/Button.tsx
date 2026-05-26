@@ -148,14 +148,22 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         return {
           backgroundColor: 'transparent',
           color: baseContent,
-          border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Content[3]}`,
+          /* 
+           * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
+           * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Content[3]}`
+           */
+          ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
         };
       case 'destructive':
         return {
           backgroundColor: customFill || theme.Color.Error.Surface[1],
           color: customColor || theme.Color.Error.Content[1],
-          border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Error.Content[1]}`,
-          boxShadow: theme.effects['Effect.Shadow.Drop.2'],
+          /* 
+           * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow, merged with Drop-shadow.
+           * To undo: restore separate border and boxShadow.
+           */
+          border: 'none',
+          boxShadow: `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}, ${theme.effects['Effect.Shadow.Drop.2']}`,
         };
       case 'tertiary':
         return {
@@ -320,10 +328,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
              right: `calc(-1 * ${theme.space['Space.XS']})`, 
              bottom: `calc(-1 * ${theme.space['Space.XS']})`, 
              borderRadius: 'inherit',
-             border: `${theme.border['Border.Width.Thick']} ${theme.border['Border.Style.Main']} ${theme.Color.Focus.Content[1]}`,
+             /* 
+              * SHADE DSL REWRITE: Replaced 2px focus ring border with CSS outline property.
+              * To undo: restore separate border and borderColor.
+              */
+             ...theme.border.getOutline2px(theme.Color.Focus.Content[1]),
              pointerEvents: 'none',
              boxShadow: forcedFocus ? `0 0 12px ${theme.Color.Focus.Surface[1]}` : 'none',
-             borderColor: theme.Color.Focus.Content[1],
          }} />
       </motion.div>
 

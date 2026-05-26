@@ -21,7 +21,11 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
     height: theme.height['Height.M'],
     padding: `0 ${theme.space['Space.M']}`,
     borderRadius: theme.radius['Radius.S'],
-    border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`,
+    /* 
+     * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
+     * To undo: replace the spread below with: border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Surface[3]}`
+     */
+    ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
     backgroundColor: theme.Color.Base.Surface[1],
     color: theme.Color.Base.Content[1],
     ...theme.Type.Readable.Body.M,
@@ -47,8 +51,14 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
         value={value} 
         onChange={onChange} 
         style={{ ...baseInputStyle, ...style }} 
-        onFocus={(e) => e.currentTarget.style.borderColor = theme.Color.Base.Content[1]}
-        onBlur={(e) => e.currentTarget.style.borderColor = theme.Color.Base.Surface[3]}
+        onFocus={(e) => {
+          /* SHADE DSL REWRITE: focus shadow update. To undo: revert back to customTarget.style.borderColor */
+          e.currentTarget.style.boxShadow = `0 0 1px 0px ${theme.Color.Base.Content[1]}, inset 0 0 1px 0px ${theme.Color.Base.Content[1]}`;
+        }}
+        onBlur={(e) => {
+          /* SHADE DSL REWRITE: blur shadow reset. To undo: revert back to customTarget.style.borderColor */
+          e.currentTarget.style.boxShadow = `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}`;
+        }}
       />
     </div>
   );

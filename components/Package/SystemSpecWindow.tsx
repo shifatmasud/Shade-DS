@@ -180,7 +180,11 @@ const SystemSpecWindow = () => {
             gap: theme.space['Space.XS'],
             padding: `${theme.space['Space.XS']} ${theme.space['Space.M']}`,
             borderRadius: theme.radius['Radius.S'],
-            border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+            /* 
+             * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
+             * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`
+             */
+            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
             backgroundColor: theme.Color.Base.Surface[2],
             color: theme.Color.Base.Content[1],
             cursor: 'pointer',
@@ -235,7 +239,11 @@ const SystemSpecWindow = () => {
               width: theme.space['Space.3XL'], 
               height: theme.space['Space.3XL'], 
               borderRadius: '50%', 
-              border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Focus.Content[1]}`,
+              /* 
+               * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
+               * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Focus.Content[1]}`
+               */
+              ...theme.border.getBorder1px(theme.Color.Focus.Content[1]),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
@@ -264,7 +272,11 @@ const SystemSpecWindow = () => {
               padding: theme.space['Space.M'], 
               backgroundColor: theme.Color.Base.Surface[2], 
               borderRadius: theme.radius['Radius.S'],
-              border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+              /* 
+               * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
+               * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`
+               */
+              ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
               textAlign: 'center'
             }}>
               <div style={{ fontSize: theme.Type.Readable.Label.S.fontSize, fontFamily: 'JetBrains Mono', opacity: 0.5, marginBottom: theme.space['Space.XS'] }}>STEP 0{i+1}</div>
@@ -371,7 +383,11 @@ const SystemSpecWindow = () => {
             padding: theme.space['Space.M'],
             backgroundColor: theme.Color.Base.Surface[2],
             borderRadius: theme.radius['Radius.S'],
-            border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`
+            /* 
+             * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
+             * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`
+             */
+            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
           }}>
             <FileText size={16} />
             <span style={{ fontSize: theme.Type.Readable.Label.L.fontSize, fontFamily: 'JetBrains Mono' }}>{file}</span>

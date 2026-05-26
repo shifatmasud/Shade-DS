@@ -71,6 +71,9 @@ We build apps like LEGO. Each piece has a specific size and place!
 - **Dynamic Slider Tooltips**: Enhanced `RangeSlider.tsx` with visceral physical feedback. The tooltip now uses `useSpring` on normalized velocity-based rotation (up to 60° lag) with a heavy inertia feel (`mass: 2.5`, `stiffness: 15`) and precise pivot anchoring on the handle.
 - **System Documentation**: Synchronized all Tier-3 documentation files to match the current 50+ component architecture and the React 19 environment.
 - **Typography Standardization**: Mandated the use of object spread (`...theme.Type`) for all typography tokens to ensure architectural consistency and simplify maintenance across the 50+ component library. Refactored all Core and Package components to adhere to this pattern.
+- **Glassmorphic Border Upgrade**: Replaced flat 1px solid borders on the inputs, selectors, card outline variants, NameTag containers, and the primary glass docking bar with custom dual-shadow configurations (outer and inset box-shadows using x=0, y=0, a 1px ultra-crisp blur, and a 0px spread).
+- **Outlined Focus Alignment**: Shifted all standard 2px focus borders (e.g. Buttons, focus rings, window highlights) to the native CSS `outline` property using `outlineOffset: -2px` to prevent layout reflows and guarantee crisp inline overlap layers.
+- **Draggable Window Layout Correction**: Replaced the CSS `transform` attribute with the standalone modern CSS `translate: '-50% -50%'` property for layout centering of draggable components. This completely isolates centering parameters from Framer Motion's dynamic drag translate overrides, ensuring absolute top/left centering works perfectly on initial display and throughout interaction cycles.
 
 ## How to Get Started
 
