@@ -8,7 +8,6 @@ import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-m
 import StateLayer from './StateLayer.tsx';
 import RippleLayer, { Ripple } from './RippleLayer.tsx';
 import { playSound } from '../../services/soundService';
-import { addPropertyControls, ControlType } from '../framer-shims.ts';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
 export type ButtonSize = 'S' | 'M' | 'L';
@@ -22,11 +21,6 @@ interface ButtonProps {
   customFill?: string | MotionValue<string>;
   customColor?: string | MotionValue<string>;
   customRadius?: string | MotionValue<string>;
-  customStyle?: {
-    customFill?: string;
-    customColor?: string;
-    customRadius?: string;
-  };
   disabled?: boolean;
   layerSpacing?: MotionValue<number>;
   view3D?: boolean;
@@ -45,7 +39,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   customFill,
   customColor,
   customRadius,
-  customStyle,
   disabled = false,
   layerSpacing,
   view3D = false,
@@ -164,12 +157,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
        ? theme.Color.Error.Content[1] 
        : theme.Color.Base.Content[1]);
 
-  const fillVal = customFill || (customStyle?.customFill) || '';
-  const colorVal = customColor || (customStyle?.customColor) || '';
-  const radiusVal = customRadius || (customStyle?.customRadius) || '56px';
-
-  const resolvedFill = useResolvedMotionValue(fillVal, fallbackBg);
-  const resolvedColor = useResolvedMotionValue(colorVal, fallbackColor);
+  const resolvedFill = useResolvedMotionValue(customFill, fallbackBg);
+  const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
 
   const getVariantStyles = () => {
     switch (variant) {
@@ -332,7 +321,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       ref={ref}
       style={{
         ...styles,
-        borderRadius: radiusVal || theme.radius['Radius.Full'],
+        borderRadius: customRadius || theme.radius['Radius.Full'],
       }}
       onClick={handleClick}
       onPointerEnter={handlePointerEnter}
@@ -419,63 +408,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       </motion.div>
     </motion.button>
   );
-});
-
-Button.displayName = 'Button';
-
-addPropertyControls(Button, {
-  label: {
-    type: ControlType.String,
-    title: "Label",
-    defaultValue: "Do Magic",
-  },
-  variant: {
-    type: ControlType.Enum,
-    title: "Variant",
-    options: ["primary", "secondary", "tertiary", "outline", "destructive"],
-    optionTitles: ["Primary", "Secondary", "Tertiary", "Outline", "Destructive"],
-    defaultValue: "primary",
-  },
-  size: {
-    type: ControlType.Enum,
-    title: "Size",
-    options: ["S", "M", "L"],
-    optionTitles: ["Small", "Medium", "Large"],
-    defaultValue: "L",
-  },
-  icon: {
-    type: ControlType.Enum,
-    title: "Icon",
-    options: ["", "ph-sparkle", "ph-heart", "ph-bell", "ph-rocket", "ph-gear"],
-    optionTitles: ["None", "Sparkle", "Heart", "Bell", "Rocket", "Gear"],
-    defaultValue: "ph-sparkle",
-  },
-  disabled: {
-    type: ControlType.Boolean,
-    title: "Disabled",
-    defaultValue: false,
-  },
-  customStyle: {
-    type: ControlType.Object,
-    title: "Custom Style",
-    controls: {
-      customFill: {
-        type: ControlType.Color,
-        title: "Fill Color",
-        defaultValue: "",
-      },
-      customColor: {
-        type: ControlType.Color,
-        title: "Text Color",
-        defaultValue: "",
-      },
-      customRadius: {
-        type: ControlType.String,
-        title: "Corner Radius",
-        defaultValue: "56px",
-      }
-    }
-  }
 });
 
 export default Button;

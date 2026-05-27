@@ -1,28 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import { addPropertyControls, ControlType } from '../framer-shims.ts';
 
-interface NameTagProps {
-  title?: string;
-  subtitle?: string;
-  badgeStyle?: {
-    headerColor?: string;
-    level?: string;
-  };
-}
-
-const NameTag: React.FC<NameTagProps> = ({ 
-  title = "DESIGN AGENT", 
-  subtitle = "Senior Design Engineer & AI Collaborator", 
-  badgeStyle 
-}) => {
+const NameTag: React.FC = () => {
   const { theme } = useTheme();
   
-  // Dynamic header background and level label resolving
-  const headerFill = badgeStyle?.headerColor || theme.Color.Error.Content[1];
-  const levelText = badgeStyle?.level || "LVL 99";
-
   const tagStyles: { [key: string]: React.CSSProperties } = {
     container: {
       width: theme.space['Space.Panel.Width'],
@@ -33,18 +15,21 @@ const NameTag: React.FC<NameTagProps> = ({
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
+      /* 
+       * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow merged inside boxShadow.
+       * To undo: restore separate border and boxShadow.
+       */
       border: 'none',
       position: 'relative',
     },
     header: {
       height: '100px',
-      backgroundColor: headerFill,
+      backgroundColor: theme.Color.Error.Content[1],
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       color: '#FFFFFF',
-      transition: `background-color ${theme.time['Time.2x']} ease`,
     },
     content: {
       flex: 1,
@@ -84,16 +69,16 @@ const NameTag: React.FC<NameTagProps> = ({
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
         >
-          {title}
+          DESIGN AGENT
         </motion.h1>
-         
-        <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[2], maxWidth: '240px' }}>
-          {subtitle}
+        
+        <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[2], maxWidth: '200px' }}>
+          Senior Design Engineer & AI Collaborator
         </p>
 
         <div style={{ marginTop: 'auto', display: 'flex', gap: '8px' }}>
           <div style={{ ...theme.Type.Expressive.Data, backgroundColor: theme.Color.Base.Surface[2], color: theme.Color.Base.Content[1], padding: '4px 8px', borderRadius: '4px' }}>
-            {levelText}
+            LVL 99
           </div>
           <div style={{ ...theme.Type.Expressive.Data, backgroundColor: theme.Color.Active.Surface[1], color: theme.Color.Active.Content[1], padding: '4px 8px', borderRadius: '4px' }}>
              PROTOTYPER
@@ -108,35 +93,5 @@ const NameTag: React.FC<NameTagProps> = ({
     </motion.div>
   );
 };
-
-// Register Framer properties dynamically
-addPropertyControls(NameTag, {
-  title: {
-    type: ControlType.String,
-    title: "Title",
-    defaultValue: "DESIGN AGENT",
-  },
-  subtitle: {
-    type: ControlType.String,
-    title: "Subtitle",
-    defaultValue: "Senior Design Engineer & AI Collaborator",
-  },
-  badgeStyle: {
-    type: ControlType.Object,
-    title: "Badge Style",
-    controls: {
-      headerColor: {
-        type: ControlType.Color,
-        title: "Header Color",
-        defaultValue: "#FF3366",
-      },
-      level: {
-        type: ControlType.String,
-        title: "LVL Label",
-        defaultValue: "LVL 99",
-      }
-    }
-  }
-});
 
 export default NameTag;

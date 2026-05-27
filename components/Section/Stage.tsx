@@ -480,7 +480,7 @@ const Stage: React.FC<StageProps> = ({
             {btnProps.componentType === 'button' ? (
                 <Button 
                     ref={componentRef} 
-                    {...(btnProps as any)} 
+                    {...btnProps} 
                     onClick={onButtonClick} 
                     layerSpacing={layerSpacing}
                     view3D={view3D}
@@ -488,15 +488,15 @@ const Stage: React.FC<StageProps> = ({
             ) : btnProps.componentType === 'card' ? (
                 <Card 
                     ref={componentRef}
-                    {...(btnProps as any)}
+                    {...btnProps}
                     onClick={onButtonClick}
                     layerSpacing={layerSpacing}
                     view3D={view3D}
                 />
             ) : btnProps.componentType === 'nametag' ? (
-                <Package.NameTag {...(btnProps as any)} />
+                <Package.NameTag />
             ) : btnProps.componentType === 'slot' ? (
-                <Slot ref={componentRef} {...(btnProps as any)} />
+                <Slot ref={componentRef} />
             ) : (
                 <div ref={componentRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
                   {!stagedCode && !btnProps.customCode ? (
