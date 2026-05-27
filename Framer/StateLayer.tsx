@@ -140,6 +140,7 @@ export default function StateLayer(props: {
       ref={containerRef}
       style={containerStyle}
     >
+      <AnimatePresence>
       {layers.map(layer => {
         // Use live mousePos for active layers, frozen values for decaying layers
         const currentX = layer.isActive ? mousePos.x : layer.frozenX;
@@ -153,11 +154,13 @@ export default function StateLayer(props: {
               left: currentX,
               top: currentY,
             }}
-            initial={{ width: 0, height: 0 }}
+            initial={{ width: 0, height: 0, opacity: 0 }}
             animate={{
               width: layer.isActive ? maxDiameter : 0,
               height: layer.isActive ? maxDiameter : 0,
+              opacity: opacity,
             }}
+            exit={{ width: 0, height: 0, opacity: 0 }}
             transition={transition}
             onAnimationComplete={() => {
               if (!layer.isActive) removeLayer(layer.id);
@@ -165,16 +168,22 @@ export default function StateLayer(props: {
           />
         );
       })}
+      </AnimatePresence>
     </div>
   );
 }
 
+/* 
+ * SHADE DSL FRAMER STATE LAYER REFACTOR:
+ * - Re-routed transition ease to 'easeInOut' to resolve the standard hover state layer transition behavior.
+ * - To undo: Revert from ease: 'easeInOut' back to ease: [0.2, 0, 0, 1].
+ */
 StateLayer.defaultProps = {
   color: "#000000",
   opacity: 0.1,
   transition: {
     duration: 1.05,
-    ease: [0.2, 0, 0, 1]
+    ease: 'easeInOut'
   },
 };
 
@@ -197,7 +206,7 @@ addPropertyControls(StateLayer, {
     title: "Transition",
     defaultValue: {
       duration: 1.05,
-      ease: [0.2, 0, 0, 1]
+      ease: 'easeInOut'
     },
   },
 });

@@ -372,8 +372,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       {/* 1. STATE LAYER (Bottom) */}
       <motion.div style={{ ...layerWrapperStyle, transform: zStateLayer }}>
         <div style={{ width: '100%', height: '100%', overflow: 'hidden', borderRadius: 'inherit', border: getDebugBorder(colors.state) }}>
+            {/* 
+              * SHADE DSL HOVER CORRECTION:
+              * - Re-routed 'color' prop to bind directly to the evaluated 'resolvedColor' MotionValue.
+              * - Solves the transparent hover bug when customColor was of blank motion state.
+              * - To undo: Revert from 'color={resolvedColor}' back to 'color={customColor || feedbackColor}'.
+              */}
             <StateLayer 
-                color={customColor || feedbackColor} 
+                color={resolvedColor} 
                 isActive={effectiveHover} 
                 opacity={stateLayerOpacity}
                 x={coords.x} 
@@ -388,8 +394,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       {/* 2. RIPPLE LAYER (Middle) */}
       <motion.div style={{ ...layerWrapperStyle, transform: zRippleLayer }}>
         <div style={{ width: '100%', height: '100%', overflow: 'hidden', borderRadius: 'inherit', border: getDebugBorder(colors.ripple) }}>
+            {/* 
+              * SHADE DSL HOVER CORRECTION:
+              * - Re-routed 'color' prop to bind directly to the evaluated 'resolvedColor' MotionValue.
+              * - Solves the transparent ripple bug when customColor was of blank motion state.
+              * - To undo: Revert from 'color={resolvedColor}' back to 'color={customColor || feedbackColor}'.
+              */}
             <RippleLayer
-                color={customColor || feedbackColor}
+                color={resolvedColor}
                 ripples={ripples}
                 onRippleComplete={handleRippleComplete}
                 width={dimensions.width} 

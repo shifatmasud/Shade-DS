@@ -84,7 +84,11 @@ const RippleLayer: React.FC<RippleLayerProps> = ({
               height: maxDiameter,
               opacity: [opacity * 0.5, opacity, 0], // Flash then fade
               borderWidth: 80, // Fixed 80px thickness
-              filter: 'blur(12px)', // Heavy blur for the ring
+              /* 
+               * SHADE DSL RIPPLE OPTIMIZATION:
+               * - Removed 'filter: blur(12px)' to make interactions ultra-crisp.
+               * - To undo: add filter: 'blur(12px)' back here.
+               */
             }}
             exit={{ opacity: 0 }}
             style={{
@@ -98,9 +102,15 @@ const RippleLayer: React.FC<RippleLayerProps> = ({
               transform: 'translate(-50%, -50%)',
               pointerEvents: 'none',
             }}
+            /* 
+             * SHADE DSL RIPPLE MOVEMENT:
+             * - Shifted transition to 'spring' type to align with physical organic design criteria.
+             * - To undo: revert back to duration: 2.5 and ease: [0.2, 0, 0, 1].
+             */
             transition={{
-              duration: 2.5, // Ultra-slow liquid ripple
-              ease: [0.2, 0, 0, 1], // Deep ease-out
+              type: 'spring',
+              stiffness: 40,
+              damping: 20,
             }}
             onAnimationComplete={() => onRippleComplete(ripple.id)}
           />

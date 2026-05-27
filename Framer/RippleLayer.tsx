@@ -108,7 +108,11 @@ export default function RippleLayer(props: {
               height: maxDiameter,
               opacity: [opacity * 0.5, opacity, 0], // Flash then fade
               borderWidth: 80, // Fixed 80px thickness
-              filter: 'blur(12px)', // Heavy blur for the ring
+              /* 
+               * SHADE DSL FRAMER RIPPLE OPTIMIZATION:
+               * - Removed 'filter: blur(12px)' to make interactions ultra-crisp.
+               * - To undo: add filter: 'blur(12px)' back here.
+               */
             }}
             exit={{ opacity: 0 }}
             style={{
@@ -131,12 +135,18 @@ export default function RippleLayer(props: {
   );
 }
 
+/* 
+ * SHADE DSL FRAMER RIPPLE REFACTOR:
+ * - Changed default transition to spring physics.
+ * - To undo: revert back to duration: 2.5 and ease: [0.2, 0, 0, 1].
+ */
 RippleLayer.defaultProps = {
   color: "#000000",
   opacity: 0.15,
   transition: {
-    duration: 2.5,
-    ease: [0.2, 0, 0, 1],
+    type: 'spring',
+    stiffness: 40,
+    damping: 20,
   },
 };
 
@@ -158,8 +168,9 @@ addPropertyControls(RippleLayer, {
     type: ControlType.Transition,
     title: "Transition",
     defaultValue: {
-      duration: 2.5,
-      ease: [0.2, 0, 0, 1],
+      type: 'spring',
+      stiffness: 40,
+      damping: 20,
     },
   },
 });

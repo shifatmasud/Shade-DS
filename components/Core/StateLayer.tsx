@@ -106,6 +106,7 @@ const StateLayer: React.FC<StateLayerProps> = ({
 
   return (
     <div style={containerStyle}>
+      <AnimatePresence>
         {layers.map(layer => {
              // Use live props for active layers, frozen values for decaying layers
              const currentX = layer.isActive ? x : layer.frozenX;
@@ -119,14 +120,21 @@ const StateLayer: React.FC<StateLayerProps> = ({
                         left: currentX,
                         top: currentY,
                     }}
-                    initial={{ width: 0, height: 0 }}
+                    initial={{ width: 0, height: 0, opacity: 0 }}
                     animate={{
                         width: layer.isActive ? maxDiameter : 0,
                         height: layer.isActive ? maxDiameter : 0,
+                        opacity: opacity,
                     }}
+                    exit={{ width: 0, height: 0, opacity: 0 }}
+                    /* 
+                     * SHADE DSL STATE LAYER TRANSITION CORRECTION:
+                     * - Changed transition ease to 'easeInOut' for smoother interactive organic flow.
+                     * - To undo: revert ease back to [0.2, 0, 0, 1].
+                     */
                     transition={{
                         duration: 1.05,
-                        ease: [0.2, 0, 0, 1]
+                        ease: 'easeInOut'
                     }}
                     onAnimationComplete={() => {
                         if (!layer.isActive) removeLayer(layer.id);
@@ -134,6 +142,7 @@ const StateLayer: React.FC<StateLayerProps> = ({
                 />
              );
         })}
+      </AnimatePresence>
     </div>
   );
 };

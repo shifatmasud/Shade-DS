@@ -107,4 +107,10 @@
     - Documented the exact layout logic, the `RefObject` style variable bindings on the compositing layer, and "Asymmetrical Sync & Drag Release Validation" patterns inside the instruction template.
     - Guaranteed that any future AI agent matching the developer's scope automatically loads and respects these high-fidelity architectural rules for subsequent iterations.
 
-
+## 2026-05-27: Interactive Layer Motion Propagation and Physics Corrections
+- **Issue**: Standard Button hover states were occasionally experiencing invisible state feedback overlays (invisible hovers) due to empty `customColor` MotionValues passing directly into the layered feedback tree without proper fallback resolution (failing to fall back to standard `feedbackColor` since object references remain truthy). Additionally, the heavy `blur(12px)` CSS filter produced a muddy, unpolished visual halo on the ripple bubble, and standard custom easements felt laggy.
+- **Solution**: Re-routed Button background layer rendering styles to bind directly to the evaluated `resolvedColor` MotionValue, ensuring that standard buttons receiving empty custom color overrides resolve correctly to the theme system's fallback tokens. Removed the heavy CSS blur filter from the ripple layers, and configured standard `easeInOut` transitions for standard state hover layers and `spring` physics for ripple burst animations.
+- **Implementation**:
+    - Refactored `/components/Core/Button.tsx`: Altered the `color` prop passed to both `StateLayer` and `RippleLayer` to use the evaluated `resolvedColor` MotionValue, aligning layer color resolution with the main layout variants.
+    - Updated `/components/Core/StateLayer.tsx` and `/Framer/StateLayer.tsx`: Refitted standard transitions to execute on an `'easeInOut'` easing model, providing smooth hover animations.
+    - Updated `/components/Core/RippleLayer.tsx` and `/Framer/RippleLayer.tsx`: Detached the `filter: 'blur(12px)'` dynamic property and adjusted defaults to map to Framer Motion spring parameters (`type: 'spring', stiffness: 80, damping: 15`).
