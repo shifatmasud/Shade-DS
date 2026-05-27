@@ -75,6 +75,7 @@ We build apps like LEGO. Each piece has a specific size and place!
 - **Outlined Focus Alignment**: Shifted all standard 2px focus borders (e.g. Buttons, focus rings, window highlights) to the native CSS `outline` property using `outlineOffset: -2px` to prevent layout reflows and guarantee crisp inline overlap layers.
 - **Draggable Window Layout Correction**: Replaced the CSS `transform` attribute with the standalone modern CSS `translate: '-50% -50%'` property for layout centering of draggable components. This completely isolates centering parameters from Framer Motion's dynamic drag translate overrides, ensuring absolute top/left centering works perfectly on initial display and throughout interaction cycles.
 - **ColorPicker Window Migration**: Migrated the `ColorPicker` from `Core` to the `Package` layer to adhere to architectural hierarchy. Transformed the picker from a simple overlay into a modular `FloatingWindow` component, maintaining the familiar portal-based trigger while adding draggable capabilities and a dedicated window header.
+- **Infinite Render Loop Fixing**: Resolved the React "Maximum update depth exceeded" error by moving color picker value-mapping and update handlers directly to the parent layout rendering cycle in `Home.tsx`. This avoids cyclic feedback with re-generated function references inside `ColorPicker`'s intermediate `useEffect` layers, ensuring extremely fast performance and complete stability.
 
 ## How to Get Started
 

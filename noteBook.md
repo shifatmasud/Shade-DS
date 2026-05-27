@@ -45,3 +45,11 @@
     - Integrated `FloatingWindow` into the component's portal structure.
     - Updated index exports and all internal imports to maintain architectural integrity.
 
+## 2026-05-27: Fixed Maximum Update Depth / Infinite Render Loop
+- **Issue**: Re-registering color picker metadata configurations with live functions (`onChange`, `onCommit`) in the parent component via `ColorPicker`'s `useEffect` resulted in cascading re-renders and an infinite state callback loop.
+- **Solution**: De-oscillate the state machine. Let `Home.tsx` store purely metadata open configs during window registration, while rendering live values and handlers directly derived from `btnProps` on the parent thread.
+- **Implementation**:
+    - Removed `useEffect` listener syncing state from `ColorPicker.tsx` entirely.
+    - Simplified `window.openColorPicker` registration to pass start configuration only.
+    - Unified the rendering of `<FloatingColorPickerWindow>` in `Home.tsx` to bind handlers locally to `btnProps`, completely eliminating intermediate feedback loops.
+

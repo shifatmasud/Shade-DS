@@ -28,7 +28,7 @@ import { FloatingColorPickerWindow } from '../Package/ColorPicker.tsx';
  * Acts as the main state orchestrator for the application.
  */
 const Home = () => {
-  const { theme } = useTheme();
+  const { theme, themeName } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [uiMode, setUiMode] = useState<'default' | 'lean'>('lean');
@@ -98,11 +98,9 @@ const Home = () => {
   const [activePickers, setActivePickers] = useState<Record<string, {
     id: string;
     label: string;
-    value: string;
-    onChange: (hex: string) => void;
-    onCommit?: (hex: string) => void;
     startX: number;
     startY: number;
+    isOpen: boolean;
   }>>({});
   
   const activePickersRef = useRef(activePickers);
@@ -218,7 +216,13 @@ const Home = () => {
     (window as any).openColorPicker = (id: string, config: any) => {
       setActivePickers(prev => ({
         ...prev,
-        [id]: { id, ...config }
+        [id]: { 
+          id, 
+          label: config.label, 
+          startX: config.startX, 
+          startY: config.startY, 
+          isOpen: true 
+        }
       }));
     };
     (window as any).closeColorPicker = (id: string) => {
@@ -543,19 +547,49 @@ const Home = () => {
 
       {/* --- PERSISTENT COLOR PICKERS --- */}
       <AnimatePresence>
-        {Object.values(activePickers).map((picker) => (
-          <FloatingColorPickerWindow
-            key={picker.id}
-            id={picker.id}
-            label={picker.label}
-            value={picker.value}
-            onChange={picker.onChange}
-            onCommit={picker.onCommit}
-            onClose={() => (window as any).closeColorPicker(picker.id)}
-            startX={picker.startX}
-            startY={picker.startY}
-          />
-        ))}
+        {Object.entries(activePickers).map(([id, picker]) => {
+          if (!picker.isOpen) return null;
+
+          // Compute live value based on ID
+          let liveValue = '';
+          if (id === 'fillColor') {
+            liveValue = btnProps.customFill || (btnProps.variant === 'primary' ? (themeName === 'dark' ? '#ffffff' : '#111111') : (btnProps.componentType === 'card' ? theme.Color.Base.Surface[1] : 'transparent'));
+          } else if (id === 'textColor') {
+            liveValue = btnProps.customColor || (btnProps.variant === 'primary' ? (themeName === 'dark' ? '#000000' : '#ffffff') : (themeName === 'dark' ? '#ffffff' : '#111111'));
+          }
+
+          const handlePickerChange = (hex: string) => {
+            if (id === 'fillColor') {
+              updateBtnProps({ ...btnProps, customFill: hex }, false);
+            } else if (id === 'textColor') {
+              updateBtnProps({ ...btnProps, customColor: hex }, false);
+            }
+          };
+
+          const handlePickerCommit = (hex: string) => {
+            if (id === 'fillColor') {
+              updateBtnProps({ ...btnProps, customFill: hex }, true);
+              logEvent(`Fill Color committed: ${hex}`);
+            } else if (id === 'textColor') {
+              updateBtnProps({ ...btnProps, customColor: hex }, true);
+              logEvent(`Text Color committed: ${hex}`);
+            }
+          };
+
+          return (
+            <FloatingColorPickerWindow
+              key={id}
+              id={id}
+              label={picker.label}
+              value={liveValue}
+              onChange={handlePickerChange}
+              onCommit={handlePickerCommit}
+              onClose={() => (window as any).closeColorPicker(id)}
+              startX={picker.startX}
+              startY={picker.startY}
+            />
+          );
+        })}
       </AnimatePresence>
 
       {uiMode === 'default' ? (

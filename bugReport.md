@@ -1,6 +1,7 @@
 # Bug Report - Jelly GPGPU
 
 ## Resolved Issues
+- **Uncaught Error: Maximum update depth exceeded**: Fixed infinite render loop caused by `ColorPicker` re-registering and syncing parent state callbacks inside `useEffect` on every render. Cleaned up state flow by computing live values and binding update handlers directly in `Home.tsx`'s render loop, ensuring `activePickers` only tracks open window configurations without feedback cycles.
 - **Skeleton Overhead**: Removed `WiggleBone` and `Skeleton` boilerplate.
 - **Edge cases**: Fixed vertex-to-pixel mapping for non-power-of-two geometry counts.
 - **Floating Window Centering**: Resolved initial offset layout bug where Framer Motion drags would override the `-50%` CSS `transform` translate centering, causing the window to align by its top-left corner. Added standalone modern CSS `translate: '-50% -50%'` to bypass transform conflicts.

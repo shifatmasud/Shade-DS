@@ -391,36 +391,11 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     if ((window as any).openColorPicker) {
       (window as any).openColorPicker(pickerId, {
         label: label || "Color Picker",
-        value: value,
-        onChange: (hex: string) => {
-          onChange({ target: { value: hex } });
-        },
-        onCommit: (hex: string) => {
-          if (onCommit) onCommit(hex);
-        },
         startX: pickerId === "fillColor" ? -140 : 140, // Elegant side-by-side split layout
         startY: 0
       });
     }
   };
-
-  // Ensure window is updated if parent modifies colors (ex: Undos / Redos)
-  useEffect(() => {
-    if ((window as any).openColorPicker && (window as any).isPickerOpen?.(pickerId)) {
-      (window as any).openColorPicker(pickerId, {
-        label: label || "Color Picker",
-        value: value,
-        onChange: (hex: string) => {
-          onChange({ target: { value: hex } });
-        },
-        onCommit: (hex: string) => {
-          if (onCommit) onCommit(hex);
-        },
-        startX: pickerId === "fillColor" ? -140 : 140,
-        startY: 0
-      });
-    }
-  }, [value, label, onChange, onCommit, pickerId]);
 
   const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e);
