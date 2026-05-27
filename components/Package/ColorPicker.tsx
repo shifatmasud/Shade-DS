@@ -271,10 +271,6 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     setIsOpen(!isOpen);
   };
 
-  const hueGradient = useMemo(() => `linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)`, []);
-  const satGradient = useMemo(() => `linear-gradient(to right, ${HSLToHex(hsl.h, 0, hsl.l)}, ${HSLToHex(hsl.h, 100, hsl.l)})`, [hsl.h, hsl.l]);
-  const lightGradient = useMemo(() => `linear-gradient(to right, #000, ${HSLToHex(hsl.h, hsl.s, 50)}, #fff)`, [hsl.h, hsl.s]);
-
   // Spatial Rings UI - Memoized at top level to avoid hook violation and fix slider lag
   const spatialRingsUI = useMemo(() => (
     <div style={STYLES.spatialRoot}>
@@ -291,11 +287,6 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
             <React.Fragment key={`ring-${rIndex}`}>
                 {ring.colors.map((color, i) => {
                     const { x, y } = coords(i, ring.colors.length, ring.radius);
-                    /** 
-                     * STABILITY FIX [2026-05-15]: 
-                     * Removed zIndex: 10 from whileHover to ensure zero depth-shifting on blobs.
-                     * TO UNDO: Add 'zIndex: 10' back to whileHover object below.
-                     */
                     return (
                         <motion.div
                             key={`${color}-${rIndex}-${i}`}
@@ -370,32 +361,14 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
                     {spatialRingsUI}
 
                     {/* HSL Sliders Panel */}
-                    <div style={STYLES.slidersPanel}>
-                        <RangeSlider 
-                            label="Hue" 
-                            motionValue={hueMV} 
-                            min={0} max={360} 
-                            trackBackground={hueGradient}
-                            onChange={(v) => updateColor({ ...hsl, h: v }, false)}
-                            onCommit={(v) => updateColor({ ...hsl, h: v }, true)}
-                        />
-                        <RangeSlider 
-                            label="Saturation" 
-                            motionValue={satMV} 
-                            min={0} max={100} 
-                            trackBackground={satGradient}
-                            onChange={(v) => updateColor({ ...hsl, s: v }, false)}
-                            onCommit={(v) => updateColor({ ...hsl, s: v }, true)}
-                        />
-                        <RangeSlider 
-                            label="Lightness" 
-                            motionValue={lightMV} 
-                            min={0} max={100} 
-                            trackBackground={lightGradient}
-                            onChange={(v) => updateColor({ ...hsl, l: v }, false)}
-                            onCommit={(v) => updateColor({ ...hsl, l: v }, true)}
-                        />
-                    </div>
+                    <HSLSliders 
+                        currentHsl={hsl} 
+                        onHslChange={updateColor} 
+                        hueMV={hueMV} 
+                        satMV={satMV} 
+                        lightMV={lightMV} 
+                        styles={STYLES.slidersPanel} 
+                    />
                 </div>
             </FloatingWindow>
           )}
@@ -404,6 +377,58 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
       )}
     </div>
   );
+};
+
+// HSL Sliders Panel Sub-component for performance isolation
+const HSLSliders = ({ 
+    currentHsl, 
+    onHslChange, 
+    hueMV, 
+    satMV, 
+    lightMV, 
+    styles 
+}: { 
+    currentHsl: { h: number, s: number, l: number }, 
+    onHslChange: (newHsl: { h: number, s: number, l: number }, isFinal: boolean) => void,
+    hueMV: any,
+    satMV: any,
+    lightMV: any,
+    styles: React.CSSProperties
+}) => {
+    // Local state for immediate feedback if needed, but the parent updateColor also calls setHsl
+    // To minimize lag, we could throttle the parent updates or just ensure the rest of ColorPicker is stable
+    const hueGradient = `linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)`;
+    const satGradient = `linear-gradient(to right, ${HSLToHex(currentHsl.h, 0, currentHsl.l)}, ${HSLToHex(currentHsl.h, 100, currentHsl.l)})`;
+    const lightGradient = `linear-gradient(to right, #000, ${HSLToHex(currentHsl.h, currentHsl.s, 50)}, #fff)`;
+
+    return (
+        <div style={styles}>
+            <RangeSlider 
+                label="Hue" 
+                motionValue={hueMV} 
+                min={0} max={360} 
+                trackBackground={hueGradient}
+                onChange={(v) => onHslChange({ ...currentHsl, h: v }, false)}
+                onCommit={(v) => onHslChange({ ...currentHsl, h: v }, true)}
+            />
+            <RangeSlider 
+                label="Saturation" 
+                motionValue={satMV} 
+                min={0} max={100} 
+                trackBackground={satGradient}
+                onChange={(v) => onHslChange({ ...currentHsl, s: v }, false)}
+                onCommit={(v) => onHslChange({ ...currentHsl, s: v }, true)}
+            />
+            <RangeSlider 
+                label="Lightness" 
+                motionValue={lightMV} 
+                min={0} max={100} 
+                trackBackground={lightGradient}
+                onChange={(v) => onHslChange({ ...currentHsl, l: v }, false)}
+                onCommit={(v) => onHslChange({ ...currentHsl, l: v }, true)}
+            />
+        </div>
+    );
 };
 
 export default ColorPicker;

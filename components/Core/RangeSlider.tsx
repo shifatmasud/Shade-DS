@@ -30,11 +30,10 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   const { theme } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
   
-  // Use a fallback for the initial value to avoid NaN in calculations
-  const [internalValue, setInternalValue] = useState(() => {
-    const val = motionValue.get();
-    return typeof val === 'number' ? val : min;
-  });
+  const percentageMV = useTransform(motionValue, [min, max], ["0%", "100%"]);
+  
+  // Use a ref for the current value to avoid stale closure issues in onCommit
+  const currentValueRef = useRef(motionValue.get());
   
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -63,15 +62,13 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     mass: 2.5
   });
 
-  // Sync internal state with external motion value updates (e.g. undo/redo)
+  // Sync ref with motion value updates
   useEffect(() => {
     const unsubscribe = motionValue.on("change", (v) => {
-      if (!isDragging) {
-        setInternalValue(v);
-      }
+      currentValueRef.current = v;
     });
     return unsubscribe;
-  }, [motionValue, isDragging]);
+  }, [motionValue]);
 
   const updateValueFromPointer = (clientX: number) => {
     if (!trackRef.current) return;
@@ -79,7 +76,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     const percent = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
     const newValue = Math.round(min + percent * (max - min));
     
-    setInternalValue(newValue);
+    currentValueRef.current = newValue;
     motionValue.set(newValue); // Real-time update
     if (onChange) onChange(newValue);
   };
@@ -100,7 +97,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     if (isDragging) {
       setIsDragging(false);
       trackRef.current?.releasePointerCapture(e.pointerId);
-      onCommit(internalValue); // Commit only on release
+      onCommit(currentValueRef.current); // Commit only on release
     }
   };
 
@@ -108,7 +105,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     setIsEditing(false);
     const v = parseInt(String(inputValue), 10);
     const clamped = isNaN(v) ? min : Math.min(Math.max(v, min), max);
-    setInternalValue(clamped);
+    currentValueRef.current = clamped;
     motionValue.set(clamped);
     onCommit(clamped);
   };
@@ -119,6 +116,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     
     if (!isNaN(v)) {
         const clamped = Math.min(Math.max(v, min), max);
+        currentValueRef.current = clamped;
         motionValue.set(clamped);
         if (onChange) onChange(clamped);
     }
@@ -131,7 +129,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     }
   };
 
-  const percentage = Math.max(0, Math.min(100, ((internalValue - min) / (max - min)) * 100));
+  const percentage = Math.max(0, Math.min(100, ((currentValueRef.current - min) / (max - min)) * 100));
 
   const numberInputContainerStyle: React.CSSProperties = {
     width: theme.space['Space.7XL'],
@@ -207,6 +205,16 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     mass: 1,
   };
 
+  // --- SUB-COMPONENTS FOR PERFORMANCE ---
+  const ValueDisplay = ({ mv }: { mv: MotionValue<number> }) => {
+    const [displayVal, setDisplayVal] = useState(mv.get());
+    useEffect(() => {
+        const unsub = mv.on("change", (v) => setDisplayVal(Math.round(v)));
+        return unsub;
+    }, [mv]);
+    return <>{displayVal}</>;
+  };
+
   return (
     <div onPointerDown={(e) => e.stopPropagation()}>
       <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.space['Space.S'], color: theme.Color.Base.Content[2] }}>
@@ -243,22 +251,22 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
             }}>
                 {/* Fill Bar (Only show if no custom background gradient) */}
                 {!trackBackground && (
-                  <div style={{ 
+                  <motion.div style={{ 
                       position: 'absolute', 
                       top: 0, 
                       left: 0, 
                       height: '100%', 
-                      width: `${percentage}%`, 
+                      width: percentageMV, 
                       backgroundColor: theme.Color.Accent.Surface[1], 
                       borderRadius: '3px' 
                   }} />
                 )}
                 
                 {/* Thumb Container for Positioning */}
-                <div style={{
+                <motion.div style={{
                     position: 'absolute',
                     top: '50%',
-                    left: `${percentage}%`,
+                    left: percentageMV,
                     transform: 'translate(-50%, -50%)',
                     width: theme.space['Space.L'], // Approximated from 18px
                     height: theme.space['Space.L'],
@@ -283,7 +291,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                                     transformOrigin: '50% 29px', // 24px height + 5px arrow
                                 }}
                             >
-                                <AnimatedCounter value={Math.round(internalValue)} useFormatting={false} />
+                                <ValueDisplay mv={motionValue} />
                                 <div style={arrowStyle} />
                             </motion.div>
                         )}
@@ -293,7 +301,6 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                     <motion.div 
                         animate={{ 
                             scale: isDragging ? 1.25 : 1,
-                            backgroundColor: isDragging ? theme.Color.Base.Surface[1] : theme.Color.Base.Surface[1]
                         }}
                         transition={tactileSpring}
                         style={{
@@ -306,7 +313,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                             position: 'relative'
                         }} 
                     />
-                </div>
+                </motion.div>
             </div>
         </div>
 
@@ -328,11 +335,11 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
             <div
               style={animatedCounterWrapperStyle}
               onClick={() => {
-                setInputValue(Math.round(internalValue));
+                setInputValue(Math.round(currentValueRef.current));
                 setIsEditing(true)
               }}
             >
-              <AnimatedCounter value={Math.round(internalValue)} useFormatting={false} />
+              <ValueDisplay mv={motionValue} />
             </div>
           )}
         </div>
