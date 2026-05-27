@@ -77,10 +77,22 @@ const Home = () => {
   const radiusMotionValue = useMotionValue(parseInt(btnProps.customRadius) || 0);
   const radiusStringMotionValue = useTransform(radiusMotionValue, (v) => `${Math.round(v)}px`);
 
-  // Sync MotionValue when state is changed by other means (e.g., undo/redo)
+  // Real-time MotionValues for live color updates without parent React re-renders
+  const fillColorMotionValue = useMotionValue(btnProps.customFill || '');
+  const textColorMotionValue = useMotionValue(btnProps.customColor || '');
+
+  // Sync MotionValues when state is changed by other means (e.g., undo/redo)
   useEffect(() => {
     radiusMotionValue.set(parseInt(btnProps.customRadius) || 0);
   }, [btnProps.customRadius, radiusMotionValue]);
+
+  useEffect(() => {
+    fillColorMotionValue.set(btnProps.customFill || '');
+  }, [btnProps.customFill, fillColorMotionValue]);
+
+  useEffect(() => {
+    textColorMotionValue.set(btnProps.customColor || '');
+  }, [btnProps.customColor, textColorMotionValue]);
   
   // Auto-expand layers when entering 3D mode
   useEffect(() => {
@@ -384,7 +396,12 @@ const Home = () => {
       <Confetti trigger={confettiTrigger} />
 
       <Stage
-        btnProps={{...btnProps, customRadius: radiusStringMotionValue}}
+        btnProps={{
+          ...btnProps,
+          customRadius: radiusStringMotionValue,
+          customFill: fillColorMotionValue,
+          customColor: textColorMotionValue,
+        }}
         onButtonClick={handleStageButtonClick}
         showMeasurements={showMeasurements}
         showTokens={showTokens}
@@ -560,9 +577,9 @@ const Home = () => {
 
           const handlePickerChange = (hex: string) => {
             if (id === 'fillColor') {
-              updateBtnProps({ ...btnProps, customFill: hex }, false);
+              fillColorMotionValue.set(hex);
             } else if (id === 'textColor') {
-              updateBtnProps({ ...btnProps, customColor: hex }, false);
+              textColorMotionValue.set(hex);
             }
           };
 

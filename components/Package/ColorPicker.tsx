@@ -110,49 +110,87 @@ export const FloatingColorPickerWindow: React.FC<FloatingColorPickerWindowProps>
   startY,
 }) => {
   const { theme } = useTheme();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   
-  // Track continuous/local HSL coordinates
-  const [hsl, setHsl] = useState(() => hexToHSL(initialValue));
-  const lastPropValue = useRef(initialValue);
-
-  // Sync internal HSL with external prop state (e.g. on Undo/Redo)
-  useEffect(() => {
-    if (initialValue.toLowerCase() !== lastPropValue.current.toLowerCase()) {
-      setHsl(hexToHSL(initialValue));
-      lastPropValue.current = initialValue;
-    }
-  }, [initialValue]);
+  const initialHsl = useMemo(() => hexToHSL(initialValue), []);
+  const hslRef = useRef<typeof initialHsl>(initialHsl);
+  const lastProcessedPropValue = useRef(initialValue);
 
   // Motion values to feed into standard RangeSlider components
-  const hueMV = useMotionValue(hsl.h);
-  const satMV = useMotionValue(hsl.s);
-  const lightMV = useMotionValue(hsl.l);
+  const hueMV = useMotionValue(initialHsl.h);
+  const satMV = useMotionValue(initialHsl.s);
+  const lightMV = useMotionValue(initialHsl.l);
 
+  // Sync internal HSL with external prop state (e.g. on Undo/Redo) with race-condition prevention
   useEffect(() => {
-    hueMV.set(hsl.h);
-    satMV.set(hsl.s);
-    lightMV.set(hsl.l);
-  }, [hsl, hueMV, satMV, lightMV]);
+    const lowerInitial = initialValue.toLowerCase();
+    const lowerLastProcessed = lastProcessedPropValue.current.toLowerCase();
+    const currentLocalHex = HSLToHex(hslRef.current.h, hslRef.current.s, hslRef.current.l).toLowerCase();
+
+    if (lowerInitial !== lowerLastProcessed && lowerInitial !== currentLocalHex) {
+      const parsed = hexToHSL(initialValue);
+      hslRef.current = parsed;
+      hueMV.set(parsed.h);
+      satMV.set(parsed.s);
+      lightMV.set(parsed.l);
+      lastProcessedPropValue.current = initialValue;
+    } else if (lowerInitial !== lowerLastProcessed) {
+      // Catch up the processed prop indicator once parent updates propagate back to us
+      lastProcessedPropValue.current = initialValue;
+    }
+  }, [initialValue, hueMV, satMV, lightMV]);
+
+  // Register continuous style updater on motion values
+  useEffect(() => {
+    const updateGradients = () => {
+      const h = hueMV.get();
+      const s = satMV.get();
+      const l = lightMV.get();
+      const wrapper = wrapperRef.current;
+      if (wrapper) {
+        wrapper.style.setProperty('--picker-sat-grad', `linear-gradient(to right, ${HSLToHex(h, 0, l)}, ${HSLToHex(h, 100, l)})`);
+        wrapper.style.setProperty('--picker-light-grad', `linear-gradient(to right, #000, ${HSLToHex(h, s, 50)}, #fff)`);
+      }
+    };
+
+    const unsub1 = hueMV.on("change", updateGradients);
+    const unsub2 = satMV.on("change", updateGradients);
+    const unsub3 = lightMV.on("change", updateGradients);
+    
+    // Set initial custom values on mount
+    updateGradients();
+
+    return () => {
+      unsub1();
+      unsub2();
+      unsub3();
+    };
+  }, [hueMV, satMV, lightMV]);
 
   // Color selection from spatial ring blobs (discrete click event)
   const selectColor = React.useCallback((color: string) => {
     playSound('click');
     const newHsl = hexToHSL(color);
-    setHsl(newHsl);
-    lastPropValue.current = color;
+    hslRef.current = newHsl;
+    hueMV.set(newHsl.h);
+    satMV.set(newHsl.s);
+    lightMV.set(newHsl.l);
+    lastProcessedPropValue.current = color;
     onChange(color);
     if (onCommit) onCommit(color);
-  }, [onChange, onCommit]);
+  }, [onChange, onCommit, hueMV, satMV, lightMV]);
 
   // Color updating handler
-  const updateColor = React.useCallback((newHsl: typeof hsl, isFinal: boolean = false) => {
-    setHsl(newHsl);
+  const updateColor = React.useCallback((newHsl: typeof hslRef.current, isFinal: boolean = false) => {
+    // Update the synchronous ref immediately to bypass async React State batching lags
+    hslRef.current = newHsl;
     const hex = HSLToHex(newHsl.h, newHsl.s, newHsl.l);
     
-    // Only fire heavy parent updates and history steps on drag end (commit)
+    // Notify custom color MotionValues continuously with zero drag lag
+    onChange(hex);
+    
     if (isFinal) {
-      lastPropValue.current = hex;
-      onChange(hex);
+      lastProcessedPropValue.current = hex;
       if (onCommit) onCommit(hex);
     }
   }, [onChange, onCommit]);
@@ -197,8 +235,6 @@ export const FloatingColorPickerWindow: React.FC<FloatingColorPickerWindowProps>
 
   // Gradients for range slider tracks
   const hueGradient = useMemo(() => `linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)`, []);
-  const satGradient = useMemo(() => `linear-gradient(to right, ${HSLToHex(hsl.h, 0, hsl.l)}, ${HSLToHex(hsl.h, 100, hsl.l)})`, [hsl.h, hsl.l]);
-  const lightGradient = useMemo(() => `linear-gradient(to right, #000, ${HSLToHex(hsl.h, hsl.s, 50)}, #fff)`, [hsl.h, hsl.s]);
 
   // Stylings compliant with Shade DSL rules
   const STYLES = useMemo(() => ({
@@ -301,7 +337,7 @@ export const FloatingColorPickerWindow: React.FC<FloatingColorPickerWindowProps>
         onClose={onClose}
         onFocus={() => {}}
     >
-        <div style={{ ...STYLES.menuContainer, gap: theme.space['Space.M'] }}>
+        <div ref={wrapperRef} style={{ ...STYLES.menuContainer, gap: theme.space['Space.M'] }}>
             {/* Spatial Rings Section */}
             {spatialRingsUI}
 
@@ -312,24 +348,24 @@ export const FloatingColorPickerWindow: React.FC<FloatingColorPickerWindowProps>
                     motionValue={hueMV} 
                     min={0} max={360} 
                     trackBackground={hueGradient}
-                    onChange={(v) => updateColor({ ...hsl, h: v }, false)}
-                    onCommit={(v) => updateColor({ ...hsl, h: v }, true)}
+                    onChange={(v) => updateColor({ ...hslRef.current, h: v }, false)}
+                    onCommit={(v) => updateColor({ ...hslRef.current, h: v }, true)}
                 />
                 <RangeSlider 
                     label="Saturation" 
                     motionValue={satMV} 
                     min={0} max={100} 
-                    trackBackground={satGradient}
-                    onChange={(v) => updateColor({ ...hsl, s: v }, false)}
-                    onCommit={(v) => updateColor({ ...hsl, s: v }, true)}
+                    trackBackground="var(--picker-sat-grad)"
+                    onChange={(v) => updateColor({ ...hslRef.current, s: v }, false)}
+                    onCommit={(v) => updateColor({ ...hslRef.current, s: v }, true)}
                 />
                 <RangeSlider 
                     label="Lightness" 
                     motionValue={lightMV} 
                     min={0} max={100} 
-                    trackBackground={lightGradient}
-                    onChange={(v) => updateColor({ ...hsl, l: v }, false)}
-                    onCommit={(v) => updateColor({ ...hsl, l: v }, true)}
+                    trackBackground="var(--picker-light-grad)"
+                    onChange={(v) => updateColor({ ...hslRef.current, l: v }, false)}
+                    onCommit={(v) => updateColor({ ...hslRef.current, l: v }, true)}
                 />
             </div>
         </div>

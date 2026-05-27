@@ -87,8 +87,10 @@ const reactLiveScope = {
 
 // --- HELPER TYPES & COMPONENTS ---
 
-type StageComponentProps = Omit<MetaButtonProps, 'customRadius'> & {
+type StageComponentProps = Omit<MetaButtonProps, 'customRadius' | 'customFill' | 'customColor'> & {
   customRadius: any; // Allow MotionValue
+  customFill: any; // Allow MotionValue
+  customColor: any; // Allow MotionValue
 }
 
 interface StageProps {

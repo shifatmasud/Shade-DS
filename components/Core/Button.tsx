@@ -18,8 +18,8 @@ interface ButtonProps {
   label: string;
   icon?: string;
   onClick?: () => void;
-  customFill?: string;
-  customColor?: string;
+  customFill?: string | MotionValue<string>;
+  customColor?: string | MotionValue<string>;
   customRadius?: string | MotionValue<string>;
   disabled?: boolean;
   layerSpacing?: MotionValue<number>;
@@ -127,27 +127,58 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   };
 
   // Style Logic
-  const getVariantStyles = () => {
-    const baseContent = customColor || theme.Color.Base.Content[1];
+  /*
+   * SHADE DSL THEME AWARENESS UPGRADE:
+   * - Integrated useResolvedMotionValue hook inside the Button to resolve custom colors to standard theme tokens when they are empty ('').
+   * - To undo: Revert resolving logic in getVariantStyles back to customFill and customColor, and remove the helper hook.
+   */
+  const useResolvedMotionValue = (prop: any, fallback: string): any => {
+    const isMV = prop && typeof prop === 'object' && 'get' in prop && 'on' in prop;
+    const localMV = useMotionValue(isMV ? prop.get() : (prop || fallback));
     
+    React.useEffect(() => {
+      if (!isMV) {
+        localMV.set(prop || fallback);
+      }
+    }, [prop, isMV, fallback]);
+
+    return useTransform(isMV ? prop : localMV, (v: any) => v || fallback);
+  };
+
+  const fallbackBg = variant === 'primary' 
+    ? theme.Color.Accent.Surface[1] 
+    : (variant === 'destructive' 
+       ? theme.Color.Error.Surface[1] 
+       : (variant === 'secondary' ? theme.Color.Base.Surface[2] : 'transparent'));
+
+  const fallbackColor = variant === 'primary' 
+    ? theme.Color.Accent.Content[1] 
+    : (variant === 'destructive' 
+       ? theme.Color.Error.Content[1] 
+       : theme.Color.Base.Content[1]);
+
+  const resolvedFill = useResolvedMotionValue(customFill, fallbackBg);
+  const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
+
+  const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
         return {
-          background: customFill || theme.Color.Accent.Surface[1],
-          color: customColor || theme.Color.Accent.Content[1],
+          background: resolvedFill,
+          color: resolvedColor,
           border: 'none',
           boxShadow: theme.effects['Effect.Shadow.Drop.2'],
         };
       case 'secondary':
         return {
-          background: customFill || theme.Color.Base.Surface[2],
-          color: baseContent,
+          background: resolvedFill,
+          color: resolvedColor,
           border: 'none',
         };
       case 'outline':
         return {
           backgroundColor: 'transparent',
-          color: baseContent,
+          color: resolvedColor,
           /* 
            * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
            * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Content[3]}`
@@ -156,8 +187,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         };
       case 'destructive':
         return {
-          backgroundColor: customFill || theme.Color.Error.Surface[1],
-          color: customColor || theme.Color.Error.Content[1],
+          backgroundColor: resolvedFill,
+          color: resolvedColor,
           /* 
            * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow, merged with Drop-shadow.
            * To undo: restore separate border and boxShadow.
@@ -168,14 +199,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       case 'tertiary':
         return {
           backgroundColor: 'transparent',
-          color: baseContent,
+          color: resolvedColor,
           border: 'none',
           boxShadow: 'none',
         };
       default:
         return {
-          background: theme.Color.Accent.Surface[1],
-          color: theme.Color.Accent.Content[1],
+          background: resolvedFill,
+          color: resolvedColor,
           border: 'none',
         };
     }
@@ -194,7 +225,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const sizeStyles = getSizeStyles();
 
   // Combined Styles
-  const styles: React.CSSProperties = {
+  const styles: any = {
     position: 'relative',
     display: 'inline-flex',
     alignItems: 'center',

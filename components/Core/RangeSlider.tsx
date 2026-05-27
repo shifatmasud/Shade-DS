@@ -20,7 +20,7 @@ interface ValueDisplayProps {
   min: number;
   max: number;
   inputValue: string | number;
-  internalValue: number;
+  motionValue: MotionValue<number>;
   inputStyle: React.CSSProperties;
   animatedCounterWrapperStyle: React.CSSProperties;
   numberInputContainerStyle: React.CSSProperties;
@@ -35,7 +35,7 @@ const ValueDisplay: React.FC<ValueDisplayProps> = React.memo(({
   min,
   max,
   inputValue,
-  internalValue,
+  motionValue,
   inputStyle,
   animatedCounterWrapperStyle,
   numberInputContainerStyle,
@@ -63,8 +63,8 @@ const ValueDisplay: React.FC<ValueDisplayProps> = React.memo(({
           style={animatedCounterWrapperStyle}
           onClick={onStartEdit}
         >
-          {/* Animated counter stays completely preserved here */}
-          <AnimatedCounter value={Math.round(internalValue)} useFormatting={false} />
+          {/* Animated counter stays completely preserved here & receives motionValue directly */}
+          <AnimatedCounter value={motionValue} useFormatting={false} />
         </div>
       )}
     </div>
@@ -144,8 +144,8 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     const percent = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
     const newValue = Math.round(min + percent * (max - min));
     
-    setInternalValue(newValue);
-    motionValue.set(newValue); // Real-time update
+    // We only set the motion value, avoiding component-wide React virtual DOM re-renders during drag!
+    motionValue.set(newValue);
     if (onChange) onChange(newValue);
   };
 
@@ -165,7 +165,11 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     if (isDragging) {
       setIsDragging(false);
       trackRef.current?.releasePointerCapture(e.pointerId);
-      onCommit(internalValue); // Commit only on release
+      
+      // Flush back to React state ONLY when pointer dragging is finalized
+      const committedValue = Math.round(motionValue.get());
+      setInternalValue(committedValue);
+      onCommit(committedValue);
     }
   };
 
@@ -196,7 +200,8 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     }
   };
 
-  const percentage = Math.max(0, Math.min(100, ((internalValue - min) / (max - min)) * 100));
+  // Convert the current motion value to percentage translation style for zero re-render DOM sync
+  const percentageStyle = useTransform(normalizedValue, (v) => `${v}%`);
 
   const numberInputContainerStyle: React.CSSProperties = {
     width: theme.space['Space.7XL'],
@@ -308,22 +313,22 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
             }}>
                 {/* Fill Bar (Only show if no custom background gradient) */}
                 {!trackBackground && (
-                  <div style={{ 
+                  <motion.div style={{ 
                       position: 'absolute', 
                       top: 0, 
                       left: 0, 
                       height: '100%', 
-                      width: `${percentage}%`, 
+                      width: percentageStyle, // Binds width directly to motion value transform
                       backgroundColor: theme.Color.Accent.Surface[1], 
                       borderRadius: '3px' 
                   }} />
                 )}
                 
                 {/* Thumb Container for Positioning */}
-                <div style={{
+                <motion.div style={{
                     position: 'absolute',
                     top: '50%',
-                    left: `${percentage}%`,
+                    left: percentageStyle, // Binds coordinates directly to motion value transform
                     transform: 'translate(-50%, -50%)',
                     width: theme.space['Space.L'], // Approximated from 18px
                     height: theme.space['Space.L'],
@@ -348,7 +353,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                                     transformOrigin: '50% 29px', // 24px height + 5px arrow
                                 }}
                             >
-                                <AnimatedCounter value={Math.round(internalValue)} useFormatting={false} />
+                                <AnimatedCounter value={motionValue} useFormatting={false} />
                                 <div style={arrowStyle} />
                             </motion.div>
                         )}
@@ -371,7 +376,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                             position: 'relative'
                         }} 
                     />
-                </div>
+                </motion.div>
             </div>
         </div>
 
@@ -381,7 +386,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
           min={min}
           max={max}
           inputValue={inputValue}
-          internalValue={internalValue}
+          motionValue={motionValue}
           inputStyle={inputStyle}
           animatedCounterWrapperStyle={animatedCounterWrapperStyle}
           numberInputContainerStyle={numberInputContainerStyle}
@@ -389,7 +394,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
           onBlur={handleCommit}
           onKeyDown={handleInputKeyDown}
           onStartEdit={() => {
-            setInputValue(Math.round(internalValue));
+            setInputValue(Math.round(motionValue.get()));
             setIsEditing(true);
           }}
         />

@@ -11,8 +11,8 @@ import RippleLayer, { Ripple } from '../Core/RippleLayer.tsx';
 interface CardProps {
   label: string; // Used as title
   variant?: 'primary' | 'secondary' | 'outline' | 'tertiary' | 'destructive';
-  customFill?: string;
-  customColor?: string;
+  customFill?: string | MotionValue<string>;
+  customColor?: string | MotionValue<string>;
   customRadius?: string | MotionValue<string>;
   disabled?: boolean;
   layerSpacing?: MotionValue<number>;
@@ -64,10 +64,18 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
     return typeof val === 'string' ? parseInt(val) || 0 : 0;
   };
 
-  const outerRadiusMV = useMotionValue(getNumericRadius(customRadius));
+  /* 
+   * SHADE DSL CARDS CORNER RADIUS REWRITE:
+   * - Set default outer radius fallback values to 40 so that nested padding-aware inner radius calculation scales to 16px.
+   * - To undo: revert (customRadius || '40px') -> customRadius, and inside useEffect revert outerRadiusMV.set(40) to return.
+   */
+  const outerRadiusMV = useMotionValue(getNumericRadius(customRadius || '40px'));
   
   useEffect(() => {
-    if (!customRadius) return;
+    if (!customRadius) {
+        outerRadiusMV.set(40);
+        return;
+    }
     if (typeof customRadius === 'string') {
         outerRadiusMV.set(parseInt(customRadius) || 0);
     } else {
@@ -126,11 +134,34 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
   // Determine Semantic Colors
   const isPrimary = variant === 'primary';
   const isDestructive = variant === 'destructive';
-  const bgColor = customFill || (isPrimary ? theme.Color.Accent.Surface[1] : (isDestructive ? theme.Color.Error.Surface[1] : theme.Color.Base.Surface[1]));
-  const contentColor1 = customColor || (isPrimary ? theme.Color.Accent.Content[1] : (isDestructive ? theme.Color.Error.Content[1] : theme.Color.Base.Content[1]));
+  
+  /*
+   * SHADE DSL THEME AWARENESS UPGRADE:
+   * - Created a useResolvedMotionValue hook to dynamic resolve/transform MotionValues that might be empty (''),
+   *   falling back to theme-level tokens (theme.Color.Accent.Surface/Content, theme.Color.Base.Surface/Content).
+   * - To undo: Revert resolvedBg and resolvedColor to customFill || ... and customColor || ... and delete the hook.
+   */
+  const useResolvedMotionValue = (prop: any, fallback: string): any => {
+    const isMV = prop && typeof prop === 'object' && 'get' in prop && 'on' in prop;
+    const localMV = useMotionValue(isMV ? prop.get() : (prop || fallback));
+    
+    useEffect(() => {
+      if (!isMV) {
+        localMV.set(prop || fallback);
+      }
+    }, [prop, isMV, fallback]);
+
+    return useTransform(isMV ? prop : localMV, (v: any) => v || fallback);
+  };
+
+  const fallbackBg = isPrimary ? theme.Color.Accent.Surface[1] : (isDestructive ? theme.Color.Error.Surface[1] : theme.Color.Base.Surface[1]);
+  const fallbackColor = isPrimary ? theme.Color.Accent.Content[1] : (isDestructive ? theme.Color.Error.Content[1] : theme.Color.Base.Content[1]);
+
+  const bgColor = useResolvedMotionValue(customFill, fallbackBg);
+  const contentColor1 = useResolvedMotionValue(customColor, fallbackColor);
   const contentColor2 = theme.Color.Base.Content[2];
 
-  const styles: React.CSSProperties = {
+  const styles: any = {
     position: 'relative',
     width: theme.space['Space.Panel.Width'], 
     padding: theme.space['Space.XL'], 
@@ -169,7 +200,12 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
       ref={ref}
       style={{
         ...styles,
-        borderRadius: customRadius || theme.radius['Radius.L'],
+        /* 
+         * SHADE DSL CARDS CORNER RADIUS REWRITE:
+         * - Replaced default theme.radius['Radius.L'] with 40px for soft layout shapes.
+         * - To undo: change '40px' back to theme.radius['Radius.L'].
+         */
+        borderRadius: customRadius || '40px',
       }}
       onPointerEnter={handlePointerEnter}
       onPointerMove={handlePointerMove}
@@ -306,7 +342,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             Interactive Prototype
         </span>
         
-        <h3 className="card-title" draggable={false} style={{ 
+        <motion.h3 className="card-title" draggable={false} style={{ 
             ...theme.Type.Expressive.Headline.S, 
             margin: 0, 
             color: contentColor1,
@@ -314,7 +350,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             lineHeight: 1
         }}>
             {label}
-        </h3>
+        </motion.h3>
         
         <p className="card-body" draggable={false} style={{ 
             ...theme.Type.Readable.Body.M, 

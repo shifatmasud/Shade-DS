@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, MotionValue } from 'framer-motion';
 
 export interface Ripple {
   id: number;
@@ -12,7 +12,7 @@ export interface Ripple {
 }
 
 interface RippleLayerProps {
-  color: string;
+  color: string | MotionValue<string>;
   ripples: Ripple[];
   onRippleComplete: (id: number) => void;
   width: number;

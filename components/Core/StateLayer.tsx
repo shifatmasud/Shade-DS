@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, MotionValue } from 'framer-motion';
 
 interface StateLayerProps {
-  color: string;
+  color: string | MotionValue<string>;
   isActive: boolean;
   x: number;
   y: number;
@@ -66,7 +66,7 @@ const StateLayer: React.FC<StateLayerProps> = ({
     setLayers(prev => prev.filter(l => l.id !== id));
   };
 
-  const baseStyles: React.CSSProperties = {
+  const baseStyles: any = {
     position: 'absolute',
     backgroundColor: color,
     borderRadius: '50%',

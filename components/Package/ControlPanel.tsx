@@ -128,7 +128,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             value={btnProps.componentType}
             onChange={(e) => onPropChange({ 
                 componentType: e.target.value,
-                customRadius: e.target.value === 'nametag' ? theme.radius['Radius.L'] : e.target.value === 'card' ? theme.radius['Radius.XL'] || theme.radius['Radius.XL'] : e.target.value === 'slot' ? '0px' : e.target.value === 'custom' ? theme.radius['Radius.M'] : theme.height['Height.L'],
+                /* 
+                 * SHADE DSL CARDS CORNER RADIUS REWRITE:
+                 * - Preset Cards corner radius to 40px on type switch.
+                 * - To undo: change '40px' back to theme.radius['Radius.XL'] || theme.radius['Radius.XL'].
+                 */
+                customRadius: e.target.value === 'nametag' ? theme.radius['Radius.L'] : e.target.value === 'card' ? '40px' : e.target.value === 'slot' ? '0px' : e.target.value === 'custom' ? theme.radius['Radius.M'] : theme.height['Height.L'],
                 variant: e.target.value === 'nametag' || e.target.value === 'card' ? 'secondary' : 'primary'
             })}
             options={[
