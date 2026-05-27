@@ -7,12 +7,20 @@ import { useTheme } from '../../Theme.tsx';
 import Scene3D from '../3D/scene.tsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Info, X, Copy, Check } from 'phosphor-react';
+import { addPropertyControls, ControlType } from '../framer-shims.ts';
 
 interface SlotProps {
-  // Add any props if needed later
+  showSky?: boolean;
+  physicsOptions?: {
+    speed?: number;
+    gravity?: number;
+  };
 }
 
-const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
+const Slot = forwardRef<HTMLDivElement, SlotProps>(({ 
+  showSky = true, 
+  physicsOptions 
+}, ref) => {
   const { theme } = useTheme();
   const [showDialog, setShowDialog] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -38,7 +46,11 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
     >
       {/* 3D Scene Background */}
       <div style={{ position: 'absolute', inset: 0, opacity: 1 }}>
-        <Scene3D showSky={true} />
+        <Scene3D 
+          showSky={showSky} 
+          speed={physicsOptions?.speed} 
+          gravity={physicsOptions?.gravity} 
+        />
       </div>
 
       {/* Info Trigger */}
@@ -177,5 +189,35 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
 });
 
 Slot.displayName = 'Slot';
+
+addPropertyControls(Slot, {
+  showSky: {
+    type: ControlType.Boolean,
+    title: "Show Sky",
+    defaultValue: true,
+  },
+  physicsOptions: {
+    type: ControlType.Object,
+    title: "Physics Options",
+    controls: {
+      speed: {
+        type: ControlType.Number,
+        title: "Simulation Speed",
+        min: 0,
+        max: 5,
+        step: 0.1,
+        defaultValue: 1,
+      },
+      gravity: {
+        type: ControlType.Number,
+        title: "Simulation Gravity",
+        min: -20,
+        max: 20,
+        step: 1,
+        defaultValue: -9.81,
+      }
+    }
+  }
+});
 
 export default Slot;

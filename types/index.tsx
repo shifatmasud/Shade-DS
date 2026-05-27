@@ -47,6 +47,8 @@ export interface MetaComponentProps {
     forcedHover: boolean;
     forcedFocus: boolean;
     forcedActive: boolean;
+    // Dynamic fields from addPropertyControls
+    [key: string]: any;
 }
 
 export type MetaButtonProps = MetaComponentProps; // Alias for backward compatibility

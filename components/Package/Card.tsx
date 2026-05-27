@@ -7,6 +7,7 @@ import { useTheme } from '../../Theme.tsx';
 import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
 import StateLayer from '../Core/StateLayer.tsx';
 import RippleLayer, { Ripple } from '../Core/RippleLayer.tsx';
+import { addPropertyControls, ControlType } from '../framer-shims.ts';
 
 interface CardProps {
   label: string; // Used as title
@@ -14,6 +15,11 @@ interface CardProps {
   customFill?: string | MotionValue<string>;
   customColor?: string | MotionValue<string>;
   customRadius?: string | MotionValue<string>;
+  customStyle?: {
+    customFill?: string;
+    customColor?: string;
+    customRadius?: string;
+  };
   disabled?: boolean;
   layerSpacing?: MotionValue<number>;
   view3D?: boolean;
@@ -29,6 +35,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
   customFill,
   customColor,
   customRadius,
+  customStyle,
   disabled = false,
   layerSpacing,
   view3D = false,
@@ -157,8 +164,12 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
   const fallbackBg = isPrimary ? theme.Color.Accent.Surface[1] : (isDestructive ? theme.Color.Error.Surface[1] : theme.Color.Base.Surface[1]);
   const fallbackColor = isPrimary ? theme.Color.Accent.Content[1] : (isDestructive ? theme.Color.Error.Content[1] : theme.Color.Base.Content[1]);
 
-  const bgColor = useResolvedMotionValue(customFill, fallbackBg);
-  const contentColor1 = useResolvedMotionValue(customColor, fallbackColor);
+  const fillVal = customFill || (customStyle?.customFill) || '';
+  const colorVal = customColor || (customStyle?.customColor) || '';
+  const radiusVal = customRadius || (customStyle?.customRadius) || '40px';
+
+  const bgColor = useResolvedMotionValue(fillVal, fallbackBg);
+  const contentColor1 = useResolvedMotionValue(colorVal, fallbackColor);
   const contentColor2 = theme.Color.Base.Content[2];
 
   const styles: any = {
@@ -200,12 +211,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
       ref={ref}
       style={{
         ...styles,
-        /* 
-         * SHADE DSL CARDS CORNER RADIUS REWRITE:
-         * - Replaced default theme.radius['Radius.L'] with 40px for soft layout shapes.
-         * - To undo: change '40px' back to theme.radius['Radius.L'].
-         */
-        borderRadius: customRadius || '40px',
+        borderRadius: radiusVal || '40px',
       }}
       onPointerEnter={handlePointerEnter}
       onPointerMove={handlePointerMove}
@@ -372,6 +378,49 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
       </motion.div>
     </motion.div>
   );
+});
+
+Card.displayName = 'Card';
+
+addPropertyControls(Card, {
+  label: {
+    type: ControlType.String,
+    title: "Title",
+    defaultValue: "Interactive Prototype",
+  },
+  variant: {
+    type: ControlType.Enum,
+    title: "Variant",
+    options: ["primary", "secondary", "outline", "tertiary", "destructive"],
+    optionTitles: ["Primary", "Secondary", "Tertiary", "Outline", "Destructive"],
+    defaultValue: "secondary",
+  },
+  disabled: {
+    type: ControlType.Boolean,
+    title: "Disabled",
+    defaultValue: false,
+  },
+  customStyle: {
+    type: ControlType.Object,
+    title: "Card Style",
+    controls: {
+      customFill: {
+        type: ControlType.Color,
+        title: "Fill Color",
+        defaultValue: "",
+      },
+      customColor: {
+        type: ControlType.Color,
+        title: "Text Color",
+        defaultValue: "",
+      },
+      customRadius: {
+        type: ControlType.String,
+        title: "Corner Radius",
+        defaultValue: "40px",
+      }
+    }
+  }
 });
 
 export default Card;

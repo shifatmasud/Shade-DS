@@ -214,7 +214,11 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
 
 import { useTheme } from '../../Theme';
 
-const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
+const Scene3D: React.FC<{ showSky?: boolean; speed?: number; gravity?: number }> = ({ 
+  showSky = true, 
+  speed = 1, 
+  gravity = -9.81 
+}) => {
   const { theme } = useTheme();
   const { cubes, addCube } = usePhysicsStore();
   const [controlsEnabled, setControlsEnabled] = useState(true);
@@ -328,8 +332,9 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
         <ambientLight intensity={0.5} />
         <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
         
-        <Physics gravity={[0, -9.81, 0]}>
+        <Physics gravity={[0, gravity, 0]}>
           <RotatingBox 
+            speed={speed}
             onDragStart={() => setControlsEnabled(false)} 
             onDragEnd={() => setControlsEnabled(true)} 
           />

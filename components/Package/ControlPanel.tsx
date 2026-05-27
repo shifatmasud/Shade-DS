@@ -2,8 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React from 'react';
-import { type MotionValue } from 'framer-motion';
+import React, { useEffect } from 'react';
+import { type MotionValue, useMotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import { MetaButtonProps } from '../../types/index.tsx';
 import Input from '../Core/Input.tsx';
@@ -13,6 +13,13 @@ import ColorPicker from './ColorPicker.tsx';
 import Toggle from '../Core/Toggle.tsx';
 import Accordion from '../Core/Accordion.tsx';
 import ApiInput from '../Core/ApiInput.tsx';
+
+// SAFETY: Track error logs and wrap dynamic control loads
+import { ControlType } from '../framer-shims.ts';
+import Button from '../Core/Button.tsx';
+import Card from './Card.tsx';
+import NameTag from './NameTag.tsx';
+import Slot from './Slot.tsx';
 
 interface ControlPanelProps {
   btnProps: MetaButtonProps;
@@ -34,7 +41,7 @@ interface ControlPanelProps {
   viewRotateX: MotionValue<number>;
   viewRotateZ: MotionValue<number>;
   uiMode: 'default' | 'lean';
-    onToggleUIMode: () => void;
+  onToggleUIMode: () => void;
   showThemeToggle: boolean;
   onToggleThemeButton: () => void;
   isAIControlEnabled: boolean;
@@ -42,6 +49,72 @@ interface ControlPanelProps {
   geminiApiKey: string;
   onGeminiApiKeyChange: (key: string) => void;
 }
+
+interface RangeSliderControlProps {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onChange: (val: number) => void;
+}
+
+const RangeSliderControl: React.FC<RangeSliderControlProps> = React.memo(({
+  label,
+  value,
+  min = 0,
+  max = 100,
+  step = 1,
+  onChange
+}) => {
+  const mValue = useMotionValue(value);
+  
+  useEffect(() => {
+    mValue.set(value);
+  }, [value, mValue]);
+
+  return (
+    <RangeSlider
+      label={label}
+      motionValue={mValue}
+      min={min}
+      max={max}
+      onChange={(v) => {
+        const s = step || 1;
+        const steppedValue = Math.round(v / s) * s;
+        mValue.set(steppedValue);
+      }}
+      onCommit={(v) => {
+        const s = step || 1;
+        const steppedValue = Math.round(v / s) * s;
+        onChange(steppedValue);
+      }}
+    />
+  );
+});
+
+RangeSliderControl.displayName = 'RangeSliderControl';
+
+const getComponent = (type: string): any => {
+  if (type === 'button') return Button;
+  if (type === 'card') return Card;
+  if (type === 'nametag') return NameTag;
+  if (type === 'slot') return Slot;
+  return null;
+};
+
+export const getDefaultProps = (propertyControls: any) => {
+  const defaults: any = {};
+  if (!propertyControls) return defaults;
+  for (const [key, control] of Object.entries<any>(propertyControls)) {
+    if (control.type === 'object' || control.type === ControlType.Object) {
+      defaults[key] = getDefaultProps(control.controls);
+    } else if (control.defaultValue !== undefined) {
+      defaults[key] = control.defaultValue;
+    }
+  }
+  return defaults;
+};
 
 const ControlPanel: React.FC<ControlPanelProps> = ({ 
   btnProps, 
@@ -62,7 +135,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   viewRotateX,
   viewRotateZ,
   uiMode,
-    onToggleUIMode,
+  onToggleUIMode,
   showThemeToggle,
   onToggleThemeButton,
   isAIControlEnabled,
@@ -96,13 +169,134 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     onPropChange(updates);
   };
 
-  const isButton = btnProps.componentType === 'button';
-  const isTertiary = isButton && btnProps.variant === 'tertiary';
+  const activeComponent = getComponent(btnProps.componentType);
+  const propertyControls = activeComponent?.propertyControls || {};
+
+  // Render a specific property control element mapping to Core structures
+  const renderControl = (key: string, control: any, parentKey?: string) => {
+    try {
+      const value = parentKey 
+        ? (btnProps[parentKey]?.[key] !== undefined ? btnProps[parentKey][key] : control.defaultValue)
+        : (btnProps[key] !== undefined ? btnProps[key] : control.defaultValue);
+
+      const handleChange = (newVal: any) => {
+        if (parentKey) {
+          const parentVal = btnProps[parentKey] || {};
+          onPropChange(parentKey, {
+            ...parentVal,
+            [key]: newVal
+          });
+        } else {
+          onPropChange(key, newVal);
+        }
+      };
+
+      switch (control.type) {
+        case 'string':
+        case ControlType.String:
+          return (
+            <Input
+              key={parentKey ? `${parentKey}.${key}` : key}
+              label={control.title || key}
+              value={value ?? ''}
+              onChange={(e) => handleChange(e.target.value)}
+            />
+          );
+
+        case 'boolean':
+        case ControlType.Boolean:
+          return (
+            <Toggle
+              key={parentKey ? `${parentKey}.${key}` : key}
+              label={control.title || key}
+              isOn={Boolean(value)}
+              onToggle={() => handleChange(!value)}
+            />
+          );
+
+        case 'number':
+        case ControlType.Number:
+          return (
+            <RangeSliderControl
+              key={parentKey ? `${parentKey}.${key}` : key}
+              label={control.title || key}
+              value={value ?? control.defaultValue ?? 0}
+              min={control.min ?? 0}
+              max={control.max ?? 100}
+              step={control.step ?? 1}
+              onChange={handleChange}
+            />
+          );
+
+        case 'color':
+        case ControlType.Color:
+          return (
+            <ColorPicker
+              key={parentKey ? `${parentKey}.${key}` : key}
+              label={control.title || key}
+              value={value ?? ''}
+              onChange={(e) => handleChange(e.target.value)}
+            />
+          );
+
+        case 'enum':
+        case ControlType.Enum:
+          const options = (control.options || []).map((opt: any, idx: number) => ({
+            value: opt,
+            label: control.optionTitles ? control.optionTitles[idx] || opt : opt
+          }));
+          return (
+            <Select<any>
+              key={parentKey ? `${parentKey}.${key}` : key}
+              label={control.title || key}
+              value={value ?? ''}
+              onChange={(e) => handleChange(e.target.value)}
+              options={options}
+            />
+          );
+
+        case 'object':
+        case ControlType.Object:
+          // SHADE DSL COMPLIANT REWRITE: ControlType.Object is mapped to Accordion 
+          return (
+            <Accordion 
+              key={key} 
+              title={control.title || key} 
+              defaultOpen={true}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
+                {Object.entries(control.controls || {}).map(([subKey, subControl]) => 
+                  renderControl(subKey, subControl, key)
+                )}
+              </div>
+            </Accordion>
+          );
+
+        default:
+          return null;
+      }
+    } catch (err) {
+      console.error(`Error rendering property control ${key}:`, err);
+      return null;
+    }
+  };
+
+  // Divide controls between simple controls (render inside Component block) and objects (render as separate Accordions)
+  const topLevelControls: Array<[string, any]> = [];
+  const objectLevelControls: Array<[string, any]> = [];
+
+  Object.entries(propertyControls).forEach(([key, control]: [string, any]) => {
+    if (control.type === 'object' || control.type === ControlType.Object) {
+      objectLevelControls.push([key, control]);
+    } else {
+      topLevelControls.push([key, control]);
+    }
+  });
 
   return (
     <>
       <Accordion title="Global" defaultOpen>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <Toggle
             label="Lean UI Mode"
             isOn={uiMode === 'lean'}
@@ -121,111 +315,34 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       </Accordion>
 
-      <Accordion title="Component">
+      <Accordion title="Component" defaultOpen>
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           <Select<any>
             label="Component Type"
             value={btnProps.componentType}
-            onChange={(e) => onPropChange({ 
-                componentType: e.target.value,
-                /* 
-                 * SHADE DSL CARDS CORNER RADIUS REWRITE:
-                 * - Preset Cards corner radius to 40px on type switch.
-                 * - To undo: change '40px' back to theme.radius['Radius.XL'] || theme.radius['Radius.XL'].
-                 */
-                customRadius: e.target.value === 'nametag' ? theme.radius['Radius.L'] : e.target.value === 'card' ? '40px' : e.target.value === 'slot' ? '0px' : e.target.value === 'custom' ? theme.radius['Radius.M'] : theme.height['Height.L'],
-                variant: e.target.value === 'nametag' || e.target.value === 'card' ? 'secondary' : 'primary'
-            })}
+            onChange={(e) => {
+              const nextType = e.target.value;
+              const component = getComponent(nextType);
+              const defaults = component && component.propertyControls ? getDefaultProps(component.propertyControls) : {};
+              onPropChange({ 
+                componentType: nextType,
+                ...defaults
+              });
+            }}
             options={[
               { value: 'button', label: 'Button (Core)' },
               { value: 'card', label: 'Card (Package)' },
               { value: 'nametag', label: 'Name Tag (Package)' },
-              { value: 'custom', label: 'Custom (Code)' },
               { value: 'slot', label: 'Slot (Viewport)' },
             ]}
           />
 
-          <Input
-            label={isButton ? "Label" : "Title"}
-            value={btnProps.label}
-            onChange={(e) => onPropChange('label', e.target.value)}
-          />
-
-          {isButton && (
-            <div style={{ display: 'flex', gap: theme.space['Space.M'] }}>
-              <div style={{ flex: 1 }}>
-                <Select<any>
-                  label="Variant"
-                  value={btnProps.variant}
-                  onChange={(e) => onPropChange('variant', e.target.value)}
-                  options={[
-                    { value: 'primary', label: 'Primary' },
-                    { value: 'secondary', label: 'Secondary' },
-                    { value: 'tertiary', label: 'Tertiary' },
-                    { value: 'outline', label: 'Outline' },
-                    { value: 'destructive', label: 'Destructive' },
-                  ]}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <Select<any>
-                  label="Size"
-                  value={btnProps.size}
-                  onChange={(e) => onPropChange('size', e.target.value)}
-                  options={[
-                    { value: 'S', label: 'Small (S)' },
-                    { value: 'M', label: 'Medium (M)' },
-                    { value: 'L', label: 'Large (L)' },
-                  ]}
-                />
-              </div>
-            </div>
-          )}
-
-          {isButton && (
-            <Select<any>
-              label="Icon (Phosphor)"
-              value={btnProps.icon || ''}
-              onChange={(e) => onPropChange('icon', e.target.value)}
-              options={[
-                  { value: '', label: 'None' },
-                  { value: 'ph-sparkle', label: 'Sparkle' },
-                  { value: 'ph-heart', label: 'Heart' },
-                  { value: 'ph-bell', label: 'Bell' },
-                  { value: 'ph-rocket', label: 'Rocket' },
-                  { value: 'ph-gear', label: 'Gear' },
-              ]}
-            />
-          )}
+          {topLevelControls.map(([key, control]) => renderControl(key, control))}
         </div>
       </Accordion>
 
-      <Accordion title="Appearance">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
-          <RangeSlider
-            label="Corner Radius"
-            motionValue={radiusMotionValue}
-            onCommit={onRadiusCommit}
-            min={0}
-            max={56}
-          />
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'], width: '100%' }}>
-            {!isTertiary && (
-              <ColorPicker
-                label="Fill Color"
-                value={btnProps.customFill || (btnProps.variant === 'primary' ? (themeName === 'dark' ? '#ffffff' : '#111111') : (btnProps.componentType === 'card' ? theme.Color.Base.Surface[1] : 'transparent'))}
-                onChange={(e) => onPropChange('customFill', e.target.value)}
-              />
-            )}
-            <ColorPicker
-              label="Text Color"
-              value={btnProps.customColor || (btnProps.variant === 'primary' ? (themeName === 'dark' ? '#000000' : '#ffffff') : (themeName === 'dark' ? '#ffffff' : '#111111'))}
-              onChange={(e) => onPropChange('customColor', e.target.value)}
-            />
-          </div>
-        </div>
-      </Accordion>
+      {/* Render each nested dynamic object control as an Accordion! */}
+      {objectLevelControls.map(([key, control]) => renderControl(key, control))}
 
       <Accordion title="State">
         <div style={{ width: '100%' }}>
