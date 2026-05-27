@@ -3,7 +3,6 @@ export { AnimatedCopyIcon } from './AnimatedCopyIcon.tsx';
 export { default as AnimatedCounter } from './AnimatedCounter.tsx';
 export { default as ApiInput } from './ApiInput.tsx';
 export { default as Button } from './Button.tsx';
-export { default as ColorPicker } from './ColorPicker.tsx';
 export { default as Confetti } from './Confetti.tsx';
 export { default as CustomScrollbar } from './CustomScrollbar.tsx';
 export { default as DockIcon } from './DockIcon.tsx';

@@ -6,7 +6,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import RangeSlider from './RangeSlider.tsx';
+import RangeSlider from '../Core/RangeSlider.tsx';
+import FloatingWindow from './FloatingWindow.tsx';
 import { playSound } from '../../services/soundService.ts';
 
 // --- COLOR UTILS ---
@@ -179,17 +180,6 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
         height: theme.space['Space.2XL'],
         borderRadius: '50%',
     },
-    popoverRoot: {
-        position: 'fixed' as const,
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        pointerEvents: 'none' as const,
-        zIndex: 9999,
-        display: 'grid',
-        placeItems: 'center'
-    },
     menuContainer: {
         position: 'relative' as const,
         display: 'flex',
@@ -227,12 +217,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
         boxShadow: `0 4px 15px ${color}66, 0 0 20px ${color}33`,
     }),
     slidersPanel: {
-        width: theme.space['Space.13XL'] || '280px',
-        backgroundColor: theme.Color.Base.Surface[1],
-        border: `1px solid ${theme.Color.Base.Surface[3]}`,
-        borderRadius: theme.radius['Radius.M'],
-        boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-        padding: theme.space['Space.L'],
+        width: '100%',
+        padding: theme.space['Space.S'],
         display: 'flex',
         flexDirection: 'column' as const,
         gap: theme.space['Space.M'],
@@ -371,41 +357,20 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
       {createPortal(
         <AnimatePresence>
           {isOpen && (
-            <div style={STYLES.popoverRoot}>
-                {/* Backdrop with Blur */}
-                <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    style={{ 
-                        position: 'absolute', 
-                        inset: 0, 
-                        background: 'rgba(0,0,0,0.6)', 
-                        backdropFilter: 'blur(10px)', 
-                        pointerEvents: 'auto' 
-                    }}
-                    onClick={() => setIsOpen(false)}
-                />
-
-                <motion.div
-                    style={STYLES.menuContainer}
-                    initial={{ scale: 0.8, opacity: 0, y: 20 }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.8, opacity: 0, y: 20 }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                >
+            <FloatingWindow
+                title={label || "Color Picker"}
+                zIndex={10000}
+                x={0}
+                y={0}
+                onClose={() => setIsOpen(false)}
+                onFocus={() => {}}
+            >
+                <div style={{ ...STYLES.menuContainer, gap: theme.space['Space.M'] }}>
                     {/* Spatial Rings Section */}
                     {spatialRingsUI}
 
-                    {/* HSL Sliders Panel - Flex Layout, No overlap */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 20 }}
-                        transition={{ delay: 0.3 }}
-                        style={STYLES.slidersPanel}
-                        onPointerDown={(e) => e.stopPropagation()}
-                    >
+                    {/* HSL Sliders Panel */}
+                    <div style={STYLES.slidersPanel}>
                         <RangeSlider 
                             label="Hue" 
                             motionValue={hueMV} 
@@ -430,10 +395,9 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
                             onChange={(v) => updateColor({ ...hsl, l: v }, false)}
                             onCommit={(v) => updateColor({ ...hsl, l: v }, true)}
                         />
-                    </motion.div>
-
-                </motion.div>
-            </div>
+                    </div>
+                </div>
+            </FloatingWindow>
           )}
         </AnimatePresence>,
         document.body

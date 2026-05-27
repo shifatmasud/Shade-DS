@@ -37,3 +37,11 @@
     - Updated `FloatingWindow.tsx` style to use `translate: '-50% -50%'`.
     - Supported seamless composition where the browser handles the core layout centering via the standalone `translate` property, while Framer Motion handles separate drag offsets via the standard `transform` translation.
 
+## 2026-05-27: ColorPicker Window Transformation
+- **Issue**: The ColorPicker was a basic overlay, lacking the draggable and structural consistency of other system windows.
+- **Solution**: Migrate the component to the `Package` layer and wrap its content in a `FloatingWindow`.
+- **Implementation**:
+    - Relocated `ColorPicker.tsx` from `Core` to `Package`.
+    - Integrated `FloatingWindow` into the component's portal structure.
+    - Updated index exports and all internal imports to maintain architectural integrity.
+

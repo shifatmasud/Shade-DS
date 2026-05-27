@@ -9,7 +9,7 @@ import { MetaButtonProps } from '../../types/index.tsx';
 import Input from '../Core/Input.tsx';
 import Select from '../Core/Select.tsx';
 import RangeSlider from '../Core/RangeSlider.tsx';
-import ColorPicker from '../Core/ColorPicker.tsx';
+import ColorPicker from './ColorPicker.tsx';
 import Toggle from '../Core/Toggle.tsx';
 import Accordion from '../Core/Accordion.tsx';
 import ApiInput from '../Core/ApiInput.tsx';

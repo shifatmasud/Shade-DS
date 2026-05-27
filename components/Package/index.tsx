@@ -1,5 +1,6 @@
 export { default as AIPanel } from './AIPanel.tsx';
 export { default as Card } from './Card.tsx';
+export { default as ColorPicker } from './ColorPicker.tsx';
 export { default as CodePanel } from './CodePanel.tsx';
 export { default as ConsolePanel } from './ConsolePanel.tsx';
 export { default as ControlPanel } from './ControlPanel.tsx';
