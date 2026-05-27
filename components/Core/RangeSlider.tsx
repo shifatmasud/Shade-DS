@@ -8,6 +8,71 @@ import { type MotionValue, motion, useVelocity, useTransform, AnimatePresence, u
 import { useTheme } from '../../Theme.tsx';
 import AnimatedCounter from './AnimatedCounter.tsx';
 
+/**
+ * 🛠️ ValueDisplay Sub-component
+ * Extracted outside the rendering scope of RangeSlider to completely eliminate
+ * DOM Thrashing / constant mount/unmount and recreation during fast slide drags.
+ * 
+ * TO UNDO: Inline this component back into the RangeSlider return statement below.
+ */
+interface ValueDisplayProps {
+  isEditing: boolean;
+  min: number;
+  max: number;
+  inputValue: string | number;
+  internalValue: number;
+  inputStyle: React.CSSProperties;
+  animatedCounterWrapperStyle: React.CSSProperties;
+  numberInputContainerStyle: React.CSSProperties;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur: () => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onStartEdit: () => void;
+}
+
+const ValueDisplay: React.FC<ValueDisplayProps> = React.memo(({
+  isEditing,
+  min,
+  max,
+  inputValue,
+  internalValue,
+  inputStyle,
+  animatedCounterWrapperStyle,
+  numberInputContainerStyle,
+  onChange,
+  onBlur,
+  onKeyDown,
+  onStartEdit,
+}) => {
+  return (
+    <div style={numberInputContainerStyle}>
+      {isEditing ? (
+        <input
+          type="number"
+          min={min}
+          max={max}
+          value={inputValue}
+          onChange={onChange}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+          autoFocus
+          style={inputStyle}
+        />
+      ) : (
+        <div
+          style={animatedCounterWrapperStyle}
+          onClick={onStartEdit}
+        >
+          {/* Animated counter stays completely preserved here */}
+          <AnimatedCounter value={Math.round(internalValue)} useFormatting={false} />
+        </div>
+      )}
+    </div>
+  );
+});
+
+ValueDisplay.displayName = 'ValueDisplay';
+
 interface RangeSliderProps {
   label: string;
   motionValue: MotionValue<number>;
@@ -30,10 +95,11 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   const { theme } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
   
-  const percentageMV = useTransform(motionValue, [min, max], ["0%", "100%"]);
-  
-  // Use a ref for the current value to avoid stale closure issues in onCommit
-  const currentValueRef = useRef(motionValue.get());
+  // Use a fallback for the initial value to avoid NaN in calculations
+  const [internalValue, setInternalValue] = useState(() => {
+    const val = motionValue.get();
+    return typeof val === 'number' ? val : min;
+  });
   
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -62,13 +128,15 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     mass: 2.5
   });
 
-  // Sync ref with motion value updates
+  // Sync internal state with external motion value updates (e.g. undo/redo)
   useEffect(() => {
     const unsubscribe = motionValue.on("change", (v) => {
-      currentValueRef.current = v;
+      if (!isDragging) {
+        setInternalValue(v);
+      }
     });
     return unsubscribe;
-  }, [motionValue]);
+  }, [motionValue, isDragging]);
 
   const updateValueFromPointer = (clientX: number) => {
     if (!trackRef.current) return;
@@ -76,7 +144,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     const percent = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
     const newValue = Math.round(min + percent * (max - min));
     
-    currentValueRef.current = newValue;
+    setInternalValue(newValue);
     motionValue.set(newValue); // Real-time update
     if (onChange) onChange(newValue);
   };
@@ -97,7 +165,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     if (isDragging) {
       setIsDragging(false);
       trackRef.current?.releasePointerCapture(e.pointerId);
-      onCommit(currentValueRef.current); // Commit only on release
+      onCommit(internalValue); // Commit only on release
     }
   };
 
@@ -105,7 +173,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     setIsEditing(false);
     const v = parseInt(String(inputValue), 10);
     const clamped = isNaN(v) ? min : Math.min(Math.max(v, min), max);
-    currentValueRef.current = clamped;
+    setInternalValue(clamped);
     motionValue.set(clamped);
     onCommit(clamped);
   };
@@ -116,7 +184,6 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     
     if (!isNaN(v)) {
         const clamped = Math.min(Math.max(v, min), max);
-        currentValueRef.current = clamped;
         motionValue.set(clamped);
         if (onChange) onChange(clamped);
     }
@@ -129,7 +196,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     }
   };
 
-  const percentage = Math.max(0, Math.min(100, ((currentValueRef.current - min) / (max - min)) * 100));
+  const percentage = Math.max(0, Math.min(100, ((internalValue - min) / (max - min)) * 100));
 
   const numberInputContainerStyle: React.CSSProperties = {
     width: theme.space['Space.7XL'],
@@ -205,16 +272,6 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     mass: 1,
   };
 
-  // --- SUB-COMPONENTS FOR PERFORMANCE ---
-  const ValueDisplay = ({ mv }: { mv: MotionValue<number> }) => {
-    const [displayVal, setDisplayVal] = useState(mv.get());
-    useEffect(() => {
-        const unsub = mv.on("change", (v) => setDisplayVal(Math.round(v)));
-        return unsub;
-    }, [mv]);
-    return <>{displayVal}</>;
-  };
-
   return (
     <div onPointerDown={(e) => e.stopPropagation()}>
       <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.space['Space.S'], color: theme.Color.Base.Content[2] }}>
@@ -251,22 +308,22 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
             }}>
                 {/* Fill Bar (Only show if no custom background gradient) */}
                 {!trackBackground && (
-                  <motion.div style={{ 
+                  <div style={{ 
                       position: 'absolute', 
                       top: 0, 
                       left: 0, 
                       height: '100%', 
-                      width: percentageMV, 
+                      width: `${percentage}%`, 
                       backgroundColor: theme.Color.Accent.Surface[1], 
                       borderRadius: '3px' 
                   }} />
                 )}
                 
                 {/* Thumb Container for Positioning */}
-                <motion.div style={{
+                <div style={{
                     position: 'absolute',
                     top: '50%',
-                    left: percentageMV,
+                    left: `${percentage}%`,
                     transform: 'translate(-50%, -50%)',
                     width: theme.space['Space.L'], // Approximated from 18px
                     height: theme.space['Space.L'],
@@ -291,7 +348,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                                     transformOrigin: '50% 29px', // 24px height + 5px arrow
                                 }}
                             >
-                                <ValueDisplay mv={motionValue} />
+                                <AnimatedCounter value={Math.round(internalValue)} useFormatting={false} />
                                 <div style={arrowStyle} />
                             </motion.div>
                         )}
@@ -301,6 +358,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                     <motion.div 
                         animate={{ 
                             scale: isDragging ? 1.25 : 1,
+                            backgroundColor: isDragging ? theme.Color.Base.Surface[1] : theme.Color.Base.Surface[1]
                         }}
                         transition={tactileSpring}
                         style={{
@@ -313,36 +371,28 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                             position: 'relative'
                         }} 
                     />
-                </motion.div>
+                </div>
             </div>
         </div>
 
         {/* Number Input */}
-        <div style={numberInputContainerStyle}>
-          {isEditing ? (
-            <input
-              type="number"
-              min={min}
-              max={max}
-              value={inputValue}
-              onChange={handleInputChange}
-              onBlur={handleCommit}
-              onKeyDown={handleInputKeyDown}
-              autoFocus
-              style={inputStyle}
-            />
-          ) : (
-            <div
-              style={animatedCounterWrapperStyle}
-              onClick={() => {
-                setInputValue(Math.round(currentValueRef.current));
-                setIsEditing(true)
-              }}
-            >
-              <ValueDisplay mv={motionValue} />
-            </div>
-          )}
-        </div>
+        <ValueDisplay
+          isEditing={isEditing}
+          min={min}
+          max={max}
+          inputValue={inputValue}
+          internalValue={internalValue}
+          inputStyle={inputStyle}
+          animatedCounterWrapperStyle={animatedCounterWrapperStyle}
+          numberInputContainerStyle={numberInputContainerStyle}
+          onChange={handleInputChange}
+          onBlur={handleCommit}
+          onKeyDown={handleInputKeyDown}
+          onStartEdit={() => {
+            setInputValue(Math.round(internalValue));
+            setIsEditing(true);
+          }}
+        />
       </div>
     </div>
   );

@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
+import { motion, useMotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import RangeSlider from '../Core/RangeSlider.tsx';
 import FloatingWindow from './FloatingWindow.tsx';
@@ -74,31 +73,91 @@ function HSLToHex(h: number, s: number, l: number) {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-interface ColorPickerProps {
-  label?: string;
+/**
+ * 🧱 FloatingColorPickerWindow Props
+ */
+interface FloatingColorPickerWindowProps {
+  id: string;
+  label: string;
   value: string;
-  onChange: (e: any) => void;
-  onCommit?: (value: string) => void;
-  style?: React.CSSProperties;
+  onChange: (hex: string) => void;
+  onCommit?: (hex: string) => void;
+  onClose: () => void;
+  startX: number;
+  startY: number;
 }
 
-const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCommit, style }) => {
-  /**
-   * RECENT CHANGES:
-   * - Density: 2 rings (outer: 12 blobs@R62, inner: 6 blobs@R36) + central white blob.
-   * - Palette: Inner ring (High Sat/High Light 90%), Outer ring (Vibrant).
-   * - Optimization: Increased blob size (52px) to minimize gaps and added glow to white center blob.
-   * 
-   * TO UNDO: Revert blob size to 42px and ring counts/radii.
-   */
+/**
+ * 🧱 FloatingColorPickerWindow Component
+ * Extracted, isolated floating window instance for active color pickers.
+ * 
+ * PERFORMANCE GAINS:
+ * 1. Continuous HSL drags only update LOCAL state. Outer parent is not notified
+ *    until drag commit/release happens, entirely breaking the rendering cascade lag!
+ * 2. This window is hosted higher up in the portal, meaning it stays open even if
+ *    other windows/panels (such as the main Control Panel) close.
+ * 
+ * TO UNDO: Inline this back as a local sub-comp inside ColorPicker under 'isOpen' state.
+ */
+export const FloatingColorPickerWindow: React.FC<FloatingColorPickerWindowProps> = ({
+  id,
+  label,
+  value: initialValue,
+  onChange,
+  onCommit,
+  onClose,
+  startX,
+  startY,
+}) => {
   const { theme } = useTheme();
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLDivElement>(null);
   
-  const [hsl, setHsl] = useState({ h: 0, s: 0, l: 0 });
-  const lastEmittedHex = useRef(value);
+  // Track continuous/local HSL coordinates
+  const [hsl, setHsl] = useState(() => hexToHSL(initialValue));
+  const lastPropValue = useRef(initialValue);
 
-  // Memoize helper to avoid recreation
+  // Sync internal HSL with external prop state (e.g. on Undo/Redo)
+  useEffect(() => {
+    if (initialValue.toLowerCase() !== lastPropValue.current.toLowerCase()) {
+      setHsl(hexToHSL(initialValue));
+      lastPropValue.current = initialValue;
+    }
+  }, [initialValue]);
+
+  // Motion values to feed into standard RangeSlider components
+  const hueMV = useMotionValue(hsl.h);
+  const satMV = useMotionValue(hsl.s);
+  const lightMV = useMotionValue(hsl.l);
+
+  useEffect(() => {
+    hueMV.set(hsl.h);
+    satMV.set(hsl.s);
+    lightMV.set(hsl.l);
+  }, [hsl, hueMV, satMV, lightMV]);
+
+  // Color selection from spatial ring blobs (discrete click event)
+  const selectColor = React.useCallback((color: string) => {
+    playSound('click');
+    const newHsl = hexToHSL(color);
+    setHsl(newHsl);
+    lastPropValue.current = color;
+    onChange(color);
+    if (onCommit) onCommit(color);
+  }, [onChange, onCommit]);
+
+  // Color updating handler
+  const updateColor = React.useCallback((newHsl: typeof hsl, isFinal: boolean = false) => {
+    setHsl(newHsl);
+    const hex = HSLToHex(newHsl.h, newHsl.s, newHsl.l);
+    
+    // Only fire heavy parent updates and history steps on drag end (commit)
+    if (isFinal) {
+      lastPropValue.current = hex;
+      onChange(hex);
+      if (onCommit) onCommit(hex);
+    }
+  }, [onChange, onCommit]);
+
+  // Spatial Blob configuration details
   const coords = useMemo(() => {
     const getCoords = (index: number, total: number, radius: number) => {
         const angle = (index / total) * Math.PI * 2 - Math.PI / 2;
@@ -110,12 +169,10 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     return getCoords;
   }, []);
 
-  // Vibrant/Soft color rings
   const ringInner = useMemo(() => {
     const colors = [];
     const count = 6; 
     for(let i = 0; i < count; i++) {
-        // Distinct vibrant cool palette: High Saturation, High Lightness
         const hue = (i * (360/count)) % 360;
         colors.push(HSLToHex(hue, 60, 90));
     }
@@ -127,7 +184,6 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     const count = 12; 
     for(let i = 0; i < count; i++) {
         const hue = (i * (360/count)) % 360;
-        // Vibrant palette
         colors.push(HSLToHex(hue, 95, 55));
     }
     return colors;
@@ -136,50 +192,16 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
   const ringsData = useMemo(() => [
     { colors: ringOuter, radius: 62, delay: 0.1 }, 
     { colors: ringInner, radius: 36, delay: 0 },
-    { colors: ['#FFFFFF'], radius: 0, delay: 0 }  // Central white blob at origin
+    { colors: ['#FFFFFF'], radius: 0, delay: 0 }
   ], [ringInner, ringOuter]);
 
-  const selectColor = React.useCallback((color: string) => {
-    playSound('click');
-    setHsl(hexToHSL(color));
-    lastEmittedHex.current = color;
-    onChange({ target: { value: color } });
-    if (onCommit) onCommit(color);
-  }, [onChange, onCommit]);
+  // Gradients for range slider tracks
+  const hueGradient = useMemo(() => `linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)`, []);
+  const satGradient = useMemo(() => `linear-gradient(to right, ${HSLToHex(hsl.h, 0, hsl.l)}, ${HSLToHex(hsl.h, 100, hsl.l)})`, [hsl.h, hsl.l]);
+  const lightGradient = useMemo(() => `linear-gradient(to right, #000, ${HSLToHex(hsl.h, hsl.s, 50)}, #fff)`, [hsl.h, hsl.s]);
 
-  // Styles using JS objects as per Shade DSL
+  // Stylings compliant with Shade DSL rules
   const STYLES = useMemo(() => ({
-    container: {
-        position: 'relative' as const,
-        display: 'flex',
-        flexDirection: 'column' as const,
-        gap: theme.space['Space.S'],
-        ...style
-    },
-    label: {
-        ...theme.Type.Readable.Label.S,
-        color: theme.Color.Base.Content[2],
-        userSelect: 'none' as const
-    },
-    swatchContainer: {
-        position: 'relative' as const,
-        width: theme.space['Space.3XL'],
-        height: theme.space['Space.3XL'],
-        borderRadius: '50%',
-        cursor: 'pointer',
-        display: 'grid',
-        placeItems: 'center',
-        background: theme.Color.Base.Surface[2],
-        border: `1px solid ${theme.Color.Base.Surface[3]}`,
-        boxShadow: theme.effects['Effect.Shadow.Drop.2'],
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        flexShrink: 0
-    },
-    innerSwatch: {
-        width: theme.space['Space.2XL'], // Approximated from 28px
-        height: theme.space['Space.2XL'],
-        borderRadius: '50%',
-    },
     menuContainer: {
         position: 'relative' as const,
         display: 'flex',
@@ -208,7 +230,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
     },
     blob: (color: string) => ({
         position: 'absolute' as const,
-        width: theme.space['Space.6XL'], // Approximated from 52px
+        width: theme.space['Space.6XL'], // 52px
         height: theme.space['Space.6XL'],
         borderRadius: '50%',
         backgroundColor: color,
@@ -225,53 +247,9 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
         pointerEvents: 'auto' as const,
         zIndex: 10
     }
-}), [theme, style]);
+  }), [theme]);
 
-  // Update logic with memoization and effect hooks
-  useEffect(() => {
-    if (value.toLowerCase() === lastEmittedHex.current.toLowerCase()) return;
-    if (value.startsWith('#') && (value.length === 4 || value.length === 7)) {
-        setHsl(hexToHSL(value));
-    }
-    lastEmittedHex.current = value;
-  }, [value]);
-
-  const hueMV = useMotionValue(hsl.h);
-  const satMV = useMotionValue(hsl.s);
-  const lightMV = useMotionValue(hsl.l);
-
-  useEffect(() => {
-    hueMV.set(hsl.h);
-    satMV.set(hsl.s);
-    lightMV.set(hsl.l);
-  }, [hsl, hueMV, satMV, lightMV]);
-
-  const updateColor = useMemo(() => {
-    return (newHsl: { h: number, s: number, l: number }, isFinal: boolean = false) => {
-        setHsl(newHsl);
-        const hex = HSLToHex(newHsl.h, newHsl.s, newHsl.l);
-        lastEmittedHex.current = hex;
-        onChange({ target: { value: hex } });
-        if (isFinal && onCommit) onCommit(hex);
-    };
-  }, [onChange, onCommit]);
-
-  const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVal = e.target.value;
-    onChange(e);
-    if (newVal.startsWith('#') && (newVal.length === 4 || newVal.length === 7)) {
-        setHsl(hexToHSL(newVal));
-    }
-  };
-
-  const handleToggle = () => {
-    if (!isOpen) {
-        playSound('click');
-    }
-    setIsOpen(!isOpen);
-  };
-
-  // Spatial Rings UI - Memoized at top level to avoid hook violation and fix slider lag
+  // Spatial Ring Blobs layout
   const spatialRingsUI = useMemo(() => (
     <div style={STYLES.spatialRoot}>
         <motion.div 
@@ -312,13 +290,147 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
             </React.Fragment>
         ))}
     </div>
-  ), [ringsData, coords, selectColor, STYLES.spatialRoot, STYLES.ring, STYLES.blob]);
+  ), [ringsData, coords, selectColor, STYLES]);
+
+  return (
+    <FloatingWindow
+        title={label || "Color Picker"}
+        zIndex={10000}
+        x={startX}
+        y={startY}
+        onClose={onClose}
+        onFocus={() => {}}
+    >
+        <div style={{ ...STYLES.menuContainer, gap: theme.space['Space.M'] }}>
+            {/* Spatial Rings Section */}
+            {spatialRingsUI}
+
+            {/* HSL Sliders Panel with local-only drag updates */}
+            <div style={STYLES.slidersPanel}>
+                <RangeSlider 
+                    label="Hue" 
+                    motionValue={hueMV} 
+                    min={0} max={360} 
+                    trackBackground={hueGradient}
+                    onChange={(v) => updateColor({ ...hsl, h: v }, false)}
+                    onCommit={(v) => updateColor({ ...hsl, h: v }, true)}
+                />
+                <RangeSlider 
+                    label="Saturation" 
+                    motionValue={satMV} 
+                    min={0} max={100} 
+                    trackBackground={satGradient}
+                    onChange={(v) => updateColor({ ...hsl, s: v }, false)}
+                    onCommit={(v) => updateColor({ ...hsl, s: v }, true)}
+                />
+                <RangeSlider 
+                    label="Lightness" 
+                    motionValue={lightMV} 
+                    min={0} max={100} 
+                    trackBackground={lightGradient}
+                    onChange={(v) => updateColor({ ...hsl, l: v }, false)}
+                    onCommit={(v) => updateColor({ ...hsl, l: v }, true)}
+                />
+            </div>
+        </div>
+    </FloatingWindow>
+  );
+};
+
+interface ColorPickerProps {
+  label?: string;
+  value: string;
+  onChange: (e: any) => void;
+  onCommit?: (value: string) => void;
+  style?: React.CSSProperties;
+}
+
+const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCommit, style }) => {
+  const { theme } = useTheme();
+  
+  // Create unique picker ID based on HSL label matching
+  const pickerId = label === "Fill Color" ? "fillColor" : "textColor";
+
+  const STYLES = useMemo(() => ({
+    container: {
+        position: 'relative' as const,
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: theme.space['Space.S'],
+        ...style
+    },
+    label: {
+        ...theme.Type.Readable.Label.S,
+        color: theme.Color.Base.Content[2],
+        userSelect: 'none' as const
+    },
+    swatchContainer: {
+        position: 'relative' as const,
+        width: theme.space['Space.3XL'],
+        height: theme.space['Space.3XL'],
+        borderRadius: '50%',
+        cursor: 'pointer',
+        display: 'grid',
+        placeItems: 'center',
+        background: theme.Color.Base.Surface[2],
+        border: `1px solid ${theme.Color.Base.Surface[3]}`,
+        boxShadow: theme.effects['Effect.Shadow.Drop.2'],
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        flexShrink: 0
+    },
+    innerSwatch: {
+        width: theme.space['Space.2XL'], // 28px
+        height: theme.space['Space.2XL'],
+        borderRadius: '50%',
+    },
+  }), [theme, style]);
+
+  // Triggers opening the globally-hosted Color Picker window
+  const handleToggle = () => {
+    playSound('click');
+    if ((window as any).openColorPicker) {
+      (window as any).openColorPicker(pickerId, {
+        label: label || "Color Picker",
+        value: value,
+        onChange: (hex: string) => {
+          onChange({ target: { value: hex } });
+        },
+        onCommit: (hex: string) => {
+          if (onCommit) onCommit(hex);
+        },
+        startX: pickerId === "fillColor" ? -140 : 140, // Elegant side-by-side split layout
+        startY: 0
+      });
+    }
+  };
+
+  // Ensure window is updated if parent modifies colors (ex: Undos / Redos)
+  useEffect(() => {
+    if ((window as any).openColorPicker && (window as any).isPickerOpen?.(pickerId)) {
+      (window as any).openColorPicker(pickerId, {
+        label: label || "Color Picker",
+        value: value,
+        onChange: (hex: string) => {
+          onChange({ target: { value: hex } });
+        },
+        onCommit: (hex: string) => {
+          if (onCommit) onCommit(hex);
+        },
+        startX: pickerId === "fillColor" ? -140 : 140,
+        startY: 0
+      });
+    }
+  }, [value, label, onChange, onCommit, pickerId]);
+
+  const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(e);
+  };
 
   return (
     <div style={STYLES.container}>
       {label && <label style={STYLES.label}>{label}</label>}
       
-      <div ref={triggerRef} style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}>
           <motion.div 
             style={STYLES.swatchContainer}
             onClick={handleToggle}
@@ -338,97 +450,14 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
                 outline: 'none',
                 color: theme.Color.Base.Content[1],
                 ...theme.Type.Expressive.Data,
-                width: theme.space['Space.7XL'], // Approximated from 60px
+                width: theme.space['Space.7XL'], // 60px
                 opacity: 0.6,
                 textTransform: 'uppercase'
             }}
           />
       </div>
-
-      {createPortal(
-        <AnimatePresence>
-          {isOpen && (
-            <FloatingWindow
-                title={label || "Color Picker"}
-                zIndex={10000}
-                x={0}
-                y={0}
-                onClose={() => setIsOpen(false)}
-                onFocus={() => {}}
-            >
-                <div style={{ ...STYLES.menuContainer, gap: theme.space['Space.M'] }}>
-                    {/* Spatial Rings Section */}
-                    {spatialRingsUI}
-
-                    {/* HSL Sliders Panel */}
-                    <HSLSliders 
-                        currentHsl={hsl} 
-                        onHslChange={updateColor} 
-                        hueMV={hueMV} 
-                        satMV={satMV} 
-                        lightMV={lightMV} 
-                        styles={STYLES.slidersPanel} 
-                    />
-                </div>
-            </FloatingWindow>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
     </div>
   );
-};
-
-// HSL Sliders Panel Sub-component for performance isolation
-const HSLSliders = ({ 
-    currentHsl, 
-    onHslChange, 
-    hueMV, 
-    satMV, 
-    lightMV, 
-    styles 
-}: { 
-    currentHsl: { h: number, s: number, l: number }, 
-    onHslChange: (newHsl: { h: number, s: number, l: number }, isFinal: boolean) => void,
-    hueMV: any,
-    satMV: any,
-    lightMV: any,
-    styles: React.CSSProperties
-}) => {
-    // Local state for immediate feedback if needed, but the parent updateColor also calls setHsl
-    // To minimize lag, we could throttle the parent updates or just ensure the rest of ColorPicker is stable
-    const hueGradient = `linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)`;
-    const satGradient = `linear-gradient(to right, ${HSLToHex(currentHsl.h, 0, currentHsl.l)}, ${HSLToHex(currentHsl.h, 100, currentHsl.l)})`;
-    const lightGradient = `linear-gradient(to right, #000, ${HSLToHex(currentHsl.h, currentHsl.s, 50)}, #fff)`;
-
-    return (
-        <div style={styles}>
-            <RangeSlider 
-                label="Hue" 
-                motionValue={hueMV} 
-                min={0} max={360} 
-                trackBackground={hueGradient}
-                onChange={(v) => onHslChange({ ...currentHsl, h: v }, false)}
-                onCommit={(v) => onHslChange({ ...currentHsl, h: v }, true)}
-            />
-            <RangeSlider 
-                label="Saturation" 
-                motionValue={satMV} 
-                min={0} max={100} 
-                trackBackground={satGradient}
-                onChange={(v) => onHslChange({ ...currentHsl, s: v }, false)}
-                onCommit={(v) => onHslChange({ ...currentHsl, s: v }, true)}
-            />
-            <RangeSlider 
-                label="Lightness" 
-                motionValue={lightMV} 
-                min={0} max={100} 
-                trackBackground={lightGradient}
-                onChange={(v) => onHslChange({ ...currentHsl, l: v }, false)}
-                onCommit={(v) => onHslChange({ ...currentHsl, l: v }, true)}
-            />
-        </div>
-    );
 };
 
 export default ColorPicker;

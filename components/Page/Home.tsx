@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
@@ -21,6 +21,7 @@ import UndoRedo from '../Package/UndoRedo.tsx';
 import Confetti from '../Core/Confetti.tsx';
 import { Sliders, Code, Terminal } from 'phosphor-react';
 import { WindowId, WindowState, LogEntry, MetaButtonProps } from '../../types/index.tsx';
+import { FloatingColorPickerWindow } from '../Package/ColorPicker.tsx';
 
 /**
  * 🏎️ Main Page
@@ -92,6 +93,22 @@ const Home = () => {
 
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  
+  // Floating Color Picker States (isolated instances)
+  const [activePickers, setActivePickers] = useState<Record<string, {
+    id: string;
+    label: string;
+    value: string;
+    onChange: (hex: string) => void;
+    onCommit?: (hex: string) => void;
+    startX: number;
+    startY: number;
+  }>>({});
+  
+  const activePickersRef = useRef(activePickers);
+  useEffect(() => {
+    activePickersRef.current = activePickers;
+  }, [activePickers]);
   
   // -- History State --
   const [history, setHistory] = useState<MetaButtonProps[]>([]);
@@ -194,6 +211,31 @@ const Home = () => {
   // Initial Log
   useEffect(() => {
       logEvent('System Ready. Home initialized.');
+  }, []);
+
+  // Global Registration for isolated Color Pickers
+  useEffect(() => {
+    (window as any).openColorPicker = (id: string, config: any) => {
+      setActivePickers(prev => ({
+        ...prev,
+        [id]: { id, ...config }
+      }));
+    };
+    (window as any).closeColorPicker = (id: string) => {
+      setActivePickers(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    };
+    (window as any).isPickerOpen = (id: string) => {
+      return !!activePickersRef.current[id];
+    };
+    return () => {
+      delete (window as any).openColorPicker;
+      delete (window as any).closeColorPicker;
+      delete (window as any).isPickerOpen;
+    };
   }, []);
 
   const updateBtnProps = (newProps: MetaButtonProps, saveHistory: boolean = true) => {
@@ -497,6 +539,23 @@ const Home = () => {
             />
           </FloatingWindow>
         )}
+      </AnimatePresence>
+
+      {/* --- PERSISTENT COLOR PICKERS --- */}
+      <AnimatePresence>
+        {Object.values(activePickers).map((picker) => (
+          <FloatingColorPickerWindow
+            key={picker.id}
+            id={picker.id}
+            label={picker.label}
+            value={picker.value}
+            onChange={picker.onChange}
+            onCommit={picker.onCommit}
+            onClose={() => (window as any).closeColorPicker(picker.id)}
+            startX={picker.startX}
+            startY={picker.startY}
+          />
+        ))}
       </AnimatePresence>
 
       {uiMode === 'default' ? (
