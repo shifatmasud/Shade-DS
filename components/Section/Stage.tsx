@@ -5,8 +5,13 @@
 import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { motion, MotionValue, useTransform, AnimatePresence, motionValue, useMotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import Button from '../Core/Button.tsx';
-import Card from '../Package/Card.tsx';
+/* 
+ * ARCHITECTURAL RESTRENGTHENING:
+ * - Redirected Button and Card imports of the main 3D/Blueprint inspectable staging area to point to /components/staged/.
+ * - To undo: replace "../staged/Button.tsx" -> "../Core/Button.tsx" and "../staged/Card.tsx" -> "../Package/Card.tsx".
+ */
+import Button from '../staged/Button.tsx';
+import Card from '../staged/Card.tsx';
 import Slot from '../Package/Slot.tsx';
 import { MetaButtonProps, FeedbackVariant } from '../../types/index.tsx';
 import { useElementAnatomy, ElementAnatomy, NormalizedRect } from '../../hooks/useElementAnatomy.tsx';

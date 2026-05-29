@@ -1,13 +1,15 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * 
+ * CORE RESTRUCTURE NOTE:
+ * This is a pure, generic, production-ready "base" UI Button. It is 100% portable for other react projects.
+ * It intentionally lacks the heavy orchestration of our custom design playground (3D space offsets, dynamic audio triggers).
+ * To undo: replace its entire contents with /components/staged/Button.tsx.
  */
-import React, { useState } from 'react';
+import React from 'react';
+import { motion, type MotionValue, useMotionValue, useTransform } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
-import StateLayer from './StateLayer.tsx';
-import RippleLayer, { Ripple } from './RippleLayer.tsx';
-import { playSound } from '../../services/soundService';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
 export type ButtonSize = 'S' | 'M' | 'L';
@@ -17,131 +19,37 @@ interface ButtonProps {
   size?: ButtonSize;
   label: string;
   icon?: string;
-  onClick?: () => void;
   customFill?: string | MotionValue<string>;
   customColor?: string | MotionValue<string>;
   customRadius?: string | MotionValue<string>;
   disabled?: boolean;
-  layerSpacing?: MotionValue<number>;
-  view3D?: boolean;
-  // Forced States
-  forcedHover?: boolean;
-  forcedFocus?: boolean;
-  forcedActive?: boolean;
+  onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary',
-  size = 'L',
+  size = 'M',
   label,
   icon,
-  onClick,
   customFill,
   customColor,
   customRadius,
   disabled = false,
-  layerSpacing,
-  view3D = false,
-  forcedHover = false,
-  forcedFocus = false,
-  forcedActive = false,
+  onClick,
+  style,
 }, ref) => {
   const { theme } = useTheme();
-  
-  // Interaction State
-  const [isHovered, setIsHovered] = useState(false);
-  const effectiveHover = forcedHover || isHovered;
-  
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [ripples, setRipples] = useState<Ripple[]>([]);
 
-  // 3D Layer Transforms
-  const defaultLayerSpacing = useMotionValue(0);
-  const effectiveLayerSpacing = layerSpacing || defaultLayerSpacing;
-
-  const zStateLayer = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v}px)`);
-  const zRippleLayer = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v * 2}px)`);
-  const zContent = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v * 3}px)`);
-  
-  // Helper to calculate relative coordinates
-  const getCoords = (e: React.PointerEvent | React.MouseEvent) => {
-    const buttonEl = e.currentTarget as HTMLButtonElement;
-    const rect = buttonEl.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      width: rect.width,
-      height: rect.height,
-    };
-  };
-
-  // Pointer Event Handlers
-  const handlePointerEnter = (e: React.PointerEvent) => {
-    if (disabled) return;
-    const { width, height } = getCoords(e);
-    setDimensions({ width, height });
-    setIsHovered(true);
-    playSound('hover');
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (disabled) return;
-    const { x, y } = getCoords(e);
-    setCoords({ x, y });
-  };
-
-  const handlePointerLeave = () => {
-    setIsHovered(false);
-  };
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (disabled) return;
-    const { x, y, width, height } = getCoords(e);
-    setCoords({ x, y });
-    setDimensions({ width, height });
-  };
-
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (disabled) return;
-    
-    // Trigger Ripple on valid Click/Tap only
-    const { width, height } = getCoords(e);
-    let { x, y } = getCoords(e);
-
-    // Handle Keyboard click (coordinates are 0)
-    if (e.detail === 0) {
-       x = width / 2;
-       y = height / 2;
-    }
-
-    setRipples(prev => [...prev, { id: Date.now() + Math.random(), x, y }]);
-    playSound('click');
-
-    // Forward event
-    if (onClick) onClick();
-  };
-
-  const handleRippleComplete = (id: number) => {
-    setRipples(prev => prev.filter(r => r.id !== id));
-  };
-
-  // Style Logic
-  /*
-   * SHADE DSL THEME AWARENESS UPGRADE:
-   * - Integrated useResolvedMotionValue hook inside the Button to resolve custom colors to standard theme tokens when they are empty ('').
-   * - To undo: Revert resolving logic in getVariantStyles back to customFill and customColor, and remove the helper hook.
-   */
+  // Simple, elegant motion value handler for blank states
   const useResolvedMotionValue = (prop: any, fallback: string): any => {
     const isMV = prop && typeof prop === 'object' && 'get' in prop && 'on' in prop;
     const localMV = useMotionValue(isMV ? prop.get() : (prop || fallback));
-    
     React.useEffect(() => {
       if (!isMV) {
         localMV.set(prop || fallback);
       }
     }, [prop, isMV, fallback]);
-
     return useTransform(isMV ? prop : localMV, (v: any) => v || fallback);
   };
 
@@ -167,7 +75,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           background: resolvedFill,
           color: resolvedColor,
           border: 'none',
-          boxShadow: theme.effects['Effect.Shadow.Drop.2'],
+          boxShadow: theme.effects['Effect.Shadow.Drop.1'],
         };
       case 'secondary':
         return {
@@ -179,35 +87,22 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         return {
           backgroundColor: 'transparent',
           color: resolvedColor,
-          /* 
-           * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
-           * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} ${theme.border['Border.Style.Main']} ${theme.Color.Base.Content[3]}`
-           */
           ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
         };
       case 'destructive':
         return {
           backgroundColor: resolvedFill,
           color: resolvedColor,
-          /* 
-           * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow, merged with Drop-shadow.
-           * To undo: restore separate border and boxShadow.
-           */
           border: 'none',
-          boxShadow: `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}, ${theme.effects['Effect.Shadow.Drop.2']}`,
+          boxShadow: `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}, ${theme.effects['Effect.Shadow.Drop.1']}`,
         };
       case 'tertiary':
+      default:
         return {
           backgroundColor: 'transparent',
           color: resolvedColor,
           border: 'none',
           boxShadow: 'none',
-        };
-      default:
-        return {
-          background: resolvedFill,
-          color: resolvedColor,
-          border: 'none',
         };
     }
   };
@@ -221,205 +116,56 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     }
   };
 
-  const variantStyles = getVariantStyles();
-  const sizeStyles = getSizeStyles();
-
-  // Combined Styles
-  const styles: any = {
+  const baseStyles: React.CSSProperties = {
     position: 'relative',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.space['Space.S'],
     cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? theme.opacity['Opacity.Disabled'] : 1, 
-    filter: disabled ? 'grayscale(100%)' : 'none',
-    overflow: 'visible',
-    fontWeight: 600,
-    ...theme.Type.Readable.Label.M,
-    transformStyle: 'preserve-3d',
-    ...variantStyles,
-    ...sizeStyles,
-    // Note: box-shadow and transform handled by motion values below
-    boxShadow: undefined, 
-  };
-
-  // Feedback Color Derivation
-  let feedbackColor = variant === 'primary' ? theme.Color.Accent.Content[1] : (variant === 'destructive' ? theme.Color.Error.Content[1] : theme.Color.Base.Content[1]);
-  
-  // State Layer Opacity
-  const stateLayerOpacity = theme.opacity['Opacity.Subtle']; 
-
-  // Layer wrapper styles for 3D
-  const layerWrapperStyle: React.CSSProperties = {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      borderRadius: 'inherit',
-      pointerEvents: 'none',
-      transformStyle: 'preserve-3d',
-  };
-
-  const contentWrapperStyle: React.CSSProperties = {
-    position: 'relative',
-    zIndex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.space['Space.S'],
-    pointerEvents: 'none',
+    opacity: disabled ? theme.opacity['Opacity.Disabled'] : 1,
+    overflow: 'hidden',
     userSelect: 'none',
-  };
-
-  // 3D Debug Colors
-  const colors = {
-      surface: theme.Color.Error.Content[1],
-      state: theme.Color.Active.Content[1],
-      ripple: theme.Color.Focus.Content[1],
-      content: theme.Color.Success.Content[1],
-  };
-
-  const getDebugBorder = (color: string) => view3D ? `1px solid ${color}` : 'none';
-
-  // Calculate Animate Props for Premium Feel
-  const getAnimateState = () => {
-    if (disabled) return { y: 0, scale: 1, boxShadow: 'none' };
-    
-    const isTertiary = variant === 'tertiary';
-    
-    // Active (Pressed)
-    if (forcedActive) {
-        return { 
-            y: 2, 
-            scale: 0.95, 
-            boxShadow: 'none' 
-        };
-    }
-    
-    // Hover (Mouse)
-    if (effectiveHover) {
-         return {
-            y: -4, // Bolder lift
-            scale: 1.05, // Bolder scale
-            // Ghost variant has no shadow even on hover
-            boxShadow: isTertiary ? 'none' : theme.effects['Effect.Shadow.Drop.3']
-         };
-    }
-    
-    // Idle
-    return { 
-        y: 0, 
-        scale: 1, 
-        // Ghost variant has no shadow
-        boxShadow: isTertiary ? 'none' : (variantStyles.boxShadow || 'none') 
-    };
+    transition: 'background-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
+    ...getSizeStyles(),
+    ...getVariantStyles(),
   };
 
   return (
     <motion.button
       ref={ref}
       style={{
-        ...styles,
+        ...baseStyles,
         borderRadius: customRadius || theme.radius['Radius.Full'],
+        ...style,
       }}
-      onClick={handleClick}
-      onPointerEnter={handlePointerEnter}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
-      onPointerDown={handlePointerDown}
-      animate={getAnimateState()}
-      // Default tap behavior if not forced
-      whileTap={forcedActive ? undefined : { scale: 0.95, y: 2, boxShadow: 'none' }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
+      disabled={disabled}
+      whileHover={disabled ? undefined : { scale: 1.02, y: -1 }}
+      whileTap={disabled ? undefined : { scale: 0.98, y: 0 }}
+      transition={{ duration: 0.1, ease: 'easeOut' }}
+      onClick={onClick}
     >
-      {/* 
-        Decoupled Layers with 3D Support
-      */}
+      {icon && <i className={`ph-bold ${icon}`} style={{ fontSize: '1.20em' }} />}
+      <span>{label}</span>
       
-      {/* 0. SURFACE LAYER (Base Z=0) */}
-      <motion.div style={{ ...layerWrapperStyle, zIndex: 0, border: getDebugBorder(colors.surface) }} />
-
-      {/* 0.5 FOCUS RING LAYER (Dedicated Element - NOT in 3D stack) */}
-      <motion.div 
-        style={{ 
-            ...layerWrapperStyle, 
-            zIndex: 1,
-        }}
-        animate={{ 
-            opacity: forcedFocus ? 1 : 0,
-            scale: forcedFocus ? 1 : 0.9,
-        }}
-        transition={{ duration: 0.2 }}
-      >
-         <div style={{
-             position: 'absolute',
-             top: `calc(-1 * ${theme.space['Space.XS']})`, 
-             left: `calc(-1 * ${theme.space['Space.XS']})`, 
-             right: `calc(-1 * ${theme.space['Space.XS']})`, 
-             bottom: `calc(-1 * ${theme.space['Space.XS']})`, 
-             borderRadius: 'inherit',
-             /* 
-              * SHADE DSL REWRITE: Replaced 2px focus ring border with CSS outline property.
-              * To undo: restore separate border and borderColor.
-              */
-             ...theme.border.getOutline2px(theme.Color.Focus.Content[1]),
-             pointerEvents: 'none',
-             boxShadow: forcedFocus ? `0 0 12px ${theme.Color.Focus.Surface[1]}` : 'none',
-         }} />
-      </motion.div>
-
-      {/* 1. STATE LAYER (Bottom) */}
-      <motion.div style={{ ...layerWrapperStyle, transform: zStateLayer }}>
-        <div style={{ width: '100%', height: '100%', overflow: 'hidden', borderRadius: 'inherit', border: getDebugBorder(colors.state) }}>
-            {/* 
-              * SHADE DSL HOVER CORRECTION:
-              * - Re-routed 'color' prop to bind directly to the evaluated 'resolvedColor' MotionValue.
-              * - Solves the transparent hover bug when customColor was of blank motion state.
-              * - To undo: Revert from 'color={resolvedColor}' back to 'color={customColor || feedbackColor}'.
-              */}
-            <StateLayer 
-                color={resolvedColor} 
-                isActive={effectiveHover} 
-                opacity={stateLayerOpacity}
-                x={coords.x} 
-                y={coords.y} 
-                width={dimensions.width} 
-                height={dimensions.height}
-                forced={forcedHover}
-            />
-        </div>
-      </motion.div>
-      
-      {/* 2. RIPPLE LAYER (Middle) */}
-      <motion.div style={{ ...layerWrapperStyle, transform: zRippleLayer }}>
-        <div style={{ width: '100%', height: '100%', overflow: 'hidden', borderRadius: 'inherit', border: getDebugBorder(colors.ripple) }}>
-            {/* 
-              * SHADE DSL HOVER CORRECTION:
-              * - Re-routed 'color' prop to bind directly to the evaluated 'resolvedColor' MotionValue.
-              * - Solves the transparent ripple bug when customColor was of blank motion state.
-              * - To undo: Revert from 'color={resolvedColor}' back to 'color={customColor || feedbackColor}'.
-              */}
-            <RippleLayer
-                color={resolvedColor}
-                ripples={ripples}
-                onRippleComplete={handleRippleComplete}
-                width={dimensions.width} 
-                height={dimensions.height}
-                forced={forcedActive}
-            />
-        </div>
-      </motion.div>
-      
-      {/* 3. CONTENT LAYER (Top) */}
-      <motion.div style={{ ...layerWrapperStyle, transform: zContent, border: getDebugBorder(colors.content) }} />
-
-      <motion.div style={{ ...contentWrapperStyle, transform: zContent }}>
-        {icon && <i className={`ph-bold ${icon}`} draggable={false} style={{ fontSize: '1.25em' }} />}
-        <span draggable={false}>{label}</span>
-      </motion.div>
+      {/* Native Hover Overlay */}
+      {!disabled && (
+        <motion.div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'currentColor',
+            opacity: 0,
+            pointerEvents: 'none',
+          }}
+          whileHover={{ opacity: 0.08 }}
+          whileTap={{ opacity: 0.12 }}
+        />
+      )}
     </motion.button>
   );
 });
+
+Button.displayName = 'Button';
 
 export default Button;

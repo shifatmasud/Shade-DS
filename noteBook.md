@@ -114,3 +114,12 @@
     - Refactored `/components/Core/Button.tsx`: Altered the `color` prop passed to both `StateLayer` and `RippleLayer` to use the evaluated `resolvedColor` MotionValue, aligning layer color resolution with the main layout variants.
     - Updated `/components/Core/StateLayer.tsx` and `/Framer/StateLayer.tsx`: Refitted standard transitions to execute on an `'easeInOut'` easing model, providing smooth hover animations.
     - Updated `/components/Core/RippleLayer.tsx` and `/Framer/RippleLayer.tsx`: Detached the `filter: 'blur(12px)'` dynamic property and adjusted defaults to map to Framer Motion spring parameters (`type: 'spring', stiffness: 80, damping: 15`).
+
+## 2026-05-29: Architectural Restructure (Base vs Staged Split)
+- **Issue**: Standard button and card components were closely intertwined with workspace interaction mechanisms (like 3D rotators, sound, coordinates systems, and heavy measurement attributes). This precluded simple copy-pasting of these components into other clean React environments.
+- **Solution**: Distribute components into two layers: `/components/` for pure, lightweight, portable base UI items, and `/components/staged/` for custom interactive systems.
+- **Implementation**:
+    - Created `/components/staged/Button.tsx` and `/components/staged/Card.tsx`, maintaining the original interactive design playground code.
+    - Simplified `/components/Core/Button.tsx` and `/components/Package/Card.tsx` into clean, self-contained components that use standard layout styling, simple props, and Framer Motion micro-interactions.
+    - Updated `/components/Section/Stage.tsx` imports of Button/Card to target `/components/staged/` so the staging platform retains its robust visual rendering.
+

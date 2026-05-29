@@ -64,6 +64,18 @@ We build apps like LEGO. Each piece has a specific size and place!
 
 ## Recent Updates
 
+- **Architectural Restructure: Base vs Staged Separation**:
+  - **Summary**: Separated tightly orchestrated interactive components from highly portable generic components.
+  - **Architecture (IPO)**:
+    - **Input**: Complex components (`Button.tsx`, `Card.tsx`) tied to 3D, physics, and workspace states.
+    - **Process**: Created `/components/staged/` to house heavily orchestrated design components, and wrote lightweight, pristine "base" variants in `/components/Core/` and `/components/Package/`.
+    - **Output**: Clean separation where `/components/` preserves generic portable blocks, and `/components/staged/` keeps workspace 3D interactions.
+  - **Action List**:
+    1. Created `/components/staged/Button.tsx` with full interactive rigged orchestration.
+    2. Created `/components/staged/Card.tsx` with dynamic spacing math and 3D transforms.
+    3. Overwrote `/components/Core/Button.tsx` and `/components/Package/Card.tsx` to be pure, production-ready portable elements.
+    4. Modified `/components/Section/Stage.tsx` to import from `../staged/`.
+
 - **Theme-Aware Dynamic Color Resolution**: Solved theme-unawareness issues where custom fill and text colors (including the card's 'Do Magic' title) would fall back to unstyled browser defaults if passed as empty `MotionValue` threads. Added `useResolvedMotionValue` inside both `Card.tsx` and `Button.tsx` to dynamically resolve blank motion states to standard semantic design tokens (`theme.Color`).
 
 - **Card Corner Radius Standardized**: Increased the default fallback card corner radius from 12px (`Radius.L`) to 40px and modernized `outerRadiusMV` default values so nested outer-to-inner aspect ratios correctly scale. Also aligned the control panel presets to load Cards with a soft 40px contour on type switch.
