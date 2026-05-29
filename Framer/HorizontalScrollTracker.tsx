@@ -28,7 +28,7 @@ import { useScroll, useTransform, useInView } from "framer-motion"
  * @framerIntrinsicHeight 40
  */
 export default function HorizontalScrollTracker(props) {
-    const { scrollSectionRef, offsetX, viewport, levels } = props
+    const { scrollSectionRef, offsetX, viewport, levels, targetMode } = props
 
     const containerRef = React.useRef<HTMLDivElement>(null)
     const [targetElement, setTargetElement] =
@@ -42,30 +42,37 @@ export default function HorizontalScrollTracker(props) {
         setIsClient(true)
     }, [])
 
-    // 🔗 Parent DOM Discovery: Climb to target parent element based on DOM levels
-    // Track any resolution errors dynamically in console for easier debugging
+    // 🔗 Target Discovery: Finds the element to animate based on Mode and Levels
     React.useLayoutEffect(() => {
         if (!isClient) return
-        const selfElement = containerRef.current
-        if (!selfElement) return
+        const self = containerRef.current
+        if (!self) return
 
         try {
-            let target: HTMLElement | null = selfElement
-            for (let i = 0; i < levels; i++) {
-                target = target?.parentElement
-                if (!target) break
+            let target: HTMLElement | null = self
+
+            if (targetMode === "parent") {
+                // Climb UP the tree to find the container
+                for (let i = 0; i < levels; i++) {
+                    target = target?.parentElement || null
+                }
+            } else {
+                // Escape component wrapper (usually 1 level) then find sibling
+                const wrapper = target?.parentElement
+                if (targetMode === "prev") {
+                    target = (wrapper?.previousElementSibling as HTMLElement) || null
+                } else if (targetMode === "next") {
+                    target = (wrapper?.nextElementSibling as HTMLElement) || null
+                }
             }
 
             if (target && target !== targetElement) {
                 setTargetElement(target)
             }
         } catch (err) {
-            console.error(
-                "[ScrollTracker] Parent element discovery error:",
-                err
-            )
+            console.error("[ScrollTracker] Discovery error:", err)
         }
-    }, [isClient, targetElement, levels])
+    }, [isClient, targetElement, levels, targetMode])
 
     // 🔍 Find the scroll section target element on the canvas or published page
     const effectiveId =
@@ -231,9 +238,10 @@ HorizontalScrollTracker.displayName = "HorizontalScrollTracker"
 
 HorizontalScrollTracker.defaultProps = {
     scrollSectionRef: "",
+    targetMode: "parent",
+    levels: 2,
     offsetX: ["0dvw", "-100dvw", "-200dvw"],
     viewport: "bottom",
-    levels: 2,
 }
 
 addPropertyControls(HorizontalScrollTracker, {
@@ -242,13 +250,21 @@ addPropertyControls(HorizontalScrollTracker, {
         type: ControlType.ScrollSectionRef,
         title: "Scroll Section",
     },
+    targetMode: {
+        type: ControlType.Enum,
+        title: "Target Mode",
+        options: ["parent", "prev", "next"],
+        optionTitles: ["Climb Parent", "Prev Sibling", "Next Sibling"],
+        defaultValue: "parent",
+    },
     levels: {
         type: ControlType.Number,
-        title: "DOM Levels",
+        title: "Parent Levels",
         defaultValue: 2,
         min: 1,
-        max: 5,
+        max: 8,
         step: 1,
+        hidden: (props) => props.targetMode !== "parent",
     },
     offsetX: {
         type: ControlType.Array,
