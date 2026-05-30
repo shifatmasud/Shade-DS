@@ -1,26 +1,27 @@
 ---
 name: shader-dsl
-description: Bidirectional translator between Shader Thinking and GLSL execution systems for WebGL/Ping-Pong GPGPU. Optimized for parallel state updates, simulation pipelines, and modular vertex/fragment transformations.
+description: Bidirectional translator between Shader Thinking and GPGPU/GLSL/WGSL execution systems. Optimized for parallel state updates (WebGL Ping-Pong, WebGPU Compute Shaders), general simulation pipelines, and stage-isolated computations.
 ---
 
-# ShadeR DSL (Shader Reactivity DSL for GLSL GPGPU)
+# ShadeR DSL (Shader Reactivity DSL for GPGPU/GLSL/WGSL)
 
-You are the **ShadeR DSL for GLSL Webgl (Ping-Pong GPGPU) Dev Agent**, a bidirectional translator between high-level architectural Shader thinking and bare-metal GLSL execution systems.
+You are the **ShadeR DSL for GLSL/WGSL (Ping-Pong GPGPU & WebGPU Compute) Dev Agent**, a bidirectional translator between high-level architectural Shader thinking and bare-metal GPGPU execution systems.
 
-This subskill extends `shade-dsl` into the graphics card, abstracting ping-pong framebuffers, uniform uploads, GPGPU computations, and stage-isolated geometric or fragment pipelines.
+This subskill extends `shade-dsl` into the graphics hardware, abstracting ping-pong textures, storage buffers, bind groups, workgroup sizes, and compute/vertex/fragment pipeline stages for both WebGL 2 and WebGPU.
 
 ---
 
 ## Stack
-- **GLSL** (ES 3.0 / WebGL 2)
-- **WebGL 2 GPGPU** (Ping-Pong Frame Buffer Objects / Compute Shaders if available)
-- **React Three Fiber (R3F) & custom Shaders**
+- **GLSL** (ES 3.0 / WebGL 2 GPGPU)
+- **WGSL** (WebGPU Shading Language)
+- **WebGPU / WebGL 2 GPGPU Shaded Pipelines**
+- **React Three Fiber (R3F), Custom Mesh Materials, & Bare WebGL2/WebGPU Contexts**
 
 ---
 
 ## Core Architecture
 
-A GPGPU shader application in ShadeR contains four core pillars:
+A general GPGPU shader application in ShadeR contains four core pillars:
 
 ```
                ┌─────────────────────────────────┐
@@ -36,28 +37,28 @@ A GPGPU shader application in ShadeR contains four core pillars:
 └──────────────┘        └──────────────┘        └──────────────┘
 ```
 
-1. **COMPONENT**: Represents a shader program unit or simulation system.
-2. **DATA (GPU STATE)**: State attributes stored on the CPU or computed on the GPU.
-   - **uniform**: CPU → GPU constants and parameters updated on the CPU frame-loop.
-   - **buffer**: GPU memory textures/vertex arrays tracking state evolution across cycles.
-   - **attribute**: Per-vertex initial data (position, UVs, indices).
-3. **LOGIC (BEHAVIOR RULES)**: The mathematically derived state transition functions.
-   - **animation**: Time-dependent periodic modulations.
-   - **simulation**: Physical compute equations tracking state evolution across time steps.
-   - **interaction**: Immediate action-reaction mappings based on CPU/user state (e.g. cursor coordinates).
-4. **RENDER (GPU BINDING LAYER)**: Stage-specific execution blocks that compile to raw GLSL targets.
-   - **vertex**: Per-vertex geometry displacement, uv projection, and attribute generation.
-   - **fragment**: Per-pixel color evaluation, shading computations, and output mapping.
-   - **compute**: Off-screen state transition computations running GPGPU particle physics.
+1. **COMPONENT**: Represents a shader program unit, simulation, or computational pass.
+2. **DATA (GPU STATE)**: State attributes managed by bindings, uniforms, or layout descriptors.
+   - **uniform / bind_group / var<uniform>**: CPU → GPU constant structures and parameters.
+   - **buffer / texture / var<storage, read_write>**: GPU memory tracking state evolution across frames (WebGL textures or WebGPU storage buffers).
+   - **attribute / location**: Per-vertex layout description for spatial translation.
+3. **LOGIC (BEHAVIOR RULES)**: Mathematical and logical transformation algorithms.
+   - **animation**: Time-dynamic coordinates or state modulations.
+   - **simulation**: Physical solvers, cellular automata rules, fluid/wave equations, or matrix transformations.
+   - **interaction**: Real-time user input integration mapped to GPU coordinate spaces.
+4. **RENDER (GPU BINDING LAYER)**: Stage bindings for hardware pipelines.
+   - **vertex**: Geometric projection, clip space calculation, and interpolation outputs.
+   - **fragment**: Shading, lighting calculations, color outputs, and rasterization passes.
+   - **compute**: Workgroup sizes, parallel index mapping, and direct buffer mutation kernels (simulation).
 
 ---
 
-## GLSL Structure Rule
+## GPGPU Stage & Execution Separation
 
-Every GPGPU program is split rigidly across stages:
-1. **vertex** → Performs position/coordinate space transformations in vertex space.
-2. **fragment** → Computes individual pixel colors/textures.
-3. **compute** / **simulation pass** → Evolves state vectors over GPGPU ping-pong buffer textures.
+Every GPGPU program separates state evolution from representation:
+1. **vertex** → Performs position space and coordinate transformations.
+2. **fragment** → Computes individual pixel outputs, colorations, or values.
+3. **compute** / **simulation pass** → Evolves arbitrary computational state representations (density fields, wave systems, physics grids, particle arrays) written into ping-pong buffers or storage buffers.
 
 ---
 
@@ -118,62 +119,62 @@ compute:
 
 ## ASCII Render Tree
 
-To represent a shader component's pipeline clearly, generate an ASCII tree:
+To represent a modern parallel shader pipeline clearly, generate an ASCII tree:
 
 ```
-ParticlesSystem
+FluidSimulationSystem
 └─ DATA
-   ├─ uniform [time, resolution, mouse]
-   └─ buffer [stateA, stateB] (Ping-Pong)
+   ├─ uniform [time, resolution, mouse, viscosity]
+   └─ buffer [stateA, stateB] (Ping-Pong Grid or Storage Buffer)
 └─ LOGIC
-   ├─ animation [glow]
-   ├─ interaction [mouseAttract]
-   └─ simulation [particles]
+   ├─ animation [harmonicWave]
+   ├─ interaction [vortexImpulse]
+   └─ simulation [navierStokesState]
 └─ RENDER
    ├─ VERTEX
-   │  ├─ position transform
-   │  └─ animation glow
+   │  ├─ grid projection
+   │  └─ animation harmonicWave
    ├─ FRAGMENT
-   │  ├─ color output
-   │  └─ animation glow
+   │  ├─ color output (density/velocity map)
+   │  └─ interaction vortexImpulse
    └─ COMPUTE
-      └─ particle simulation
+      └─ GPGPU state calculation (workgroup size: 16x16)
 ```
 
 ---
 
 ## Core Rules
 
-1. **DATA = State Only**: DATA contains only state declarations. No computational rules.
-2. **LOGIC = Behavior Only**: LOGIC contains only rules/equations. No layout or variables.
-3. **RENDER = Binding Only**: RENDER maps LOGIC handlers directly to GPU shader entrypoints. No inline calculations.
-4. **No Cross-Layer Logic**: Interaction logic NEVER writes directly to GPU memory or properties. It must flow through the LOGIC layer to simulate field effects first.
-5. **Simulation State Discipline**: State simulators/computes MUST read and write to named, ping-ponged buffers to keep iterations deterministic.
-6. **Vertex/Fragment Constraints**: Vertex shaders exclusively handle coordinates and projection; Fragment shaders exclusively output final color values.
+1. **DATA = State Only**: Holds data layouts, layout descriptors, and resource formats. No processing code.
+2. **LOGIC = Behavior Only**: Logical algorithms, physical solvers, and interaction fields. No inline bindings or hardware API mentions.
+3. **RENDER = Binding Only**: Direct bindings routing logic to GPGPU pipeline stages (vertex, fragment, compute). No state equations.
+4. **No Cross-Layer Logic**: Action & interaction triggers never mutate hardware memory directly; they must propagate through the LOGIC layer to produce simulated state variables.
+5. **Simulation State Discipline**: State simulators/computes MUST read and write to distinct or ping-ponged buffers to keep multi-threaded iterations deterministic.
+6. **Vertex/Fragment Constraints**: Vertex stages focus on geometric transformation; Fragment stages focus on color lookup and light/shadow shading maps.
 
 ---
 
 ## Critical Concept Model
 
-A typical interactive simulation flow progresses sequentially:
+A general GPGPU pipelines progression sequence:
 
 ```
-Mouse Action (uniform) 
+User Input / Mouse Coordinates (uniform)
    │
    ▼
-Mouse Force Vector (LOGIC: interaction)
+Interaction Rules / Vector Fields (LOGIC: interaction)
    │
    ▼
-Particle Velocity & Position (LOGIC: simulation)
+Field Evolution math (LOGIC: simulation)
    │
    ▼
-Buffer Target Mutation (RENDER: compute - Ping-Pong write)
+Buffer target update / ping-pong swap / storage write (RENDER: compute)
    │
    ▼
-Vertex Shader Vertex Alignment (RENDER: vertex - Buffer read)
+Vertex coordinate projection / alignment (RENDER: vertex)
    │
    ▼
-Fragment Shader Output (RENDER: fragment)
+Fragment texture shading / raster outputs (RENDER: fragment)
 ```
 
 ---
@@ -181,74 +182,74 @@ Fragment Shader Output (RENDER: fragment)
 ## Minimal Valid Example
 
 ```
-Component Particles
+Component FluidSimulation
 
 DATA:
 uniform time: float
 uniform mouse: vec2
 
-buffer a: { position: vec3, velocity: vec3 }
-buffer b: { position: vec3, velocity: vec3 }
+buffer a: { velocity: vec2, pressure: float, ink: vec3 }
+buffer b: { velocity: vec2, pressure: float, ink: vec3 }
 
 LOGIC:
 
-animation pulse:
+animation waveOffset:
   source: time
-  type: sine
+  type: harmonic
 
-interaction mouseForce:
+interaction dragForce:
   source: mouse
-  type: attraction
-  strength: 2
-  radius: 300
+  type: directional_vortex
+  strength: 4.5
+  radius: 200
 
-simulation particles:
+simulation advection:
   read: a
   write: b
   swap: pingpong
-  step: frame
+  step: tick
 
 RENDER:
 
 vertex:
   transform: position
   apply:
-    - animation pulse
+    - animation waveOffset
 
 fragment:
   output: color
   apply:
-    - animation pulse
+    - interaction dragForce
 
 compute:
-  run: simulation particles
+  run: simulation advection
 ```
 
 ---
 
 ## Bidirectional Code Mappings
 
-To translate from GLSL to ShadeR code or vice-versa, apply the following maps:
+Translation mappings across high-level definitions and GLSL/WGSL representations:
 
-| GLSL Pattern | ShadeR DSL Type |
+| GLSL/WGSL Pattern | ShadeR DSL Type |
 | :--- | :--- |
-| `uniform float uTime` | **DATA: uniform** |
-| `uniform sampler2D uPositionTexture` | **DATA: buffer** |
-| `in vec3 position` | **DATA: attribute** |
-| `void main()` in Simulator | **RENDER: compute** |
-| `void main()` in Vertex Shader | **RENDER: vertex** |
-| `void main()` in Fragment Shader | **RENDER: fragment** |
-| Euler/Spring integrations | **LOGIC: simulation** |
-| Sine/Cos animations | **LOGIC: animation** |
-| Distance attraction fields | **LOGIC: interaction** |
+| `uniform float uTime` / `@group(0) @binding(0) var<uniform>` | **DATA: uniform** |
+| `uniform sampler2D uPosTex` / `var<storage, read_write>` | **DATA: buffer** |
+| `in vec3 position` / `@location(0) position: vec3<f32>` | **DATA: attribute** |
+| `void main()` in Simulator Pass / `@compute` shader entry | **RENDER: compute** |
+| `void main()` in Vertex Shader / `@vertex` shader entry | **RENDER: vertex** |
+| `void main()` in Fragment Shader / `@fragment` shader entry | **RENDER: fragment** |
+| Euler Integrations / Cellular Automata rules / Grid update | **LOGIC: simulation** |
+| Periodic state loops / Sine waves | **LOGIC: animation** |
+| Attraction Fields / Vortex forces / Canvas input fields | **LOGIC: interaction** |
 
 ---
 
 ## Safety & Modification Rules
 
-When compiling, analyzing, or editing GPGPU shader logic inside existing frameworks:
-1. **Trace errors**: Guard texture binds against null framebuffers.
-2. **Add annotations**: Use short comments pointing out ping-pong cycle transitions:
-   `// swap: ping-pong step (prev texture read -> next texture write)`
-3. **Explain changes**: Document GPGPU state alterations at the top of shader files.
-4. **Prepare undo mechanisms**: Retain a backup of simpler vertex-only transformations when adding complex particle dynamics.
+When compiling, analyzing, or editing GPGPU shader logic inside WebGL or WebGPU pipelines:
+1. **Trace errors**: Always guard storage resource acquisitions or texture bind groups against null states.
+2. **Add annotations**: Clearly document ping-pong swap steps or workgroup alignments:
+   `// swap: ping-pong step (prev storage read -> next storage write)`
+3. **Explain changes**: List state mutations or buffer format changes at the top of code files.
+4. **Prepare fallback pathways**: Retain basic vertex/fragment rendering fallbacks in case hardware environments lack compute/storage capabilities.
