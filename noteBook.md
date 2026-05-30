@@ -123,3 +123,12 @@
     - Simplified `/components/Core/Button.tsx` and `/components/Package/Card.tsx` into clean, self-contained components that use standard layout styling, simple props, and Framer Motion micro-interactions.
     - Updated `/components/Section/Stage.tsx` imports of Button/Card to target `/components/staged/` so the staging platform retains its robust visual rendering.
 
+## 2026-05-30: ShadeR DSL (GLSL WebGL GPGPU Companion) Integrated
+- **Issue**: High-performance animations and simulation engines (such as WebGL, GPGPU vertex deformations, and particle springs) require unique shader pipeline planning. Standard Shade DSL is tailored for React layout nesting systems (state, props, components), making it difficult for design system agents to seamlessly plan GPU state-machine operations (uniforms, Ping-Pong FBO textures, vertex/fragment bindings) without translation friction.
+- **Solution**: Introduce a customized ShadeR subskill detailing stateful, parallel Shader representations (DATA/LOGIC/RENDER models) optimized for Ping-Pong GPGPU and GLSL shader code translations.
+- **Implementation**:
+    - Created `/skills/shader_dsl/SKILL.md` comprising the complete stack, mapping matrices, and validation guidelines.
+    - Documented state mechanics (uniform structures, texture buffers, attributes) alongside physics solver behaviors (particle springs, mouse attractors) and stage execution rules (vertex position displacements, fragment pixels).
+    - Linked the subskill within `/README.md` to ensure automatic contextual learning for any downstream agents targeting GPGPU render steps.
+
+

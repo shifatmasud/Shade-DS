@@ -26,6 +26,15 @@ This project is equipped with **Shade DSL**, a bidirectional translation layer b
 
 Refer to `/skills/shade_dsl/SKILL.md` for full specifications.
 
+### ShadeR DSL (GPGPU & GLSL Companion Skill)
+
+We have added **ShadeR DSL** for GPU state, custom logic, and stage-isolated GLSL rendering rules (e.g., vertex, fragment, compute, and ping-pong state machines).
+
+-   **Parallel Architecture**: Establishes high-performance parallel pipelines mapping CPU inputs to GPU-memory buffers.
+-   **Stage Separation**: Separates data, math rules, and rendering bindings to eliminate cross-layer conflicts entirely.
+
+Refer to `/skills/shader_dsl/SKILL.md` for the GLSL/GPGPU translation specifications.
+
 ## Directory Structure (ELI10 Version)
 
 We build apps like LEGO. Each piece has a specific size and place!
@@ -95,6 +104,9 @@ We build apps like LEGO. Each piece has a specific size and place!
 - **True Zero-Rerender HSL Color Sliders**: Completely decoupled the HSL slider dragging timeline from React re-render cycles inside `FloatingColorPickerWindow`. By subscribing directly to the `hueMV`, `satMV`, and `lightMV` motion structures and mutating HSL track colors dynamically via sub-pixel CSS Variables, the component updates the Saturation and Lightness gradients live on the native GPU layer. This eliminates the need for React State updates entirely during dragging-moves and ensures perfect pixel release consistency with absolute zero micro-stutters.
 - **Dedicated Shade DSL Agent Skill**: Created first-class AI capabilities under `/skills/shade_dsl/SKILL.md`. This skill encapsulates the architectural rules of the Shade framework, instructing any connected coding models on how to utilize `MotionValue` thread bindings, direct-to-DOM CSS variable injections, and asynchronous release validation mechanisms to perpetuate pristine 120fps styling workflows during subsequent sessions.
 - **Interactive Layers & Motion Value Routing**: Re-routed the color attributes of state and ripple layers to bind directly to the pre-evaluated `resolvedColor` MotionValue within `Button.tsx`, resolving the invisible standard hover layer bug caused by empty motion values. Stripped the heavy `blur(12px)` CSS filter from the ripple layer for pixel-perfect clarity, and synchronized motion settings using `easeInOut` for standard state hover layers and `spring` physics for ripple layers.
+- **WebGL GPGPU subskill (ShadeR DSL) Integrated (2026-05-30)**:
+  - **What changed**: Engineered a brand new subskill at `/skills/shader_dsl/SKILL.md` detailing GPGPU parallel simulation pipelines, uniform uploads, buffer bindings, and stage separations.
+  - **How to undo**: To completely undo this change, delete the `/skills/shader_dsl/` folder and revert the entries in `/README.md`, `/noteBook.md`, and `/bugReport.md` to their previous states.
 
 ## How to Get Started
 

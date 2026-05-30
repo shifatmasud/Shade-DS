@@ -21,5 +21,7 @@
 - **Card Corner Radius Standardized**: Confirmed correct structural contours of the nested media areas on the stage. Standardized default card component fallback and control panel presets to 40px, ensuring dynamic calculation results in standard inner circles of exactly 16px to prevent clipping.
 - **Resolved Theme-Unaware Overrides**: Resolved a bug where empty/blank overrides (`customColor` and `customFill`) initialized as empty MotionValues inside standard buttons or cards overrode the design system's theme styles with blank strings. Implemented `useResolvedMotionValue` inside `Card.tsx` and `Button.tsx` to ensure any un-configured motion color parameters resolve seamlessly to system-aware tokens from `Theme.tsx`.
 - **Decoupled Architecture Verification (2026-05-29)**: Confirmed that `/components/Core/Button.tsx` and `/components/Package/Card.tsx` are successfully decoupled as pure, lightweight "base" React components. Verified that the main staged simulator platform correctly loads heavy interactive capabilities dynamically from `/components/staged/` without build-time layout regression.
+- **ShadeR subskill Verification (2026-05-30)**: Validated the syntax, format blocks (COMPONENT, DATA, LOGIC, RENDER), and bidirectional GLSL mapping matrices of the newly integrated `/skills/shader_dsl/SKILL.md` subskill against parent Shade DSL guidelines. Verified relative import and markdown linking.
+
 
 
