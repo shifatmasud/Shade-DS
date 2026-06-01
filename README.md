@@ -1,6 +1,13 @@
 # React 19 Meta Prototype & Design System Starter Kit
 
-[**Remix on AI Studio**](https://ai.studio/apps/4c5ad789-603f-46a9-bdad-8e14663811ed) | [**Vercel Demo**](https://shade-ds.vercel.app/)
+[![Remix on AI Studio](https://img.shields.io/badge/Remix-AI_Studio-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.studio/apps/4c5ad789-603f-46a9-bdad-8e14663811ed)
+[![Vercel Demo](https://img.shields.io/badge/Vercel_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://shade-ds.vercel.app/)
+
+![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=flat-square&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Framer Motion](https://img.shields.io/badge/Framer_Motion-12.2-0055FF?style=flat-square&logo=framer&logoColor=white)
+![GSAP](https://img.shields.io/badge/Animation-GSAP-88CE02?style=flat-square&logo=greensock&logoColor=white)
+![Three.js](https://img.shields.io/badge/3D-Three.js-000000?style=flat-square&logo=three.js&logoColor=white)
 
 ## Project Scan Sheet
 
