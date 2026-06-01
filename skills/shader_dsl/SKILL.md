@@ -80,18 +80,42 @@ attribute <name>: <type>
 ### Logic Block
 ```
 LOGIC:
+
+intent: "High-level goal (e.g., A self-organizing particle swarm that avoids the mouse)."
+
+behavior <name>:
+  narrative: "Descriptive human-language logic (e.g., If density > threshold, move away from neighbors to prevent clusters)."
+  logic: <technical_mapping_below>
+
+GRAPH:
+  intent: "Visual data-flow logic for complex multi-pass or procedurally generated effects."
+  
+  node <id>:
+    type: <source | operator | filter | sink>
+    intent: "Descriptive goal for this node (e.g., Generate Perlin Noise)"
+    params: { <key>: <value> }
+    inputs: { <port_name>: <source_connection> }
+    outputs: [ <port_name> ]
+  
+  connection:
+    from: <node_id>.<port_name>
+    to: <node_id>.<port_name>
+
 animation <name>:
+  intent: "Human goal (e.g., Breathing light effect)"
   source: <state>
   type: <wave_or_equation>
   [property_keys]: <values>
 
 interaction <name>:
+  intent: "Human goal (e.g., Repelling field around cursor)"
   source: <input>
   type: <behavior_mapping>
   strength: <value>
   radius: <value>
 
 simulation <name>:
+  intent: "Human goal (e.g., Integration of velocity over time)"
   read: <buffer>
   write: <buffer>
   swap: <pingpong_or_double>
@@ -127,6 +151,9 @@ FluidSimulationSystem
    ├─ uniform [time, resolution, mouse, viscosity]
    └─ buffer [stateA, stateB] (Ping-Pong Grid or Storage Buffer)
 └─ LOGIC
+   ├─ GRAPH (Node-based data flow)
+   │  ├─ node [vortexFieldGen] (Source)
+   │  └─ node [pressureSolver] (Operator)
    ├─ animation [harmonicWave]
    ├─ interaction [vortexImpulse]
    └─ simulation [navierStokesState]
@@ -136,7 +163,8 @@ FluidSimulationSystem
    │  └─ animation harmonicWave
    ├─ FRAGMENT
    │  ├─ color output (density/velocity map)
-   │  └─ interaction vortexImpulse
+   │  ├─ interaction vortexImpulse
+   │  └─ GRAPH vortexFieldGen
    └─ COMPUTE
       └─ GPGPU state calculation (workgroup size: 16x16)
 ```
@@ -193,17 +221,31 @@ buffer b: { velocity: vec2, pressure: float, ink: vec3 }
 
 LOGIC:
 
+intent: "A fluid simulation with a central vortex that responds to mouse movement, creating a trailing ink effect."
+
+GRAPH:
+  intent: "Calculate dynamic pressure fields using a poisson solver graph."
+  node poisson_iteration:
+    type: operator
+    intent: "Iteratively solve for pressure"
+    params: { iterations: 20 }
+    inputs: { div: "divergence_source" }
+    outputs: [ "pressure_result" ]
+
 animation waveOffset:
+  intent: "Apply a global rhythmic sway to the grid coordinates"
   source: time
   type: harmonic
 
 interaction dragForce:
+  intent: "Inject angular momentum into the fluid based on mouse velocity"
   source: mouse
   type: directional_vortex
   strength: 4.5
   radius: 200
 
 simulation advection:
+  intent: "Calculate semi-Lagrangian transport of the density and velocity fields"
   read: a
   write: b
   swap: pingpong
@@ -242,6 +284,34 @@ Translation mappings across high-level definitions and GLSL/WGSL representations
 | Euler Integrations / Cellular Automata rules / Grid update | **LOGIC: simulation** |
 | Periodic state loops / Sine waves | **LOGIC: animation** |
 | Attraction Fields / Vortex forces / Canvas input fields | **LOGIC: interaction** |
+
+---
+
+## Graph Node Mappings (LOGIC: GRAPH)
+
+Mappings for visual data-flow nodes:
+
+| Node Type | Logical Mapping | GLSL/WGSL Implementation |
+| :--- | :--- | :--- |
+| **Source** | Input / Generator | `texture(sampler)` / `generateNoise()` / `uTime` |
+| **Operator** | Pure Function | `mix(a, b, t)` / `pow(x, y)` / `normalize(v)` |
+| **Filter** | Kernel / Neighbourhood | `gaussianBlur()` / `edgeDetect()` / `sharpen()` |
+| **Sink** | Assignment / Output | `color = result` / `pos.xyz = result` |
+
+---
+
+## Intent to Code Translation (LOGIC Translation)
+
+When translating human language intent into shader logic, use the following mental mappings:
+
+| Human Intent | Logical Implementation | GLSL/WGSL Math Pattern |
+| :--- | :--- | :--- |
+| "Slowly fade out" | **Logic: Animation** | `val *= exponential_decay;` |
+| "Move toward center" | **Logic: Interaction** | `dir = normalize(center - pos); pos += dir * speed;` |
+| "Smoothly follow" | **Logic: Simulation** | `velocity += (target - current) * spring_constant - velocity * friction;` |
+| "Spread out" | **Logic: Simulation** | `density = texture(neighbor) * diffusion_rate;` |
+| "React to click" | **Logic: Interaction** | `if (dist(uMouse, pos) < rad) { applyForce(); }` |
+| "Looping ripple" | **Logic: Animation** | `coord += sin(length(coord) * freq - time);` |
 
 ---
 
