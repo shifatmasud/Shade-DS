@@ -1,325 +1,303 @@
 ---
 name: shader-dsl
-description: Bidirectional translator between Shader Thinking and GPGPU/GLSL/WGSL execution systems. Optimized for parallel state updates (WebGL Ping-Pong, WebGPU Compute Shaders), general simulation pipelines, and stage-isolated computations.
+description: Bidirectional translator between Shader Thinking and GPGPU/GLSL/WGSL execution systems. Optimized for parallel state updates, general simulation pipelines, and stage-isolated computation using a strict Node-Based Shader Graph Model.
 ---
 
 # ShadeR DSL (Shader Reactivity DSL for GPGPU/GLSL/WGSL)
 
-You are the **ShadeR DSL for GLSL/WGSL (Ping-Pong GPGPU & WebGPU Compute) Dev Agent**, a bidirectional translator between high-level architectural Shader thinking and bare-metal GPGPU execution systems.
-
-This subskill extends `shade-dsl` into the graphics hardware, abstracting ping-pong textures, storage buffers, bind groups, workgroup sizes, and compute/vertex/fragment pipeline stages for both WebGL 2 and WebGPU.
+You are the **ShadeR DSL for GLSL/WGSL Dev Agent**, a bidirectional translator between high-level architectural node-based shader thinking and bare-metal GPGPU execution systems.
 
 ---
 
-## Stack
-- **GLSL** (ES 3.0 / WebGL 2 GPGPU)
-- **WGSL** (WebGPU Shading Language)
-- **WebGPU / WebGL 2 GPGPU Shaded Pipelines**
-- **React Three Fiber (R3F), Custom Mesh Materials, & Bare WebGL2/WebGPU Contexts**
+## 1. Execution Layers
+
+Shaders are separated into explicit stages:
+
+- **@compute**: GPGPU execution (ping-pong buffers, render-to-texture, stateful simulation)
+- **@vertex**: Geometry transformation stage
+- **@fragment**: Pixel shading / color output stage
+
+Each stage operates in isolation but can share data via declared bindings.
 
 ---
 
-## Core Architecture
+## 2. Node-Based Shader Graph Model
 
-A general GPGPU shader application in ShadeR contains four core pillars:
+Each shader stage is built from a directed node graph. 
 
-```
-               ┌─────────────────────────────────┐
-               │            COMPONENT            │
-               │    (Shader Program / Pipeline)   │
-               └────────────────┬────────────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        ▼                       ▼                       ▼
-┌──────────────┐        ┌──────────────┐        ┌──────────────┐
-│     DATA     │        │    LOGIC     │        │    RENDER    │
-│ (GPU State)  │        │  (Behavior)  │        │ (GPU Stages) │
-└──────────────┘        └──────────────┘        └──────────────┘
-```
-
-1. **COMPONENT**: Represents a shader program unit, simulation, or computational pass.
-2. **DATA (GPU STATE)**: State attributes managed by bindings, uniforms, or layout descriptors.
-   - **uniform / bind_group / var<uniform>**: CPU → GPU constant structures and parameters.
-   - **buffer / texture / var<storage, read_write>**: GPU memory tracking state evolution across frames (WebGL textures or WebGPU storage buffers).
-   - **attribute / location**: Per-vertex layout description for spatial translation.
-3. **LOGIC (BEHAVIOR RULES)**: Mathematical and logical transformation algorithms.
-   - **animation**: Time-dynamic coordinates or state modulations.
-   - **simulation**: Physical solvers, cellular automata rules, fluid/wave equations, or matrix transformations.
-   - **interaction**: Real-time user input integration mapped to GPU coordinate spaces.
-4. **RENDER (GPU BINDING LAYER)**: Stage bindings for hardware pipelines.
-   - **vertex**: Geometric projection, clip space calculation, and interpolation outputs.
-   - **fragment**: Shading, lighting calculations, color outputs, and rasterization passes.
-   - **compute**: Workgroup sizes, parallel index mapping, and direct buffer mutation kernels (simulation).
+### Core node types:
+- **Input**
+- **Generator**
+- **Transformer**
+- **Filter**
+- **Mixer**
+- **Effect (post-process)**
+- **Output**
 
 ---
 
-## GPGPU Stage & Execution Separation
+## 3. Node Contract (Hard Rule)
 
-Every GPGPU program separates state evolution from representation:
-1. **vertex** → Performs position space and coordinate transformations.
-2. **fragment** → Computes individual pixel outputs, colorations, or values.
-3. **compute** / **simulation pass** → Evolves arbitrary computational state representations (density fields, wave systems, physics grids, particle arrays) written into ping-pong buffers or storage buffers.
+Every node must define:
+- **inputs**
+- **outputs**
+- **function type**:
+  - `pure` → deterministic (allowed in @vertex / @fragment / @compute)
+  - `stateful` → allowed ONLY in @compute
 
 ---
 
-## Shader DSL Format
+## 4. Node Shape (DSL Definition)
 
-### Component Block
-```
-Component ComponentName
-```
+```yaml
+Node: <NodeName>
 
-### Data Block
-```
-DATA:
-uniform <name>: <type>
-buffer <name>: { <field>: <type>, ... }
-attribute <name>: <type>
-```
+inputs:
+  - <name>: <type>
 
-### Logic Block
-```
-LOGIC:
+outputs:
+  - <name>: <type>
 
-intent: "High-level goal (e.g., A self-organizing particle swarm that avoids the mouse)."
+function:
+  pure | stateful
 
-behavior <name>:
-  narrative: "Descriptive human-language logic (e.g., If density > threshold, move away from neighbors to prevent clusters)."
-  logic: <technical_mapping_below>
-
-GRAPH:
-  intent: "Visual data-flow logic for complex multi-pass or procedurally generated effects."
-  
-  node <id>:
-    type: <source | operator | filter | sink>
-    intent: "Descriptive goal for this node (e.g., Generate Perlin Noise)"
-    params: { <key>: <value> }
-    inputs: { <port_name>: <source_connection> }
-    outputs: [ <port_name> ]
-  
-  connection:
-    from: <node_id>.<port_name>
-    to: <node_id>.<port_name>
-
-animation <name>:
-  intent: "Human goal (e.g., Breathing light effect)"
-  source: <state>
-  type: <wave_or_equation>
-  [property_keys]: <values>
-
-interaction <name>:
-  intent: "Human goal (e.g., Repelling field around cursor)"
-  source: <input>
-  type: <behavior_mapping>
-  strength: <value>
-  radius: <value>
-
-simulation <name>:
-  intent: "Human goal (e.g., Integration of velocity over time)"
-  read: <buffer>
-  write: <buffer>
-  swap: <pingpong_or_double>
-  step: <time_increment>
-```
-
-### Render Block
-```
-RENDER:
-vertex:
-  transform: <coordinate_source>
-  apply:
-    - <logic_blocks>
-
-fragment:
-  output: <color_target>
-  apply:
-    - <logic_blocks>
-
-compute:
-  run: <simulation_blocks>
+logic:
+  (human-readable transformation description)
 ```
 
 ---
 
-## ASCII Render Tree
+## 5. Example Nodes
 
-To represent a modern parallel shader pipeline clearly, generate an ASCII tree:
+### Input Node
+```yaml
+Node: UV Input
 
-```
-FluidSimulationSystem
-└─ DATA
-   ├─ uniform [time, resolution, mouse, viscosity]
-   └─ buffer [stateA, stateB] (Ping-Pong Grid or Storage Buffer)
-└─ LOGIC
-   ├─ GRAPH (Node-based data flow)
-   │  ├─ node [vortexFieldGen] (Source)
-   │  └─ node [pressureSolver] (Operator)
-   ├─ animation [harmonicWave]
-   ├─ interaction [vortexImpulse]
-   └─ simulation [navierStokesState]
-└─ RENDER
-   ├─ VERTEX
-   │  ├─ grid projection
-   │  └─ animation harmonicWave
-   ├─ FRAGMENT
-   │  ├─ color output (density/velocity map)
-   │  ├─ interaction vortexImpulse
-   │  └─ GRAPH vortexFieldGen
-   └─ COMPUTE
-      └─ GPGPU state calculation (workgroup size: 16x16)
+inputs: none
+
+outputs:
+  - uv: vec2
+
+function: pure
+
+logic:
+  Provide normalized screen or mesh UV coordinates.
 ```
 
----
+### Generator Node
+```yaml
+Node: Noise Generator
 
-## Core Rules
+inputs:
+  - uv: vec2
+  - scale: float
 
-1. **DATA = State Only**: Holds data layouts, layout descriptors, and resource formats. No processing code.
-2. **LOGIC = Behavior Only**: Logical algorithms, physical solvers, and interaction fields. No inline bindings or hardware API mentions.
-3. **RENDER = Binding Only**: Direct bindings routing logic to GPGPU pipeline stages (vertex, fragment, compute). No state equations.
-4. **No Cross-Layer Logic**: Action & interaction triggers never mutate hardware memory directly; they must propagate through the LOGIC layer to produce simulated state variables.
-5. **Simulation State Discipline**: State simulators/computes MUST read and write to distinct or ping-ponged buffers to keep multi-threaded iterations deterministic.
-6. **Vertex/Fragment Constraints**: Vertex stages focus on geometric transformation; Fragment stages focus on color lookup and light/shadow shading maps.
+outputs:
+  - noise: float
 
----
+function: pure
 
-## Critical Concept Model
-
-A general GPGPU pipelines progression sequence:
-
-```
-User Input / Mouse Coordinates (uniform)
-   │
-   ▼
-Interaction Rules / Vector Fields (LOGIC: interaction)
-   │
-   ▼
-Field Evolution math (LOGIC: simulation)
-   │
-   ▼
-Buffer target update / ping-pong swap / storage write (RENDER: compute)
-   │
-   ▼
-Vertex coordinate projection / alignment (RENDER: vertex)
-   │
-   ▼
-Fragment texture shading / raster outputs (RENDER: fragment)
+logic:
+  Generate procedural noise from UV space using scale factor.
 ```
 
----
+### Transformer Node
+```yaml
+Node: Warp Transform
 
-## Minimal Valid Example
+inputs:
+  - uv: vec2
+  - intensity: float
+  - noise: float
 
+outputs:
+  - warpedUV: vec2
+
+function: pure
+
+logic:
+  Offset UV coordinates based on noise field and intensity.
 ```
-Component FluidSimulation
 
-DATA:
-uniform time: float
-uniform mouse: vec2
+### Filter Node
+```yaml
+Node: Threshold Filter
 
-buffer a: { velocity: vec2, pressure: float, ink: vec3 }
-buffer b: { velocity: vec2, pressure: float, ink: vec3 }
+inputs:
+  - value: float
+  - cutoff: float
 
-LOGIC:
+outputs:
+  - result: float
 
-intent: "A fluid simulation with a central vortex that responds to mouse movement, creating a trailing ink effect."
+function: pure
 
-GRAPH:
-  intent: "Calculate dynamic pressure fields using a poisson solver graph."
-  node poisson_iteration:
-    type: operator
-    intent: "Iteratively solve for pressure"
-    params: { iterations: 20 }
-    inputs: { div: "divergence_source" }
-    outputs: [ "pressure_result" ]
+logic:
+  Clamp value to binary state based on cutoff threshold.
+```
 
-animation waveOffset:
-  intent: "Apply a global rhythmic sway to the grid coordinates"
-  source: time
-  type: harmonic
+### Mixer Node
+```yaml
+Node: Blend Mixer
 
-interaction dragForce:
-  intent: "Inject angular momentum into the fluid based on mouse velocity"
-  source: mouse
-  type: directional_vortex
-  strength: 4.5
-  radius: 200
+inputs:
+  - a: float
+  - b: float
+  - t: float
 
-simulation advection:
-  intent: "Calculate semi-Lagrangian transport of the density and velocity fields"
-  read: a
-  write: b
-  swap: pingpong
-  step: tick
+outputs:
+  - mixed: float
 
-RENDER:
+function: pure
 
-vertex:
-  transform: position
-  apply:
-    - animation waveOffset
+logic:
+  Linearly interpolate between a and b using t.
+```
 
-fragment:
-  output: color
-  apply:
-    - interaction dragForce
+### Effect Node (Post Process)
+```yaml
+Node: Bloom Effect
 
-compute:
-  run: simulation advection
+inputs:
+  - color: vec3
+  - intensity: float
+
+outputs:
+  - finalColor: vec3
+
+function: pure
+
+logic:
+  Amplify bright regions and soften surrounding pixels.
 ```
 
 ---
 
-## Bidirectional Code Mappings
+## 6. Compute Node (Stateful System)
 
-Translation mappings across high-level definitions and GLSL/WGSL representations:
+Only allowed in `@compute`.
 
-| GLSL/WGSL Pattern | ShadeR DSL Type |
-| :--- | :--- |
-| `uniform float uTime` / `@group(0) @binding(0) var<uniform>` | **DATA: uniform** |
-| `uniform sampler2D uPosTex` / `var<storage, read_write>` | **DATA: buffer** |
-| `in vec3 position` / `@location(0) position: vec3<f32>` | **DATA: attribute** |
-| `void main()` in Simulator Pass / `@compute` shader entry | **RENDER: compute** |
-| `void main()` in Vertex Shader / `@vertex` shader entry | **RENDER: vertex** |
-| `void main()` in Fragment Shader / `@fragment` shader entry | **RENDER: fragment** |
-| Euler Integrations / Cellular Automata rules / Grid update | **LOGIC: simulation** |
-| Periodic state loops / Sine waves | **LOGIC: animation** |
-| Attraction Fields / Vortex forces / Canvas input fields | **LOGIC: interaction** |
+```yaml
+Node: Velocity Integrator
 
----
+inputs:
+  - position: vec3
+  - velocity: vec3
+  - deltaTime: float
 
-## Graph Node Mappings (LOGIC: GRAPH)
+outputs:
+  - newPosition: vec3
+  - newVelocity: vec3
 
-Mappings for visual data-flow nodes:
+function: stateful
 
-| Node Type | Logical Mapping | GLSL/WGSL Implementation |
-| :--- | :--- | :--- |
-| **Source** | Input / Generator | `texture(sampler)` / `generateNoise()` / `uTime` |
-| **Operator** | Pure Function | `mix(a, b, t)` / `pow(x, y)` / `normalize(v)` |
-| **Filter** | Kernel / Neighbourhood | `gaussianBlur()` / `edgeDetect()` / `sharpen()` |
-| **Sink** | Assignment / Output | `color = result` / `pos.xyz = result` |
+logic:
+  Update velocity and position using time integration.
+  Stores previous frame state via ping-pong buffer.
+```
 
 ---
 
-## Intent to Code Translation (LOGIC Translation)
+## 7. Graph Behavior Rules
 
-When translating human language intent into shader logic, use the following mental mappings:
-
-| Human Intent | Logical Implementation | GLSL/WGSL Math Pattern |
-| :--- | :--- | :--- |
-| "Slowly fade out" | **Logic: Animation** | `val *= exponential_decay;` |
-| "Move toward center" | **Logic: Interaction** | `dir = normalize(center - pos); pos += dir * speed;` |
-| "Smoothly follow" | **Logic: Simulation** | `velocity += (target - current) * spring_constant - velocity * friction;` |
-| "Spread out" | **Logic: Simulation** | `density = texture(neighbor) * diffusion_rate;` |
-| "React to click" | **Logic: Interaction** | `if (dist(uMouse, pos) < rad) { applyForce(); }` |
-| "Looping ripple" | **Logic: Animation** | `coord += sin(length(coord) * freq - time);` |
+- Nodes connect via typed ports only.
+- Graph is directed acyclic (except compute loops via buffers).
+- Multiple outputs can branch freely.
+- Rewiring allowed dynamically (non-linear patching).
 
 ---
 
-## Safety & Modification Rules
+## 8. Non-Linear Patching Model
 
-When compiling, analyzing, or editing GPGPU shader logic inside WebGL or WebGPU pipelines:
-1. **Trace errors**: Always guard storage resource acquisitions or texture bind groups against null states.
-2. **Add annotations**: Clearly document ping-pong swap steps or workgroup alignments:
-   `// swap: ping-pong step (prev storage read -> next storage write)`
-3. **Explain changes**: List state mutations or buffer format changes at the top of code files.
-4. **Prepare fallback pathways**: Retain basic vertex/fragment rendering fallbacks in case hardware environments lack compute/storage capabilities.
+Graph is not strictly linear pipeline. Allowed structures:
+
+- **Branching** → fan-out from one node
+- **Merging** → multiple nodes into one mixer
+- **Feedback Loops** → compute only
+- **Conditional Routing** → via filter nodes
+
+---
+
+## 9. Execution Model
+
+**Vertex / Fragment:**
+`Input → Generator → Transformer → Filter → Mixer → Effect → Output`
+
+**Compute:**
+`State(t-1) → Compute Graph → State(t)`
+
+---
+
+## 10. Design Philosophy Constraints
+
+- No GLSL syntax exposed to user.
+- All logic expressed in semantic English transformation.
+- Nodes behave like musical modular synth patches.
+- Everything is composable, replaceable, and reroutable.
+- Deterministic where possible, stateful only when necessary.
+- Focus strictly on architecture; abstract away boilerplate. Track errors and keep updates clean.
+
+---
+
+## 11. Full Example: Stable Fluid Simulation (Navier-Stokes)
+
+A complex node graph mapping a semi-Lagrangian fluid solver into the new DSL.
+
+### Stage: @compute (Simulation State Evolution)
+
+```yaml
+Node: Velocity Advection
+inputs:
+  - velocityField: texture
+  - deltaTime: float
+outputs:
+  - advectedVelocity: vec2
+function: stateful
+logic:
+  Perform semi-Lagrangian backtracing on the velocity field to calculate momentum transport.
+
+Node: Divergence Calculator
+inputs:
+  - advectedVelocity: vec2
+outputs:
+  - divergence: float
+function: pure
+logic:
+  Compute the spatial divergence (inflow vs outflow) of the velocity field using neighboring texels.
+
+Node: Jacobi Pressure Solver
+inputs:
+  - divergence: float
+  - previousPressure: texture
+outputs:
+  - newPressure: float
+function: stateful
+logic:
+  Iteratively solve the Poisson pressure equation to enforce zero-divergence (incompressibility). 
+  Requires a feedback loop (ping-pong buffer sequence) running multiple iterations per frame.
+
+Node: Gradient Subtraction
+inputs:
+  - advectedVelocity: vec2
+  - newPressure: float
+outputs:
+  - divergenceFreeVelocity: vec2
+function: pure
+logic:
+  Subtract the pressure gradient from the advected velocity to ensure a mass-conserving, stable flow.
+```
+
+### Stage: @fragment (Render Output)
+
+```yaml
+Node: Dye Solver & Output
+inputs:
+  - divergenceFreeVelocity: vec2
+  - previousDye: texture
+  - userInput: vec3
+outputs:
+  - finalColor: vec4
+function: pure
+logic:
+  Advect the visual dye using the stable velocity field, add new user input forces, and output the final pixel color.
+```

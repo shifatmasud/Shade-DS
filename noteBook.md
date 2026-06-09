@@ -131,4 +131,14 @@
     - Documented state mechanics (uniform structures, texture buffers, attributes) alongside physics solver behaviors (particle springs, mouse attractors) and stage execution rules (vertex position displacements, fragment pixels).
     - Linked the subskill within `/README.md` to ensure automatic contextual learning for any downstream agents targeting GPGPU render steps.
 
+## 2026-06-09: ShadeR DSL Spec Upgrade (Node-Based Architecture)
+- **Issue**: The previous `DATA`/`LOGIC`/`RENDER` pillar model was too abstracted and lacked an explicit pipeline flow representation.
+- **Solution**: Upgraded `shader_dsl` to a strict Node-Based Shader Graph Model, treating shader stages as node compositions behaving like pure/stateful modular synths.
+- **Implementation**:
+    - Restructured `/skills/shader_dsl/SKILL.md` to define node contracts (Input, Generator, Transformer, Filter, Mixer, Effect, Output).
+    - Enforced isolation across `@vertex`, `@fragment` and `@compute` explicit stages.
+    - Simplified logic intent into readable semantic transformation rules, replacing arbitrary YAML configurations with distinct, typed Graph definitions.
+    - **Follow-up:** Appended a complete Navier-Stokes Stable Fluid Simulation example mapped entirely into `@compute` and `@fragment` node contracts.
+
+
 

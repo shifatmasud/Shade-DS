@@ -34,14 +34,15 @@ This project is equipped with **Shade DSL**, a bidirectional translation layer b
 
 Refer to `/skills/shade_dsl/SKILL.md` for full specifications.
 
-### ShadeR DSL (GPGPU & GLSL Companion Skill)
+### ShadeR DSL (GPGPU & GLSL Node-Based Companion Skill)
 
-We have added **ShadeR DSL** for GPU state, custom logic, and stage-isolated GLSL rendering rules (e.g., vertex, fragment, compute, and ping-pong state machines).
+We have upgraded **ShadeR DSL** to use a strict **Node-Based Shader Graph Model** for GPU state and GLSL computation mapping.
 
--   **Parallel Architecture**: Establishes high-performance parallel pipelines mapping CPU inputs to GPU-memory buffers.
--   **Stage Separation**: Separates data, math rules, and rendering bindings to eliminate cross-layer conflicts entirely.
+-   **Parallel Architecture**: Establishes high-performance parallel pipelines utilizing directed node graphs.
+-   **Stage Separation**: Separates shaders into explicit `@compute` (stateful runloops), `@vertex` (geometry), and `@fragment` (pixel shading) layers.
+-   **Node Contracts**: Expresses all mathematical logic through semantic nodes (Generator, Transformer, Filter, Mixer) acting like a modular synthesizer.
 
-Refer to `/skills/shader_dsl/SKILL.md` for the GLSL/GPGPU translation specifications.
+Refer to `/skills/shader_dsl/SKILL.md` for the Node-Based GLSL/GPGPU translation specifications.
 
 ## Directory Structure (ELI10 Version)
 
