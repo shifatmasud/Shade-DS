@@ -139,6 +139,8 @@
     - Enforced isolation across `@vertex`, `@fragment` and `@compute` explicit stages.
     - Simplified logic intent into readable semantic transformation rules, replacing arbitrary YAML configurations with distinct, typed Graph definitions.
     - **Follow-up:** Appended a complete Navier-Stokes Stable Fluid Simulation example mapped entirely into `@compute` and `@fragment` node contracts.
+- **IPO Optimization (Input-Process-Output Refactor)**: Refactored nodes to reside strictly inside the **Process** layer. Removed explicit "Input" and "Output" node types, letting the outer IPO structure naturally bind data structures (Uniforms, Texture buffers, Framebuffers) to the processing pipeline for cleaner, modular composition.
+
 
 
 

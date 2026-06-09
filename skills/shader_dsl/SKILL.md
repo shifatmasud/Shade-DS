@@ -21,18 +21,22 @@ Each stage operates in isolation but can share data via declared bindings.
 
 ---
 
-## 2. Node-Based Shader Graph Model
+## 2. Input-Process-Output (IPO) Shader Architecture
 
-Each shader stage is built from a directed node graph. 
+Each shader stage conforms to an Input-Process-Output structure. Process steps are built using a directed shader graph of computational nodes.
 
-### Core node types:
-- **Input**
-- **Generator**
-- **Transformer**
-- **Filter**
-- **Mixer**
-- **Effect (post-process)**
-- **Output**
+- **Input Layer**: Declared bindings (uniforms, attributes, textures, ping-pong buffers).
+- **Process Layer (Node Graph)**: The transformation logic executing within the shader.
+- **Output Layer**: Targeted destinations (viewport, textures, mutated buffer states).
+
+### Core Process Node Types:
+- **Generator** (Generates procedural signals, e.g., noise, gradients)
+- **Transformer** (Manipulates domains or coordinate spaces, e.g., warps)
+- **Filter** (Applies spatial or value-based operations, e.g., threshold)
+- **Mixer** (Blends two or more streams, e.g., lerp, mask)
+- **Effect (post-process)** (Applies screen-space enhancements, e.g., bloom)
+
+<!-- Error Check: Explicitly separated from Input/Output data bindings to ensure pure modular chaining. -->
 
 ---
 
@@ -67,22 +71,9 @@ logic:
 
 ---
 
-## 5. Example Nodes
+## 5. Example Process Nodes
 
-### Input Node
-```yaml
-Node: UV Input
-
-inputs: none
-
-outputs:
-  - uv: vec2
-
-function: pure
-
-logic:
-  Provide normalized screen or mesh UV coordinates.
-```
+<!-- Error Check: Node inputs are fed by the IPO Input stage or output ports of preceding process nodes. -->
 
 ### Generator Node
 ```yaml
@@ -218,13 +209,15 @@ Graph is not strictly linear pipeline. Allowed structures:
 
 ---
 
-## 9. Execution Model
+## 9. Execution Model (IPO Flow)
 
-**Vertex / Fragment:**
-`Input → Generator → Transformer → Filter → Mixer → Effect → Output`
+<!-- Track Errors: Ensure output bindings match input texture buffers in compute loops to prevent out-of-bounds writes. -->
 
-**Compute:**
-`State(t-1) → Compute Graph → State(t)`
+**Vertex / Fragment Stage:**
+`INPUT (Attributes, Uniforms, Textures) → PROCESS (Generator → Transformer → Filter → Mixer → Effect) → OUTPUT (Screen Color, Geometry)`
+
+**Compute Stage (Feedback loop):**
+`INPUT (State at t-1) → PROCESS (Stateful Compute Nodes) → OUTPUT (State at t)`
 
 ---
 
@@ -300,4 +293,13 @@ outputs:
 function: pure
 logic:
   Advect the visual dye using the stable velocity field, add new user input forces, and output the final pixel color.
+
+---
+
+<!-- 
+SAFETY & MODIFICATION LEDGER:
+- Track Errors: Refactored node types to decouple from I/O terminals, preventing redundant input/output leaf node cycles.
+- Change Log: Restructured Shader DSL rules from standard Node Graph model to Input-Process-Output (IPO) architecture.
+- How to Undo: Revert this commit or restore the earlier node definition list (re-adding 'Input' & 'Output' to Node types) and remove the IPO layer declarations.
+-->
 ```

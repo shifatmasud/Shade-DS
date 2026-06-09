@@ -23,6 +23,8 @@
 - **Decoupled Architecture Verification (2026-05-29)**: Confirmed that `/components/Core/Button.tsx` and `/components/Package/Card.tsx` are successfully decoupled as pure, lightweight "base" React components. Verified that the main staged simulator platform correctly loads heavy interactive capabilities dynamically from `/components/staged/` without build-time layout regression.
 - **ShadeR subskill Verification (2026-05-30)**: Validated the syntax, format blocks (COMPONENT, DATA, LOGIC, RENDER), and bidirectional GLSL mapping matrices of the newly integrated `/skills/shader_dsl/SKILL.md` subskill against parent Shade DSL guidelines. Verified relative import and markdown linking.
 - **ShadeR Node-Based Upgrade Verification (2026-06-09)**: Confirmed the ShadeR DSL migration from pillar-based formulation to a structured Node-Based Shader Graph Model. Validated the explicit separation of `@compute`, `@vertex`, and `@fragment` execution layers and pure vs. stateful function node contracts inside `/skills/shader_dsl/SKILL.md`.
+- **ShadeR IPO Structure Verification (2026-06-09)**: Verified integration of the Input-Process-Output (IPO) architecture within `/skills/shader_dsl/SKILL.md`. Confirmed removal of redundant Input/Output nodes, proving that data terminals are handled outside of the directed Process flow graph for optimal shader modularity.
+
 
 
 
