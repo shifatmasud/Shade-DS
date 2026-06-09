@@ -234,72 +234,95 @@ Graph is not strictly linear pipeline. Allowed structures:
 
 ## 11. Full Example: Stable Fluid Simulation (Navier-Stokes)
 
-A complex node graph mapping a semi-Lagrangian fluid solver into the new DSL.
+A complex node graph mapping a semi-Lagrangian fluid solver into high-level IPO architecture blocks.
 
 ### Stage: @compute (Simulation State Evolution)
 
 ```yaml
-Node: Velocity Advection
-inputs:
-  - velocityField: texture
+Stage: @compute
+
+Input:
+  - velocityFieldTexture: texture  # Ping-pong source A
+  - pressureFieldTexture: texture  # Ping-pong source B
   - deltaTime: float
-outputs:
-  - advectedVelocity: vec2
-function: stateful
-logic:
-  Perform semi-Lagrangian backtracing on the velocity field to calculate momentum transport.
 
-Node: Divergence Calculator
-inputs:
-  - advectedVelocity: vec2
-outputs:
-  - divergence: float
-function: pure
-logic:
-  Compute the spatial divergence (inflow vs outflow) of the velocity field using neighboring texels.
+Process:
+  - Node: Velocity Advection
+    inputs:
+      - velocityField: texture
+      - deltaTime: float
+    outputs:
+      - advectedVelocity: vec2
+    function: stateful
+    logic:
+      Perform semi-Lagrangian backtracing on the velocity field to calculate momentum transport.
 
-Node: Jacobi Pressure Solver
-inputs:
-  - divergence: float
-  - previousPressure: texture
-outputs:
-  - newPressure: float
-function: stateful
-logic:
-  Iteratively solve the Poisson pressure equation to enforce zero-divergence (incompressibility). 
-  Requires a feedback loop (ping-pong buffer sequence) running multiple iterations per frame.
+  - Node: Divergence Calculator
+    inputs:
+      - advectedVelocity: vec2
+    outputs:
+      - divergence: float
+    function: pure
+    logic:
+      Compute the spatial divergence (inflow vs outflow) of the velocity field using neighboring texels.
 
-Node: Gradient Subtraction
-inputs:
-  - advectedVelocity: vec2
-  - newPressure: float
-outputs:
-  - divergenceFreeVelocity: vec2
-function: pure
-logic:
-  Subtract the pressure gradient from the advected velocity to ensure a mass-conserving, stable flow.
+  - Node: Jacobi Pressure Solver
+    inputs:
+      - divergence: float
+      - previousPressure: texture
+    outputs:
+      - newPressure: float
+    function: stateful
+    logic:
+      Iteratively solve the Poisson pressure equation to enforce zero-divergence (incompressibility). 
+      Requires a feedback loop (ping-pong buffer sequence) running multiple iterations per frame.
+
+  - Node: Gradient Subtraction
+    inputs:
+      - advectedVelocity: vec2
+      - newPressure: float
+    outputs:
+      - divergenceFreeVelocity: vec2
+    function: pure
+    logic:
+      Subtract the pressure gradient from the advected velocity to ensure a mass-conserving, stable flow.
+
+Output:
+  - nextVelocityField: texture   # Ping-pong target A
+  - nextPressureField: texture   # Ping-pong target B
 ```
 
-### Stage: @fragment (Render Output)
+### Stage: @fragment (Render Output Overlay)
 
 ```yaml
-Node: Dye Solver & Output
-inputs:
-  - divergenceFreeVelocity: vec2
-  - previousDye: texture
-  - userInput: vec3
-outputs:
-  - finalColor: vec4
-function: pure
-logic:
-  Advect the visual dye using the stable velocity field, add new user input forces, and output the final pixel color.
+Stage: @fragment
+
+Input:
+  - divergenceFreeVelocity: vec2   # Fed directly from compute node output
+  - dyeFieldTexture: texture       # Visual accumulation ping-pong buffer
+  - userInputForce: vec3           # User interaction position & brush momentum
+
+Process:
+  - Node: Dye Solver
+    inputs:
+      - velocity: vec2
+      - previousDye: texture
+      - force: vec3
+    outputs:
+      - nextDye: vec4
+    function: pure
+    logic:
+      Advect the visual dye using the stable velocity field, add new user input forces, and calculate updated concentration values.
+
+Output:
+  - finalViewportColor: vec4       # Direct screen representation
+```
 
 ---
 
 <!-- 
 SAFETY & MODIFICATION LEDGER:
 - Track Errors: Refactored node types to decouple from I/O terminals, preventing redundant input/output leaf node cycles.
-- Change Log: Restructured Shader DSL rules from standard Node Graph model to Input-Process-Output (IPO) architecture.
-- How to Undo: Revert this commit or restore the earlier node definition list (re-adding 'Input' & 'Output' to Node types) and remove the IPO layer declarations.
+- Change Log: Restructured Shader DSL rules and the entire Navier-Stokes multi-stage system example from standard Node Graph models to explicit Input-Process-Output (IPO) architecture blocks.
+- How to Undo: Revert this commit or restore the earlier node definition list and remove the IPO layer declarations in compute and fragment blocks.
 -->
-```
