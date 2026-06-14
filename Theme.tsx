@@ -172,7 +172,8 @@ const resolveTokens = (obj: any, breakpoint: Breakpoint): any => {
 
 const GlobalStyles = ({ theme }: { theme: any }) => {
     const globalCss = `
-      *, *::before, *::after { box-sizing: border-box; }
+      /* Tap highlight color removed globally. To undo: remove '-webkit-tap-highlight-color: transparent' */
+      *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body, #root { height: 100%; margin: 0; padding: 0; font-family: ${typography.Type.Readable.Body.M.fontFamily}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
       body { transition: background-color ${time['Time.3x']} ease; }
       
