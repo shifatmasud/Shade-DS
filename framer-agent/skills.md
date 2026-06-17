@@ -29,7 +29,106 @@ npx -y @framer/agent@0.0.33 exec -s <session_id> -e "const context = await frame
 
 ---
 
-## 2. Global Inspection & Lookup APIs
+## 2. Connecting & Managing Framer Projects
+
+To target any Framer web page or design canvas, you must establish an authorized connection to the specific project and create an active execution session.
+
+### A. Authorizing & Creating Projects
+The `@framer/agent` CLI offers robust tools to authenticate, clone, or spin up new Framer environments.
+
+1. **Authorize an Existing Project (`auth`)**:
+   Connects and saves credentials for any existing project using its shared URL or unique ID.
+   ```bash
+   npx -y @framer/agent@0.0.33 project auth <projectUrlOrId> [apiKey]
+   ```
+   *Note*: If `apiKey` is omitted, the CLI will fall back to browser-based interactive authentication or the current session's host environment setup credentials.
+
+2. **Spin Up a Brand New Project (`new`)**:
+   Creates a new canvas from scratch directly on Framer via a browser-approved validation hook, saving credentials locally upon completion.
+   ```bash
+   npx -y @framer/agent@0.0.33 project new
+   ```
+
+3. **Remix an Existing Project (`remix`)**:
+   Clones/duplicates an existing canvas template environment via browser approval.
+   ```bash
+   npx -y @framer/agent@0.0.33 project remix <sourceProjectUrlOrId>
+   ```
+
+4. **List Available Projects (`list`)**:
+   Retrieves recently configured project URLs, IDs, and active metadata:
+   ```bash
+   npx -y @framer/agent@0.0.33 project list
+   ```
+
+### B. Session Management
+An active session acts as the headless, live proxy connecting your code changes to the Framer canvas.
+
+1. **Create a Session (`session new`)**:
+   To execute queries or post DSL changes, initialize a session for your project. This command prints out the `<session_id>` (e.g. `2`):
+   ```bash
+   npx -y @framer/agent@0.0.33 session new <projectUrlOrId>
+   ```
+
+2. **List Active Sessions (`session list`)**:
+   Provides a list of all current background execution sessions:
+   ```bash
+   npx -y @framer/agent@0.0.33 session list
+   ```
+
+3. **Terminate a Session (`session destroy`)**:
+   Terminates a specific websocket or headless driver proxy connection safely:
+   ```bash
+   npx -y @framer/agent@0.0.33 session destroy <sessionId>
+   ```
+
+### C. Putting It Together: A Full Connection and Execution Flow
+Below is a complete bash and Node execution sequence demonstrating how to connect a custom Framer project, spin up a session, query the environment context, apply a visual change, and publish it:
+
+```bash
+# Step 1: Authorize the target Framer project
+npx -y @framer/agent@0.0.33 project auth "https://framer.com/projects/my-awesome-site--xyz"
+
+# Step 2: Initialize a new execution session (let's assume it returns session ID '2')
+npx -y @framer/agent@0.0.33 session new "https://framer.com/projects/my-awesome-site--xyz"
+
+# Step 3: Run programmatic inspection & application using the session ID
+npx -y @framer/agent@0.0.33 exec -s 2 -e "
+// Query context (loaded fonts, shaders, page sitemap)
+const context = await framer.agent.getContext();
+console.log('Project site-map:', JSON.stringify(context.siteMap));
+
+// Build a neon hero section DSL
+const dsl = [
+  '+FrameNode heroSection parent=\"tRvlhiW1G\";',
+  'SET heroSection layout=\"stack\" stackDirection=\"vertical\" width=\"100%\" height=\"600px\" fill=\"#050508\" stackAlignment=\"center\" stackDistribution=\"center\" gap=24;',
+  '+ShaderNode heroShader shader=\"liquid-gradient\" parent=\"heroSection\";',
+  'SET heroShader position=\"absolute\" left=\"0\" right=\"0\" top=\"0\" bottom=\"0\" zIndex=1;',
+  '+RichTextNode heroTitle parent=\"heroSection\";',
+  'SET heroTitle text=\"Hello World\" fontName=\"Futura Now Headline\" fontWeight=\"800\" fontSize=\"64px\" textColor=\"#FFFFFF\" zIndex=2;'
+].join(' ');
+
+// Apply the DSL changes to the target page /vibrant
+const response = await framer.agent.applyChanges(dsl, { pagePath: '/vibrant' });
+console.log('Changes Applied Status:', response.status);
+
+// Run validation diagnostics
+const audit = await framer.agent.reviewChanges({ pagePath: '/vibrant' });
+console.log('Diagnostics Warnings:', JSON.stringify(audit.warnings));
+
+// Trigger clean web publication
+const preview = await framer.agent.publish({ action: 'preview' });
+const publish = await framer.agent.publish({
+  action: 'confirm_publish',
+  confirmationHash: preview.confirmationHash
+});
+console.log('Live Production URL:', publish.urls.production);
+"
+```
+
+---
+
+## 3. Global Inspection & Lookup APIs
 
 To prevent guessing or writing incorrect node IDs, always search the canvas or look up asset rules first.
 
@@ -67,7 +166,7 @@ Use these methods rather than retrieving the entire page tree repeatedly.
 
 ---
 
-## 3. Framer DSL Syntax Specification
+## 4. Framer DSL Syntax Specification
 
 All canvas adaptations are committed via `framer.agent.applyChanges(commandsString, { pagePath })`. Multiple instructions are separated by semicolons (`;`). 
 
@@ -90,7 +189,7 @@ All canvas adaptations are committed via `framer.agent.applyChanges(commandsStri
 
 ---
 
-## 4. Layout Mechanics: Stacks & Grids
+## 5. Layout Mechanics: Stacks & Grids
 
 Framer uses auto-layout engines instead of static desktop offsets to achieve organic responsivity.
 
@@ -121,7 +220,7 @@ When adapting an existing multi-column responsive grid on phone or tablet viewpo
 
 ---
 
-## 5. WebGL Shader Integration Guide
+## 6. WebGL Shader Integration Guide
 
 Shaders run high-performance graphical effects directly on the GPU. You can add them as background canvases, cards, or hero graphics.
 
@@ -169,7 +268,7 @@ SET myWaveShader
 
 ---
 
-## 6. Material Rich Text & Typographic Hierarchy
+## 7. Material Rich Text & Typographic Hierarchy
 
 A `RichTextNode` serves as a semantic rich text container. Avoid simple hardcoded strings; instead, map structured, multi-paragraph document layouts using sub-components.
 
@@ -226,7 +325,7 @@ SET headingStylePreset
 
 ---
 
-## 7. Interactive Variable Bindings & Event Handlers
+## 8. Interactive Variable Bindings & Event Handlers
 
 Framer pages use local variables to configure state, interact with presets, or bind interactive attributes.
 
@@ -255,7 +354,7 @@ SET myCardButton
 
 ---
 
-## 8. Viewports & Responsive Design Checklist
+## 9. Viewports & Responsive Design Checklist
 
 Before publishing, evaluate how assets display across multiple device breaks:
 
@@ -273,7 +372,7 @@ Always generate viewports in standard descending constraints:
 
 ---
 
-## 9. Reviewing and Publishing Actions
+## 10. Reviewing and Publishing Actions
 
 Once changes are applied, run validation and deploy directly:
 
