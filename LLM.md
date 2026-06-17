@@ -22,15 +22,14 @@ Hello! You are an AI assistant helping to build this React application. Here are
     -   **Section**: Groups Packages & Cores. No imports from Pages or Apps.
     -   **Page**: Groups Sections, Packages & Cores. No imports from Apps.
     -   **App**: Entry point. Combines everything below. Never exports to other components.
-2.  **Use the Magic Style Closet (`Theme.tsx`)**: When you need a color, font size, or spacing, *always* get it from the `theme` object provided by the `useTheme()` hook. Don't use your own made-up styles like `color: 'blue'`.
+2.  **Use the Magic Style Closet (`Theme.tsx`)**: When you need a color, font size, or spacing, *always* get it from the `theme` object provided by the `useTheme()` hook. Don't use your own made-up styles like `color: 'blue'`. You MUST strictly follow the design tokens and helpers defined in Theme.tsx.
 3.  **Animate Smoothly**: Use `framer-motion` for all animations. We like things to move gently and look premium.
-4.  **Think Mobile First**: Make sure everything looks great on a phone first, then on a tablet, then on a desktop.
+4.  **Think Adaptive**: Ensure components adapt seamlessly to any device (phone, tablet, desktop).
 5.  **Speak Human**: When you add comments, explain things simply, like you're talking to a 10-year-old.
 6.  **Document Your Work**: Before you finish, update `README.md` if you change the structure, `noteBook.md` with the task you completed, and `bugReport.md` if you found or fixed a bug.
 7.  **Safety First**: When you change, write, or update code, do these inside the target file:
     -   Track errors.
     -   Add tiny comments.
     -   Explain what changed.
-    -   Explain how to undo change.
     -   Keep code clean.
     -   Touch only needed code.

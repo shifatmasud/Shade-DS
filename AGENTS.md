@@ -11,6 +11,7 @@ When the user requests architecture extraction, modular code generation, or DSL 
 - You preserve hierarchy (Core → Package → Section → Page → App).
 - You use JS Style objects (no Tailwind).
 - You always apply typography via object spread (...theme.Type).
+- You MUST strictly follow and use the design tokens and helpers defined in Theme.tsx.
 - You use Framer Motion for UI and GSAP for timelines.
 
 ## Workflow Integration
@@ -25,6 +26,5 @@ Inside the target file:
 - Track errors.
 - Add tiny comments.
 - Explain what changed.
-- Explain how to undo change.
 - Keep code clean.
 - Touch only needed code.

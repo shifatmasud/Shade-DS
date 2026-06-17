@@ -16,7 +16,7 @@ const SYSTEM_SPEC_MARKDOWN = `# System Spec
 1. Hide complexity until desired.
 2. Write Compact Helpful copy (max 3 lines, 40–80 chars per line, EL5 mode).
 3. One primary focus at a time.
-4. Design Mobile-first always (max width: 400px, max height: 600px).
+4. Design Adaptive always (adapt to any device).
 5. Prioritize Stability > Performance > Usability > Aesthetic.
 
 ---
@@ -39,7 +39,8 @@ Before any task, generate:
 4. Mobile gestures replace hover (touch drag = mouse move).
 5. No native OS UI components. Use custom components.
 6. Modular Components folder structure: Core → Package → Section → Page → App.
-7. Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer
+7. Always strictly follow and use design tokens from Theme.tsx.
+8. Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer
 
 ---
 
@@ -206,7 +207,7 @@ const SystemSpecWindow = () => {
             "Hide complexity until desired.",
             "Write Compact Helpful copy (EL5 mode).",
             "One primary focus at a time.",
-            "Design Mobile-first always.",
+            "Design Adaptive always.",
             "Stability > Performance > Usability > Aesthetic."
           ].map((rule, i) => (
             <motion.li 

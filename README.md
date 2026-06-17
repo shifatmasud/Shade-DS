@@ -115,7 +115,6 @@ We build apps like LEGO. Each piece has a specific size and place!
 - **Interactive Layers & Motion Value Routing**: Re-routed the color attributes of state and ripple layers to bind directly to the pre-evaluated `resolvedColor` MotionValue within `Button.tsx`, resolving the invisible standard hover layer bug caused by empty motion values. Stripped the heavy `blur(12px)` CSS filter from the ripple layer for pixel-perfect clarity, and synchronized motion settings using `easeInOut` for standard state hover layers and `spring` physics for ripple layers.
 - **WebGL GPGPU subskill (ShadeR DSL) Integrated (2026-05-30)**:
   - **What changed**: Engineered a brand new subskill at `/skills/shader_dsl/SKILL.md` detailing GPGPU parallel simulation pipelines, uniform uploads, buffer bindings, and stage separations.
-  - **How to undo**: To completely undo this change, delete the `/skills/shader_dsl/` folder and revert the entries in `/README.md`, `/noteBook.md`, and `/bugReport.md` to their previous states.
 
 ## How to Get Started
 

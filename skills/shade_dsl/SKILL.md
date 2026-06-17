@@ -119,6 +119,6 @@ The runtime follows a strict "Target → Mutate" pattern to ensure maximum perfo
 ## Engineering Rules
 1. **No Tailwind**: Use JS style objects in `STYLE`.
 2. **No CSS Keyframes**: Use Framer Motion for UI, GSAP for R3F/External.
-3. **Mobile First**: Design for max-width 400px, max-height 600px.
+3. **Adaptive Design**: Components must adapt to any device (phone, tablet, desktop).
 4. **Semantic Tokens**: `Category.Purpose.Context.Level`.
 5. **Stability First**: Prioritize functional robustness over micro-optimizations.

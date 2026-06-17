@@ -35,7 +35,7 @@ const SystemSpec = () => {
 1. Hide complexity until desired.
 2. Write Compact Helpful copy (max 3 lines, 40–80 chars per line, EL5 mode).
 3. One primary focus at a time.
-4. Design Mobile-first always (max width: 400px, max height: 600px).
+4. Design Adaptive always (adapt to any device).
 5. Prioritize Stability > Performance > Usability > Aesthetic.
 
 ---
@@ -59,7 +59,8 @@ Before any task, generate:
 5. Mobile gestures replace hover (touch drag = mouse move).
 6. No native OS UI components. Use custom components.
 7. Modular Components folder structure: Core → Package → Section → Page → App.
-8. Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer
+8. Always strictly follow and use design tokens from Theme.tsx.
+9. Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer
 
 ---
 
@@ -119,9 +120,8 @@ Inside the target file:
 1. Track errors.
 2. Add tiny comments.
 3. Explain what changed.
-4. Explain how to undo change.
-5. Keep code clean.
-6. Touch only needed code.`;
+4. Keep code clean.
+5. Touch only needed code.`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(markdownContent);
@@ -241,7 +241,7 @@ Inside the target file:
             "Hide complexity until desired.",
             "Write Compact Helpful copy (max 3 lines, 40–80 chars per line, EL5 mode).",
             "One primary focus at a time.",
-            "Design Mobile-first always (max width: 400px, max height: 600px).",
+            "Design Adaptive always (adapt to any device).",
             "Prioritize Stability > Performance > Usability > Aesthetic."
           ].map((rule, i) => (
             <motion.li 
@@ -307,6 +307,7 @@ Inside the target file:
             { text: "Mobile gestures replace hover.", icon: <DeviceMobile size={16} /> },
             { text: "No native OS UI components.", icon: <Layout size={16} /> },
             { text: "Modular Components folder structure.", icon: <Stack size={16} /> },
+            { text: "Always strictly follow and use design tokens from Theme.tsx.", icon: <Palette size={16} /> },
             { text: "Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer", icon: <Lightning size={16} /> }
           ].map((rule, i) => (
             <motion.li 
@@ -423,7 +424,6 @@ Inside the target file:
             "Track errors.",
             "Add tiny comments.",
             "Explain what changed.",
-            "Explain how to undo change.",
             "Keep code clean.",
             "Touch only needed code."
           ].map((rule, i) => (
