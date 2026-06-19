@@ -12,6 +12,7 @@ When the user requests architecture extraction, modular code generation, or DSL 
 - You use JS Style objects (no Tailwind).
 - You always apply typography via object spread (...theme.Type).
 - You MUST strictly follow and use the design tokens and helpers defined in Theme.tsx.
+- You MUST always use Theme.tsx border procedural helpers (such as theme.border.getBorder1px and theme.border.getOutline2px) instead of writing manual or external CSS borders.
 - You use Framer Motion for UI and GSAP for timelines.
 
 ## Workflow Integration
