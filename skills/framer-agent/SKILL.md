@@ -1,3 +1,8 @@
+---
+name: Framer-agent
+description: Interacting with the Framer Agent workspace (@framer/agent), inspecting canvas status, applying design and page hierarchy modifications using Framer DSL commands, and deploying/publishing page layouts safely.
+---
+
 # Framer Agent Framework & DSL Reference Manual
 
 This documentation provides an extensive guide to interacting with the Framer Agent workspace (`@framer/agent`), inspecting canvas state, applying design and page hierarchy modifications using Framer DSL commands, managing responsive breakpoints, working with rich text schemas, and deploying layouts safely.
@@ -273,16 +278,16 @@ SET myWaveShader
 A `RichTextNode` serves as a semantic rich text container. Avoid simple hardcoded strings; instead, map structured, multi-paragraph document layouts using sub-components.
 
 ```
-       [RichTextNode]
-             │
-      ┌──────┴──────┐
- [TextBlock]   [TextBulletList]
-  (tag="h1")        │
-      │        [TextListItem]
-  [TextRun]         │
-  (styled)     [TextBlock]
-                    │
-                [TextRun]
+        [RichTextNode]
+              │
+       ┌──────┴──────┐
+  [TextBlock]   [TextBulletList]
+   (tag="h1")        │
+       │        [TextListItem]
+   [TextRun]         │
+   (styled)     [TextBlock]
+                     │
+                 [TextRun]
 ```
 
 ### A. Sub-Node Core Elements
