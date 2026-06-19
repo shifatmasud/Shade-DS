@@ -72,7 +72,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: `0 ${theme.space['Space.L']}`,
-    borderBottom: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[2]}`,
+    borderBottom: `1px solid ${theme.Color.Base.Surface[2]}`,
     cursor: 'grab',
     userSelect: 'none',
     flexShrink: 0,
@@ -93,7 +93,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     alignItems: 'center',
     justifyContent: 'flex-start',
     padding: `0 ${theme.space['Space.L']}`,
-    borderTop: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[2]}`,
+    borderTop: `1px solid ${theme.Color.Base.Surface[2]}`,
     cursor: 'grab',
     userSelect: 'none',
     

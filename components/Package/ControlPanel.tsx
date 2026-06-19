@@ -295,7 +295,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               padding: theme.space['Space.M'], 
               backgroundColor: theme.Color.Base.Surface[2], 
               borderRadius: theme.radius['Radius.M'],
-              border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+              ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
               display: 'flex',
               flexDirection: 'column',
               gap: theme.space['Space.M']

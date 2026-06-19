@@ -173,7 +173,7 @@ Inside the target file:
     ...theme.Type.Expressive.Quote,
     fontStyle: 'italic',
     color: theme.Color.Base.Content[2],
-    borderLeft: `${theme.border['Border.Width.Thick']} solid ${theme.Color.Base.Surface[4]}`,
+    borderLeft: `2px solid ${theme.Color.Base.Surface[4]}`,
     paddingLeft: theme.space['Space.M'],
     margin: `${theme.space['Space.S']} 0`,
   };
@@ -185,7 +185,7 @@ Inside the target file:
         padding: theme.space['Space.XL'], 
         textAlign: 'center',
         background: `linear-gradient(180deg, ${theme.Color.Base.Surface[2]} 0%, ${theme.Color.Base.Surface[1]} 100%)`,
-        borderBottom: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+        borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`,
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -211,7 +211,7 @@ Inside the target file:
               r="80"
               fill="none"
               stroke={theme.Color.Base.Content[1]}
-              strokeWidth={theme.border['Border.Width.Main']}
+              strokeWidth="1px"
               animate={{ 
                 r: [80, 100, 80],
                 opacity: [0.5, 1, 0.5]
@@ -353,7 +353,7 @@ Inside the target file:
                   backgroundColor: theme.Color.Base.Surface[2],
                   padding: theme.space['Space.M'],
                   borderRadius: theme.radius['Radius.M'],
-                  border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+                  ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
                   display: 'flex',
                   flexDirection: 'column',
                   gap: theme.space['Space.2XS']

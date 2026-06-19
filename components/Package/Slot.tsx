@@ -52,7 +52,7 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
           height: theme.space['Space.3XL'],
           borderRadius: theme.radius['Radius.Full'],
           backgroundColor: theme.Color.Base.Surface[1],
-          border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Content[3]}`,
+          ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -97,7 +97,7 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
                 width: '100%',
                 position: 'relative',
                 boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-                border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Content[3]}`,
+                ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -125,7 +125,7 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
                 padding: theme.space['Space.M'], 
                 borderRadius: theme.radius['Radius.M'],
                 marginBottom: theme.space['Space.L'],
-                border: `${theme.border['Border.Width.Main']} dashed ${theme.Color.Base.Content[3]}`,
+                border: `1px dashed ${theme.Color.Base.Content[3]}`,
               }}>
                 <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[2], lineHeight: 1.5 }}>
                   {instructionText}

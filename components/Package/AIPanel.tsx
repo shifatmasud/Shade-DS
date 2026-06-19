@@ -263,7 +263,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
       {/* Input */}
       <div style={{
         padding: theme.space['Space.M'],
-        borderTop: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+        borderTop: `1px solid ${theme.Color.Base.Surface[3]}`,
         display: 'flex',
         alignItems: 'flex-end',
         gap: theme.space['Space.S'],
@@ -283,7 +283,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
           style={{
             flex: 1,
             backgroundColor: theme.Color.Base.Surface[2],
-            border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
             borderRadius: theme.radius['Radius.M'],
             padding: `${theme.space['Space.S']} ${theme.space['Space.M']}`,
             color: theme.Color.Base.Content[1],

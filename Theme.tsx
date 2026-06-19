@@ -120,9 +120,9 @@ const height = {
   'Height.Half': px(Base.Unit.Space * 45) 
 };
 const border = { 
-  'Border.Width.Main': '1px', 
-  'Border.Width.Thick': '2px', 
-  'Border.Style.Main': 'solid',
+  // 'Border.Width.Main': '1px', 
+  // 'Border.Width.Thick': '2px', 
+  // 'Border.Style.Main': 'solid',
   /* 
    * SHADE DSL STYLING REWRITE:
    * - Added getBorder1px & getOutline2px helpers to replace standard borders with 

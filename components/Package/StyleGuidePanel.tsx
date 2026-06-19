@@ -17,7 +17,7 @@ const StyleGuidePanel: React.FC = () => {
         textTransform: 'uppercase',
         letterSpacing: '0.1em',
         marginBottom: theme.space['Space.M'],
-        borderBottom: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+        borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`,
         paddingBottom: theme.space['Space.XS']
       }}>
         {title}
@@ -36,7 +36,7 @@ const StyleGuidePanel: React.FC = () => {
       padding: theme.space['Space.S'],
       backgroundColor: theme.Color.Base.Surface[2],
       borderRadius: theme.radius['Radius.M'],
-      border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`
+      ...theme.border.getBorder1px(theme.Color.Base.Surface[3])
     }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         <span style={{ ...theme.Type.Readable.Label.M, color: theme.Color.Base.Content[1] }}>{label}</span>
@@ -89,7 +89,7 @@ const StyleGuidePanel: React.FC = () => {
                   key={`${category}.${type}.${level}`}
                   label={`${category}.${type}.${level}`}
                   value={value as string}
-                  preview={<div style={{ width: theme.space['Space.XL'], height: theme.space['Space.XL'], borderRadius: theme.radius['Radius.S'], backgroundColor: value as string, border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}` }} />}
+                  preview={<div style={{ width: theme.space['Space.XL'], height: theme.space['Space.XL'], borderRadius: theme.radius['Radius.S'], backgroundColor: value as string, ...theme.border.getBorder1px(theme.Color.Base.Surface[3]) }} />}
                 />
               ))
             ))
@@ -165,7 +165,7 @@ const StyleGuidePanel: React.FC = () => {
               key={name}
               label={name}
               value={value as string}
-              preview={<div style={{ width: theme.space['Space.XL'], height: theme.space['Space.XL'], borderRadius: value as string, border: `${theme.border['Border.Width.Thick']} solid ${theme.Color.Accent.Surface[1]}` }} />}
+              preview={<div style={{ width: theme.space['Space.XL'], height: theme.space['Space.XL'], borderRadius: value as string, ...theme.border.getOutline2px(theme.Color.Accent.Surface[1]) }} />}
             />
           ))}
         </div>

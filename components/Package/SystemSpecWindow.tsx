@@ -160,7 +160,7 @@ const SystemSpecWindow = () => {
       {/* Header with Copy Button */}
       <div style={{ 
         padding: theme.space['Space.M'], 
-        borderBottom: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+        borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -325,7 +325,7 @@ const SystemSpecWindow = () => {
               />
               {node < 4 && (
                 <motion.div 
-                  style={{ height: theme.border['Border.Width.Main'], flex: 1, backgroundColor: theme.Color.Base.Surface[3] }}
+                  style={{ height: '1px', flex: 1, backgroundColor: theme.Color.Base.Surface[3] }}
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: 1 }}
                   transition={{ duration: 0.5, delay: node * 0.2 }}

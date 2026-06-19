@@ -41,7 +41,7 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
             top: theme.space['Space.S'],
             right: theme.space['Space.S'],
             background: theme.Color.Base.Surface[1],
-            border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`,
+            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
             borderRadius: theme.radius['Radius.S'],
             padding: theme.space['Space.XS'],
             cursor: 'pointer',

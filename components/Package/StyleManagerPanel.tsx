@@ -10,7 +10,7 @@ const StyleManagerPanel: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: theme.space['Space.M'] }}>
         {Object.entries(colors).map(([name, value]) => (
           <div key={name}>
-            <div style={{ width: '100%', paddingTop: '100%', backgroundColor: value, borderRadius: theme.radius['Radius.M'], border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}` }} />
+            <div style={{ width: '100%', paddingTop: '100%', backgroundColor: value, borderRadius: theme.radius['Radius.M'], ...theme.border.getBorder1px(theme.Color.Base.Surface[3]) }} />
             <div style={{ textAlign: 'center', marginTop: theme.space['Space.S'] }}>
               <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[1], margin: 0 }}>{name}</p>
               <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], margin: 0 }}>{value}</p>
@@ -22,7 +22,7 @@ const StyleManagerPanel: React.FC = () => {
   );
 
   const renderTypographySample = (style: any, name: string) => (
-    <div style={{ borderBottom: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[2]}`, padding: `${theme.space['Space.M']} 0` }}>
+    <div style={{ borderBottom: `1px solid ${theme.Color.Base.Surface[2]}`, padding: `${theme.space['Space.M']} 0` }}>
       <p style={{ ...style, margin: 0 }}>{name}</p>
       <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], margin: `${theme.space['Space.XS']} 0 0` }}>
         {style.fontSize} / {style.lineHeight} / {style.fontWeight} / {style.letterSpacing}
