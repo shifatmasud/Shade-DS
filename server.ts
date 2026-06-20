@@ -2,13 +2,83 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { fileURLToPath } from 'url';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
+import https from "https";
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const GH_BINARY_PATH = path.join(process.cwd(), 'bin', 'gh');
+
+async function downloadGithubCliIfNotExists() {
+  const BIN_DIR = path.join(process.cwd(), 'bin');
+  
+  if (fs.existsSync(GH_BINARY_PATH)) {
+    return GH_BINARY_PATH;
+  }
+
+  if (process.platform !== 'linux') {
+    return 'gh';
+  }
+
+  try {
+    if (!fs.existsSync(BIN_DIR)) {
+      fs.mkdirSync(BIN_DIR, { recursive: true });
+    }
+
+    const arch = process.arch === 'arm64' ? 'arm64' : 'amd64';
+    const version = '2.51.0';
+    const url = `https://github.com/cli/cli/releases/download/v${version}/gh_${version}_linux_${arch}.tar.gz`;
+    const archivePath = path.join(BIN_DIR, 'gh.tar.gz');
+
+    console.log(`Downloading GitHub CLI v${version} from ${url}...`);
+
+    const downloadFile = (downloadUrl: string, dest: string): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(dest);
+        https.get(downloadUrl, (response) => {
+          if (response.statusCode === 301 || response.statusCode === 302) {
+            downloadFile(response.headers.location!, dest).then(resolve).catch(reject);
+            return;
+          }
+          if (response.statusCode !== 200) {
+            reject(new Error(`Failed download response status ${response.statusCode}`));
+            return;
+          }
+          response.pipe(file);
+          file.on('finish', () => {
+            file.close();
+            resolve();
+          });
+        }).on('error', (err) => {
+          if (fs.existsSync(dest)) fs.unlinkSync(dest);
+          reject(err);
+        });
+      });
+    };
+
+    await downloadFile(url, archivePath);
+    execSync(`tar -xzf ${archivePath} -C ${BIN_DIR}`);
+
+    const extractedDir = fs.readdirSync(BIN_DIR).find(name => name.startsWith(`gh_${version}_linux_`));
+    if (extractedDir) {
+      const srcCli = path.join(BIN_DIR, extractedDir, 'bin', 'gh');
+      if (fs.existsSync(srcCli)) {
+        fs.renameSync(srcCli, GH_BINARY_PATH);
+        fs.chmodSync(GH_BINARY_PATH, '755');
+        console.log('GitHub CLI binary is ready at:', GH_BINARY_PATH);
+      }
+      fs.rmSync(path.join(BIN_DIR, extractedDir), { recursive: true, force: true });
+      fs.unlinkSync(archivePath);
+    }
+  } catch (error) {
+    console.error('Error during auto setup of gh CLI:', error);
+  }
+  return GH_BINARY_PATH;
+}
 
 // Simple .env parser to dynamically load secrets into process.env at runtime
 const ENV_PATH = path.join(process.cwd(), '.env');
@@ -35,6 +105,9 @@ function loadEnv() {
 loadEnv();
 
 async function startServer() {
+  // Pre-download and setup official GitHub CLI binary if needed
+  downloadGithubCliIfNotExists().catch(console.error);
+
   const app = express();
   const PORT = 3000;
 
@@ -55,13 +128,18 @@ async function startServer() {
       supabase: {
         configured: !!process.env.SUPABASE_ACCESS_TOKEN,
         masked: process.env.SUPABASE_ACCESS_TOKEN ? `${process.env.SUPABASE_ACCESS_TOKEN.substring(0, 8)}***` : ''
+      },
+      notion: {
+        configured: !!process.env.NOTION_API_TOKEN,
+        masked: process.env.NOTION_API_TOKEN ? `${process.env.NOTION_API_TOKEN.substring(0, 8)}***` : '',
+        workspaceId: process.env.NOTION_WORKSPACE_ID || ''
       }
     });
   });
 
   // API Route: Save tokens to actual .env securely and refresh runtime process.env
   app.post("/api/cli/save", (req, res) => {
-    const { ghToken, vercelToken, supabaseAccessToken } = req.body;
+    const { ghToken, vercelToken, supabaseAccessToken, notionApiToken, notionWorkspaceId } = req.body;
 
     try {
       let lines: string[] = [];
@@ -73,7 +151,9 @@ async function startServer() {
       const keys = {
         GH_TOKEN: ghToken ?? '',
         VERCEL_TOKEN: vercelToken ?? '',
-        SUPABASE_ACCESS_TOKEN: supabaseAccessToken ?? ''
+        SUPABASE_ACCESS_TOKEN: supabaseAccessToken ?? '',
+        NOTION_API_TOKEN: notionApiToken ?? '',
+        NOTION_WORKSPACE_ID: notionWorkspaceId ?? ''
       };
 
       // Helper to set or overwrite line
@@ -106,7 +186,9 @@ async function startServer() {
       ...process.env,
       GH_TOKEN: process.env.GH_TOKEN || '',
       VERCEL_TOKEN: process.env.VERCEL_TOKEN || '',
-      SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN || ''
+      SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN || '',
+      NOTION_API_TOKEN: process.env.NOTION_API_TOKEN || '',
+      NOTION_WORKSPACE_ID: process.env.NOTION_WORKSPACE_ID || ''
     };
 
     try {
@@ -114,8 +196,8 @@ async function startServer() {
         if (!customEnv.GH_TOKEN) {
           return res.json({ connected: false, output: "No GITHUB_TOKEN / GH_TOKEN found in your environment keys." });
         }
-        // Test auth status
-        const { stdout, stderr } = await execAsync('npx gh auth status', { env: customEnv });
+        // Test auth status using our downloaded local GitHub CLI binary
+        const { stdout, stderr } = await execAsync(`"${GH_BINARY_PATH}" auth status`, { env: customEnv });
         res.json({ connected: true, output: stdout || stderr });
       } 
       else if (cliName === 'vercel') {
@@ -133,7 +215,20 @@ async function startServer() {
         // Query listed remote projects to test token potency
         const { stdout, stderr } = await execAsync('npx supabase projects list', { env: customEnv });
         res.json({ connected: true, output: `Project pipeline connected successfully:\n${stdout || stderr}` });
-      } 
+      }
+      else if (cliName === 'notion') {
+        if (!customEnv.NOTION_API_TOKEN) {
+          return res.json({ connected: false, output: "No NOTION_API_TOKEN found in your environment keys." });
+        }
+        // Query active workspaces/user details on Notion CLI
+        const { stdout, stderr } = await execAsync('npx -y cross-env NOTION_KEYRING=0 npx ntn whoami', { 
+          env: {
+            ...customEnv,
+            NOTION_KEYRING: '0'
+          } 
+        });
+        res.json({ connected: true, output: `Notion workspace verified dynamically:\n${stdout || stderr}` });
+      }
       else {
         res.status(400).json({ error: "Invalid CLI target specified." });
       }
@@ -149,18 +244,20 @@ async function startServer() {
       ...process.env,
       GH_TOKEN: process.env.GH_TOKEN || '',
       VERCEL_TOKEN: process.env.VERCEL_TOKEN || '',
-      SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN || ''
+      SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN || '',
+      NOTION_API_TOKEN: process.env.NOTION_API_TOKEN || '',
+      NOTION_WORKSPACE_ID: process.env.NOTION_WORKSPACE_ID || ''
     };
 
     try {
       let command = '';
       if (cliName === 'github') {
         if (actionName === 'list-repos') {
-          command = 'npx gh repo list --limit 10';
+          command = `"${GH_BINARY_PATH}" repo list --limit 10`;
         } else if (actionName === 'list-issues') {
-          command = 'npx gh issue list --limit 10';
+          command = `"${GH_BINARY_PATH}" issue list --limit 10`;
         } else {
-          command = 'npx gh --help';
+          command = `"${GH_BINARY_PATH}" --help`;
         }
       } 
       else if (cliName === 'vercel') {
@@ -175,6 +272,15 @@ async function startServer() {
           command = 'npx supabase db list';
         } else {
           command = 'npx supabase --help';
+        }
+      }
+      else if (cliName === 'notion') {
+        if (actionName === 'list-pages') {
+          command = 'npx -y cross-env NOTION_KEYRING=0 npx ntn pages';
+        } else if (actionName === 'list-workspaces') {
+          command = 'npx -y cross-env NOTION_KEYRING=0 npx ntn workspaces';
+        } else {
+          command = 'npx -y cross-env NOTION_KEYRING=0 npx ntn whoami';
         }
       }
 
