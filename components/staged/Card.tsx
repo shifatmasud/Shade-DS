@@ -159,13 +159,17 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
     display: 'flex',
     flexDirection: 'column',
     gap: theme.space['Space.XL'], 
-    boxShadow: variant === 'outline'
-      ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`
-      : `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`,
+    boxShadow: effectiveHover 
+      ? (variant === 'outline'
+          ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}, ${theme.effects['Effect.Shadow.Drop.3']}`
+          : `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.3']}`)
+      : (variant === 'outline'
+          ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`
+          : `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`),
     transformStyle: 'preserve-3d',
     border: 'none',
     opacity: disabled ? theme.opacity['Opacity.Medium'] : 1,
-    transition: `background-color ${theme.time['Time.2x']} ease, border-color ${theme.time['Time.2x']} ease`,
+    transition: `background-color ${theme.time['Time.2x']} ease, border-color ${theme.time['Time.2x']} ease, box-shadow ${theme.time['Time.2x']} ease`,
     userSelect: 'none',
   };
 
@@ -193,13 +197,6 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
       onClick={handleClick}
       animate={{
         y: effectiveHover ? -12 : 0,
-        boxShadow: effectiveHover 
-          ? (variant === 'outline'
-              ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}, ${theme.effects['Effect.Shadow.Drop.3']}`
-              : `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.3']}`)
-          : (variant === 'outline'
-              ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`
-              : `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}, ${theme.effects['Effect.Shadow.Drop.2']}`),
       }}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}
     >

@@ -155,6 +155,34 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const resolvedFill = useResolvedMotionValue(customFill, fallbackBg);
   const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
 
+  const getButtonShadow = (state: 'idle' | 'hover' | 'active' | 'disabled') => {
+    const isTertiary = variant === 'tertiary';
+    if (isTertiary) return 'none';
+
+    // 1. Define the base border shadow layer for variants that use it
+    const borderShadow = variant === 'outline'
+      ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}`
+      : (variant === 'destructive'
+         ? `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}`
+         : '');
+
+    // 2. Define the drop shadow layer based on state
+    let dropShadow = '';
+    if (state === 'idle') {
+      if (variant === 'primary' || variant === 'destructive') {
+        dropShadow = theme.effects['Effect.Shadow.Drop.2'];
+      }
+    } else if (state === 'hover') {
+      dropShadow = theme.effects['Effect.Shadow.Drop.3'];
+    }
+
+    // 3. Combine them
+    if (borderShadow && dropShadow) {
+      return `${borderShadow}, ${dropShadow}`;
+    }
+    return borderShadow || dropShadow || 'none';
+  };
+
   const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
@@ -162,7 +190,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           background: resolvedFill,
           color: resolvedColor,
           border: 'none',
-          boxShadow: theme.effects['Effect.Shadow.Drop.2'],
         };
       case 'secondary':
         return {
@@ -174,21 +201,19 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         return {
           backgroundColor: 'transparent',
           color: resolvedColor,
-          ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
+          border: 'none',
         };
       case 'destructive':
         return {
           backgroundColor: resolvedFill,
           color: resolvedColor,
           border: 'none',
-          boxShadow: `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}, ${theme.effects['Effect.Shadow.Drop.2']}`,
         };
       case 'tertiary':
         return {
           backgroundColor: 'transparent',
           color: resolvedColor,
           border: 'none',
-          boxShadow: 'none',
         };
       default:
         return {
@@ -227,7 +252,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     transformStyle: 'preserve-3d',
     ...variantStyles,
     ...sizeStyles,
-    boxShadow: undefined, 
+    boxShadow: getButtonShadow(disabled ? 'disabled' : (forcedActive ? 'active' : (effectiveHover ? 'hover' : 'idle'))),
   };
 
   // State Layer Opacity
@@ -267,16 +292,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   // Calculate Animate Props for Premium Feel
   const getAnimateState = () => {
-    if (disabled) return { y: 0, scale: 1, boxShadow: 'none' };
-    
-    const isTertiary = variant === 'tertiary';
+    if (disabled) return { y: 0, scale: 1, boxShadow: getButtonShadow('disabled') };
     
     // Active (Pressed)
     if (forcedActive) {
         return { 
             y: 2, 
             scale: 0.95, 
-            boxShadow: 'none' 
+            boxShadow: getButtonShadow('active') 
         };
     }
     
@@ -285,7 +308,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
          return {
             y: -4, 
             scale: 1.05, 
-            boxShadow: isTertiary ? 'none' : theme.effects['Effect.Shadow.Drop.3']
+            boxShadow: getButtonShadow('hover')
          };
     }
     
@@ -293,7 +316,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     return { 
         y: 0, 
         scale: 1, 
-        boxShadow: isTertiary ? 'none' : (variantStyles.boxShadow || 'none') 
+        boxShadow: getButtonShadow('idle') 
     };
   };
 
@@ -310,7 +333,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       onPointerLeave={handlePointerLeave}
       onPointerDown={handlePointerDown}
       animate={getAnimateState()}
-      whileTap={forcedActive ? undefined : { scale: 0.95, y: 2, boxShadow: 'none' }}
+      whileTap={forcedActive ? undefined : { scale: 0.95, y: 2, boxShadow: getButtonShadow('active') }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
     >
       {/* 0. SURFACE LAYER (Base Z=0) */}
