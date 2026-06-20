@@ -45,8 +45,10 @@
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "esbuild": "^0.28.0",
+    "supabase": "^1.223.1",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
+    "vercel": "^41.0.1",
     "vite": "^6.2.0"
   }
 }
