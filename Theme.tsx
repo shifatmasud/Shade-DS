@@ -172,9 +172,25 @@ const resolveTokens = (obj: any, breakpoint: Breakpoint): any => {
 
 const GlobalStyles = ({ theme }: { theme: any }) => {
     const globalCss = `
+      @import url('https://rsms.me/inter/inter.css');
+
       /* Tap highlight color removed globally. To undo: remove '-webkit-tap-highlight-color: transparent' */
-      *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      html, body, #root { height: 100%; margin: 0; padding: 0; font-family: ${typography.Type.Readable.Body.M.fontFamily}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+      *, *::before, *::after { 
+        box-sizing: border-box; 
+        -webkit-tap-highlight-color: transparent; 
+        -webkit-font-feature-settings: "cv01" 1, "cv02" 1, "cv03" 1, "cv04" 1, "cv05" 1, "cv06" 1, "cv11" 1, "cv12" 1, "cv13" 1 !important;
+        font-feature-settings: "cv01" 1, "cv02" 1, "cv03" 1, "cv04" 1, "cv05" 1, "cv06" 1, "cv11" 1, "cv12" 1, "cv13" 1 !important;
+      }
+      /* INTER FONT CUSTOM STYLES: Enabled cv01, cv02, cv03, cv04, cv05, cv06, cv11, cv12, cv13 */
+      html, body, #root { 
+        height: 100%; 
+        margin: 0; 
+        padding: 0; 
+        font-family: ${typography.Type.Readable.Body.M.fontFamily}; 
+        -webkit-font-smoothing: antialiased; 
+        -moz-osx-font-smoothing: grayscale; 
+        text-rendering: optimizeLegibility; 
+      }
       body { transition: background-color ${time['Time.3x']} ease; }
       
       /* Custom Scrollbar Styles */
