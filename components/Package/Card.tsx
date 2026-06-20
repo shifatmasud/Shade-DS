@@ -37,22 +37,39 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>((({
   // Simple, elegant motion value handler for blank states
   const useResolvedMotionValue = (prop: any, fallback: string): any => {
     const isMV = prop && typeof prop === 'object' && 'get' in prop && 'on' in prop;
-    const localMV = useMotionValue(isMV ? prop.get() : (prop || fallback));
+    const resolvedMV = useMotionValue(isMV ? (prop.get() || fallback) : (prop || fallback));
+    
     React.useEffect(() => {
-      if (!isMV) {
-        localMV.set(prop || fallback);
+      const updateValue = () => {
+        const currentVal = isMV ? prop.get() : prop;
+        resolvedMV.set(currentVal || fallback);
+      };
+      
+      updateValue();
+      
+      if (isMV) {
+        const unsubscribe = prop.on("change", (v: any) => {
+          resolvedMV.set(v || fallback);
+        });
+        return unsubscribe;
       }
     }, [prop, isMV, fallback]);
-    return useTransform(isMV ? prop : localMV, (v: any) => v || fallback);
+
+    return resolvedMV;
   };
 
   const isPrimary = variant === 'primary';
   const isDestructive = variant === 'destructive';
 
-  const fallbackBg = isPrimary ? theme.Color.Accent.Surface[1] : (isDestructive ? theme.Color.Error.Surface[1] : theme.Color.Base.Surface[1]);
+  const fallbackBg = isPrimary 
+    ? theme.Color.Accent.Surface[1] 
+    : (isDestructive 
+       ? theme.Color.Error.Surface[1] 
+       : (variant === 'outline' || variant === 'tertiary' ? 'transparent' : theme.Color.Base.Surface[1]));
   const fallbackColor = isPrimary ? theme.Color.Accent.Content[1] : (isDestructive ? theme.Color.Error.Content[1] : theme.Color.Base.Content[1]);
 
-  const bgColor = useResolvedMotionValue(customFill, fallbackBg);
+  const isOutlineOrTertiary = variant === 'outline' || variant === 'tertiary';
+  const bgColor = useResolvedMotionValue(isOutlineOrTertiary ? 'transparent' : customFill, fallbackBg);
   const contentColor1 = useResolvedMotionValue(customColor, fallbackColor);
   const contentColor2 = theme.Color.Base.Content[2];
 
@@ -61,7 +78,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>((({
     width: theme.space['Space.Panel.Width'],
     padding: theme.space['Space.XL'],
     cursor: disabled ? 'not-allowed' : 'pointer',
-    backgroundColor: bgColor as any,
+    background: bgColor as any,
     color: contentColor1 as any,
     display: 'flex',
     flexDirection: 'column',

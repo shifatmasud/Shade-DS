@@ -44,13 +44,25 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   // Simple, elegant motion value handler for blank states
   const useResolvedMotionValue = (prop: any, fallback: string): any => {
     const isMV = prop && typeof prop === 'object' && 'get' in prop && 'on' in prop;
-    const localMV = useMotionValue(isMV ? prop.get() : (prop || fallback));
+    const resolvedMV = useMotionValue(isMV ? (prop.get() || fallback) : (prop || fallback));
+    
     React.useEffect(() => {
-      if (!isMV) {
-        localMV.set(prop || fallback);
+      const updateValue = () => {
+        const currentVal = isMV ? prop.get() : prop;
+        resolvedMV.set(currentVal || fallback);
+      };
+      
+      updateValue();
+      
+      if (isMV) {
+        const unsubscribe = prop.on("change", (v: any) => {
+          resolvedMV.set(v || fallback);
+        });
+        return unsubscribe;
       }
     }, [prop, isMV, fallback]);
-    return useTransform(isMV ? prop : localMV, (v: any) => v || fallback);
+
+    return resolvedMV;
   };
 
   const fallbackBg = variant === 'primary' 
@@ -65,7 +77,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
        ? theme.Color.Error.Content[1] 
        : theme.Color.Base.Content[1]);
 
-  const resolvedFill = useResolvedMotionValue(customFill, fallbackBg);
+  const isOutlineOrTertiary = variant === 'outline' || variant === 'tertiary';
+  const resolvedFill = useResolvedMotionValue(isOutlineOrTertiary ? 'transparent' : customFill, fallbackBg);
   const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
 
   const getVariantStyles = () => {
@@ -85,13 +98,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         };
       case 'outline':
         return {
-          backgroundColor: 'transparent',
+          background: resolvedFill,
           color: resolvedColor,
           ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
         };
       case 'destructive':
         return {
-          backgroundColor: resolvedFill,
+          background: resolvedFill,
           color: resolvedColor,
           border: 'none',
           boxShadow: `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}, ${theme.effects['Effect.Shadow.Drop.1']}`,
@@ -99,7 +112,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       case 'tertiary':
       default:
         return {
-          backgroundColor: 'transparent',
+          background: resolvedFill,
           color: resolvedColor,
           border: 'none',
           boxShadow: 'none',
