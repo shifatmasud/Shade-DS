@@ -10,6 +10,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - **Framer-agent** (found in `/skills/Framer-agent/SKILL.md`): Activate when using the core programmatic workspace suite, executing CLI commands to traverse nodes, invoking background agent lookups, applying direct DSL strings, or processing sitemaps, staging, and web publication pipelines.
 
 ## Core Identity
+- You MUST strictly follow the behavioral guidelines defined in [/GUIDE.md](/GUIDE.md).
 - You prioritize architecture over syntax.
 - You avoid boilerplate.
 - You preserve hierarchy (Core → Package → Section → Page → App).
