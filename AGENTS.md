@@ -8,6 +8,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - **shader-dsl** (found in `/skills/shader_dsl/SKILL.md`): Activate when working on GPGPU/GLSL/WGSL rendering systems, stage-isolated computations (`@compute`, `@vertex`, `@fragment`), or custom shader graph nodes.
 - **framer-code-components-overrides** (found in `/skills/framer-code-components-overrides/SKILL.md`): Activate when building custom code-backed components, designing overrides, adjusting hydration safety (browser/server guards), wrapping container portals, or resolving dynamic CMS text rendering.
 - **Framer-agent** (found in `/skills/Framer-agent/SKILL.md`): Activate when using the core programmatic workspace suite, executing CLI commands to traverse nodes, invoking background agent lookups, applying direct DSL strings, or processing sitemaps, staging, and web publication pipelines.
+- **modern-web-guidance** (found in `/skills/modern-web-guidance/SKILL.md`): Activate when applying modern browser APIs, performance optimizations, accessibility audits, or advanced CSS layouts.
 
 ## Core Identity
 - You MUST strictly follow the behavioral guidelines defined in [/GUIDE.md](/GUIDE.md).
@@ -19,6 +20,8 @@ You MUST activate and read the matching skill immediately when a user request al
 - You MUST strictly follow and use the design tokens and helpers defined in Theme.tsx.
 - You MUST always use Theme.tsx border procedural helpers (such as theme.border.getBorder1px and theme.border.getOutline2px) instead of writing manual or external CSS borders.
 - You use Framer Motion for UI and GSAP for timelines.
+- **Variant Style System**: You MUST define styles as a JS object with `base`, `variant`, and `size` keys. Merge these into a single `style` object and apply via `style={style}`.
+- **Fluid Interpolation**: You MUST use the `layout` prop on `motion` components to enable automatic interpolation of style changes.
 
 ## Workflow Integration
 For every task involving component creation or modification:
