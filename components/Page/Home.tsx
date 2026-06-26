@@ -17,7 +17,6 @@ import StyleGuidePanel from '../Package/StyleGuidePanel.tsx';
 import TabbedPanel from '../Package/TabbedPanel.tsx';
 import SystemSpec from '../Package/SystemSpec.tsx';
 import AIPanel from '../Package/AIPanel.tsx';
-import { MorphDemo } from '../Package/MorphDemo.tsx';
 import UndoRedo from '../Package/UndoRedo.tsx';
 import Confetti from '../Core/Confetti.tsx';
 import { Sliders, Code, Terminal } from 'phosphor-react';
@@ -146,7 +145,6 @@ const Home = () => {
     systemSpec: { id: 'systemSpec', title: 'System Spec', isOpen: false, zIndex: 5, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
     ai: { id: 'ai', title: 'AI Agent', isOpen: false, zIndex: 6, x: 0, y: 0, height: 480 },
     settings: { id: 'settings', title: 'Settings', isOpen: false, zIndex: 7, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
-    morph: { id: 'morph', title: 'Morph Scrub', isOpen: false, zIndex: 8, x: 0, y: 0, height: 600 },
   });
 
   // --- Router Synchronization ---
@@ -528,18 +526,6 @@ const Home = () => {
               onUpdateState={(updates) => handlePropChange({ ...updates, componentType: 'custom' })}
               apiKey={geminiApiKey}
             />
-          </FloatingWindow>
-        )}
-
-        {windows.morph.isOpen && (
-          <FloatingWindow
-            key="morph"
-            {...windows.morph}
-            onClose={() => toggleWindow('morph')}
-            onResize={(newHeight) => handleResize('morph', newHeight)}
-            onFocus={() => bringToFront('morph')}
-          >
-            <MorphDemo />
           </FloatingWindow>
         )}
 
