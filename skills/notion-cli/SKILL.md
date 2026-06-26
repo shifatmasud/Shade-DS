@@ -50,6 +50,7 @@ Since standard interactive browser redirection is unavailable in virtual environ
    ```
    * *Output*: This prints a unique verification URL and verification code (e.g., `QZD-KPQ`).
    * *Action*: Display this link to the real user clearly to click and authorize.
+   * **Note**: The `--no-browser` flag is only valid for the `login` command, not the `poll` command.
 
 2. **Wait / Poll Auth**:
    After the user authorizes in the browser, complete the sequence by running the polling mechanism:
@@ -95,10 +96,20 @@ Below are standard operations supported by the CLI (prefix all with `NOTION_KEYR
   ```
 
 ### Direct API Calls (Public REST)
-* **API Query**:
+The `ntn api` command provides a powerful way to interact with the Notion API directly.
+* **List Endpoints**:
   ```bash
-  npx -y cross-env NOTION_KEYRING=0 npx ntn api <ENDPOINT_ROUTE> [OPTIONS]
+  npx -y cross-env NOTION_KEYRING=0 npx ntn api ls
   ```
+* **Query API**:
+  ```bash
+  npx -y cross-env NOTION_KEYRING=0 npx ntn api <ENDPOINT_PATH> [INPUTS]
+  ```
+* **Input Syntax Examples**:
+  - `page_size==100` (Query parameter)
+  - `archived:=true` (Typed JSON body assignment)
+  - `parent[page_id]=abc123` (String body assignment)
+  - `Accept:application/json` (Header)
 
 ---
 
