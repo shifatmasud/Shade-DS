@@ -1,107 +1,115 @@
 ---
 name: "github-cli"
 description: |
-  Interact with and orchestrate GitHub resources (Repositories, Pull Requests, Issues, Releases, Secrets, and Actions) using the GitHub CLI (gh). Explains non-interactive automation, headless token-based authentication, and resolving Git identity configurations in CI/CD or sandboxed containers.
+  Interact with and orchestrate GitHub resources (Repositories, Pull Requests, Issues, Releases, Secrets, and Actions) using the official GitHub CLI (gh). This skill explains how to use the pre-installed binary located in the workspace, bypassing the incorrect 'gh' npm package, and covers headless token-based authentication and non-interactive automation.
 
   Use this skill in the following scenarios:
   * GitHub Integration: When needing to programmatically interact with GitHub repositories, issues, pull requests, or actions.
   * Headless Auth: When performing operations securely using 'GITHUB_TOKEN' or 'GH_TOKEN' instead of interactive web logins.
-  * Automation Shells: Using non-interactive flags like '--yes' and piping commands to avoid interactive shell blocks.
+  * Automation Shells: Using non-interactive flags like '--yes' and specifying all required metadata (titles, bodies) to avoid interactive shell blocks.
 ---
 
 # GitHub CLI (gh) Integration Skill
 
-This skill outlines guidelines and executable patterns for managing GitHub resources, pull requests, issues, secrets, and workflows using the GitHub CLI (`gh`). It emphasizes secure headless execution, prompt avoidance, and robust error management.
+This skill outlines guidelines and executable patterns for managing GitHub resources using the official GitHub CLI (`gh`). It emphasizes using the correct binary location, secure headless execution, and robust error management.
 
 ---
 
-## 1. Environment & Non-Interactive Headless Auth
+## 1. Using the Correct Binary
 
-By default, the GitHub CLI (`gh`) attempts to authenticate interactively via a browser-based OAuth flow. In sandboxed containers, automated runtimes, or CI/CD pipelines, you must bypass this using automated token setups.
+> [!CAUTION]
+> **Do NOT use `npx gh`.** On this environment, `npx gh` fetches an unrelated and outdated npm package. You MUST use the official pre-installed binary located at `/bin/gh`.
 
-### Token-Based Authentication
-To authenticate headless integrations, supply a personal access token (PAT) or automatic workflow token as an environment variable (`GH_TOKEN` or `GITHUB_TOKEN`). All `gh` commands automatically read these:
+### Executing Commands
+Always call the binary using its path from the root or by ensuring it is in your execution context:
 
 ```bash
-# Unix token integration
-export GH_TOKEN="ghp_YourSecureGitHubPersonalAccessTokenHere"
-npx gh auth status
+# Recommended execution
+./bin/gh auth status
+```
 
+---
+
+## 2. Environment & Non-Interactive Headless Auth
+
+By default, the GitHub CLI attempts to authenticate interactively. In this sandboxed environment, you must bypass this using tokens.
+
+### Token-Based Authentication
+To authenticate, supply a Personal Access Token (PAT) as an environment variable (`GH_TOKEN` or `GITHUB_TOKEN`). All `gh` commands automatically read these:
+
+```bash
 # Direct execution wrapping
-GH_TOKEN="ghp_xxx" npx gh repo list
+GH_TOKEN="ghp_YourSecureToken" ./bin/gh repo list
 ```
 
 ### Git Credentials Helper Integration
-To permit standard `git` terminal mutations (e.g., `git push`, `git fetch`) without prompting for password inputs, configure `gh` to act as your git credential manager:
+To permit standard `git` terminal operations (e.g., `git push`) without password prompts:
 
 ```bash
-npx gh auth setup-git
+./bin/gh auth setup-git
 ```
 
 ---
 
-## 2. Preventing Interactive Blocks (Strict Non-Interactive Rule)
+## 3. Preventing Interactive Blocks (Strict Non-Interactive Rule)
 
-Headless automation will hang indefinitely if a command opens an interactive choice menu. You must systematically apply flags to bypass user prompts.
+Headless automation will hang if a command opens an interactive choice menu. You must systematically apply flags to bypass user prompts.
 
 ### Bulletproof Patterns
 * **PR Creation**:
   ```bash
-  npx gh pr create --title "feat: advanced analytics" --body "Implements chart analytics" --head feature-branch --base main
+  ./bin/gh pr create --title "feat: new component" --body "Implements the requested UI" --head feature-branch --base main
   ```
   *(Never call `gh pr create` alone—it prompts for title, body, and action!)*
 
 * **Repo Initialization**:
   ```bash
-  npx gh repo create my-new-project --private --source=. --remote=origin --push
+  ./bin/gh repo create my-project --private --source=. --remote=origin --push
   ```
 
 * **Issue Creation**:
   ```bash
-  npx gh issue create --title "bug: websocket disconnection" --body "Observed visual flicker on reconnect" --assignee "@me"
+  ./bin/gh issue create --title "bug: logic error" --body "Steps to reproduce..." --assignee "@me"
   ```
 
 ---
 
-## 3. Core GitHub Command Reference
+## 4. Core GitHub Command Reference
 
 ### Repository Operations
 * **Cloning private repositories**:
   ```bash
-  npx gh repo clone owner/repo-name
+  ./bin/gh repo clone owner/repo-name
   ```
 * **Repository List**:
   ```bash
-  npx gh repo list owner --limit 20
+  ./bin/gh repo list owner --limit 20
   ```
 
 ### Secrets and Variables Management
-Excellent for setting up deployment flows securely without hardcoding variables in files:
 * **Set Repository secret**:
   ```bash
-  # Directly from environment
-  npx gh secret set SECRET_DB_URL --body "$DB_URL"
+  ./bin/gh secret set SECRET_DB_URL --body "$DB_URL"
   ```
 * **Set Repository variable**:
   ```bash
-  npx gh variable set API_URL --body "https://api.production.internal"
+  ./bin/gh variable set API_URL --body "https://api.production.internal"
   ```
 
 ### Releases & Assets
-Perfect for automating software delivery:
 * **Create release and upload build outputs**:
   ```bash
-  npx gh release create v1.0.0 ./dist/bundle.zip --title "v1.0.0 (Production Release)" --notes "Automated release generation"
+  ./bin/gh release create v1.0.0 ./dist/bundle.zip --title "v1.0.0" --notes "Automated release"
   ```
 
 ---
 
-## 4. Automation Quality Guidelines
+## 5. Automation Quality Guidelines
 
-1. **Explicit Identity Setup**: Before pushing commits or creating PRs of generated code via git, configure git user details directly:
+1. **Explicit Identity Setup**: Before pushing commits via git:
    ```bash
-   git config --global user.email "bot-compiler@aistudio.internal"
-   git config --global user.name "AI Studio Compiler"
+   git config --global user.email "bot@aistudio.internal"
+   git config --global user.name "AI Studio Bot"
    ```
-2. **Error Isolation**: Standardize stdout parsing. Add `--json` flags to fetch machine-readable fields (e.g., `gh pr list --json number,title,state`).
-3. **Lazy Token Validation**: Wrap script logic to check auth state early using `gh auth status` before executing critical workflows.
+2. **JSON Output**: Use `--json` flags for machine-readable data (e.g., `./bin/gh pr list --json number,title`).
+3. **Pre-flight Check**: Check auth state using `./bin/gh auth status` before executing workflows.
