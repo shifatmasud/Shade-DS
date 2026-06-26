@@ -15,10 +15,12 @@ This skill outlines guidelines and executable operations for managing Notion res
 
 ## Quick Start: Authentication
 
-To initialize the Notion CLI in this environment, you must first authenticate. Run this command to generate your login URL:
+To initialize the Notion CLI in this environment, add your **CLI Access Token** (obtained from [Notion Developers](https://app.notion.com/developers/connections)) to the `.env` file. 
+
+Once configured, you can run all commands directly:
 
 ```bash
-npx -y cross-env NOTION_KEYRING=0 npx ntn login --no-browser
+npx ntn whoami
 ```
 
 ---
@@ -49,19 +51,36 @@ When `NOTION_KEYRING=0` is active, the CLI falls back to the file-based credenti
 
 ## 2. Authentication Lifecycle
 
-### Standard Headless Login Workflow
-Since standard interactive browser redirection is unavailable in virtual environments, you must adopt the two-step verification code flow:
+### Option A: Direct Token Authentication (Recommended)
+This is the preferred method for headless and automated environments. It bypasses all interactive login steps and keyring constraints.
+
+1. **Get your Token**:
+   Visit [Notion Developer Connections](https://app.notion.com/developers/connections) and generate/copy a **CLI Access Token** (starts with `ntn_`).
+
+2. **Configure Environment**:
+   Add the token to your `.env` file:
+   ```env
+   NOTION_API_TOKEN=ntn_your_token_here
+   ```
+
+3. **Execute Commands**:
+   Once the token is in your environment, you can run commands directly. **NO extra flags** (like `NOTION_KEYRING=0`) are required:
+   ```bash
+   npx ntn whoami
+   ```
+   *Note: `NOTION_API_TOKEN` overrides all local storage and keychain logic.*
+
+### Option B: Standard Headless Login Workflow (Interactive Fallback)
+If you do not have an integration token, use the interactive verification flow. **Note**: This method requires the `NOTION_KEYRING=0` flag in this environment.
 
 1. **Initiate Verification**:
    ```bash
    npx -y cross-env NOTION_KEYRING=0 npx ntn login --no-browser
    ```
-   * *Output*: This prints a unique verification URL and verification code (e.g., `QZD-KPQ`).
-   * *Action*: Display this link to the real user clearly to click and authorize.
-   * **Note**: The `--no-browser` flag is only valid for the `login` command, not the `poll` command.
+   * *Output*: Prints a unique verification URL and code.
+   * *Action*: Visit the link, authorize, and follow the prompts.
 
 2. **Wait / Poll Auth**:
-   After the user authorizes in the browser, complete the sequence by running the polling mechanism:
    ```bash
    npx -y cross-env NOTION_KEYRING=0 npx ntn login poll
    ```
