@@ -13,6 +13,14 @@ description: |
 
 This skill outlines guidelines and executable operations for managing Notion resources, pages, files, data sources, and workers using the Notion CLI (`ntn`). It covers specific configurations for headless and remote terminal environments where platform keyrings might not be active.
 
+## Quick Start: Authentication
+
+To initialize the Notion CLI in this environment, you must first authenticate. Run this command to generate your login URL:
+
+```bash
+npx -y cross-env NOTION_KEYRING=0 npx ntn login --no-browser
+```
+
 ---
 
 ## 1. Environment & Auth Keyring Workaround
