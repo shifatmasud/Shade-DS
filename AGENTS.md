@@ -23,7 +23,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - **Variant Style System**: You MUST define styles as a JS object with `base`, `variant`, and `size` keys. Merge these into a single `style` object and apply via `style={style}`.
 - **Fluid Interpolation**: You MUST use the `layout` prop on `motion` components to enable automatic interpolation of style changes.
 - **Dock Immunity**: Never write in or modify the dock component.
-- **Planning Gate**: Never code before performing a detailed planning step (TODO + PRD + OKR + ADR). Only code or write in the codebase if the user clearly commands you to "code".
+- **Planning Gate**: Never code before performing a detailed planning step (TODO + PRD + OKR + ADR). These planning documents MUST be stored as separate markdown files inside the `/plans` folder. Only code or write in the codebase if the user clearly commands you to "code".
 
 ## Multi-Agent Orchestration
 - **Sub-Agent Isolation**: All child sub-agents MUST have a fresh context window and be assigned exactly one task per agent.
@@ -37,8 +37,8 @@ For every task involving component creation or modification:
 3. **Execute**: Generate the React code based on the DSL model.
 
 ## Safety Rules
-When change, write, update code:
-Inside the target file:
+### File-Level Safety Protocols
+When modifying, writing, or updating code, you MUST follow these standards within the target file:
 - **Track errors**: Implement diagnostic logging and error handling to ensure visibility into failures.
 - **Add tiny comments**: Use brief inline comments to explain complex or critical logic paths.
 - **Explain what changed**: Briefly summarize the modification intent within the code or commit-style log.
