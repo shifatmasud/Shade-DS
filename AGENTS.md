@@ -39,8 +39,8 @@ For every task involving component creation or modification:
 ## Safety Rules
 When change, write, update code:
 Inside the target file:
-- Track errors.
-- Add tiny comments.
-- Explain what changed.
-- Keep code clean.
-- Touch only needed code.
+- **Track errors**: Implement diagnostic logging and error handling to ensure visibility into failures.
+- **Add tiny comments**: Use brief inline comments to explain complex or critical logic paths.
+- **Explain what changed**: Briefly summarize the modification intent within the code or commit-style log.
+- **Keep code clean**: Ensure high readability, proper indentation, and zero dead code.
+- **Touch only needed code**: Strictly limit modifications to the scope of the current task to prevent regression.
