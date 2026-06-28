@@ -35,8 +35,7 @@ async function takeScreenshot() {
     // Quick check: is it all white or all black?
     // This is hard to do without a library, but we can check if there's variation in the buffer.
     const sample = buffer.slice(buffer.length / 2, buffer.length / 2 + 100);
-    console.log('Buffer sample (hex):', sample.toString('hex').slice(0, 50));
-
+    
     await browser.close();
   } catch (error) {
     console.error('Failed to take screenshot:', error);
