@@ -20,8 +20,8 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const groupRef = useRef<THREE.Group>(null);
   const jellyRef = useRef<any>(null);
-  const [hovered, setHover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const pointerPos = useRef(new THREE.Vector3());
   const dragPlane = useRef(new THREE.Plane());
   const dragOffset = useRef(new THREE.Vector3());
 
@@ -45,12 +45,10 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
     }
     localDragOffset.current.set(0, 0, 0);
 
-    // LOGIC: Create a drag plane parallel to the camera at the depth of the object
     const camera = e.camera;
     const planeNormal = new THREE.Vector3().subVectors(camera.position, e.point).normalize();
     dragPlane.current.setFromNormalAndCoplanarPoint(planeNormal, e.point);
     
-    // Store offset for smooth pickup without centering jump
     const currentPos = rigidBodyRef.current?.translation();
     if (currentPos) {
       dragOffset.current.set(currentPos.x - e.point.x, currentPos.y - e.point.y, currentPos.z - e.point.z);
@@ -58,9 +56,12 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
   };
 
   const handlePointerUp = (e: any) => {
+    e.stopPropagation();
     setIsDragging(false);
     onDragEnd?.();
-    e.target.releasePointerCapture(e.pointerId);
+    if (e.target.hasPointerCapture(e.pointerId)) {
+      e.target.releasePointerCapture(e.pointerId);
+    }
     
     // UI: Clear velocities on release to prevent physical explosions
     rigidBodyRef.current?.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -68,35 +69,46 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
   };
 
   useFrame((state) => {
+    // Track pointer position NDC
+    pointerPos.current.set(state.pointer.x, state.pointer.y, 0);
+
     if (isDragging && rigidBodyRef.current) {
       const intersection = new THREE.Vector3();
-      state.raycaster.ray.intersectPlane(dragPlane.current, intersection);
-      
-      const targetPos = intersection.clone().add(dragOffset.current);
-      
-      // SYNC: Direct cursor-following through kinematic translation
-      rigidBodyRef.current.setNextKinematicTranslation(targetPos);
+      if (state.raycaster.ray.intersectPlane(dragPlane.current, intersection)) {
+        const targetPos = intersection.clone().add(dragOffset.current);
+        
+        // PHYSICAL CLAMPING: Prevent the cube from going below the floor surface
+        const floorY = -1.5;
+        const halfSize = 0.5;
+        targetPos.y = Math.max(targetPos.y, floorY + halfSize);
+        
+        rigidBodyRef.current.setNextKinematicTranslation(targetPos);
 
-      // Compute local-space cursor drag offset
-      const worldDragVec = intersection.clone().sub(worldHitStart.current);
-      if (groupRef.current) {
-        const rotMatrix = new THREE.Matrix4().extractRotation(groupRef.current.matrixWorld);
-        const invRotMatrix = rotMatrix.invert();
-        const localDrag = worldDragVec.clone().applyMatrix4(invRotMatrix);
-        localDragOffset.current.copy(localDrag);
+        // Compute local-space cursor drag offset
+        const worldDragVec = intersection.clone().sub(worldHitStart.current);
+        if (groupRef.current) {
+          const rotMatrix = new THREE.Matrix4().extractRotation(groupRef.current.matrixWorld);
+          const invRotMatrix = rotMatrix.invert();
+          const localDrag = worldDragVec.clone().applyMatrix4(invRotMatrix);
+          localDragOffset.current.copy(localDrag);
+        }
       }
     }
   });
 
+  // Use a ref for the initial position to avoid jumping on re-renders when type changes
+  const initialPos = useMemo(() => position, []);
+
   return (
       <RigidBody 
         ref={rigidBodyRef} 
-        position={position} 
+        position={initialPos} 
         type={isDragging ? "kinematicPosition" : "dynamic"}
         colliders="cuboid" 
         restitution={0.7}
         friction={0.5}
         ccd={true}
+        canSleep={!isDragging}
         name={`cube-${id}`}
         onCollisionEnter={({ manifold, flipped }) => {
           if (!manifold) return;
@@ -122,20 +134,20 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
             jellyRef.current?.triggerImpact(worldPoint, worldNormal, intensity);
 
             // Play collision sound
-            playSound('press');
+            playSound('impact', intensity);
           }
         }}
       >
         <group
           ref={groupRef}
-          onPointerOver={() => setHover(true)} 
-          onPointerOut={() => setHover(false)}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
         >
           <JellyBox 
             ref={jellyRef}
-            color={hovered ? '#ffffff' : color} 
+            rigidBody={rigidBodyRef}
+            pointerPos={pointerPos.current}
+            color={color} 
             isDragging={isDragging}
             localHitPoint={localHitPoint.current}
             localDragOffset={localDragOffset.current}
@@ -158,9 +170,9 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const groupRef = useRef<THREE.Group>(null);
   const jellyRef = useRef<any>(null);
-  const rotationRef = useRef({ x: 0, y: 0, z: 0 });
-  const [hovered, setHover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const pointerPos = useRef(new THREE.Vector3());
+  const rotationRef = useRef({ x: 0, y: 0, z: 0 });
   
   const dragPlane = useRef(new THREE.Plane());
   const dragOffset = useRef(new THREE.Vector3());
@@ -203,6 +215,9 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
   };
 
   useFrame((state, delta) => {
+    // Track pointer position in world space
+    pointerPos.current.set(state.pointer.x, state.pointer.y, 0);
+
     if (rigidBodyRef.current) {
       // LOGIC: Stable rotation accumulation to avoid physical feedback jitter
       rotationRef.current.x += delta * speed * (isDragging ? 2 : 0.8);
@@ -220,16 +235,24 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
       // Translation logic
       if (isDragging) {
         const intersection = new THREE.Vector3();
-        state.raycaster.ray.intersectPlane(dragPlane.current, intersection);
-        currentTranslation.current.copy(intersection.clone().add(dragOffset.current));
+        if (state.raycaster.ray.intersectPlane(dragPlane.current, intersection)) {
+          const targetPos = intersection.clone().add(dragOffset.current);
+          
+          // PHYSICAL CLAMPING: size=2, halfSize=1. Floor at -1.5
+          const floorY = -1.5;
+          const halfSize = 1.0; 
+          targetPos.y = Math.max(targetPos.y, floorY + halfSize);
+          
+          currentTranslation.current.copy(targetPos);
 
-        // Compute local-space cursor drag offset
-        const worldDragVec = intersection.clone().sub(worldHitStart.current);
-        if (groupRef.current) {
-          const rotMatrix = new THREE.Matrix4().extractRotation(groupRef.current.matrixWorld);
-          const invRotMatrix = rotMatrix.invert();
-          const localDrag = worldDragVec.clone().applyMatrix4(invRotMatrix);
-          localDragOffset.current.copy(localDrag);
+          // Compute local-space cursor drag offset
+          const worldDragVec = intersection.clone().sub(worldHitStart.current);
+          if (groupRef.current) {
+            const rotMatrix = new THREE.Matrix4().extractRotation(groupRef.current.matrixWorld);
+            const invRotMatrix = rotMatrix.invert();
+            const localDrag = worldDragVec.clone().applyMatrix4(invRotMatrix);
+            localDragOffset.current.copy(localDrag);
+          }
         }
       } else {
         // Return to resting position smoothly
@@ -276,20 +299,20 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
           jellyRef.current?.triggerImpact(worldPoint, worldNormal, intensity);
 
           // Play collision sound
-          playSound('click');
+          playSound('impact', intensity);
         }
       }}
     >
       <group
         ref={groupRef}
-        onPointerOver={() => setHover(true)} 
-        onPointerOut={() => setHover(false)} 
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
       >
         <JellyBox 
           ref={jellyRef}
-          color={hovered ? '#ffffff' : color} 
+          rigidBody={rigidBodyRef}
+          pointerPos={pointerPos.current}
+          color={color} 
           size={2} 
           isDragging={isDragging}
           localHitPoint={localHitPoint.current}

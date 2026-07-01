@@ -19,6 +19,8 @@ let windNoise: any = null;
 let windEnv: any = null;
 let rippleSynth: any = null;
 let clickSynth: any = null;
+let impactThud: any = null;
+let impactSlap: any = null;
 
 async function getTone() {
   if (typeof window === 'undefined') return null;
@@ -48,9 +50,9 @@ async function init() {
 
       // Master Reverb (reduced wet slightly to keep sounds direct/loud)
       reverb = new T.Reverb({
-        decay: 0.8,
+        decay: 1.2,
         preDelay: 0.01,
-        wet: 0.05
+        wet: 0.08
       }).toDestination();
       await reverb.generate();
 
@@ -77,28 +79,50 @@ async function init() {
 
       // --- WATER (Ripple/Bloop) ---
       rippleSynth = new T.MembraneSynth({
-        pitchDecay: 0.15, // More pronounced pitch-down ease
-        octaves: 3.5,     // Steeper drop for organic feel
+        pitchDecay: 0.15,
+        octaves: 3.5,
         oscillator: { type: 'sine' },
         envelope: {
-          attack: 0.002, // Sharper start
-          decay: 0.1,
+          attack: 0.002,
+          decay: 0.15,
           sustain: 0,
           release: 0.1
         }
       }).connect(reverb);
-      rippleSynth.volume.value = -14; 
+      rippleSynth.volume.value = -12; 
 
       // --- CLICK (Mechanical Snap) ---
       clickSynth = new T.NoiseSynth({
         noise: { type: 'white' },
         envelope: {
           attack: 0.001,
-          decay: 0.02, // Tiny burst
+          decay: 0.03,
           sustain: 0
         }
       }).connect(reverb);
-      clickSynth.volume.value = -28; 
+      clickSynth.volume.value = -26; 
+
+      // --- IMPACT (Squishy Thud) ---
+      impactThud = new T.MembraneSynth({
+        pitchDecay: 0.08,
+        octaves: 2,
+        oscillator: { type: 'sine' },
+        envelope: {
+          attack: 0.001,
+          decay: 0.25,
+          sustain: 0,
+          release: 0.1
+        }
+      }).connect(reverb);
+      
+      impactSlap = new T.NoiseSynth({
+        noise: { type: 'pink' },
+        envelope: {
+          attack: 0.001,
+          decay: 0.06,
+          sustain: 0
+        }
+      }).connect(new T.Filter(1500, 'lowpass').connect(reverb));
       
       isInitialized = true;
       console.log('Tone.js: Engine Ready');
@@ -139,11 +163,11 @@ if (typeof window !== 'undefined') {
   window.addEventListener('click', unlock, { passive: true });
 }
 
-export type SoundType = 'click' | 'hover' | 'press' | 'drag';
+export type SoundType = 'click' | 'hover' | 'press' | 'drag' | 'impact';
 
 let lastScheduledTime = 0;
 
-export async function playSound(type: SoundType) {
+export async function playSound(type: SoundType, intensity: number = 1.0) {
   const T = await getTone();
   if (!T) return;
 
@@ -151,36 +175,45 @@ export async function playSound(type: SoundType) {
     await init();
   }
   
-  // Critical for Vercel/Production: Check and resume context state if it suspended
   if (T.context.state !== 'running') {
     try {
       await T.context.resume();
     } catch (e) {
-      // Silent fail if context can't resume
       return;
     }
   }
   
-  // Use a slightly larger lookahead (0.05) to ensure stability in production environments
-  let time = T.now() + 0.05;
+  let time = T.now() + 0.02;
   if (time <= lastScheduledTime) {
     time = lastScheduledTime + 0.01; 
   }
   lastScheduledTime = time;
 
+  // Map intensity to volume (dB)
+  // 0.2 intensity -> -20dB, 1.5 intensity -> 0dB
+  const volumeBoost = Math.log10(intensity) * 20;
+
   switch (type) {
+    case 'impact':
+      if (impactThud && impactSlap) {
+        const freq = 60 + (1.0 - intensity) * 40; // Harder hits are lower frequency
+        impactThud.volume.rampTo(-10 + volumeBoost, 0.01, time);
+        impactSlap.volume.rampTo(-18 + volumeBoost, 0.01, time);
+        
+        impactThud.triggerAttackRelease(freq, '0.1', time);
+        impactSlap.triggerAttackRelease('0.05', time);
+      }
+      break;
+
     case 'hover':
       if (windEnv) {
-        windEnv.triggerAttackRelease('0.3', time, 0.2); // Slightly more powerful hover
+        windEnv.triggerAttackRelease('0.2', time, 0.15);
       }
       break;
       
     case 'click':
       if (rippleSynth || clickSynth) {
-        // Kill any lingering airy noise from hover before clicking
         if (windEnv) windEnv.triggerRelease(time);
-        
-        // Organic Click: Deep body with mechanical snap
         if (rippleSynth) rippleSynth.triggerAttackRelease('C4', '0.05', time, 0.5);
         if (clickSynth) clickSynth.triggerAttackRelease('0.05', time, 0.4);
       }
@@ -188,14 +221,13 @@ export async function playSound(type: SoundType) {
       
     case 'press':
       if (rippleSynth) {
-        // Subtle deeper bloop for press
-        rippleSynth.triggerAttackRelease('G4', '0.08', time, 0.5);
+        rippleSynth.triggerAttackRelease('G3', '0.1', time, 0.6);
       }
       break;
       
     case 'drag':
       if (windEnv) {
-        windEnv.triggerAttackRelease('0.05', time, 0.1);
+        windEnv.triggerAttackRelease('0.05', time, 0.08);
       }
       break;
   }

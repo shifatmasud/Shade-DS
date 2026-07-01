@@ -1,6 +1,7 @@
 import React, { useRef, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { RapierRigidBody } from '@react-three/rapier';
 
 /**
  * COMPONENT: JellyBox
@@ -17,6 +18,8 @@ interface JellyBoxProps {
   isDragging?: boolean;
   localHitPoint?: THREE.Vector3;
   localDragOffset?: THREE.Vector3;
+  rigidBody?: React.RefObject<RapierRigidBody | null>;
+  pointerPos?: THREE.Vector3;
   stiffness?: number;
   damping?: number;
   transmission?: number;
@@ -28,6 +31,8 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
   isDragging = false,
   localHitPoint,
   localDragOffset,
+  rigidBody,
+  pointerPos,
   stiffness = 20.0,
   damping = 0.94,
   transmission = 0.90
@@ -108,10 +113,11 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
     uHitPoint: { value: new THREE.Vector3() },
     uDragOffset: { value: new THREE.Vector3() },
     uWobbleOffset: { value: new THREE.Vector3() },
-    uWobbleTime: { value: 0.0 },
     uRadius: { value: size * 0.8 },
     uMomentumForce: { value: new THREE.Vector3() },
-    uMomentumTime: { value: 0.0 },
+    uProximityPos: { value: new THREE.Vector3() },
+    uProximityWeight: { value: 0.0 },
+    uGroundY: { value: -1.5 },
     // Multi-impact local collision arrays (fully compatible with any Three.js version)
     uImpactPoints: { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
     uImpactNormals: { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
@@ -141,10 +147,11 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
       shader.uniforms.uHitPoint = uniformsRef.current.uHitPoint;
       shader.uniforms.uDragOffset = uniformsRef.current.uDragOffset;
       shader.uniforms.uWobbleOffset = uniformsRef.current.uWobbleOffset;
-      shader.uniforms.uWobbleTime = uniformsRef.current.uWobbleTime;
       shader.uniforms.uRadius = uniformsRef.current.uRadius;
       shader.uniforms.uMomentumForce = uniformsRef.current.uMomentumForce;
-      shader.uniforms.uMomentumTime = uniformsRef.current.uMomentumTime;
+      shader.uniforms.uProximityPos = uniformsRef.current.uProximityPos;
+      shader.uniforms.uProximityWeight = uniformsRef.current.uProximityWeight;
+      shader.uniforms.uGroundY = uniformsRef.current.uGroundY;
       shader.uniforms.uImpactPoints = uniformsRef.current.uImpactPoints;
       shader.uniforms.uImpactNormals = uniformsRef.current.uImpactNormals;
       shader.uniforms.uImpactIntensities = uniformsRef.current.uImpactIntensities;
@@ -156,10 +163,11 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
         uniform vec3 uHitPoint;
         uniform vec3 uDragOffset;
         uniform vec3 uWobbleOffset;
-        uniform float uWobbleTime;
         uniform float uRadius;
         uniform vec3 uMomentumForce;
-        uniform float uMomentumTime;
+        uniform vec3 uProximityPos;
+        uniform float uProximityWeight;
+        uniform float uGroundY;
 
         // Upgraded multi-impact uniforms for physical collision deformation
         uniform vec3 uImpactPoints[3];
@@ -172,11 +180,17 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
           // Local grab-point stretch deformation (Gaussian falloff)
           float d = distance(localPos, uHitPoint);
           float w = exp(-(d * d) / (2.0 * uRadius * uRadius));
-          vec3 localDeform = (uDragOffset + uWobbleOffset * sin(uWobbleTime)) * w;
+          vec3 localDeform = (uDragOffset + uWobbleOffset) * w;
           
-          // Global body-wide momentum wobble (sine wave distribution based on height relative to base)
-          float heightFactor = (localPos.y + ${(size / 2.0).toFixed(4)}) / ${(size).toFixed(4)}; // 0 at bottom, 1 at top
-          vec3 globalDeform = uMomentumForce * sin(uMomentumTime) * heightFactor;
+          // Global body-wide momentum lean (proportional to velocity/acceleration from Rapier)
+          float heightFactor = (localPos.y + ${(size / 2.0).toFixed(4)}) / ${(size).toFixed(4)}; 
+          vec3 globalDeform = uMomentumForce * heightFactor;
+
+          // Proximity-based subtle deformation (mouse magnetism)
+          vec4 worldPos4 = modelMatrix * vec4(localPos, 1.0);
+          float proxDist = distance(worldPos4.xyz, uProximityPos);
+          float proxW = exp(-(proxDist * proxDist) / 0.5) * uProximityWeight;
+          vec3 proxDeform = normalize(uProximityPos - worldPos4.xyz) * proxW * 0.02; // Dampened proximity
           
           // Multi-impact local collision soft-body deformation
           vec3 collisionDeform = vec3(0.0);
@@ -185,14 +199,14 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
               float t = uImpactTimes[i];
               float intensity = uImpactIntensities[i];
               
-              // 1. Localized Contact Squish (Gaussian Dent)
+              // 1. Localized Contact Squish (Gaussian Dent) - Stronger
               float dist = distance(localPos, uImpactPoints[i]);
-              float spatialFalloff = exp(-(dist * dist) / 0.18);
-              float dentAmp = intensity * 0.35 * exp(-3.5 * t) * sin(t * 15.0);
+              float spatialFalloff = exp(-(dist * dist) / 0.22);
+              float dentAmp = intensity * 0.55 * exp(-3.0 * t) * sin(t * 18.0);
               vec3 dentDeform = -uImpactNormals[i] * spatialFalloff * dentAmp;
               
-              // 2. Propagating Ripple Shockwave
-              float rippleAmp = intensity * 0.12 * exp(-2.5 * t) * sin(dist * 12.0 - t * 22.0) * exp(-1.2 * dist);
+              // 2. Propagating Ripple Shockwave - Increased Amplitude
+              float rippleAmp = intensity * 0.28 * exp(-2.2 * t) * sin(dist * 15.0 - t * 25.0) * exp(-1.0 * dist);
               vec3 rippleDeform = uImpactNormals[i] * rippleAmp;
               
               // 3. Volume-Preserving Bulge (Poisson expansion)
@@ -203,14 +217,29 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
               float radialDist = length(radialVec);
               vec3 radialDir = radialDist > 0.001 ? radialVec / radialDist : vec3(0.0);
               
-              float bulgeAmp = abs(dentAmp) * 0.6 * exp(-(radialDist * radialDist) / 0.32);
+              float bulgeAmp = abs(dentAmp) * 0.75 * exp(-(radialDist * radialDist) / 0.35);
               vec3 bulgeDeform = radialDir * bulgeAmp;
               
               collisionDeform += dentDeform + rippleDeform + bulgeDeform;
             }
           }
+
+          vec3 finalPos = localPos + localDeform + globalDeform + proxDeform + collisionDeform;
           
-          return localPos + localDeform + globalDeform + collisionDeform;
+          // GROUND CLAMPING: Prevent vertices from clipping through the floor
+          vec4 finalWorldPos = modelMatrix * vec4(finalPos, 1.0);
+          if (finalWorldPos.y < uGroundY) {
+            float diff = uGroundY - finalWorldPos.y;
+            finalWorldPos.y = uGroundY;
+            // Push outwards slightly when squished (volume preservation)
+            vec2 flatPos = finalWorldPos.xz;
+            if (length(flatPos) > 0.0001) {
+                finalWorldPos.xz += normalize(flatPos) * diff * 0.4;
+            }
+            return (inverse(modelMatrix) * finalWorldPos).xyz;
+          }
+          
+          return finalPos;
         }
       ` + shader.vertexShader;
 
@@ -267,116 +296,124 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
   useFrame((state, delta) => {
     if (!meshRef.current) return;
 
-    const dt = Math.min(delta, 0.03); // Cap dt to prevent spring explosions during extreme lag
+    const dt = Math.min(delta, 0.03);
 
-    // 1. Core world speed/momentum monitoring
-    const currentWorldPos = new THREE.Vector3();
-    meshRef.current.getWorldPosition(currentWorldPos);
+    // 1. Rapier Integration: Drive deformation from physical state
+    if (rigidBody?.current) {
+      const rb = rigidBody.current;
+      const linvel = rb.linvel();
+      const velocity = new THREE.Vector3(linvel.x, linvel.y, linvel.z);
+      
+      // Calculate acceleration from speed change
+      const speed = velocity.length();
+      const acceleration = velocity.clone().sub(lastSpeed.current).divideScalar(dt || 0.016);
+      lastSpeed.current.copy(velocity);
 
-    if (!initializedPosition.current) {
+      // Leaning deformation: Proportional to velocity and acceleration (trailing effect)
+      const leanIntensity = 0.006;
+      const accelIntensity = 0.002;
+      
+      const accel = acceleration.clone();
+      const maxAccInfluence = 15.0;
+      if (accel.length() > maxAccInfluence) accel.setLength(maxAccInfluence);
+
+      const targetMomentum = velocity.clone().multiplyScalar(-leanIntensity);
+      targetMomentum.addScaledVector(accel, -accelIntensity);
+      
+      const maxLean = size * 0.25;
+      if (targetMomentum.length() > maxLean) {
+        targetMomentum.setLength(maxLean);
+      }
+      
+      // Much smoother interpolation (inertia feel)
+      momentumForce.current.lerp(targetMomentum, 0.05);
+      uniformsRef.current.uMomentumForce.value.copy(momentumForce.current);
+    } else {
+      // Fallback for non-rigid bodies
+      const currentWorldPos = new THREE.Vector3();
+      meshRef.current.getWorldPosition(currentWorldPos);
+
+      if (!initializedPosition.current) {
+        lastWorldPos.current.copy(currentWorldPos);
+        initializedPosition.current = true;
+      }
+
+      const currentSpeed = currentWorldPos.clone().sub(lastWorldPos.current).divideScalar(dt || 0.016);
+      const currentAcceleration = currentSpeed.clone().sub(lastSpeed.current).divideScalar(dt || 0.016);
+
       lastWorldPos.current.copy(currentWorldPos);
-      initializedPosition.current = true;
+      lastSpeed.current.copy(currentSpeed);
+
+      momentumVelocity.current.addScaledVector(currentAcceleration, -0.01);
+      const kmom = stiffness * 0.5;
+      const cmom = (1.0 - damping) * 6.0;
+      const totalMomForce = momentumForce.current.clone().multiplyScalar(-kmom).add(momentumVelocity.current.clone().multiplyScalar(-cmom));
+      momentumVelocity.current.addScaledVector(totalMomForce, dt);
+      momentumForce.current.addScaledVector(momentumVelocity.current, dt);
+      
+      uniformsRef.current.uMomentumForce.value.copy(momentumForce.current);
     }
 
-    const currentSpeed = currentWorldPos.clone().sub(lastWorldPos.current).divideScalar(dt || 0.016);
-    const currentAcceleration = currentSpeed.clone().sub(lastSpeed.current).divideScalar(dt || 0.016);
-
-    // Limit acceleration magnitude to keep physical simulation extremely stable
-    const maxAccel = 120.0;
-    if (currentAcceleration.length() > maxAccel) {
-      currentAcceleration.setLength(maxAccel);
+    // 2. Proximity Detection
+    if (pointerPos) {
+      const ray = state.raycaster.ray;
+      const objectWorldPos = new THREE.Vector3();
+      meshRef.current.getWorldPosition(objectWorldPos);
+      
+      const pointOnRay = new THREE.Vector3();
+      ray.closestPointToPoint(objectWorldPos, pointOnRay);
+      
+      const dist = objectWorldPos.distanceTo(pointOnRay);
+      // Gentler proximity: falls off sooner
+      const proxWeight = THREE.MathUtils.smoothstep(dist, 2.0, 0.2);
+      
+      uniformsRef.current.uProximityPos.value.copy(pointOnRay);
+      uniformsRef.current.uProximityWeight.value = proxWeight;
     }
 
-    lastWorldPos.current.copy(currentWorldPos);
-    lastSpeed.current.copy(currentSpeed);
-
-    // 2. Local mouse grab & drag physics integration
+    // 3. Local mouse grab & drag physics integration
     if (isDragging) {
-      // While dragging, reset wobble velocity and align uniforms
       wobbleOffset.current.set(0, 0, 0);
       wobbleVelocity.current.set(0, 0, 0);
-      wobbleTime.current = 0.0;
 
       if (localHitPoint) {
         uniformsRef.current.uHitPoint.value.copy(localHitPoint);
       }
       if (localDragOffset) {
-        // Clamp maximum interactive drag extension to avoid breaking mesh topology
-        const maxDrag = size * 1.5;
+        const maxDrag = size * 1.8; // Reduced visual drag stretch
         const drag = localDragOffset.clone();
-        if (drag.length() > maxDrag) {
-          drag.setLength(maxDrag);
+        const currentLen = drag.length();
+        
+        if (currentLen > maxDrag) {
+          // Asymptotic drag: feels like high resistance instead of a hard wall
+          const extra = currentLen - maxDrag;
+          const softenedExtra = (extra * size * 0.5) / (extra + size * 0.5); // Stiffer sigmoid
+          drag.setLength(maxDrag + softenedExtra);
         }
+        
         uniformsRef.current.uDragOffset.value.copy(drag);
       }
     } else {
-      // Transition from drag to release: initialize wobble spring values
       if (uniformsRef.current.uDragOffset.value.lengthSq() > 0) {
         wobbleOffset.current.copy(uniformsRef.current.uDragOffset.value);
-        // Kickback velocity proportional to offset stretch
         wobbleVelocity.current.copy(uniformsRef.current.uDragOffset.value).multiplyScalar(-8.0);
         uniformsRef.current.uDragOffset.value.set(0, 0, 0);
       }
 
-      // Dynamic Damped Harmonic Oscillator solver for the grab point snapback
-      // Force = -k*x - c*v
       const k = stiffness;
-      const c = (1.0 - damping) * 15.0; // translate damping ratio into viscosity coeff
-
-      const springForce = wobbleOffset.current.clone().multiplyScalar(-k);
-      const dampingForce = wobbleVelocity.current.clone().multiplyScalar(-c);
-      const totalWobbleForce = springForce.add(dampingForce);
+      const c = (1.0 - damping) * 15.0;
+      const totalWobbleForce = wobbleOffset.current.clone().multiplyScalar(-k).add(wobbleVelocity.current.clone().multiplyScalar(-c));
 
       wobbleVelocity.current.addScaledVector(totalWobbleForce, dt);
       wobbleOffset.current.addScaledVector(wobbleVelocity.current, dt);
 
-      // Prevent perpetual micro-oscillations (dead-zone filter)
       if (wobbleOffset.current.lengthSq() < 0.0001 && wobbleVelocity.current.lengthSq() < 0.0001) {
         wobbleOffset.current.set(0, 0, 0);
         wobbleVelocity.current.set(0, 0, 0);
       }
 
-      wobbleTime.current += dt * Math.sqrt(k); // oscillate proportional to stiffness speed
-
       uniformsRef.current.uWobbleOffset.value.copy(wobbleOffset.current);
-      uniformsRef.current.uWobbleTime.value = wobbleTime.current;
     }
-
-    // 3. Global body-wide momentum wobble simulation
-    // Apply world-acceleration changes to the momentum spring
-    if (currentAcceleration.lengthSq() > 1.0) {
-      // Add acceleration force to momentum velocity (inertial reaction)
-      momentumVelocity.current.addScaledVector(currentAcceleration, -0.015);
-    }
-
-    // Apply spring dampening solver for momentum wobble
-    const kmom = stiffness * 0.7; // body-wide wobble is slightly softer and slower
-    const cmom = (1.0 - damping) * 8.0;
-
-    const momSpring = momentumForce.current.clone().multiplyScalar(-kmom);
-    const momDamp = momentumVelocity.current.clone().multiplyScalar(-cmom);
-    const totalMomForce = momSpring.add(momDamp);
-
-    momentumVelocity.current.addScaledVector(totalMomForce, dt);
-    momentumForce.current.addScaledVector(momentumVelocity.current, dt);
-
-    // Limit absolute global deformation amplitude so the cube retains its core cuboid identity
-    const maxGlobalDeform = size * 0.4;
-    if (momentumForce.current.length() > maxGlobalDeform) {
-      momentumForce.current.setLength(maxGlobalDeform);
-    }
-
-    // Decay dead zone
-    if (momentumForce.current.lengthSq() < 0.0001 && momentumVelocity.current.lengthSq() < 0.0001) {
-      momentumForce.current.set(0, 0, 0);
-      momentumVelocity.current.set(0, 0, 0);
-    }
-
-    momentumTime.current += dt * Math.sqrt(kmom);
-
-    uniformsRef.current.uMomentumForce.value.copy(momentumForce.current);
-    uniformsRef.current.uMomentumTime.value = momentumTime.current;
-    uniformsRef.current.uRadius.value = size * 0.8;
 
     // 4. Update multi-impact active lifetimes
     const activeArr = uniformsRef.current.uImpactActive.value;
@@ -386,7 +423,6 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
     for (let i = 0; i < 3; i++) {
       if (activeArr[i] > 0.5) {
         timesArr[i] += dt;
-        // Limit maximum duration to 1.5s (when oscillation decays completely)
         if (timesArr[i] > 1.5) {
           activeArr[i] = 0.0;
           timesArr[i] = 0.0;
