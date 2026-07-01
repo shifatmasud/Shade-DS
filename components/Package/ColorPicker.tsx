@@ -222,7 +222,7 @@ export const FloatingColorPickerWindow: React.FC<FloatingColorPickerWindowProps>
     const count = 12; 
     for(let i = 0; i < count; i++) {
         const hue = (i * (360/count)) % 360;
-        colors.push(HSLToHex(hue, 95, 55));
+        colors.push(HSLToHex(hue, 60, 55));
     }
     return colors;
   }, []);

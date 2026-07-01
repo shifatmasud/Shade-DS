@@ -55,6 +55,7 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
       >
         <span style={titleStyle}>{title}</span>
         <motion.div
+          layout
           initial={false}
           animate={{ 
             rotate: isOpen ? 45 : 0,
@@ -68,16 +69,29 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
       </div>
       <AnimatePresence initial={false}>
         {isOpen && (
+          /* Masked slide: outer container handles height clip, inner handles vertical motion */
           <motion.div
             key="content"
-            initial={{ height: 0 }}
-            animate={{ height: 'auto' }}
-            exit={{ height: 0 }}
-            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+            layout
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ 
+              height: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+              opacity: { duration: 0.3, delay: 0.1 }
+            }}
+            style={{ overflow: 'hidden' }}
           >
-            <div style={contentWrapperStyle}>
+            <motion.div
+              layout
+              initial={{ y: -20 }}
+              animate={{ y: 0 }}
+              exit={{ y: -20 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              style={contentWrapperStyle}
+            >
               {children}
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

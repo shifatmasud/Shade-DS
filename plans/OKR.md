@@ -1,9 +1,9 @@
-# OKR: FillSlider and Counter Refinement
+# OKR - Contrast and Saturation Precision
 
 ## Objective
-Enhance the precision and clarity of the slider UI and its associated data display.
+Maximize visual clarity and aesthetic harmony across the application.
 
 ## Key Results
-- **KR1**: Implement a responsive thumb in `FillSlider` that activates on hover/drag/tap and maintains 80% container height.
-- **KR2**: Remove the "0." prefix from the `FillSlider` display to achieve a more modern, data-dense look.
-- **KR3**: Ensure all style modifications follow the `Variant Style System` defined in the project's engineering guidelines.
+- **KR1**: Increase contrast ratio for `FillSlider` in light mode (Track vs Fill).
+- **KR2**: Reduce saturation of `ringOuter` blobs in `ColorPicker.tsx` from 95% to 75%.
+- **KR3**: Maintain 120fps performance during color picking and slider interaction.

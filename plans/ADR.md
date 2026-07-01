@@ -1,16 +1,13 @@
-# ADR: FillSlider Thumb and Prefix Removal
+# ADR - UI Refinement Strategy
 
 ## Context
-The user requested a vertical thumb for the `FillSlider` that appears only during interaction and a change in value formatting.
+1. `FillSlider` has low visibility in light mode due to similar track/fill colors.
+2. Large spatial blobs in `ColorPicker` are overly saturated, distracting from the main controls.
 
-## Decision 1: Thumb Implementation via Framer Motion
-- **Choice**: Use a `motion.div` absolutely positioned relative to the slider container.
-- **Rationale**: Framer Motion provides high-performance animations and easy binding to existing `MotionValue`s used for the fill width. By using `animate` props for opacity, we can easily handle the "On tap, On hover & on Drag" visibility requirement.
+## Decision
+1. **Contrast**: Use a darker token (`Content[3]`) or a more contrasting surface pair for `FillSlider` in light mode.
+2. **Saturation**: Adjust the HSL calculation for `ringOuter` in `ColorPicker.tsx` to use 75% saturation instead of 95%.
 
-## Decision 2: Formatting Cleanup
-- **Choice**: Remove the hardcoded `<span>0.</span>` in `FillSlider.tsx`.
-- **Rationale**: This is the most direct way to "Remove 0.n Prefix" as specified in the request. If the user meant a change in the `AnimatedCounter` itself, it would be less obvious since `AnimatedCounter` is a generic digit-scrolling component.
-
-## Decision 3: Style System Alignment
-- **Choice**: Refactor component styles to the `Variant Style System` (base, variant, size).
-- **Rationale**: Strict adherence to the `AGENTS.md` guidelines for professional React/Shade DSL development.
+## Consequences
+- Better accessibility for users in light mode.
+- More balanced and professional color palette in the spatial picker.

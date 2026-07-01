@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { motion, useTransform, useMotionValue, MotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import AnimatedCounter from '../Core/AnimatedCounter.tsx';
@@ -44,13 +44,16 @@ const FillSlider: React.FC<FillSliderProps> = ({
   const internalMV = useMotionValue(defaultValue);
   const activeMV = externalValue || internalMV;
 
+  const inputRange = useMemo(() => [min, max], [min, max]);
+  const outputRange = useMemo(() => [0, 100], []);
+
   // 2. Derive visual percentage for the fill width
-  const percentage = useTransform(activeMV, [min, max], [0, 100]);
+  const percentage = useTransform(activeMV, inputRange, outputRange);
   const widthStyle = useTransform(percentage, (p) => `${p}%`);
 
   // 3. Setup Counter Value (0-100 for AnimatedCounter)
   // Since AnimatedCounter rounds to nearest integer, we map the scale 0-1 to 0-100
-  const counterMV = useTransform(activeMV, [min, max], [0, 100]);
+  const counterMV = useTransform(activeMV, inputRange, outputRange);
 
   const updateValueFromPointer = (clientX: number) => {
     if (!trackRef.current) return;
@@ -94,12 +97,12 @@ const FillSlider: React.FC<FillSliderProps> = ({
         height: theme.height['Height.L'], // 56px
         position: 'relative' as const,
         borderRadius: theme.radius['Radius.L'],
-        backgroundColor: theme.Color.Base.Surface[2],
+        backgroundColor: theme.Color.Base.Surface[3],
         overflow: 'hidden' as const,
         cursor: 'pointer',
         userSelect: 'none' as const,
         touchAction: 'none' as const,
-        ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+        ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
       },
       variant: {
         dragging: {
@@ -114,7 +117,7 @@ const FillSlider: React.FC<FillSliderProps> = ({
         top: 0,
         left: 0,
         height: '100%',
-        backgroundColor: theme.Color.Base.Surface[3],
+        backgroundColor: theme.Color.Base.Content[3],
         zIndex: 1,
       },
     },
@@ -124,7 +127,8 @@ const FillSlider: React.FC<FillSliderProps> = ({
         position: 'absolute' as const,
         top: '10%',
         height: '80%',
-        width: '1px',
+        width: '2px',
+        borderRadius: theme.radius['Radius.Full'],
         backgroundColor: theme.Color.Base.Content[1],
         zIndex: 3,
         translateX: '-50%',
