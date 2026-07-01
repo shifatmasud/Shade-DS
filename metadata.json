@@ -1,0 +1,6 @@
+{
+  "name": "Shade DS Sandbox",
+  "description": "A playground featuring a react 19 DS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

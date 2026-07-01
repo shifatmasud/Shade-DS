@@ -1,0 +1,56 @@
+{
+  "name": "meta-prototype-starter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.mjs",
+    "start": "node dist/server.mjs",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.29.2",
+    "@babel/standalone": "^7.29.1",
+    "@babel/types": "^7.29.0",
+    "@dimforge/rapier3d-compat": "^0.19.3",
+    "@google/genai": "^2.10.0",
+    "@gsap/react": "^2.1.2",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@react-three/rapier": "^1.5.0",
+    "@types/three": "^0.183.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "framer": "^3.0.4",
+    "framer-motion": "^12.23.26",
+    "gsap": "^3.14.2",
+    "phosphor-react": "^1.4.1",
+    "puppeteer-core": "^25.2.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-error-boundary": "^6.1.1",
+    "react-live": "^4.1.8",
+    "react-router-dom": "^7.15.0",
+    "recast": "^0.23.11",
+    "three": "^0.183.2",
+    "tone": "^15.1.22",
+    "wiggle": "^0.0.17",
+    "zustand": "^5.0.13"
+  },
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "esbuild": "^0.28.0",
+    "supabase": "^1.223.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vercel": "^41.0.1",
+    "vite": "^6.2.0"
+  }
+}
