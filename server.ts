@@ -6,6 +6,10 @@ import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import https from "https";
+import dotenv from "dotenv";
+
+// Load environment variables from .env file
+dotenv.config();
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -82,27 +86,6 @@ async function downloadGithubCliIfNotExists() {
 
 // Simple .env parser to dynamically load secrets into process.env at runtime
 const ENV_PATH = path.join(process.cwd(), '.env');
-function loadEnv() {
-  if (fs.existsSync(ENV_PATH)) {
-    try {
-      const content = fs.readFileSync(ENV_PATH, 'utf-8');
-      content.split('\n').forEach(line => {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#')) {
-          const firstEqual = trimmed.indexOf('=');
-          if (firstEqual > 0) {
-            const key = trimmed.substring(0, firstEqual).trim();
-            const value = trimmed.substring(firstEqual + 1).trim().replace(/^['"]|['"]$/g, '');
-            process.env[key] = value;
-          }
-        }
-      });
-    } catch (e) {
-      console.warn('Error loading raw .env file:', e);
-    }
-  }
-}
-loadEnv();
 
 async function startServer() {
   // Pre-download and setup official GitHub CLI binary if needed
