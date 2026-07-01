@@ -8,6 +8,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - **shader-dsl** (found in `/skills/shader_dsl/SKILL.md`): Activate when working on GPGPU/GLSL/WGSL rendering systems, stage-isolated computations (`@compute`, `@vertex`, `@fragment`), or custom shader graph nodes.
 - **framer-code-components-overrides** (found in `/skills/framer-code-components-overrides/SKILL.md`): Activate when building custom code-backed components, designing overrides, adjusting hydration safety (browser/server guards), wrapping container portals, or resolving dynamic CMS text rendering.
 - **Framer-agent** (found in `/skills/Framer-agent/SKILL.md`): Activate when using the core programmatic workspace suite, executing CLI commands to traverse nodes, invoking background agent lookups, applying direct DSL strings, or processing sitemaps, staging, and web publication pipelines.
+- **spawn-agents** (found in `/skills/spawn-agents/SKILL.md`): Activate when orchestrating complex tasks, decomposing tasks into multiple worker agents, executing parallel codebase analysis, or generating detailed auditor reviews.
 - **modern-web-guidance** (found in `/skills/modern-web-guidance/SKILL.md`): Activate when applying modern browser APIs, performance optimizations, accessibility audits, or advanced CSS layouts.
 
 ## Core Identity
