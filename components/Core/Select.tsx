@@ -4,7 +4,7 @@
  */
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 
 /**
@@ -20,6 +20,7 @@ import { useTheme } from '../../Theme.tsx';
  *   - action.updatePosition: Calculates trigger rect for portal placement
  *   - effect.clickOutside: Closes on blur
  *   - effect.syncPosition: Updates rect on scroll/resize when open
+ *   - animation.highlight: useMotionValue driven follower fill
  * 
  * RENDER:
  *   - view.container: Relative wrapper
@@ -27,6 +28,7 @@ import { useTheme } from '../../Theme.tsx';
  *   - element.trigger: Clean input-like button
  *   - view.overlay (Portal): Fixed-position floating menu
  *   - element.item: Interactive option row
+ *   - element.indicator: Tiny dot for selected state in grid
  */
 
 interface SelectProps<T extends string = string> {
@@ -61,10 +63,18 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
 }) => {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const isGrid = variant === 'icon-grid';
   
   const globalMouseX = useMotionValue(0);
   const globalMouseY = useMotionValue(0);
+
+  // Motion Values for high-performance highlight
+  const hTop = useMotionValue(0);
+  const hLeft = useMotionValue(0);
+  const hWidth = useMotionValue(0);
+  const hHeight = useMotionValue(0);
+  const hOpacity = useMotionValue(0);
 
   const updateRect = useCallback(() => {
     if (triggerRef.current) {
@@ -88,44 +98,46 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
   }, [updateRect]);
 
   const [hoveredIdx, setHoveredIdx] = useState(-1);
-  const [highlightStyle, setHighlightStyle] = useState<{ top: number; left: number; width: number; height: number; opacity: number }>({
-    top: 0, left: 0, width: 0, height: 0, opacity: 0
-  });
 
   const updateHighlight = useCallback(() => {
-    if (hoveredIdx === -1 || !dropdownRef.current) {
-      setHighlightStyle(prev => ({ ...prev, opacity: 0 }));
+    if (hoveredIdx === -1 || !dropdownRef.current || !scrollRef.current) {
+      animate(hOpacity, 0, { duration: 0.1 });
       return;
     }
     const selector = isGrid ? '[data-grid-item]' : '[data-list-item]';
-    const items = dropdownRef.current.querySelectorAll(selector);
+    const items = scrollRef.current.querySelectorAll(selector);
     const targetItem = items[hoveredIdx] as HTMLElement;
     
     if (targetItem) {
-      const dRect = dropdownRef.current.getBoundingClientRect();
+      const sRect = scrollRef.current.getBoundingClientRect();
       const iRect = targetItem.getBoundingClientRect();
       
-      setHighlightStyle({
-        top: iRect.top - dRect.top,
-        left: iRect.left - dRect.left,
+      const target = {
+        top: iRect.top - sRect.top,
+        left: iRect.left - sRect.left,
         width: iRect.width,
         height: iRect.height,
-        opacity: 1
-      });
+      };
+
+      animate(hTop, target.top, { type: 'spring', stiffness: 500, damping: 45, mass: 1 });
+      animate(hLeft, target.left, { type: 'spring', stiffness: 500, damping: 45, mass: 1 });
+      animate(hWidth, target.width, { type: 'spring', stiffness: 500, damping: 45, mass: 1 });
+      animate(hHeight, target.height, { type: 'spring', stiffness: 500, damping: 45, mass: 1 });
+      animate(hOpacity, 1, { duration: 0.1 });
     } else {
-      setHighlightStyle(prev => ({ ...prev, opacity: 0 }));
+      animate(hOpacity, 0, { duration: 0.1 });
     }
-  }, [hoveredIdx, isGrid]);
+  }, [hoveredIdx, isGrid, hTop, hLeft, hWidth, hHeight, hOpacity]);
 
   useEffect(() => {
     updateHighlight();
   }, [updateHighlight]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (!scrollRef.current) return;
     const selector = isGrid ? '[data-grid-item]' : '[data-list-item]';
-    const items = dropdownRef.current?.querySelectorAll(selector);
-    if (!items) return;
-
+    const items = scrollRef.current.querySelectorAll(selector);
+    
     let foundIndex = -1;
     items.forEach((item, idx) => {
       const rect = item.getBoundingClientRect();
@@ -147,10 +159,10 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (dropdownRef.current) {
+    if (scrollRef.current) {
       const touch = e.touches[0];
       const selector = isGrid ? '[data-grid-item]' : '[data-list-item]';
-      const items = dropdownRef.current.querySelectorAll(selector);
+      const items = scrollRef.current.querySelectorAll(selector);
       let foundIndex = -1;
       items.forEach((item, idx) => {
         const itemRect = item.getBoundingClientRect();
@@ -184,7 +196,7 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
       borderRadius: theme.radius['Radius.S'],
       zIndex: 1000,
       overflow: 'hidden',
-      padding: theme.space['Space.XS'],
+      padding: 0, // Removed padding for flush highlight
       opacity: rect ? 1 : 0,
       minWidth: isGrid ? '240px' : '160px',
     },
@@ -194,21 +206,20 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
       height: theme.height['Height.XS'],
       padding: `0 ${theme.space['Space.M']}`,
       cursor: 'pointer',
-      borderRadius: theme.radius['Radius.S'],
+      borderRadius: 0, // Flush with container
       color: isSelected ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2],
       backgroundColor: 'transparent',
       ...theme.Type.Readable.Body.S,
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center', // Changed from space-between to center
+      justifyContent: 'space-between',
       transition: `color ${theme.time['Time.1x']} ease`,
-      gap: theme.space['Space.S'],
     }),
     gridContainer: {
       display: 'grid',
       gridTemplateColumns: 'repeat(4, 1fr)',
-      gap: theme.space['Space.XS'],
-      padding: theme.space['Space.XS'],
+      gap: '1px', // Minimal gap for flush look
+      padding: 0,
       position: 'relative' as const,
     },
     gridItem: (isSelected: boolean) => ({
@@ -218,7 +229,7 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: theme.radius['Radius.S'],
+      borderRadius: 0, // Flush with grid
       cursor: 'pointer',
       color: isSelected ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2],
       fontSize: '20px',
@@ -267,23 +278,20 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
           setHoveredIdx(-1);
       }}
     >
-      <div style={{ maxHeight: '240px', overflowY: 'auto', position: 'relative' }}>
+      <div ref={scrollRef} style={{ maxHeight: '240px', overflowY: 'auto', position: 'relative' }}>
         <motion.div
-          animate={{
-            top: highlightStyle.top,
-            left: highlightStyle.left,
-            width: highlightStyle.width,
-            height: highlightStyle.height,
-            opacity: highlightStyle.opacity,
-          }}
           style={{
             position: 'absolute',
             pointerEvents: 'none',
             zIndex: 0,
             backgroundColor: theme.Color.Base.Surface[2],
             borderRadius: theme.radius['Radius.S'],
+            top: hTop,
+            left: hLeft,
+            width: hWidth,
+            height: hHeight,
+            opacity: hOpacity,
           }}
-          transition={{ type: 'spring', stiffness: 450, damping: 40, mass: 1 }}
         />
 
         {isGrid ? (
@@ -297,22 +305,24 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
                 onMouseEnter={() => setHoveredIdx(idx)}
                 whileTap={{ scale: 0.95 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', position: 'relative', zIndex: 1 }}>
-                  {option.icon ? (
-                    <i className={`ph-bold ${option.icon}`} style={{ display: 'block', lineHeight: 1 }} />
-                  ) : (
-                    <span style={{ fontSize: '14px', lineHeight: 1, display: 'block' }}>{option.label.slice(0, 2)}</span>
-                  )}
-                </div>
+                {option.icon ? (
+                  <i className={`ph-bold ${option.icon}`} />
+                ) : (
+                  <span style={{ fontSize: '14px' }}>{option.label.slice(0, 2)}</span>
+                )}
                 {option.value === value && (
                    <motion.div
+                    layoutId={`selected-dot-${instanceId}`}
                     style={{
                       position: 'absolute',
-                      inset: 0,
-                      borderRadius: theme.radius['Radius.S'],
-                      backgroundColor: theme.Color.Base.Surface[3],
-                      zIndex: -1,
-                      opacity: hoveredIdx === idx ? 0 : 1,
+                      bottom: '6px',
+                      left: '50%',
+                      translateX: '-50%',
+                      width: '4px',
+                      height: '4px',
+                      borderRadius: '50%',
+                      backgroundColor: theme.Color.Base.Content[1],
+                      zIndex: 2,
                     }}
                    />
                 )}
@@ -329,20 +339,18 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
               onMouseEnter={() => setHoveredIdx(idx)}
               whileTap={{ scale: 0.98 }}
             >
-              <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'] }}>
-                <span style={{ lineHeight: 1 }}>{option.label}</span>
-                {option.value === value && (
-                  <motion.span 
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    style={{ display: 'flex', alignItems: 'center' }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                  </motion.span>
-                )}
-              </div>
+              <span style={{ position: 'relative', zIndex: 1 }}>{option.label}</span>
+              {option.value === value && (
+                <motion.span 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </motion.span>
+              )}
             </motion.div>
           ))
         )}
