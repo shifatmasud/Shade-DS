@@ -16,4 +16,3 @@ export { default as StateLayer } from './StateLayer.tsx';
 export { default as TextArea } from './TextArea.tsx';
 export { default as ThemeToggleButton } from './ThemeToggleButton.tsx';
 export { default as Toggle } from './Toggle.tsx';
-export { default as TestComponent } from './TestComponent.tsx';
