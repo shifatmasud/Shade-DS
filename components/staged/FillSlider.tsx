@@ -38,6 +38,7 @@ const FillSlider: React.FC<FillSliderProps> = ({
   const { theme } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   // 1. Setup MotionValue (internal or external)
   const internalMV = useMotionValue(defaultValue);
@@ -88,83 +89,129 @@ const FillSlider: React.FC<FillSliderProps> = ({
   // 4. Styles using Shade DSL patterns (JS objects)
   const styles = {
     container: {
-      width: '100%',
-      height: theme.height['Height.L'], // 56px
-      position: 'relative',
-      borderRadius: theme.radius['Radius.L'],
-      backgroundColor: theme.Color.Base.Surface[2],
-      overflow: 'hidden',
-      cursor: 'pointer',
-      userSelect: 'none',
-      touchAction: 'none',
-      ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
-    } as React.CSSProperties,
+      base: {
+        width: '100%',
+        height: theme.height['Height.L'], // 56px
+        position: 'relative' as const,
+        borderRadius: theme.radius['Radius.L'],
+        backgroundColor: theme.Color.Base.Surface[2],
+        overflow: 'hidden' as const,
+        cursor: 'pointer',
+        userSelect: 'none' as const,
+        touchAction: 'none' as const,
+        ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+      },
+      variant: {
+        dragging: {
+          cursor: 'grabbing',
+        },
+      },
+    },
 
     fill: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      height: '100%',
-      backgroundColor: theme.Color.Base.Surface[3],
-      zIndex: 1,
-    } as React.CSSProperties,
+      base: {
+        position: 'absolute' as const,
+        top: 0,
+        left: 0,
+        height: '100%',
+        backgroundColor: theme.Color.Base.Surface[3],
+        zIndex: 1,
+      },
+    },
+
+    thumb: {
+      base: {
+        position: 'absolute' as const,
+        top: '10%',
+        height: '80%',
+        width: '1px',
+        backgroundColor: theme.Color.Base.Content[1],
+        zIndex: 3,
+        translateX: '-50%',
+        pointerEvents: 'none' as const,
+      },
+    },
 
     content: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: `0 ${theme.space['Space.L']}`,
-      zIndex: 2,
-      pointerEvents: 'none', // Allow clicks to pass through to container
-    } as React.CSSProperties,
+      base: {
+        position: 'absolute' as const,
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: `0 ${theme.space['Space.L']}`,
+        zIndex: 2,
+        pointerEvents: 'none' as const,
+      },
+    },
 
     label: {
-      ...theme.Type.Readable.Body.M,
-      color: theme.Color.Base.Content[2],
-      fontWeight: 500,
-    } as React.CSSProperties,
+      base: {
+        ...theme.Type.Readable.Body.M,
+        color: theme.Color.Base.Content[2],
+        fontWeight: 500,
+      },
+    },
 
     valueWrapper: {
-      ...theme.Type.Expressive.Data,
-      color: theme.Color.Base.Content[1],
-      display: 'flex',
-      alignItems: 'center',
-      gap: '2px',
-    } as React.CSSProperties,
+      base: {
+        ...theme.Type.Expressive.Data,
+        color: theme.Color.Base.Content[1],
+        display: 'flex',
+        alignItems: 'center',
+        gap: '2px',
+      },
+    },
   };
+
+  const getStyle = (config: any) => ({ 
+    ...config.base,
+    ...(isDragging ? config.variant?.dragging : {}),
+    ...(isHovered ? config.variant?.hovered : {}),
+  });
 
   return (
     <div
       ref={trackRef}
-      style={styles.container}
+      style={getStyle(styles.container)}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerEnter={() => setIsHovered(true)}
+      onPointerLeave={() => setIsHovered(false)}
     >
       {/* Fill Layer */}
       <motion.div
         style={{
-          ...styles.fill,
+          ...getStyle(styles.fill),
           width: widthStyle,
         }}
       />
 
+      {/* Thumb Layer */}
+      <motion.div
+        style={{
+          ...getStyle(styles.thumb),
+          left: widthStyle,
+        }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: isHovered || isDragging ? 1 : 0 }}
+        transition={{ duration: 0.2 }}
+      />
+
       {/* Content Overlay */}
-      <div style={styles.content}>
-        <span style={styles.label}>{label}</span>
+      <div style={getStyle(styles.content)}>
+        <span style={getStyle(styles.label)}>{label}</span>
         
-        <div style={styles.valueWrapper}>
+        <div style={getStyle(styles.valueWrapper)}>
           {formatValue ? (
             formatValue(activeMV.get())
           ) : (
             <>
-              {/* Default formatting: "0.XX" */}
-              <span>0.</span>
+              {/* Removed "0." prefix as requested */}
               <AnimatedCounter value={counterMV} useFormatting={false} />
             </>
           )}
