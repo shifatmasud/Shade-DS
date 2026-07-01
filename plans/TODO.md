@@ -1,8 +1,18 @@
-# TODO: Fill Slider Implementation
+# TODO: FillSlider & Counter Implementation
 
-- [ ] Analyze `AnimatedCounter` and decide how to handle the "0.70" decimal format.
-- [ ] Define the `FillSlider` component structure in `/components/staged/FillSlider.tsx`.
-- [ ] Implement drag logic using `useRef` and `onPointerDown`/`onPointerMove`.
-- [ ] Implement visual styling using `Theme.tsx` tokens (JS Style Objects).
-- [ ] Integrate `AnimatedCounter` with a `MotionValue`.
-- [ ] Verify the component by adding it to a test page (or just completing the staged build).
+## Tasks
+1. [ ] **FillSlider Architecture Update**:
+   - [ ] Refactor `styles` in `FillSlider.tsx` to use the `base`/`variant`/`size` pattern.
+   - [ ] Add `isHovered` state to track hover interaction.
+2. [ ] **Implement Thumb**:
+   - [ ] Add a `motion.div` for the thumb.
+   - [ ] Bind thumb `x` position to the `widthStyle` or a derived motion value.
+   - [ ] Implement visibility logic: `opacity` should transition based on `isDragging`, `isHovered`, or pointer interaction.
+   - [ ] Set thumb height to `80%`.
+3. [ ] **Refine Value Display**:
+   - [ ] Locate the `<span>0.</span>` in `FillSlider.tsx`.
+   - [ ] Remove it to satisfy the "Remove 0.n prefix" requirement.
+4. [ ] **Verification**:
+   - [ ] Verify hover state transitions.
+   - [ ] Verify drag behavior.
+   - [ ] Verify prefix removal.

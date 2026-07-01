@@ -1,22 +1,16 @@
-# ADR: Fill Slider Architecture
-
-## Status
-Proposed
+# ADR: FillSlider Thumb and Prefix Removal
 
 ## Context
-The user requested a "Fill Slider" component with rounded corners and an animated number display. The visual reference shows a integrated UI where the label and value sit inside the slider track, which itself fills up.
+The user requested a vertical thumb for the `FillSlider` that appears only during interaction and a change in value formatting.
 
-## Decision
-1. **Structural Layout**: We will use a main container `div` that acts as the track. This container will have `overflow: hidden` and `borderRadius`.
-2. **Fill Layer**: A `motion.div` will be placed inside the container, positioned absolutely at the left, with its `width` controlled by a `MotionValue`.
-3. **Content Layer**: The label ("Scale") and the value ("0.70") will be placed in a separate flex container on top of the fill layer to ensure they remain legible and centered regardless of the fill width.
-4. **Value Display**: We will use the existing `AnimatedCounter` component. Since the reference shows "0.70", we will map a 0-1 `MotionValue` to a 0-100 scale for the counter, and potentially modify or wrap it to show the decimal format if strictly required, or use it for the percentage.
-    - *Correction*: `AnimatedCounter` rounds values. To get "0.70", we can pass `motionValue.get() * 100` and display it as "0.XX". However, `AnimatedCounter` is built for integers. I'll pass the value as 0-100 and maybe show it as a percentage or scale.
+## Decision 1: Thumb Implementation via Framer Motion
+- **Choice**: Use a `motion.div` absolutely positioned relative to the slider container.
+- **Rationale**: Framer Motion provides high-performance animations and easy binding to existing `MotionValue`s used for the fill width. By using `animate` props for opacity, we can easily handle the "On tap, On hover & on Drag" visibility requirement.
 
-## Rationale
-- Using `MotionValue` for width and value display ensures zero-rerender performance during drags.
-- Absolute positioning the content over the fill layer is the most robust way to achieve the "integrated" look of the reference.
+## Decision 2: Formatting Cleanup
+- **Choice**: Remove the hardcoded `<span>0.</span>` in `FillSlider.tsx`.
+- **Rationale**: This is the most direct way to "Remove 0.n Prefix" as specified in the request. If the user meant a change in the `AnimatedCounter` itself, it would be less obvious since `AnimatedCounter` is a generic digit-scrolling component.
 
-## Alternatives Considered
-- Standard `input type="range"`: Hard to style to match the "fill" look where content is inside the track.
-- SVG-based slider: Overkill for this simple rectangular design.
+## Decision 3: Style System Alignment
+- **Choice**: Refactor component styles to the `Variant Style System` (base, variant, size).
+- **Rationale**: Strict adherence to the `AGENTS.md` guidelines for professional React/Shade DSL development.

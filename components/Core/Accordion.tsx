@@ -70,9 +70,9 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
         {isOpen && (
           <motion.div
             key="content"
-            initial={{ height: 0, opacity: 0, y: -4 }}
-            animate={{ height: 'auto', opacity: 1, y: 0 }}
-            exit={{ height: 0, opacity: 0, y: -4 }}
+            initial={{ height: 0 }}
+            animate={{ height: 'auto' }}
+            exit={{ height: 0 }}
             transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
           >
             <div style={contentWrapperStyle}>

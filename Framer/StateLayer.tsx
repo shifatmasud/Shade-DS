@@ -154,13 +154,13 @@ export default function StateLayer(props: {
               left: currentX,
               top: currentY,
             }}
-            initial={{ width: 0, height: 0, opacity: 0 }}
+            initial={{ width: 0, height: 0, opacity: opacity }}
             animate={{
               width: layer.isActive ? maxDiameter : 0,
               height: layer.isActive ? maxDiameter : 0,
               opacity: opacity,
             }}
-            exit={{ width: 0, height: 0, opacity: 0 }}
+            exit={{ width: 0, height: 0, opacity: opacity }}
             transition={transition}
             onAnimationComplete={() => {
               if (!layer.isActive) removeLayer(layer.id);

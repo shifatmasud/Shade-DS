@@ -91,7 +91,7 @@ const StateLayer: React.FC<StateLayerProps> = ({
     return (
       <div style={containerStyle}>
         <motion.div 
-            initial={{ opacity: 0 }}
+            initial={{ opacity: opacity }}
             animate={{ opacity: opacity }}
             style={{
                 width: '100%',
@@ -120,13 +120,13 @@ const StateLayer: React.FC<StateLayerProps> = ({
                         left: currentX,
                         top: currentY,
                     }}
-                    initial={{ width: 0, height: 0, opacity: 0 }}
+                    initial={{ width: 0, height: 0, opacity: opacity }}
                     animate={{
                         width: layer.isActive ? maxDiameter : 0,
                         height: layer.isActive ? maxDiameter : 0,
                         opacity: opacity,
                     }}
-                    exit={{ width: 0, height: 0, opacity: 0 }}
+                    exit={{ width: 0, height: 0, opacity: opacity }}
                     /* 
                      * SHADE DSL STATE LAYER TRANSITION CORRECTION:
                      * - Changed transition ease to 'easeInOut' for smoother interactive organic flow.

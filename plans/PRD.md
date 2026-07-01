@@ -1,19 +1,20 @@
-# PRD: Fill Slider Component
+# PRD: FillSlider Enhancement & Counter Formatting
 
-## Overview
-A custom slider component where the entire track area is interactive and visually represents the value through a "fill" background.
+## Goal
+Improve the visual feedback of the `FillSlider` component and refine the formatting of the `AnimatedCounter`.
 
-## User Stories
-- As a user, I want to drag across the slider area to change its value.
-- As a user, I want to see the value animate smoothly as I drag.
-- As a user, I want the label and value to be clearly visible inside the slider.
+## Requirements
+1. **Vertical Thumb for FillSlider**:
+   - Add a thin vertical line thumb to the `FillSlider`.
+   - The thumb must appear on **hover**, **tap** (pointer down), and **drag**.
+   - The thumb height must be **80%** of the slider track's height.
+   - The thumb must follow the fill edge perfectly.
+2. **Remove "0.n" Prefix in AnimatedCounter**:
+   - The slider currently displays a hardcoded `0.` prefix in its default formatting.
+   - Remove this prefix to show the value more cleanly as requested.
 
-## Functional Requirements
-- **Interactive Track**: Clicking and dragging anywhere on the track updates the value.
-- **Fill Animation**: The background color should fill from left to right based on the current value.
-- **Value Formatting**: Display the value with two decimal places (e.g., "0.70") as seen in the reference.
-- **Responsive**: Adapts to the width of its container.
-
-## Non-Functional Requirements
-- **Performance**: Zero-rerender logic for drag updates.
-- **Design**: Follows `Theme.tsx` grayscale accent palette.
+## Constraints
+- Use **JS Style objects** (no Tailwind).
+- Use **Framer Motion** for all animations and interactive states.
+- Follow the **Shade DSL** architecture (DATA, LOGIC, RENDER).
+- Adhere to the **Variant Style System** (base, variant, size).
