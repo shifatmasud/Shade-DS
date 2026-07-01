@@ -12,6 +12,7 @@ import { useTheme } from '../../Theme.tsx';
  */
 import Button from '../staged/Button.tsx';
 import Card from '../staged/Card.tsx';
+import FillSlider from '../staged/FillSlider.tsx';
 import Slot from '../Package/Slot.tsx';
 import { MetaButtonProps, FeedbackVariant } from '../../types/index.tsx';
 import { useElementAnatomy, ElementAnatomy, NormalizedRect } from '../../hooks/useElementAnatomy.tsx';
@@ -500,6 +501,13 @@ const Stage: React.FC<StageProps> = ({
                 />
             ) : btnProps.componentType === 'nametag' ? (
                 <Package.NameTag />
+            ) : btnProps.componentType === 'slider' ? (
+                <div style={{ width: '400px' }}>
+                    <FillSlider 
+                        label={btnProps.label} 
+                        onChange={(v) => console.log('Slider changed:', v)}
+                    />
+                </div>
             ) : btnProps.componentType === 'slot' ? (
                 <Slot ref={componentRef} />
             ) : (

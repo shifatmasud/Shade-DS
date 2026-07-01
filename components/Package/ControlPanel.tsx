@@ -139,6 +139,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             options={[
               { value: 'button', label: 'Button (Core)' },
               { value: 'card', label: 'Card (Package)' },
+              { value: 'slider', label: 'Fill Slider (Staged)' },
               { value: 'nametag', label: 'Name Tag (Package)' },
               { value: 'custom', label: 'Custom (Code)' },
               { value: 'slot', label: 'Slot (Viewport)' },

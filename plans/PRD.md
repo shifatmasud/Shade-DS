@@ -1,14 +1,19 @@
-# PRD: Screenshot Utility
+# PRD: Fill Slider Component
 
-## Goals
-Capture a high-quality screenshot of the current application preview using Browserless and Puppeteer Core.
+## Overview
+A custom slider component where the entire track area is interactive and visually represents the value through a "fill" background.
 
-## Requirements
-- Use `puppeteer-core`.
-- Connect to a Browserless instance.
-- Capture the full page or viewport.
-- Save the screenshot as an artifact (e.g., `screenshot.png`).
+## User Stories
+- As a user, I want to drag across the slider area to change its value.
+- As a user, I want to see the value animate smoothly as I drag.
+- As a user, I want the label and value to be clearly visible inside the slider.
 
-## Scope
-- Terminal-based execution script.
-- Configurable URL (defaulting to the development app URL).
+## Functional Requirements
+- **Interactive Track**: Clicking and dragging anywhere on the track updates the value.
+- **Fill Animation**: The background color should fill from left to right based on the current value.
+- **Value Formatting**: Display the value with two decimal places (e.g., "0.70") as seen in the reference.
+- **Responsive**: Adapts to the width of its container.
+
+## Non-Functional Requirements
+- **Performance**: Zero-rerender logic for drag updates.
+- **Design**: Follows `Theme.tsx` grayscale accent palette.
