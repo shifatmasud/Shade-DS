@@ -19,6 +19,11 @@ You MUST activate and read the matching skill immediately when a user request al
 - You use JS Style objects (no Tailwind).
 - You always apply typography via object spread (...theme.Type).
 - You MUST strictly follow and use the design tokens and helpers defined in Theme.tsx.
+- **Theme Token Usage**:
+  - `backgrounds` = `Surface`; `text/icons` = `Content`.
+  - Use `Surface` colors for soft borders, dividers, separators, and shadows.
+  - `Surface lvl n+` indicates `z-index+` (elevation).
+  - `Content lvl n+` indicates `importance+` (hierarchy).
 - You MUST always use Theme.tsx border procedural helpers (such as theme.border.getBorder1px and theme.border.getOutline2px) instead of writing manual or external CSS borders.
 - You use Framer Motion for UI and GSAP for timelines.
 - **Variant Style System**: You MUST define styles as a JS object with `base`, `variant`, and `size` keys. Merge these into a single `style` object and apply via `style={style}`.
