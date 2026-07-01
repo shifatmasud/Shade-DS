@@ -14,35 +14,36 @@ gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
 import { JellyBox } from './WiggleCube';
 import AnimatedCounter from '../Core/AnimatedCounter';
-
-const NormalBox = ({ color, size = 1 }: { color: string, size?: number }) => (
-  <mesh castShadow receiveShadow>
-    <boxGeometry args={[size, size, size]} />
-    <meshPhysicalMaterial 
-      color={color} 
-      metalness={0.0} 
-      roughness={0.15} 
-      transmission={0.8} 
-      thickness={1.5}
-      ior={1.45}
-      transparent
-      opacity={0.8}
-    />
-  </mesh>
-);
+import { playSound } from '../../services/soundService';
 
 const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: string; position: [number, number, number]; id: string; onDragStart?: () => void; onDragEnd?: () => void }) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const jellyRef = useRef<any>(null);
   const [hovered, setHover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragPlane = useRef(new THREE.Plane());
   const dragOffset = useRef(new THREE.Vector3());
+
+  const worldHitStart = useRef(new THREE.Vector3());
+  const localHitPoint = useRef(new THREE.Vector3());
+  const localDragOffset = useRef(new THREE.Vector3());
 
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
     setIsDragging(true);
     onDragStart?.();
     e.target.setPointerCapture(e.pointerId);
+
+    // Save world coordinates of pickup hit point
+    worldHitStart.current.copy(e.point);
+
+    // Compute local-space intersection
+    if (groupRef.current) {
+      const localHit = groupRef.current.worldToLocal(e.point.clone());
+      localHitPoint.current.copy(localHit);
+    }
+    localDragOffset.current.set(0, 0, 0);
 
     // LOGIC: Create a drag plane parallel to the camera at the depth of the object
     const camera = e.camera;
@@ -71,10 +72,19 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
       const intersection = new THREE.Vector3();
       state.raycaster.ray.intersectPlane(dragPlane.current, intersection);
       
-      const targetPos = intersection.add(dragOffset.current);
+      const targetPos = intersection.clone().add(dragOffset.current);
       
       // SYNC: Direct cursor-following through kinematic translation
       rigidBodyRef.current.setNextKinematicTranslation(targetPos);
+
+      // Compute local-space cursor drag offset
+      const worldDragVec = intersection.clone().sub(worldHitStart.current);
+      if (groupRef.current) {
+        const rotMatrix = new THREE.Matrix4().extractRotation(groupRef.current.matrixWorld);
+        const invRotMatrix = rotMatrix.invert();
+        const localDrag = worldDragVec.clone().applyMatrix4(invRotMatrix);
+        localDragOffset.current.copy(localDrag);
+      }
     }
   });
 
@@ -88,14 +98,48 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
         friction={0.5}
         ccd={true}
         name={`cube-${id}`}
+        onCollisionEnter={({ manifold, flipped }) => {
+          if (!manifold) return;
+          const numContacts = manifold.numSolverContacts();
+          if (numContacts > 0) {
+            const pt = manifold.solverContactPoint(0);
+            const norm = manifold.normal();
+            
+            const worldPoint = new THREE.Vector3(pt.x, pt.y, pt.z);
+            const worldNormal = new THREE.Vector3(norm.x, norm.y, norm.z);
+            if (flipped) {
+              worldNormal.negate();
+            }
+
+            // Calculate impact intensity based on linear velocity
+            const linvel = rigidBodyRef.current?.linvel() || { x: 0, y: 0, z: 0 };
+            const speed = Math.sqrt(linvel.x * linvel.x + linvel.y * linvel.y + linvel.z * linvel.z);
+            
+            // Scaled impact intensity (clamped between 0.2 and 1.5)
+            const intensity = Math.min(Math.max(speed * 0.12, 0.2), 1.5);
+
+            // Trigger physical deform ripple in shader
+            jellyRef.current?.triggerImpact(worldPoint, worldNormal, intensity);
+
+            // Play collision sound
+            playSound('press');
+          }
+        }}
       >
         <group
+          ref={groupRef}
           onPointerOver={() => setHover(true)} 
           onPointerOut={() => setHover(false)}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
         >
-          <JellyBox color={hovered ? '#fff' : color} />
+          <JellyBox 
+            ref={jellyRef}
+            color={hovered ? '#ffffff' : color} 
+            isDragging={isDragging}
+            localHitPoint={localHitPoint.current}
+            localDragOffset={localDragOffset.current}
+          />
         </group>
       </RigidBody>
   );
@@ -111,9 +155,9 @@ const Floor = () => (
 );
 
 const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: { color?: string; speed?: number; onDragStart?: () => void; onDragEnd?: () => void }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
   const rigidBodyRef = useRef<RapierRigidBody>(null);
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const jellyRef = useRef<any>(null);
   const rotationRef = useRef({ x: 0, y: 0, z: 0 });
   const [hovered, setHover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -122,11 +166,25 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
   const dragOffset = useRef(new THREE.Vector3());
   const currentTranslation = useRef(new THREE.Vector3(0, 1, 0));
 
+  const worldHitStart = useRef(new THREE.Vector3());
+  const localHitPoint = useRef(new THREE.Vector3());
+  const localDragOffset = useRef(new THREE.Vector3());
+
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
     setIsDragging(true);
     onDragStart?.();
     e.target.setPointerCapture(e.pointerId);
+
+    // Save world coordinates of pickup hit point
+    worldHitStart.current.copy(e.point);
+
+    // Compute local-space intersection
+    if (groupRef.current) {
+      const localHit = groupRef.current.worldToLocal(e.point.clone());
+      localHitPoint.current.copy(localHit);
+    }
+    localDragOffset.current.set(0, 0, 0);
 
     const camera = e.camera;
     const planeNormal = new THREE.Vector3().subVectors(camera.position, e.point).normalize();
@@ -143,23 +201,6 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
     onDragEnd?.();
     e.target.releasePointerCapture(e.pointerId);
   };
-  
-  useGSAP(() => {
-    if (!materialRef.current) return;
-    
-    // UI: Semantic color and emissive intensity shift
-    gsap.to(materialRef.current, {
-      emissiveIntensity: (hovered || isDragging) ? 0.6 : 0,
-      duration: 0.4
-    });
-
-    gsap.to(materialRef.current.color, {
-      r: new THREE.Color(hovered ? '#6366f1' : color).r,
-      g: new THREE.Color(hovered ? '#6366f1' : color).g,
-      b: new THREE.Color(hovered ? '#6366f1' : color).b,
-      duration: 0.4
-    });
-  }, { dependencies: [hovered, color, isDragging] });
 
   useFrame((state, delta) => {
     if (rigidBodyRef.current) {
@@ -180,7 +221,16 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
       if (isDragging) {
         const intersection = new THREE.Vector3();
         state.raycaster.ray.intersectPlane(dragPlane.current, intersection);
-        currentTranslation.current.copy(intersection.add(dragOffset.current));
+        currentTranslation.current.copy(intersection.clone().add(dragOffset.current));
+
+        // Compute local-space cursor drag offset
+        const worldDragVec = intersection.clone().sub(worldHitStart.current);
+        if (groupRef.current) {
+          const rotMatrix = new THREE.Matrix4().extractRotation(groupRef.current.matrixWorld);
+          const invRotMatrix = rotMatrix.invert();
+          const localDrag = worldDragVec.clone().applyMatrix4(invRotMatrix);
+          localDragOffset.current.copy(localDrag);
+        }
       } else {
         // Return to resting position smoothly
         currentTranslation.current.lerp(new THREE.Vector3(0, 1, 0), 0.1);
@@ -199,14 +249,52 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
       position={[0, 1, 0]} 
       colliders="cuboid"
       ccd={true}
+      onCollisionEnter={({ manifold, flipped, other }) => {
+        if (!manifold) return;
+        const numContacts = manifold.numSolverContacts();
+        if (numContacts > 0) {
+          const pt = manifold.solverContactPoint(0);
+          const norm = manifold.normal();
+          
+          const worldPoint = new THREE.Vector3(pt.x, pt.y, pt.z);
+          const worldNormal = new THREE.Vector3(norm.x, norm.y, norm.z);
+          if (flipped) {
+            worldNormal.negate();
+          }
+
+          // Get velocity of the other body colliding with the rotating box
+          let otherSpeed = 3.0; // fallback default
+          if (other && other.rigidBody) {
+            const otherVel = other.rigidBody.linvel();
+            otherSpeed = Math.sqrt(otherVel.x * otherVel.x + otherVel.y * otherVel.y + otherVel.z * otherVel.z);
+          }
+          
+          // Scaled impact intensity (clamped between 0.25 and 1.6)
+          const intensity = Math.min(Math.max(otherSpeed * 0.12, 0.25), 1.6);
+
+          // Trigger physical deform ripple in shader
+          jellyRef.current?.triggerImpact(worldPoint, worldNormal, intensity);
+
+          // Play collision sound
+          playSound('click');
+        }
+      }}
     >
       <group
+        ref={groupRef}
         onPointerOver={() => setHover(true)} 
         onPointerOut={() => setHover(false)} 
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
       >
-        <NormalBox color={color} size={2} />
+        <JellyBox 
+          ref={jellyRef}
+          color={hovered ? '#ffffff' : color} 
+          size={2} 
+          isDragging={isDragging}
+          localHitPoint={localHitPoint.current}
+          localDragOffset={localDragOffset.current}
+        />
       </group>
     </RigidBody>
   );

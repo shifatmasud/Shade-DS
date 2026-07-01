@@ -26,14 +26,15 @@ You MUST activate and read the matching skill immediately when a user request al
 - **Planning Gate**: Never code before performing a detailed planning step (TODO + PRD + OKR + ADR). These planning documents MUST be stored as separate markdown files inside the `/plans` folder. Only code or write in the codebase if the user clearly commands you to "code".
 
 ## Multi-Agent Orchestration
-- **Sub-Agent Isolation**: All child sub-agents MUST have a fresh context window and be assigned exactly one task per agent.
-- **Harness Loop**: Orchestrate engineering tasks via a **Plan → Build → Review** multi-agent loop.
-- **Concurrency Permissions**: Parallel reads are permitted; however, all writes MUST be executed in sequence.
-- **CLI Spawn Tool**: The codebase contains a dedicated CLI multi-agent orchestrator at `scripts/spawnAgents.ts`. You can run this tool using:
+- **Sub-Agent Isolation**: All child sub-agents MUST have a fresh context window and be assigned exactly one focused task.
+- **Harness Loop**: Orchestrate all complex tasks via the fully automated **Plan → Build → Review** loop powered by the upgraded spawn agents orchestrator.
+- **Concurrency Permissions**: Parallel reads are permitted when worker agents are collecting file context. However, to guarantee file system consistency and avoid race conditions, all code modifications, edits, and writes MUST be executed in sequence (never write in parallel).
+- **Workspace Tool-Access**: Spawned agents are equipped with full read and write access to the codebase using standard workspace tools (`readFile`, `writeFile`, `listDir`, and `runCommand`). They must use these tools to inspect existing files before making edits and to write complete, verified code modifications.
+- **CLI Spawn Tool**: Run the dedicated orchestrator at `scripts/spawnAgents.ts` using:
   ```bash
   npx tsx scripts/spawnAgents.ts "<task description>"
   ```
-  This decomposes any user task into a structured team of specialized sub-agents with separate system instructions, runs them with fresh context windows, and compiles their results into `plans/spawnAgents_output.md` and `plans/spawnAgents_output.json`.
+  This automatically analyzes the task, creates structured architectural plans in `plans/`, decomposes the work into sequential worker agents who execute code modifications using workspace tools, and invokes a final **Code Auditor Reviewer** to run linting/compilation checks and write a comprehensive validation report. Output is saved to `plans/spawnAgents_output.md` and `plans/spawnAgents_output.json`.
 - **Manager Persona**: When a user presents a complex task, act as a manager. Plan the agent layout, coordinate specialized sub-agents, and aggregate their domain-specific outputs into a unified solution. Use the CLI spawn tool to execute and persistent-record the multi-agent workflow.
 
 ## Workflow Integration
