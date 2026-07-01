@@ -71,6 +71,21 @@ For every task involving component creation or modification:
   - `onMouseLeave` → Translate to `onTouchEnd` or detection of touch leaving the interactive bounds.
 - **Feedback**: Always provide immediate visual feedback (e.g., highlights, tooltips) during touch scrubbing to confirm the active target under the finger.
 
+## Motion & Interaction Guidelines
+Ensure all animations adhere to the core principle of physical predictability:
+
+| Interaction / Context | Recommended Motion | Rationale |
+| :--- | :--- | :--- |
+| **Arrival / Enter / Appear / Open** | Ease-out, Ease-out-back | Starts fast, ends gently. Feels like settling into place. |
+| **Departure / Exit / Leave / Close** | Ease-in, Ease-in-back | Starts gently, accelerates away. Feels like leaving. |
+| **In ↔ Out Transition / State Change** | Ease-in-out, Ease-in-out-back | Smooth transitions between two stable states. |
+| **Back Variants (Overshoot)** | Slight overshoot before settling | Adds playful personality to key transitions. |
+| **Direct Manipulation** <br>*(Click, Tap, Drag, Release, Hover, Scroll)* | Spring | Simulates real physical/tactile interaction. |
+
+### Simple Design Principle
+- **System-initiated motion** &rarr; **Easing** *(Fast-to-slow / Slow-to-fast paths)*
+- **User-manipulated motion** &rarr; **Spring** *(Dynamic, tactile, responsive)*
+
 ## Safety Rules
 ### File-Level Safety Protocols
 When modifying, writing, or updating code, you MUST follow these standards within the target file:
