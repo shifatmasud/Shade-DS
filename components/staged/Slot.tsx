@@ -17,7 +17,7 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
   const [showDialog, setShowDialog] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const instructionText = 'Render a [scene/component] in the slot and map the controls, code, and console outputs to the panel.';
+  const instructionText = 'Render this component into the viewport slot. Synchronize controls, code, and console outputs to the panel. Make this component the only default staged component, remove all other staged components.';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(instructionText);
@@ -51,15 +51,17 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
           width: theme.space['Space.3XL'],
           height: theme.space['Space.3XL'],
           borderRadius: theme.radius['Radius.Full'],
-          backgroundColor: theme.Color.Base.Surface[1],
-          ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 10,
-          color: theme.Color.Base.Content[1],
-          boxShadow: theme.effects['Effect.Shadow.Drop.2'],
+          color: '#ffffff',
+          boxShadow: 'none',
         }}
       >
         <Info size={20} />
