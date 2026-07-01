@@ -13,7 +13,8 @@ import { useTheme } from '../../Theme.tsx';
 import Button from '../staged/Button.tsx';
 import Card from '../staged/Card.tsx';
 import FillSlider from '../staged/FillSlider.tsx';
-import Slot from '../Package/Slot.tsx';
+import NameTag from '../staged/NameTag.tsx';
+import Slot from '../staged/Slot.tsx';
 import { MetaButtonProps, FeedbackVariant } from '../../types/index.tsx';
 import { useElementAnatomy, ElementAnatomy, NormalizedRect } from '../../hooks/useElementAnatomy.tsx';
 import TokenBadge from '../Package/TokenBadge.tsx';
@@ -500,7 +501,7 @@ const Stage: React.FC<StageProps> = ({
                     view3D={view3D}
                 />
             ) : btnProps.componentType === 'nametag' ? (
-                <Package.NameTag />
+                <NameTag />
             ) : btnProps.componentType === 'slider' ? (
                 <div style={{ width: '400px' }}>
                     <FillSlider 

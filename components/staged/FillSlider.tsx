@@ -104,12 +104,12 @@ const FillSlider: React.FC<FillSliderProps> = ({
         height: theme.height['Height.L'],
         position: 'relative' as const,
         borderRadius: theme.radius['Radius.L'],
-        backgroundColor: theme.Color.Base.Surface[3],
+        backgroundColor: theme.Color.Base.Surface[2],
         overflow: 'hidden' as const,
         cursor: 'pointer',
         userSelect: 'none' as const,
         touchAction: 'none' as const,
-        ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
+        ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
       }
     },
 
@@ -120,6 +120,7 @@ const FillSlider: React.FC<FillSliderProps> = ({
         left: 0,
         height: '100%',
         backgroundColor: theme.Color.Base.Content[3],
+        opacity: 0.5,
         zIndex: 1,
       },
     },

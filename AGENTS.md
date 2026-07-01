@@ -26,6 +26,15 @@ You MUST activate and read the matching skill immediately when a user request al
 - **Dock Immunity**: Never write in or modify the dock component.
 - **Planning Gate**: Never code before performing a detailed planning step. This MUST be a single markdown file stored in the `/plans` folder containing the following sections: **PRD** (Overview & Objectives), **OKR** (Success Criteria), **ADR** (Architectural Design), and a **TODO** list. Only code or write in the codebase if the user clearly commands you to "code".
 
+## Component Hierarchy
+You MUST adhere to the following hierarchy when organizing components:
+- **App**: The root level (e.g., `App.tsx`). Responsible for global orchestration, state providers, and the top-level layout grid.
+- **Page**: Represents a major view or destination (e.g., `Home.tsx`). Pages manage high-level routing and context for a specific screen.
+- **Section**: Large structural blocks (e.g., `Stage.tsx`, `Dock.tsx`). Sections are often persistent or act as primary layout containers for specific domains.
+- **Package**: Functional, reusable feature modules (e.g., `AIPanel.tsx`, `ControlPanel.tsx`). Packages group multiple core components into a cohesive unit with specific business logic.
+- **Core**: The primitive, atomic building blocks of the UI (e.g., `Button.tsx`, `Input.tsx`, `RippleLayer.tsx`). Core components are pure, highly reusable, and design-token driven.
+- **Staged**: Specialized versions of components used specifically for the interactive Stage/Viewport (e.g., `/components/staged/`). These components often include additional logic for 3D inspection and property overrides.
+
 ## Multi-Agent Orchestration
 - **Sub-Agent Isolation**: All child sub-agents MUST have a fresh context window and be assigned exactly one focused task.
 - **Harness Loop**: Orchestrate all complex tasks via the fully automated **Plan → Build → Review** loop powered by the upgraded spawn agents orchestrator.
