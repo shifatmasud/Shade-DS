@@ -29,6 +29,12 @@ You MUST activate and read the matching skill immediately when a user request al
 - **Sub-Agent Isolation**: All child sub-agents MUST have a fresh context window and be assigned exactly one task per agent.
 - **Harness Loop**: Orchestrate engineering tasks via a **Plan → Build → Review** multi-agent loop.
 - **Concurrency Permissions**: Parallel reads are permitted; however, all writes MUST be executed in sequence.
+- **CLI Spawn Tool**: The codebase contains a dedicated CLI multi-agent orchestrator at `scripts/spawnAgents.ts`. You can run this tool using:
+  ```bash
+  npx tsx scripts/spawnAgents.ts "<task description>"
+  ```
+  This decomposes any user task into a structured team of specialized sub-agents with separate system instructions, runs them with fresh context windows, and compiles their results into `plans/spawnAgents_output.md` and `plans/spawnAgents_output.json`.
+- **Manager Persona**: When a user presents a complex task, act as a manager. Plan the agent layout, coordinate specialized sub-agents, and aggregate their domain-specific outputs into a unified solution. Use the CLI spawn tool to execute and persistent-record the multi-agent workflow.
 
 ## Workflow Integration
 For every task involving component creation or modification:
