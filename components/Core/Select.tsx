@@ -200,8 +200,9 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
       ...theme.Type.Readable.Body.S,
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'center', // Changed from space-between to center
       transition: `color ${theme.time['Time.1x']} ease`,
+      gap: theme.space['Space.S'],
     }),
     gridContainer: {
       display: 'grid',
@@ -296,11 +297,13 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
                 onMouseEnter={() => setHoveredIdx(idx)}
                 whileTap={{ scale: 0.95 }}
               >
-                {option.icon ? (
-                  <i className={`ph-bold ${option.icon}`} />
-                ) : (
-                  <span style={{ fontSize: '14px' }}>{option.label.slice(0, 2)}</span>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', position: 'relative', zIndex: 1 }}>
+                  {option.icon ? (
+                    <i className={`ph-bold ${option.icon}`} style={{ display: 'block', lineHeight: 1 }} />
+                  ) : (
+                    <span style={{ fontSize: '14px', lineHeight: 1, display: 'block' }}>{option.label.slice(0, 2)}</span>
+                  )}
+                </div>
                 {option.value === value && (
                    <motion.div
                     style={{
@@ -326,18 +329,20 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
               onMouseEnter={() => setHoveredIdx(idx)}
               whileTap={{ scale: 0.98 }}
             >
-              <span style={{ position: 'relative', zIndex: 1 }}>{option.label}</span>
-              {option.value === value && (
-                <motion.span 
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </motion.span>
-              )}
+              <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'] }}>
+                <span style={{ lineHeight: 1 }}>{option.label}</span>
+                {option.value === value && (
+                  <motion.span 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{ display: 'flex', alignItems: 'center' }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </motion.span>
+                )}
+              </div>
             </motion.div>
           ))
         )}
