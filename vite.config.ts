@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
+      optimizeDeps: {
+        exclude: ['@dimforge/rapier3d-compat', 'tone']
+      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
