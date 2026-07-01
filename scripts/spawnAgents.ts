@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
@@ -30,13 +30,18 @@ async function generateContentWithRetry(params: any, retries: number = 5, delayM
     } catch (error: any) {
       const errorStr = String(error?.message || error);
       const isTransient = errorStr.includes("503") || 
+                          errorStr.includes("429") ||
+                          errorStr.includes("quota") ||
                           errorStr.includes("high demand") || 
                           errorStr.includes("temporary") ||
                           errorStr.includes("UNAVAILABLE") ||
+                          errorStr.includes("RESOURCE_EXHAUSTED") ||
                           error?.status === 503 ||
-                          error?.code === 503;
+                          error?.code === 503 ||
+                          error?.status === 429 ||
+                          error?.code === 429;
       if (isTransient && attempt < retries) {
-        console.warn(`\x1b[33m[Warning] Gemini API busy or unavailable. Retrying in ${delayMs}ms (Attempt ${attempt}/${retries})...\x1b[0m`);
+        console.warn(`\x1b[33m[Warning] Gemini API busy, rate limited, or unavailable. Retrying in ${delayMs}ms (Attempt ${attempt}/${retries})...\x1b[0m`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
         delayMs *= 2; // exponential backoff
       } else {
@@ -201,13 +206,14 @@ CRITICAL RULES:
   while (turn < maxTurns) {
     turn++;
     const response = await generateContentWithRetry({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.1-flash-lite",
       contents: contents,
       config: {
         systemInstruction: systemPrompt,
         tools: tools,
         responseMimeType: "application/json",
         responseSchema: analysisBriefSchema,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       }
     });
 
@@ -327,11 +333,12 @@ Main Task:
 ${mainTask}`;
 
   const response = await generateContentWithRetry({
-    model: "gemini-3.5-flash",
+    model: "gemini-3.1-flash-lite",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
       responseSchema: decompositionSchema,
+      thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
     }
   });
 
@@ -451,11 +458,12 @@ CRITICAL RULES:
     console.log(`\x1b[90m[Agent ${agent.name}] Calling model turn ${turn}...\x1b[0m`);
 
     const response = await generateContentWithRetry({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.1-flash-lite",
       contents: contents,
       config: {
         systemInstruction: systemPrompt,
         tools: tools,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       }
     });
 
@@ -605,11 +613,12 @@ Please perform the following actions:
     console.log(`\x1b[90m[Reviewer] Calling model turn ${turn}...\x1b[0m`);
 
     const response = await generateContentWithRetry({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.1-flash-lite",
       contents: contents,
       config: {
         systemInstruction: reviewerInstruction,
         tools: tools,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       }
     });
 
