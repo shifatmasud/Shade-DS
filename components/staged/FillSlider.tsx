@@ -120,7 +120,7 @@ const FillSlider: React.FC<FillSliderProps> = ({
         left: 0,
         height: '100%',
         backgroundColor: theme.Color.Base.Content[3],
-        opacity: 0.5,
+        opacity: 0.25,
         zIndex: 1,
       },
     },

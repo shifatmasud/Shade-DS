@@ -24,5 +24,5 @@ The user wants to reduce the visual contrast of the `FillSlider` component. Curr
 # TODO
 - [ ] Read `/components/staged/FillSlider.tsx` (Done).
 - [ ] Update `styles.container` to use a softer border color (`theme.Color.Base.Surface[3]`).
-- [ ] Update `styles.fill` to have a reduced opacity or more subtle background.
-- [ ] Verify changes with `compile_applet`.
+- [x] Update `styles.fill` to have a reduced opacity (0.25).
+- [x] Verify changes with `compile_applet`.
