@@ -53,6 +53,14 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
     if (currentPos) {
       dragOffset.current.set(currentPos.x - e.point.x, currentPos.y - e.point.y, currentPos.z - e.point.z);
     }
+
+    // Interactive pointerdown click-based ripple deformation
+    const clickNormal = e.face ? e.face.normal.clone() : new THREE.Vector3(0, 1, 0);
+    if (groupRef.current && e.face) {
+      const normalMatrix = new THREE.Matrix3().getNormalMatrix(groupRef.current.matrixWorld);
+      clickNormal.applyMatrix3(normalMatrix).normalize();
+    }
+    jellyRef.current?.triggerImpact(e.point, clickNormal, 1.2);
   };
 
   const handlePointerUp = (e: any) => {
@@ -206,6 +214,14 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
     if (currentPos) {
       dragOffset.current.set(currentPos.x - e.point.x, currentPos.y - e.point.y, currentPos.z - e.point.z);
     }
+
+    // Interactive pointerdown click-based ripple deformation
+    const clickNormal = e.face ? e.face.normal.clone() : new THREE.Vector3(0, 1, 0);
+    if (groupRef.current && e.face) {
+      const normalMatrix = new THREE.Matrix3().getNormalMatrix(groupRef.current.matrixWorld);
+      clickNormal.applyMatrix3(normalMatrix).normalize();
+    }
+    jellyRef.current?.triggerImpact(e.point, clickNormal, 1.2);
   };
 
   const handlePointerUp = (e: any) => {
