@@ -188,13 +188,20 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               label="Icon (Phosphor)"
               value={btnProps.icon || ''}
               onChange={(e) => onPropChange('icon', e.target.value)}
+              variant="icon-grid"
               options={[
-                  { value: '', label: 'None' },
-                  { value: 'ph-sparkle', label: 'Sparkle' },
-                  { value: 'ph-heart', label: 'Heart' },
-                  { value: 'ph-bell', label: 'Bell' },
-                  { value: 'ph-rocket', label: 'Rocket' },
-                  { value: 'ph-gear', label: 'Gear' },
+                  { value: '', label: 'None', icon: 'ph-prohibit' },
+                  { value: 'ph-sparkle', label: 'Sparkle', icon: 'ph-sparkle' },
+                  { value: 'ph-heart', label: 'Heart', icon: 'ph-heart' },
+                  { value: 'ph-bell', label: 'Bell', icon: 'ph-bell' },
+                  { value: 'ph-rocket', label: 'Rocket', icon: 'ph-rocket' },
+                  { value: 'ph-gear', label: 'Gear', icon: 'ph-gear' },
+                  { value: 'ph-star', label: 'Star', icon: 'ph-star' },
+                  { value: 'ph-cloud', label: 'Cloud', icon: 'ph-cloud' },
+                  { value: 'ph-moon', label: 'Moon', icon: 'ph-moon' },
+                  { value: 'ph-sun', label: 'Sun', icon: 'ph-sun' },
+                  { value: 'ph-leaf', label: 'Leaf', icon: 'ph-leaf' },
+                  { value: 'ph-fire', label: 'Fire', icon: 'ph-fire' },
               ]}
             />
           )}

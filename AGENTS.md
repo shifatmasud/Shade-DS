@@ -62,6 +62,15 @@ For every task involving component creation or modification:
 2. **Review**: Ensure the DATA, LOGIC, and RENDER segments are clearly defined.
 3. **Execute**: Generate the React code based on the DSL model.
 
+## Interaction & Touch Parity
+- You MUST ensure high-quality interactive parity between mouse and touch devices.
+- **Hover-to-Drag Translation**: When implementing hover-driven UI (e.g., list highlights, sliders, grid previews), you MUST implement equivalent `onTouchMove` logic that allows users to "scrub" or "drag" across items to preview state changes before releasing to select.
+- **Event Mapping**: 
+  - `onMouseEnter` / `onMouseOver` → Implement coordinate-based hit-testing in `onTouchMove`.
+  - `onMouseMove` → Translate to `onTouchMove` coordinates.
+  - `onMouseLeave` → Translate to `onTouchEnd` or detection of touch leaving the interactive bounds.
+- **Feedback**: Always provide immediate visual feedback (e.g., highlights, tooltips) during touch scrubbing to confirm the active target under the finger.
+
 ## Safety Rules
 ### File-Level Safety Protocols
 When modifying, writing, or updating code, you MUST follow these standards within the target file:

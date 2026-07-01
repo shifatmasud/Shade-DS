@@ -24,12 +24,10 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
     width: '40px',
     height: '24px',
     borderRadius: theme.radius['Radius.Full'],
-    backgroundColor: isOn ? activeColor : theme.Color.Base.Surface[3],
     display: 'flex',
     alignItems: 'center',
     padding: '4px',
     cursor: 'pointer',
-    transition: `background-color ${theme.time['Time.2x']} ease`,
     flexShrink: 0,
   };
 
@@ -46,14 +44,33 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
       <label style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2] }}>
         {label}
       </label>
-      <div style={trackStyle} onClick={onToggle}>
+      <motion.div 
+        style={trackStyle} 
+        onClick={onToggle}
+        initial={false}
+        animate={{ backgroundColor: isOn ? activeColor : theme.Color.Base.Surface[3] }}
+        transition={{ duration: 0.2 }}
+      >
         <motion.div
-          style={{ ...thumbStyle }}
+          style={{ ...thumbStyle, originX: 0.5, originY: 0.5 }}
           initial={false}
-          animate={{ x: isOn ? 16 : 0 }}
-          transition={{ type: 'spring', stiffness: 700, damping: 30 }}
+          animate={{ 
+            x: isOn ? 16 : 0,
+            scaleX: [1, 1.25, 1],
+            scaleY: [1, 0.8, 1],
+          }}
+          whileTap={{ 
+            scaleX: 1.1, 
+            scaleY: 0.9,
+            transition: { duration: 0.1 }
+          }}
+          transition={{ 
+            x: { type: 'spring', stiffness: 500, damping: 30, mass: 1 },
+            scaleX: { times: [0, 0.5, 1], duration: 0.3 },
+            scaleY: { times: [0, 0.5, 1], duration: 0.3 },
+          }}
         />
-      </div>
+      </motion.div>
     </div>
   );
 };
