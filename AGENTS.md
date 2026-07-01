@@ -22,20 +22,24 @@ You MUST activate and read the matching skill immediately when a user request al
 - **Theme Token Usage**:
   - `backgrounds` = `Surface`; `text/icons` = `Content`.
   - Use `Surface` colors for soft borders, dividers, separators, and shadows.
-  - `Surface lvl n+` indicates `z-index+` (elevation).
-  - `Content lvl n+` indicates `importance+` (hierarchy).
+  - `Surface [1-3]` indicates **Elevation** (higher index = higher z-index).
+  - `Content [1-3]` indicates **Hierarchy** (1 = Primary, 2 = Secondary, 3 = Tertiary).
 - You MUST always use Theme.tsx border procedural helpers (such as theme.border.getBorder1px and theme.border.getOutline2px) instead of writing manual or external CSS borders.
 - You use Framer Motion for UI and GSAP for timelines.
 - **Variant Style System**: You MUST define styles as a JS object with `base`, `variant`, and `size` keys. Merge these into a single `style` object and apply via `style={style}`.
 - **Fluid Interpolation**: You MUST use the `layout` prop on `motion` components to enable automatic interpolation of style changes.
-- **Dock Immunity**: Never write in or modify the dock component.
 - **Planning Gate**: Never code before performing a detailed planning step. This MUST be a single markdown file stored in the `/plans` folder containing the following sections: **PRD** (Overview & Objectives), **OKR** (Success Criteria), **ADR** (Architectural Design), and a **TODO** list. Only code or write in the codebase if the user clearly commands you to "code".
+
+## CRITICAL RESTRAINTS & IMMUNITY
+- **Dock Immunity [STRICTLY FORBIDDEN]**: You are strictly forbidden from modifying `/components/Section/Dock.tsx` or any logic directly contained within the Dock component. This file is managed exclusively by the user. If a request involves Dock changes, you MUST report that the Dock is protected and ask for explicit "Override Dock Immunity" permission.
+- **Dock Icon Immunity**: Never modify or add icons to the dock mapping without explicit permission.
+- **README Immunity [STRICTLY FORBIDDEN]**: You are strictly forbidden from modifying the structural layout, visual styling, or core value propositions of `README.md`. This file serves as the definitive source of truth for the project's identity. Any requested updates to the README must be treated as high-risk and require explicit "Override README Immunity" permission.
 
 ## Component Hierarchy
 You MUST adhere to the following hierarchy when organizing components:
 - **App**: The root level (e.g., `App.tsx`). Responsible for global orchestration, state providers, and the top-level layout grid.
 - **Page**: Represents a major view or destination (e.g., `Home.tsx`). Pages manage high-level routing and context for a specific screen.
-- **Section**: Large structural blocks (e.g., `Stage.tsx`, `Dock.tsx`). Sections are often persistent or act as primary layout containers for specific domains.
+- **Section**: Large structural blocks (e.g., `Stage.tsx`, `Dock.tsx` [PROTECTED]). Sections are often persistent or act as primary layout containers for specific domains.
 - **Package**: Functional, reusable feature modules (e.g., `AIPanel.tsx`, `ControlPanel.tsx`). Packages group multiple core components into a cohesive unit with specific business logic.
 - **Core**: The primitive, atomic building blocks of the UI (e.g., `Button.tsx`, `Input.tsx`, `RippleLayer.tsx`). Core components are pure, highly reusable, and design-token driven.
 - **Staged**: Specialized versions of components used specifically for the interactive Stage/Viewport (e.g., `/components/staged/`). These components often include additional logic for 3D inspection and property overrides.

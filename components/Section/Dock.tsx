@@ -2,6 +2,13 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+/**
+ * 🛑 PROTECTED FILE - DOCK IMMUNITY
+ * ---------------------------------
+ * This file is strictly forbidden from being modified by AI Agents.
+ * Modifications must only be made by the User or with explicit 
+ * "Override Dock Immunity" permission.
+ */
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
