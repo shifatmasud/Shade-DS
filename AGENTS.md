@@ -24,7 +24,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - **Variant Style System**: You MUST define styles as a JS object with `base`, `variant`, and `size` keys. Merge these into a single `style` object and apply via `style={style}`.
 - **Fluid Interpolation**: You MUST use the `layout` prop on `motion` components to enable automatic interpolation of style changes.
 - **Dock Immunity**: Never write in or modify the dock component.
-- **Planning Gate**: Never code before performing a detailed planning step (TODO + PRD + OKR + ADR). These planning documents MUST be stored as separate markdown files inside the `/plans` folder. Only code or write in the codebase if the user clearly commands you to "code".
+- **Planning Gate**: Never code before performing a detailed planning step. This MUST be a single markdown file stored in the `/plans` folder containing the following sections: **PRD** (Overview & Objectives), **OKR** (Success Criteria), **ADR** (Architectural Design), and a **TODO** list. Only code or write in the codebase if the user clearly commands you to "code".
 
 ## Multi-Agent Orchestration
 - **Sub-Agent Isolation**: All child sub-agents MUST have a fresh context window and be assigned exactly one focused task.

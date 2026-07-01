@@ -37,8 +37,10 @@ const FillSlider: React.FC<FillSliderProps> = ({
 }) => {
   const { theme } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  
+  // Use MotionValues for binary interaction states
+  const isDraggingMV = useMotionValue(0);
+  const isHoveredMV = useMotionValue(0);
 
   // 1. Setup MotionValue (internal or external)
   const internalMV = useMotionValue(defaultValue);
@@ -52,7 +54,6 @@ const FillSlider: React.FC<FillSliderProps> = ({
   const widthStyle = useTransform(percentage, (p) => `${p}%`);
 
   // 3. Setup Counter Value (0-100 for AnimatedCounter)
-  // Since AnimatedCounter rounds to nearest integer, we map the scale 0-1 to 0-100
   const counterMV = useTransform(activeMV, inputRange, outputRange);
 
   const updateValueFromPointer = (clientX: number) => {
@@ -70,21 +71,27 @@ const FillSlider: React.FC<FillSliderProps> = ({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    setIsDragging(true);
-    trackRef.current?.setPointerCapture(e.pointerId);
+    isDraggingMV.set(1);
+    if (trackRef.current) {
+        trackRef.current.setPointerCapture(e.pointerId);
+        trackRef.current.style.cursor = 'grabbing';
+    }
     updateValueFromPointer(e.clientX);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (isDragging) {
+    if (isDraggingMV.get() === 1) {
       updateValueFromPointer(e.clientX);
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (isDragging) {
-      setIsDragging(false);
-      trackRef.current?.releasePointerCapture(e.pointerId);
+    if (isDraggingMV.get() === 1) {
+      isDraggingMV.set(0);
+      if (trackRef.current) {
+          trackRef.current.releasePointerCapture(e.pointerId);
+          trackRef.current.style.cursor = 'pointer';
+      }
       if (onCommit) onCommit(activeMV.get());
     }
   };
@@ -94,7 +101,7 @@ const FillSlider: React.FC<FillSliderProps> = ({
     container: {
       base: {
         width: '100%',
-        height: theme.height['Height.L'], // 56px
+        height: theme.height['Height.L'],
         position: 'relative' as const,
         borderRadius: theme.radius['Radius.L'],
         backgroundColor: theme.Color.Base.Surface[3],
@@ -103,12 +110,7 @@ const FillSlider: React.FC<FillSliderProps> = ({
         userSelect: 'none' as const,
         touchAction: 'none' as const,
         ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
-      },
-      variant: {
-        dragging: {
-          cursor: 'grabbing',
-        },
-      },
+      }
     },
 
     fill: {
@@ -171,11 +173,13 @@ const FillSlider: React.FC<FillSliderProps> = ({
     },
   };
 
-  const getStyle = (config: any) => ({ 
-    ...config.base,
-    ...(isDragging ? config.variant?.dragging : {}),
-    ...(isHovered ? config.variant?.hovered : {}),
-  });
+  const getStyle = (config: any) => ({ ...config.base });
+
+  // Composite interaction state for opacity
+  const thumbOpacity = useTransform(
+      [isHoveredMV, isDraggingMV],
+      ([hover, drag]) => (hover || drag ? 1 : 0)
+  );
 
   return (
     <div
@@ -184,8 +188,8 @@ const FillSlider: React.FC<FillSliderProps> = ({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerEnter={() => setIsHovered(true)}
-      onPointerLeave={() => setIsHovered(false)}
+      onPointerEnter={() => isHoveredMV.set(1)}
+      onPointerLeave={() => isHoveredMV.set(0)}
     >
       {/* Fill Layer */}
       <motion.div
@@ -200,9 +204,8 @@ const FillSlider: React.FC<FillSliderProps> = ({
         style={{
           ...getStyle(styles.thumb),
           left: widthStyle,
+          opacity: thumbOpacity,
         }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isHovered || isDragging ? 1 : 0 }}
         transition={{ duration: 0.2 }}
       />
 
@@ -214,10 +217,7 @@ const FillSlider: React.FC<FillSliderProps> = ({
           {formatValue ? (
             formatValue(activeMV.get())
           ) : (
-            <>
-              {/* Removed "0." prefix as requested */}
-              <AnimatedCounter value={counterMV} useFormatting={false} />
-            </>
+            <AnimatedCounter value={counterMV} useFormatting={false} />
           )}
         </div>
       </div>

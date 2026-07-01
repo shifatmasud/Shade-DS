@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React from 'react';
-import { type MotionValue } from 'framer-motion';
+import { motion, type MotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import { MetaButtonProps } from '../../types/index.tsx';
 import Input from '../Core/Input.tsx';
@@ -122,7 +122,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </Accordion>
 
       <Accordion title="Component">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
+        <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           <Select<any>
             label="Component Type"
             value={btnProps.componentType}
@@ -198,7 +198,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               ]}
             />
           )}
-        </div>
+        </motion.div>
       </Accordion>
 
       <Accordion title="Appearance">

@@ -34,6 +34,7 @@ const Digit: React.FC<DigitProps> = React.memo(({ mv }) => {
   };
 
   // Maps the current negative digit value to the vertical em shift
+  // We use animate() externally to drive this mv smoothly
   const yTranslate = useTransform(mv, (v) => `${v}em`);
 
   return (
@@ -44,7 +45,7 @@ const Digit: React.FC<DigitProps> = React.memo(({ mv }) => {
           y: yTranslate,
         }}
       >
-        {[...Array(10).keys()].map(i => (
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
           <span key={i} style={{ height: DIGIT_HEIGHT, display: 'block' }}>{i}</span>
         ))}
       </motion.div>
@@ -63,20 +64,17 @@ const isMotionValue = (val: any): val is MotionValue<number> => {
   return val && typeof val === 'object' && 'get' in val && 'on' in val;
 };
 
-// Helper to partition formatted value to structural track keys
 function getTracks(valueStr: string) {
   return valueStr.split('').map((char, idx) => ({
-    key: `${idx}-${isNaN(parseInt(char, 10)) ? 'char' : 'digit'}`,
+    key: `${idx}-${isNaN(parseInt(char, 10)) ? 'char' : 'digit'}-${char}`,
     char,
     isDigit: !isNaN(parseInt(char, 10)),
   }));
 }
 
 const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ value, useFormatting = true }) => {
-  // 1. Setup a fallback motion value if a primitive number is provided
   const localMV = useMotionValue(typeof value === 'number' ? value : 0);
   
-  // Sync standard numbers when they change (such as FPS updates)
   useEffect(() => {
     if (typeof value === 'number') {
       localMV.set(value);
@@ -85,23 +83,18 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ value, useFormatting 
 
   const activeMotionValue = isMotionValue(value) ? value : localMV;
 
-  // 2. State management for the structural representation (digit columns)
+  // Initialize tracks with the current value
   const [tracks, setTracks] = useState(() => {
-    if (!activeMotionValue || typeof activeMotionValue.get !== 'function') return [];
     const val = activeMotionValue.get();
-    const currentRounded = Math.round(val || 0);
-    const currentValueStr = useFormatting ? currentRounded.toLocaleString() : String(currentRounded);
-    return getTracks(currentValueStr);
+    const rounded = Math.round(val || 0);
+    const valStr = useFormatting ? rounded.toLocaleString() : String(rounded);
+    return getTracks(valStr);
   });
 
   const tracksRef = useRef(tracks);
-  tracksRef.current = tracks;
-
-  // Keep a persistent array of motion value objects to direct transform each digit track
   const digitMotionValuesRef = useRef<MotionValue<number>[]>([]);
 
-  // 🛡️ SHADE REWRITE: Populate/sync digit motion values during render to ensure 
-  // they are available for the first render of Digit components.
+  // Sync digit motion values count
   const digitCount = useMemo(() => tracks.filter(t => t.isDigit).length, [tracks]);
   if (digitMotionValuesRef.current.length < digitCount) {
     const diff = digitCount - digitMotionValuesRef.current.length;
@@ -112,70 +105,50 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ value, useFormatting 
     digitMotionValuesRef.current = digitMotionValuesRef.current.slice(0, digitCount);
   }
 
-  // 3. Setup subscriber to drive the individual digit transforms and structural updates
   useEffect(() => {
-    const handleValueChange = (latest: number) => {
-      try {
-        const rounded = Math.round(latest);
-        const valueStr = useFormatting ? rounded.toLocaleString() : String(rounded);
-        const currentTracks = getTracks(valueStr);
-        
-        // Check if layout needs structure modification (React re-render is then permitted/needed)
-        const hasStructureChanged = 
-          currentTracks.length !== tracksRef.current.length ||
-          currentTracks.some((t, idx) => t.key !== tracksRef.current[idx].key);
+    const updateDigits = (val: number) => {
+      const rounded = Math.round(val);
+      const valStr = useFormatting ? rounded.toLocaleString() : String(rounded);
+      const newTracks = getTracks(valStr);
 
-        if (hasStructureChanged) {
-          // Sync ref immediately to prevent race conditions in subsequent events
-          tracksRef.current = currentTracks;
-          setTracks(currentTracks);
-        }
+      const hasStructureChanged = 
+        newTracks.length !== tracksRef.current.length ||
+        newTracks.some((t, idx) => t.key !== tracksRef.current[idx].key);
 
-        // Manage digit motion values count to match current structure (also done in render, but safe to repeat)
-        const dCount = currentTracks.filter(t => t.isDigit).length;
-        if (digitMotionValuesRef.current.length < dCount) {
-          const diff = dCount - digitMotionValuesRef.current.length;
-          for (let i = 0; i < diff; i++) {
-            digitMotionValuesRef.current.push(motionValue(0));
+      if (hasStructureChanged) {
+        tracksRef.current = newTracks;
+        // Schedule state update to avoid "update during render" warning
+        // especially if this is called during the same tick as a parent render
+        Promise.resolve().then(() => {
+            setTracks(newTracks);
+        });
+      }
+
+      // Update digit motion values
+      let dIdx = 0;
+      for (let i = 0; i < newTracks.length; i++) {
+        const track = newTracks[i];
+        if (track.isDigit) {
+          const num = parseInt(track.char, 10);
+          const mv = digitMotionValuesRef.current[dIdx];
+          if (mv) {
+            animate(mv, -num, {
+              type: 'spring',
+              stiffness: 260,
+              damping: 30
+            });
           }
-        } else if (digitMotionValuesRef.current.length > dCount) {
-          digitMotionValuesRef.current = digitMotionValuesRef.current.slice(0, dCount);
+          dIdx++;
         }
-
-        // Target -> Mutate individual digit motion values with zero React re-renders
-        let dIdx = 0;
-        for (let i = 0; i < currentTracks.length; i++) {
-          const track = currentTracks[i];
-          if (track.isDigit) {
-            const num = parseInt(track.char, 10);
-            const mv = digitMotionValuesRef.current[dIdx];
-            if (mv) {
-              // We use animate for smooth transitions between digits
-              animate(mv, -num, {
-                type: 'spring',
-                stiffness: 220,
-                damping: 24
-              });
-            }
-            dIdx++;
-          }
-        }
-      } catch (err) {
-        console.error("Error updating AnimatedCounter observer:", err);
       }
     };
 
-    // Subscribing to "change" handles both structural checks and digit animations
-    if (!activeMotionValue || typeof activeMotionValue.on !== 'function') return;
+    // Initial sync
+    updateDigits(activeMotionValue.get());
 
-    const unsubscribe = activeMotionValue.on("change", handleValueChange);
-    
-    // Initial sync check after mount
-    if (typeof activeMotionValue.get === 'function') {
-      handleValueChange(activeMotionValue.get());
-    }
-
-    return () => unsubscribe();
+    return activeMotionValue.on("change", (latest) => {
+      updateDigits(latest);
+    });
   }, [activeMotionValue, useFormatting]);
 
   const styles = {
@@ -192,7 +165,6 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ value, useFormatting 
     },
   };
 
-  // Render the components
   let digitIndex = 0;
   return (
     <div style={styles.container}>
