@@ -156,9 +156,19 @@ export const DISTORTION_COMPOSITOR_FRAG = `
 const FluidDistortionEffect: React.FC = () => {
   const { gl, size } = useThree();
 
-  // Resolution of fluid simulation (512x512 is optimized for deterministic fluid motion and smooth performance)
-  const simWidth = 512;
-  const simHeight = 512;
+  // Dynamic aspect ratio calculation to prevent any visual stretching across breakpoint devices
+  const { simWidth, simHeight } = useMemo(() => {
+    const base = 512;
+    const aspect = size.width / size.height;
+    let w = base;
+    let h = base;
+    if (aspect > 1) {
+      h = Math.round(base / aspect);
+    } else {
+      w = Math.round(base * aspect);
+    }
+    return { simWidth: w, simHeight: h };
+  }, [size.width, size.height]);
 
   // Track interaction variables
   const isDrawingRef = useRef(false);
@@ -166,6 +176,14 @@ const FluidDistortionEffect: React.FC = () => {
   const prevPointer = useRef(new THREE.Vector2(0, 0));
   const firstFrameRef = useRef(true);
   const blurPassToggleRef = useRef(true);
+
+  // Keep a ref of active render targets to ensure proper disposal of old FBO resources during resize
+  const targetsRef = useRef<{
+    sceneRenderTarget: THREE.WebGLRenderTarget;
+    paintTarget1: THREE.WebGLRenderTarget;
+    paintTarget2: THREE.WebGLRenderTarget;
+    blurTarget: THREE.WebGLRenderTarget;
+  } | null>(null);
 
   // Setup Render Targets (FBOs) using useMemo for lifecycle retention
   const {
@@ -176,6 +194,14 @@ const FluidDistortionEffect: React.FC = () => {
     quadGeometry,
     orthoCamera
   } = useMemo(() => {
+    // Dispose of previous render targets to prevent memory/VRAM leaks
+    if (targetsRef.current) {
+      targetsRef.current.sceneRenderTarget.dispose();
+      targetsRef.current.paintTarget1.dispose();
+      targetsRef.current.paintTarget2.dispose();
+      targetsRef.current.blurTarget.dispose();
+    }
+
     const dpr = gl.getPixelRatio();
     const sceneTarget = new THREE.WebGLRenderTarget(size.width * dpr, size.height * dpr, {
       minFilter: THREE.LinearFilter,
@@ -184,6 +210,7 @@ const FluidDistortionEffect: React.FC = () => {
       type: THREE.UnsignedByteType,
       depthBuffer: true,
       stencilBuffer: false,
+      colorSpace: THREE.SRGBColorSpace, // CRITICAL: Use sRGB color space to preserve precise brightness and prevent blacks/shadows from darkening
     });
 
     const createSimTarget = () => new THREE.WebGLRenderTarget(simWidth, simHeight, {
@@ -202,19 +229,30 @@ const FluidDistortionEffect: React.FC = () => {
     const geometry = new THREE.PlaneGeometry(2, 2);
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-    return {
+    const newTargets = {
       sceneRenderTarget: sceneTarget,
       paintTarget1: pTarget1,
       paintTarget2: pTarget2,
       blurTarget: bTarget,
+    };
+
+    targetsRef.current = newTargets;
+
+    return {
+      ...newTargets,
       quadGeometry: geometry,
       orthoCamera: camera
     };
-  }, [gl, size.width, size.height]);
+  }, [gl, size.width, size.height, simWidth, simHeight]);
 
-  // Track rendering target references
+  // Track rendering target references and dynamically sync when targets re-create
   const paintTarget1Ref = useRef(paintTarget1);
   const paintTarget2Ref = useRef(paintTarget2);
+
+  useEffect(() => {
+    paintTarget1Ref.current = paintTarget1;
+    paintTarget2Ref.current = paintTarget2;
+  }, [paintTarget1, paintTarget2]);
 
   // Setup Shader Materials
   const { paintMaterial, blurMaterial, compMaterial } = useMemo(() => {
@@ -276,7 +314,7 @@ const FluidDistortionEffect: React.FC = () => {
       blurMaterial: bMaterial,
       compMaterial: cMaterial
     };
-  }, [size.width, size.height]);
+  }, [size.width, size.height, simWidth, simHeight]);
 
   // Build isolated Off-screen simulation scenes to keep main R3F graph clean
   const { simScene, blurScene, compScene } = useMemo(() => {
