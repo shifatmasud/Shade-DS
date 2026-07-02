@@ -352,7 +352,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
   const [showDialog, setShowDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const humanExplanation = 'This is the "Viewport Slot" extension. Use this when you need a fresh, isolated project component in the viewport. To use: Copy these instructions and provide them to the agent when you are ready to generate a new component for the viewport.';
-  const agentInstructions = 'Agent Instructions:\n1. Render this component into the /components/staged/ directory.\n2. In /components/Section/Stage.tsx, update the imports to include only the new component.\n3. Remove all other files in /components/staged/ and all references to them in Stage.tsx or other files.\n4. Synchronize controls, code, and console outputs to this new component panel.';
+  const agentInstructions = 'Agent Instructions:\n1. Render this component into the /components/staged/ directory.\n2. In /components/Section/Stage.tsx, update the imports to include only the new component.\n3. Remove all other files in /components/staged/ and all references to them in Stage.tsx or other files.\n4. Synchronize controls, code, and console outputs to this new component.';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(agentInstructions);
