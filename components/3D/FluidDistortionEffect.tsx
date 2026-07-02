@@ -175,7 +175,6 @@ const FluidDistortionEffect: React.FC = () => {
   const currentPointer = useRef(new THREE.Vector2(0, 0));
   const prevPointer = useRef(new THREE.Vector2(0, 0));
   const firstFrameRef = useRef(true);
-  const blurPassToggleRef = useRef(true);
 
   // Keep a ref of active render targets to ensure proper disposal of old FBO resources during resize
   const targetsRef = useRef<{
@@ -210,7 +209,7 @@ const FluidDistortionEffect: React.FC = () => {
       type: THREE.UnsignedByteType,
       depthBuffer: true,
       stencilBuffer: false,
-      colorSpace: THREE.SRGBColorSpace, // CRITICAL: Use sRGB color space to preserve precise brightness and prevent blacks/shadows from darkening
+      colorSpace: THREE.SRGBColorSpace, // CRITICAL: Use SRGBColorSpace to match R3F canvas encoding and prevent double encoding / darkening
     });
 
     const createSimTarget = () => new THREE.WebGLRenderTarget(simWidth, simHeight, {
@@ -270,7 +269,7 @@ const FluidDistortionEffect: React.FC = () => {
         u_drawFrom: { value: new THREE.Vector4(-1000, -1000, 16.0, 1.0) },
         u_drawTo: { value: new THREE.Vector4(-1000, -1000, 16.0, 1.0) },
         u_pushStrength: { value: 84.0 }, // PUSH POWER: 84.0
-        u_dissipations: { value: new THREE.Vector3(0.985, 0.94, 0.94) }, // FLUID FLOW: 1.00 maps to these perfect dissipations
+        u_dissipations: { value: new THREE.Vector3(0.992, 0.982, 0.982) }, // FLUID FLOW: Slower decay to let fluid waves persist and propagate beautifully
         u_vel: { value: new THREE.Vector2(0, 0) },
         u_curlScale: { value: 0.0085 }, // CHAOS: 17.00 scaled
         u_curlStrength: { value: 0.102 } // CHAOS: 17.00 scaled
@@ -399,9 +398,9 @@ const FluidDistortionEffect: React.FC = () => {
     const dx = currX - prevX;
     const dy = currY - prevY;
 
-    // Scale push velocity based on cursor acceleration
-    const velX = dx * 0.15;
-    const velY = dy * 0.15;
+    // Scale push velocity based on cursor acceleration (clamped to prevent flat-clipping/saturation)
+    const velX = THREE.MathUtils.clamp(dx * 0.07, -0.45, 0.45);
+    const velY = THREE.MathUtils.clamp(dy * 0.07, -0.45, 0.45);
 
     let brushRadius = 8.0;
     let brushWeight = 0.0;
@@ -435,14 +434,9 @@ const FluidDistortionEffect: React.FC = () => {
     renderer.setRenderTarget(sceneRenderTarget);
     renderer.render(scene, camera);
 
-    // 3. Blur pass (alternating directions frame-by-frame for super fast 2D diffusion optimization)
+    // 3. Symmetrical 2D Blur pass for smooth fluid diffusion (runs every frame in a single pass)
     blurMaterial.uniforms.u_texture.value = paintTarget1Ref.current.texture;
-    if (blurPassToggleRef.current) {
-      blurMaterial.uniforms.u_delta.value.set(1.4 / simWidth, 0.0);
-    } else {
-      blurMaterial.uniforms.u_delta.value.set(0.0, 1.4 / simHeight);
-    }
-    blurPassToggleRef.current = !blurPassToggleRef.current;
+    blurMaterial.uniforms.u_delta.value.set(1.2 / simWidth, 1.2 / simHeight);
 
     renderer.setRenderTarget(blurTarget);
     renderer.render(blurScene, orthoCamera);
