@@ -15,6 +15,7 @@ import { Info, X, Copy, Check } from 'phosphor-react';
 gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
 import { JellyBox } from './WiggleCube';
+import FluidDistortionEffect from './FluidDistortionEffect';
 import AnimatedCounter from '../Core/AnimatedCounter';
 import { playSound } from '../../services/soundService';
 
@@ -610,6 +611,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
         
         {showSky && <Sky sunPosition={[1, 0.2, 1]} />}
         <Environment preset="city" />
+        <FluidDistortionEffect />
       </Canvas>
       
       <div style={fpsStyle}>
