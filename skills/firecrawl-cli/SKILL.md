@@ -20,6 +20,14 @@ Run this command to install the CLI, build skills, and workflow tools:
 npx -y firecrawl-cli@latest init --all --browser
 ```
 
+## API Key Management
+
+To use the Firecrawl CLI, it requires a `FIRECRAWL_API_KEY`.
+
+1.  This variable has already been declared in `/.env.example`.
+2.  Provide the secret value via the application's environment configuration (Settings menu).
+3.  The CLI will automatically detect the `FIRECRAWL_API_KEY` environment variable if present.
+
 ## Skill Segments
 
 | Segment         | Job                                                   | Where it runs                                 |
