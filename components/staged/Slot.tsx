@@ -2,29 +2,14 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { forwardRef, useState } from 'react';
-import { useTheme } from '../../Theme.tsx';
+import React, { forwardRef } from 'react';
 import Scene3D from '../3D/scene.tsx';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Info, X, Copy, Check } from 'phosphor-react';
 
 interface SlotProps {
   // Add any props if needed later
 }
 
 const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
-  const { theme } = useTheme();
-  const [showDialog, setShowDialog] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const instructionText = 'Render this component into the viewport slot. Synchronize controls, code, and console outputs to the panel. Make this component the only default staged component, remove all other staged components.';
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(instructionText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <div
       ref={ref}
@@ -36,144 +21,7 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
         overflow: 'hidden',
       }}
     >
-      {/* 3D Scene Background */}
-      <div style={{ position: 'absolute', inset: 0, opacity: 1 }}>
-        <Scene3D showSky={true} />
-      </div>
-
-      {/* Info Trigger */}
-      <button
-        onClick={() => setShowDialog(true)}
-        style={{
-          position: 'absolute',
-          top: theme.space['Space.M'],
-          right: theme.space['Space.M'],
-          width: theme.space['Space.3XL'],
-          height: theme.space['Space.3XL'],
-          borderRadius: theme.radius['Radius.Full'],
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          zIndex: 10,
-          color: '#ffffff',
-          boxShadow: 'none',
-        }}
-      >
-        <Info size={20} />
-      </button>
-
-      {/* Dialog Overlay */}
-      <AnimatePresence>
-        {showDialog && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundColor: 'rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(4px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 100,
-              padding: theme.space['Space.L'],
-            }}
-            onClick={() => setShowDialog(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              style={{
-                backgroundColor: theme.Color.Base.Surface[1],
-                borderRadius: theme.radius['Radius.L'],
-                padding: theme.space['Space.L'],
-                maxWidth: theme.space['Space.Panel.Width'],
-                width: '100%',
-                position: 'relative',
-                boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-                ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => setShowDialog(false)}
-                style={{
-                  position: 'absolute',
-                  top: theme.space['Space.M'],
-                  right: theme.space['Space.M'],
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: theme.Color.Base.Content[2],
-                }}
-              >
-                <X size={20} />
-              </button>
-
-              <h2 style={{ ...theme.Type.Expressive.Headline.M, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.M'] }}>
-                Viewport Slot
-              </h2>
-              
-              <div style={{ 
-                backgroundColor: theme.Color.Base.Surface[2], 
-                padding: theme.space['Space.M'], 
-                borderRadius: theme.radius['Radius.M'],
-                marginBottom: theme.space['Space.L'],
-                border: `1px dashed ${theme.Color.Base.Content[3]}`,
-              }}>
-                <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[2], lineHeight: 1.5 }}>
-                  {instructionText}
-                </p>
-              </div>
-
-              <button
-                onClick={handleCopy}
-                style={{
-                  width: '100%',
-                  padding: theme.space['Space.M'],
-                  borderRadius: theme.radius['Radius.M'],
-                  backgroundColor: theme.Color.Active.Surface[1],
-                  color: theme.Color.Active.Content[1],
-                  border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: theme.space['Space.S'],
-                  cursor: 'pointer',
-                  ...theme.Type.Readable.Body.M,
-                  fontWeight: 600,
-                }}
-              >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
-                {copied ? 'Copied!' : 'Copy Instructions'}
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Fallback View (if scene fails or for context) */}
-      {!showDialog && (
-        <div style={{ 
-          position: 'absolute', 
-          bottom: theme.space['Space.M'], 
-          left: theme.space['Space.M'],
-          pointerEvents: 'none',
-          opacity: 0.6
-        }}>
-          <p style={{ ...theme.Type.Readable.Body.S, color: theme.Color.Base.Content[2] }}>
-            3D Viewport Active
-          </p>
-        </div>
-      )}
+      <Scene3D showSky={true} />
     </div>
   );
 });

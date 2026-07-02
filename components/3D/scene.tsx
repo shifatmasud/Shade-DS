@@ -9,6 +9,8 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-three/rapier';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Info, X, Copy, Check } from 'phosphor-react';
 
 gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
@@ -347,6 +349,17 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
   const [controlsEnabled, setControlsEnabled] = useState(true);
   const [fps, setFps] = useState(0);
 
+  const [showDialog, setShowDialog] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const humanExplanation = 'This is the "Viewport Slot" extension. Use this when you need a fresh, isolated project component in the viewport. To use: Copy these instructions and provide them to the agent when you are ready to generate a new component for the viewport.';
+  const agentInstructions = 'Agent Instructions:\n1. Render this component into the /components/staged/ directory.\n2. In /components/Section/Stage.tsx, update the imports to include only the new component.\n3. Remove all other files in /components/staged/ and all references to them in Stage.tsx or other files.\n4. Synchronize controls, code, and console outputs to this new component panel.';
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(agentInstructions);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   // STYLE: Derived from theme
   const overlayStyle: React.CSSProperties = {
     position: 'absolute',
@@ -435,6 +448,130 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
           Spawn Jelly Cube
         </button>
       </div>
+
+      {/* Info Trigger */}
+      <button
+        onClick={() => setShowDialog(true)}
+        style={{
+          position: 'absolute',
+          top: theme.space['Space.M'],
+          right: theme.space['Space.M'],
+          width: theme.space['Space.3XL'],
+          height: theme.space['Space.3XL'],
+          borderRadius: theme.radius['Radius.Full'],
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 10,
+          color: '#ffffff',
+          boxShadow: 'none',
+        }}
+      >
+        <Info size={20} />
+      </button>
+
+      {/* Dialog Overlay */}
+      <AnimatePresence>
+        {showDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 100,
+              padding: theme.space['Space.L'],
+            }}
+            onClick={() => setShowDialog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              style={{
+                backgroundColor: theme.Color.Base.Surface[1],
+                borderRadius: theme.radius['Radius.L'],
+                padding: theme.space['Space.L'],
+                maxWidth: theme.space['Space.Panel.Width'],
+                width: '100%',
+                position: 'relative',
+                boxShadow: theme.effects['Effect.Shadow.Drop.3'],
+                ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setShowDialog(false)}
+                style={{
+                  position: 'absolute',
+                  top: theme.space['Space.M'],
+                  right: theme.space['Space.M'],
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: theme.Color.Base.Content[2],
+                }}
+              >
+                <X size={20} />
+              </button>
+
+              <h2 style={{ ...theme.Type.Expressive.Headline.M, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.M'] }}>
+                Viewport Slot
+              </h2>
+              
+              <div style={{ marginBottom: theme.space['Space.L'] }}>
+                <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[1], lineHeight: 1.5, marginBottom: theme.space['Space.S'] }}>
+                  {humanExplanation}
+                </p>
+              </div>
+
+              <div style={{ 
+                backgroundColor: theme.Color.Base.Surface[2], 
+                padding: theme.space['Space.M'], 
+                borderRadius: theme.radius['Radius.M'], 
+                border: `1px dashed ${theme.Color.Base.Content[3]}` 
+              }}>
+                <p style={{ ...theme.Type.Readable.Body.S, color: theme.Color.Base.Content[2], lineHeight: 1.5, whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                  {agentInstructions}
+                </p>
+              </div>
+
+              <button
+                onClick={handleCopy}
+                style={{
+                  width: '100%',
+                  padding: theme.space['Space.M'],
+                  borderRadius: theme.radius['Radius.M'],
+                  backgroundColor: theme.Color.Active.Surface[1],
+                  color: theme.Color.Active.Content[1],
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: theme.space['Space.S'],
+                  cursor: 'pointer',
+                  ...theme.Type.Readable.Body.M,
+                  fontWeight: 600,
+                }}
+              >
+                {copied ? <Check size={18} /> : <Copy size={18} />}
+                {copied ? 'Copied!' : 'Copy Instructions'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Canvas 
         shadows={{ type: THREE.PCFShadowMap }} 
