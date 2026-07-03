@@ -3,7 +3,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type MotionValue, motion, useVelocity, useTransform, AnimatePresence, useSpring } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import AnimatedCounter from './AnimatedCounter.tsx';
@@ -19,8 +19,10 @@ interface ValueDisplayProps {
   isEditing: boolean;
   min: number;
   max: number;
+  step: number;
+  decimals: number;
   inputValue: string | number;
-  motionValue: MotionValue<number>;
+  displayValue: MotionValue<number>;
   inputStyle: React.CSSProperties;
   animatedCounterWrapperStyle: React.CSSProperties;
   numberInputContainerStyle: React.CSSProperties;
@@ -34,8 +36,10 @@ const ValueDisplay: React.FC<ValueDisplayProps> = React.memo(({
   isEditing,
   min,
   max,
+  step,
+  decimals,
   inputValue,
-  motionValue,
+  displayValue,
   inputStyle,
   animatedCounterWrapperStyle,
   numberInputContainerStyle,
@@ -51,6 +55,7 @@ const ValueDisplay: React.FC<ValueDisplayProps> = React.memo(({
           type="number"
           min={min}
           max={max}
+          step={step}
           value={inputValue}
           onChange={onChange}
           onBlur={onBlur}
@@ -63,8 +68,8 @@ const ValueDisplay: React.FC<ValueDisplayProps> = React.memo(({
           style={animatedCounterWrapperStyle}
           onClick={onStartEdit}
         >
-          {/* Animated counter stays completely preserved here & receives motionValue directly */}
-          <AnimatedCounter value={motionValue} useFormatting={false} />
+          {/* Animated counter stays completely preserved here & receives displayValue directly */}
+          <AnimatedCounter value={displayValue} useFormatting={false} decimals={decimals} />
         </div>
       )}
     </div>
@@ -80,6 +85,7 @@ interface RangeSliderProps {
   onChange?: (value: number) => void;
   min?: number;
   max?: number;
+  step?: number;
   trackBackground?: string;
 }
 
@@ -90,10 +96,28 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   onChange,
   min = 0, 
   max = 100,
+  step = 1,
   trackBackground 
 }) => {
   const { theme } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
+
+  // Derived precision for float handling
+  const decimals = useMemo(() => {
+    const stepStr = step.toString();
+    if (stepStr.includes('.')) {
+        return stepStr.split('.')[1].length;
+    }
+    return 0;
+  }, [step]);
+
+  // High-performance spring for the visual position to prevent "instant" snapping jumps
+  const visualValue = useSpring(motionValue, {
+    stiffness: 300,
+    damping: 35,
+    mass: 1,
+    restDelta: 0.0001
+  });
   
   // Use a fallback for the initial value to avoid NaN in calculations
   const [internalValue, setInternalValue] = useState(() => {
@@ -107,7 +131,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   const [inputValue, setInputValue] = useState<string | number>('');
 
   // Velocity based rotation for tooltip - normalized across ranges for consistent feel
-  const normalizedValue = useTransform(motionValue, [min, max], [0, 100]);
+  const normalizedValue = useTransform(visualValue, [min, max], [0, 100]);
   const velocity = useVelocity(normalizedValue);
   
   // mapping normalized velocity (percentage per second) to rotation
@@ -142,7 +166,11 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     if (!trackRef.current) return;
     const rect = trackRef.current.getBoundingClientRect();
     const percent = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
-    const newValue = Math.round(min + percent * (max - min));
+    
+    // Robust stepped calculation with floating point correction
+    const rawValue = min + percent * (max - min);
+    const stepped = Math.round(rawValue / step) * step;
+    const newValue = parseFloat(stepped.toFixed(decimals));
     
     // We only set the motion value, avoiding component-wide React virtual DOM re-renders during drag!
     motionValue.set(newValue);
@@ -167,7 +195,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
       trackRef.current?.releasePointerCapture(e.pointerId);
       
       // Flush back to React state ONLY when pointer dragging is finalized
-      const committedValue = Math.round(motionValue.get());
+      const committedValue = motionValue.get();
       setInternalValue(committedValue);
       onCommit(committedValue);
     }
@@ -175,8 +203,8 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
 
   const handleCommit = () => {
     setIsEditing(false);
-    const v = parseInt(String(inputValue), 10);
-    const clamped = isNaN(v) ? min : Math.min(Math.max(v, min), max);
+    const v = parseFloat(String(inputValue));
+    const clamped = isNaN(v) ? min : parseFloat(Math.min(Math.max(v, min), max).toFixed(decimals));
     setInternalValue(clamped);
     motionValue.set(clamped);
     onCommit(clamped);
@@ -184,10 +212,10 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
-    const v = parseInt(e.target.value, 10);
+    const v = parseFloat(e.target.value);
     
     if (!isNaN(v)) {
-        const clamped = Math.min(Math.max(v, min), max);
+        const clamped = parseFloat(Math.min(Math.max(v, min), max).toFixed(decimals));
         motionValue.set(clamped);
         if (onChange) onChange(clamped);
     }
@@ -353,7 +381,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                                     transformOrigin: '50% 29px', // 24px height + 5px arrow
                                 }}
                             >
-                                <AnimatedCounter value={motionValue} useFormatting={false} />
+                                <AnimatedCounter value={motionValue} useFormatting={false} decimals={decimals} />
                                 <div style={arrowStyle} />
                             </motion.div>
                         )}
@@ -385,8 +413,10 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
           isEditing={isEditing}
           min={min}
           max={max}
+          step={step}
+          decimals={decimals}
           inputValue={inputValue}
-          motionValue={motionValue}
+          displayValue={motionValue}
           inputStyle={inputStyle}
           animatedCounterWrapperStyle={animatedCounterWrapperStyle}
           numberInputContainerStyle={numberInputContainerStyle}
@@ -394,7 +424,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
           onBlur={handleCommit}
           onKeyDown={handleInputKeyDown}
           onStartEdit={() => {
-            setInputValue(Math.round(motionValue.get()));
+            setInputValue(motionValue.get());
             setIsEditing(true);
           }}
         />

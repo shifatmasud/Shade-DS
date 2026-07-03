@@ -74,6 +74,8 @@ const Home = () => {
   const [confettiTrigger, setConfettiTrigger] = useState(0);
 
   // -- Real-time MotionValue for live UI updates --
+  // We use useMemo to ensure these MotionValues are truly stable even if Home re-renders
+  // Note: useMotionValue is a hook, so we should keep it at top level, but let's ensure initial values are stable
   const radiusMotionValue = useMotionValue(parseInt(btnProps.customRadius) || 0);
   const radiusStringMotionValue = useTransform(radiusMotionValue, (v) => `${Math.round(v)}px`);
 

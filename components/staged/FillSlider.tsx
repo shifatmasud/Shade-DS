@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { motion, useTransform, useMotionValue, MotionValue } from 'framer-motion';
+import { motion, useTransform, useMotionValue, MotionValue, useSpring } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import AnimatedCounter from '../Core/AnimatedCounter.tsx';
 
@@ -49,12 +49,29 @@ const FillSlider: React.FC<FillSliderProps> = ({
   const inputRange = useMemo(() => [min, max], [min, max]);
   const outputRange = useMemo(() => [0, 100], []);
 
+  // Derived precision for float handling
+  const decimals = useMemo(() => {
+    const stepStr = step.toString();
+    if (stepStr.includes('.')) {
+        return stepStr.split('.')[1].length;
+    }
+    return 0;
+  }, [step]);
+
   // 2. Derive visual percentage for the fill width
-  const percentage = useTransform(activeMV, inputRange, outputRange);
+  const visualValue = useSpring(activeMV, {
+    stiffness: 400,
+    damping: 40,
+    mass: 1,
+    restDelta: 0.001
+  });
+
+  const percentage = useTransform(visualValue, inputRange, outputRange);
   const widthStyle = useTransform(percentage, (p) => `${p}%`);
 
-  // 3. Setup Counter Value (0-100 for AnimatedCounter)
-  const counterMV = useTransform(activeMV, inputRange, outputRange);
+  // 3. Setup Counter Value
+  // We use the spring value for the counter so numbers "roll" smoothly even on snap
+  const counterMV = visualValue;
 
   const updateValueFromPointer = (clientX: number) => {
     if (!trackRef.current) return;
@@ -62,9 +79,9 @@ const FillSlider: React.FC<FillSliderProps> = ({
     const percent = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
     const rawValue = min + percent * (max - min);
     
-    // Snap to step if provided
-    const steppedValue = Math.round(rawValue / step) * step;
-    const finalValue = Math.min(Math.max(steppedValue, min), max);
+    // Robust stepped calculation with floating point correction
+    const stepped = Math.round(rawValue / step) * step;
+    const finalValue = parseFloat(Math.min(Math.max(stepped, min), max).toFixed(decimals));
 
     activeMV.set(finalValue);
     if (onChange) onChange(finalValue);
@@ -218,7 +235,7 @@ const FillSlider: React.FC<FillSliderProps> = ({
           {formatValue ? (
             formatValue(activeMV.get())
           ) : (
-            <AnimatedCounter value={counterMV} useFormatting={false} />
+            <AnimatedCounter value={activeMV} useFormatting={false} decimals={decimals} />
           )}
         </div>
       </div>
