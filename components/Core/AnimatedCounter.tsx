@@ -12,15 +12,14 @@ import { motion, useTransform, animate, motionValue, useMotionValue, MotionValue
 // and let <motion.div animate={{ y: ... }} /> re-render digit states of parent layout.
 
 const DIGIT_HEIGHT = '1em'; // Corresponds to the font size
-const MAX_SLOTS = 20; // Support very large numbers
 
 interface DigitProps {
   mv: MotionValue<number>;
-  opacity: MotionValue<number>;
-  width: MotionValue<any>;
 }
 
-const Digit: React.FC<DigitProps> = React.memo(({ mv, opacity, width }) => {
+// 🛡️ Digit component receives a direct reference motion value and binds directly to y translate
+// bypassing any React state edits or parent component re-renders during slide animations.
+const Digit: React.FC<DigitProps> = React.memo(({ mv }) => {
   const styles = {
     digitWrapper: {
       height: DIGIT_HEIGHT,
@@ -34,10 +33,12 @@ const Digit: React.FC<DigitProps> = React.memo(({ mv, opacity, width }) => {
     } as React.CSSProperties,
   };
 
+  // Maps the current negative digit value to the vertical em shift
+  // We use animate() externally to drive this mv smoothly
   const yTranslate = useTransform(mv, (v) => `${v}em`);
 
   return (
-    <motion.div style={{ ...styles.digitWrapper, opacity, width }}>
+    <div style={styles.digitWrapper}>
       <motion.div
         style={{
           ...styles.digitColumn,
@@ -48,7 +49,7 @@ const Digit: React.FC<DigitProps> = React.memo(({ mv, opacity, width }) => {
           <span key={i} style={{ height: DIGIT_HEIGHT, display: 'block' }}>{i}</span>
         ))}
       </motion.div>
-    </motion.div>
+    </div>
   );
 });
 
@@ -63,6 +64,19 @@ interface AnimatedCounterProps {
 const isMotionValue = (val: any): val is MotionValue<number> => {
   return val && typeof val === 'object' && 'get' in val && 'on' in val;
 };
+
+function getTracks(valueStr: string) {
+  const chars = valueStr.split('');
+  return chars.map((char, idx) => {
+    const isDigit = !isNaN(parseInt(char, 10));
+    // Stable keys: digits are keyed by their position from the RIGHT.
+    // This ensures units (rightmost) stay as units, tens as tens, etc.
+    // across structural changes like 9 -> 10.
+    const posFromRight = chars.length - 1 - idx;
+    const key = isDigit ? `digit-${posFromRight}` : `char-${idx}`;
+    return { key, char, isDigit };
+  });
+}
 
 const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ 
   value, 
@@ -81,6 +95,7 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
 
   // Helper to format value string based on decimals
   const formatValue = (val: number) => {
+    // toFixed is significantly faster than toLocaleString for high-frequency updates
     if (useFormatting && decimals > 0) {
       return val.toLocaleString(undefined, {
         minimumFractionDigits: decimals,
@@ -90,81 +105,109 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
     return val.toFixed(decimals);
   };
 
-  /**
-   * SHADE REWRITE: Fixed-Slot Architecture
-   * Instead of using useState to track the "tracks" (which triggers React re-renders),
-   * we pre-allocate a fixed number of slots. Each slot's content and visibility
-   * is driven purely by MotionValues and transforms.
-   */
-  const slots = useMemo(() => Array.from({ length: MAX_SLOTS }), []);
-  
-  // We need a stable reference to the formatted string to drive the slots
-  const formattedMV = useTransform(activeMotionValue, (val) => formatValue(val || 0));
+  // Initialize tracks with the current value
+  const [tracks, setTracks] = useState(() => {
+    const val = activeMotionValue.get();
+    const valStr = formatValue(val || 0);
+    return getTracks(valStr);
+  });
 
-  return (
-    <div style={{
+  const tracksRef = useRef(tracks);
+  const digitMotionValuesRef = useRef<Record<string, MotionValue<number>>>({});
+  const targetValuesRef = useRef<Record<string, number>>({});
+
+  // 1. Sync digit motion values by key to ensure stability during structural shifts (e.g. 9 -> 10)
+  tracks.forEach(track => {
+    if (track.isDigit && !digitMotionValuesRef.current[track.key]) {
+       digitMotionValuesRef.current[track.key] = motionValue(0);
+       targetValuesRef.current[track.key] = 0;
+    }
+  });
+
+  // 2. Function to update digit animations based on current tracks
+  const updateDigitAnimations = (currentTracks: typeof tracks) => {
+      for (let i = 0; i < currentTracks.length; i++) {
+        const track = currentTracks[i];
+        if (track.isDigit) {
+          const num = parseInt(track.char, 10);
+          const mv = digitMotionValuesRef.current[track.key];
+          const target = -num;
+          
+          if (mv && (targetValuesRef.current[track.key] !== target)) {
+            targetValuesRef.current[track.key] = target;
+            animate(mv, target, {
+              type: 'spring',
+              stiffness: 260,
+              damping: 30
+            });
+          }
+        }
+      }
+  };
+
+  // 3. Synchronize animations whenever tracks state changes
+  React.useLayoutEffect(() => {
+    updateDigitAnimations(tracks);
+  }, [tracks]);
+
+  useEffect(() => {
+    const handleValueChange = (val: number) => {
+      const valStr = formatValue(val);
+      const newTracks = getTracks(valStr);
+
+      const hasStructureChanged = 
+        newTracks.length !== tracksRef.current.length ||
+        newTracks.some((t, idx) => t.key !== tracksRef.current[idx].key);
+
+      if (hasStructureChanged) {
+        tracksRef.current = newTracks;
+        // Schedule state update
+        setTracks(newTracks);
+        // Targets will be re-synced via the layout effect
+      } else {
+        // If structure is same, we can animate digits immediately for low latency
+        updateDigitAnimations(newTracks);
+      }
+    };
+
+    // Initial sync
+    handleValueChange(activeMotionValue.get());
+
+    return activeMotionValue.on("change", (latest) => {
+      handleValueChange(latest);
+    });
+  }, [activeMotionValue, useFormatting, decimals]);
+
+  const styles = {
+    container: {
       display: 'flex',
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       lineHeight: DIGIT_HEIGHT,
       fontVariantNumeric: 'tabular-nums',
-    }}>
-      {slots.map((_, i) => (
-        <Slot key={i} index={i} formattedMV={formattedMV} />
-      ))}
+    } as React.CSSProperties,
+    char: {
+      height: DIGIT_HEIGHT,
+    },
+  };
+
+  return (
+    <div style={styles.container}>
+      {tracks.map((track) => {
+        if (!track.isDigit) {
+          return (
+            <span key={track.key} style={styles.char}>
+              {track.char}
+            </span>
+          );
+        } else {
+          const mv = digitMotionValuesRef.current[track.key];
+          return <Digit key={track.key} mv={mv} />;
+        }
+      })}
     </div>
   );
 };
-
-interface SlotProps {
-  index: number;
-  formattedMV: MotionValue<string>;
-}
-
-const Slot: React.FC<SlotProps> = React.memo(({ index, formattedMV }) => {
-  // Each slot decides what character it displays based on the current formatted string
-  // We reverse the index so Slot 0 is the rightmost character (units or last decimal)
-  const charMV = useTransform(formattedMV, (s) => {
-    const chars = s.split('');
-    const char = chars[chars.length - 1 - index];
-    return char || '';
-  });
-
-  const isDigitMV = useTransform(charMV, (c) => !isNaN(parseInt(c, 10)) && c !== '');
-  const opacity = useTransform(charMV, (c) => c === '' ? 0 : 1);
-  const width = useTransform(charMV, (c) => c === '' ? 0 : 'auto');
-
-  // For digits, we create a sub-motion value for the scroll position
-  const digitValueMV = useMotionValue(isNaN(parseInt(charMV.get(), 10)) ? 0 : -parseInt(charMV.get(), 10));
-  
-  useEffect(() => {
-    return charMV.on("change", (c) => {
-      const num = parseInt(c, 10);
-      if (!isNaN(num)) {
-        animate(digitValueMV, -num, {
-          type: 'spring',
-          stiffness: 260,
-          damping: 30
-        });
-      }
-    });
-  }, [charMV, digitValueMV]);
-
-  // If it's not a digit, we just show the character
-  const displayChar = useTransform(charMV, (c) => {
-    const isDigit = !isNaN(parseInt(c, 10)) && c !== '';
-    return isDigit ? '' : c;
-  });
-
-  return (
-    <motion.div style={{ display: 'flex', opacity, width, height: DIGIT_HEIGHT, overflow: 'hidden' }}>
-      <Digit mv={digitValueMV} opacity={isDigitMV as any} width={isDigitMV as any} />
-      <motion.span style={{ height: DIGIT_HEIGHT, display: 'block' }}>
-        {displayChar}
-      </motion.span>
-    </motion.div>
-  );
-});
 
 export default AnimatedCounter;

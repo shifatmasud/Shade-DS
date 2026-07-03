@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { type MotionValue, motion, useVelocity, useTransform, AnimatePresence, useSpring, useMotionValue } from 'framer-motion';
+import { type MotionValue, motion, useVelocity, useTransform, AnimatePresence, useSpring } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import AnimatedCounter from './AnimatedCounter.tsx';
 
@@ -16,12 +16,7 @@ import AnimatedCounter from './AnimatedCounter.tsx';
  * TO UNDO: Inline this component back into the RangeSlider return statement below.
  */
 interface ValueDisplayProps {
-  isEditingMV: MotionValue<number>;
-  viewOpacity: MotionValue<number>;
-  viewPointerEvents: MotionValue<any>;
-  editOpacity: MotionValue<number>;
-  editPointerEvents: MotionValue<any>;
-  inputRef: React.RefObject<HTMLInputElement>;
+  isEditing: boolean;
   min: number;
   max: number;
   step: number;
@@ -38,12 +33,7 @@ interface ValueDisplayProps {
 }
 
 const ValueDisplay: React.FC<ValueDisplayProps> = React.memo(({
-  isEditingMV,
-  viewOpacity,
-  viewPointerEvents,
-  editOpacity,
-  editPointerEvents,
-  inputRef,
+  isEditing,
   min,
   max,
   step,
@@ -60,43 +50,28 @@ const ValueDisplay: React.FC<ValueDisplayProps> = React.memo(({
 }) => {
   return (
     <div style={numberInputContainerStyle}>
-      {/* 
-        SHADE REWRITE: Dual-mounting the input and counter. 
-        Visibility is controlled purely by MotionValue transforms on opacity and pointerEvents.
-        This completely eliminates the mount/unmount overhead and allows for zero-rerender mode switching.
-      */}
-      <motion.input
-        ref={inputRef}
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={inputValue}
-        onChange={onChange}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-        style={{
-          ...inputStyle,
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          opacity: editOpacity,
-          pointerEvents: editPointerEvents,
-        }}
-      />
-      <motion.div
-        style={{
-          ...animatedCounterWrapperStyle,
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          opacity: viewOpacity,
-          pointerEvents: viewPointerEvents,
-        }}
-        onClick={onStartEdit}
-      >
-        <AnimatedCounter value={displayValue} useFormatting={false} decimals={decimals} />
-      </motion.div>
+      {isEditing ? (
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={inputValue}
+          onChange={onChange}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+          autoFocus
+          style={inputStyle}
+        />
+      ) : (
+        <div
+          style={animatedCounterWrapperStyle}
+          onClick={onStartEdit}
+        >
+          {/* Animated counter stays completely preserved here & receives displayValue directly */}
+          <AnimatedCounter value={displayValue} useFormatting={false} decimals={decimals} />
+        </div>
+      )}
     </div>
   );
 });
@@ -144,6 +119,17 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     restDelta: 0.0001
   });
   
+  // Use a fallback for the initial value to avoid NaN in calculations
+  const [internalValue, setInternalValue] = useState(() => {
+    const val = motionValue.get();
+    return typeof val === 'number' ? val : min;
+  });
+  
+  const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState<string | number>('');
+
   // Velocity based rotation for tooltip - normalized across ranges for consistent feel
   const normalizedValue = useTransform(visualValue, [min, max], [0, 100]);
   const velocity = useVelocity(normalizedValue);
@@ -166,40 +152,15 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     mass: 2.5
   });
 
-  // Zero re-render visibility and dragging state management
-  const dragMV = useMotionValue(0); // 0 = not dragging, 1 = dragging
-  const hoverMV = useMotionValue(0); // 0 = not hovered, 1 = hovered
-  const isEditingMV = useMotionValue(0); // 0 = viewing, 1 = editing
-  const [inputValue, setInputValue] = useState<string | number>(''); // Keeping for text input buffer
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Combined visibility value for tooltip
-  const tooltipVisibility = useTransform([dragMV, hoverMV], ([drag, hover]) => {
-    return drag === 1 || hover === 1 ? 1 : 0;
-  });
-
-  // Mode visibility transforms
-  const viewOpacity = useTransform(isEditingMV, [0, 1], [1, 0]);
-  const viewPointerEvents = useTransform(isEditingMV, (v) => v === 0 ? 'auto' : 'none') as MotionValue<any>;
-  const editOpacity = useTransform(isEditingMV, [0, 1], [0, 1]);
-  const editPointerEvents = useTransform(isEditingMV, (v) => v === 1 ? 'auto' : 'none') as MotionValue<any>;
-
-  // Scale value for thumb
-  const thumbScale = useSpring(useTransform(dragMV, [0, 1], [1, 1.25]), {
-    stiffness: 300,
-    damping: 30
-  });
-
-  // Handle focus imperatively when editing mode starts
+  // Sync internal state with external motion value updates (e.g. undo/redo)
   useEffect(() => {
-    const unsubscribe = isEditingMV.on("change", (v) => {
-        if (v === 1 && inputRef.current) {
-            inputRef.current.focus();
-            inputRef.current.select();
-        }
+    const unsubscribe = motionValue.on("change", (v) => {
+      if (!isDragging) {
+        setInternalValue(v);
+      }
     });
     return unsubscribe;
-  }, [isEditingMV]);
+  }, [motionValue, isDragging]);
 
   const updateValueFromPointer = (clientX: number) => {
     if (!trackRef.current) return;
@@ -217,31 +178,34 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    dragMV.set(1);
+    setIsDragging(true);
     trackRef.current?.setPointerCapture(e.pointerId);
     updateValueFromPointer(e.clientX);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (dragMV.get() === 1) {
+    if (isDragging) {
       updateValueFromPointer(e.clientX);
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (dragMV.get() === 1) {
-      dragMV.set(0);
+    if (isDragging) {
+      setIsDragging(false);
       trackRef.current?.releasePointerCapture(e.pointerId);
       
-      // Flush back to callback ONLY when pointer dragging is finalized
-      onCommit(motionValue.get());
+      // Flush back to React state ONLY when pointer dragging is finalized
+      const committedValue = motionValue.get();
+      setInternalValue(committedValue);
+      onCommit(committedValue);
     }
   };
 
   const handleCommit = () => {
-    isEditingMV.set(0);
+    setIsEditing(false);
     const v = parseFloat(String(inputValue));
     const clamped = isNaN(v) ? min : parseFloat(Math.min(Math.max(v, min), max).toFixed(decimals));
+    setInternalValue(clamped);
     motionValue.set(clamped);
     onCommit(clamped);
   };
@@ -363,8 +327,8 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            onMouseEnter={() => hoverMV.set(1)}
-            onMouseLeave={() => hoverMV.set(0)}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
             <div style={{ 
                 position: 'relative', 
@@ -402,24 +366,35 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
                     justifyContent: 'center',
                     zIndex: 10,
                 }}>
-                    <motion.div
-                        style={{
-                            ...tooltipStyle,
-                            opacity: tooltipVisibility,
-                            x: "-50%",
-                            rotate: lagRotate,
-                            skewX: lagSkew,
-                            transformOrigin: '50% 29px', // 24px height + 5px arrow
-                        }}
-                    >
-                        <AnimatedCounter value={motionValue} useFormatting={false} decimals={decimals} />
-                        <div style={arrowStyle} />
-                    </motion.div>
+                    <AnimatePresence>
+                        {(isDragging || isHovered) && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 12, scale: 0.8, rotate: 0 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 12, scale: 0.8 }}
+                                transition={tactileSpring}
+                                style={{
+                                    ...tooltipStyle,
+                                    x: "-50%",
+                                    rotate: lagRotate,
+                                    skewX: lagSkew,
+                                    transformOrigin: '50% 29px', // 24px height + 5px arrow
+                                }}
+                            >
+                                <AnimatedCounter value={motionValue} useFormatting={false} decimals={decimals} />
+                                <div style={arrowStyle} />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
                     {/* Thumb Visual */}
                     <motion.div 
+                        animate={{ 
+                            scale: isDragging ? 1.25 : 1,
+                            backgroundColor: isDragging ? theme.Color.Base.Surface[1] : theme.Color.Base.Surface[1]
+                        }}
+                        transition={tactileSpring}
                         style={{
-                            scale: thumbScale,
                             width: theme.space['Space.L'], // Approximated from 18px
                             height: theme.space['Space.L'],
                             backgroundColor: theme.Color.Base.Surface[1],
@@ -435,12 +410,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
 
         {/* Number Input */}
         <ValueDisplay
-          isEditingMV={isEditingMV}
-          viewOpacity={viewOpacity}
-          viewPointerEvents={viewPointerEvents}
-          editOpacity={editOpacity}
-          editPointerEvents={editPointerEvents}
-          inputRef={inputRef}
+          isEditing={isEditing}
           min={min}
           max={max}
           step={step}
@@ -455,7 +425,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
           onKeyDown={handleInputKeyDown}
           onStartEdit={() => {
             setInputValue(motionValue.get());
-            isEditingMV.set(1);
+            setIsEditing(true);
           }}
         />
       </div>
