@@ -2,7 +2,7 @@ import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
-// Universal Vertex Shader defining both v_uv and vUv for fragment shader compatibility
+// 1. Shared Vertex Shader
 export const SIM_VERTEX = `
   varying vec2 v_uv;
   varying vec2 vUv;
@@ -13,161 +13,271 @@ export const SIM_VERTEX = `
   }
 `;
 
-export const BLUR_9_FRAG = `
+// 2. GPGPU Velocity Simulation Fragment Shader (Advection, Splat, and Curl Noise Turbulence)
+export const VELOCITY_FRAG = `
   precision highp float;
-  uniform sampler2D u_texture;
-  uniform vec2 u_delta;
+  uniform sampler2D u_velocityTexture;
   varying vec2 v_uv;
-  void main() {
-    vec4 color = texture2D(u_texture, v_uv) * 0.1633;
-    vec2 delta = u_delta;
-    color += texture2D(u_texture, v_uv - delta) * 0.1531;
-    color += texture2D(u_texture, v_uv + delta) * 0.1531;
-    delta += u_delta;
-    color += texture2D(u_texture, v_uv - delta) * 0.12245;
-    color += texture2D(u_texture, v_uv + delta) * 0.12245;
-    delta += u_delta;
-    color += texture2D(u_texture, v_uv - delta) * 0.0918;
-    color += texture2D(u_texture, v_uv + delta) * 0.0918;
-    delta += u_delta;
-    color += texture2D(u_texture, v_uv - delta) * 0.051;
-    color += texture2D(u_texture, v_uv + delta) * 0.051;
-    gl_FragColor = color;
-  }
-`;
 
-export const SCREEN_PAINT_FRAG = `
-  precision highp float;
-  uniform sampler2D u_lowPaintTexture;
-  uniform sampler2D u_prevPaintTexture;
-  uniform vec2 u_paintTexelSize;
-  uniform vec2 u_scrollOffset;
-  uniform vec4 u_drawFrom; // x, y, radius, 1
-  uniform vec4 u_drawTo;   // x, y, radius, 1
-  uniform float u_pushStrength;
-  uniform vec3 u_dissipations;
-  uniform vec2 u_vel;
-  varying vec2 v_uv;
+  uniform vec2 u_texelSize;
+  uniform float u_dt;
+  uniform float u_decay;
+
+  uniform vec2 u_pointer;
+  uniform vec2 u_prevPointer;
+  uniform vec2 u_pointerVel;
+  uniform float u_radius;
+  uniform float u_strength;
+
+  uniform float u_curlScale;
+  uniform float u_curlStrength;
+  uniform float u_time;
 
   float sdSegment(in vec2 p, in vec2 a, in vec2 b) {
     vec2 pa = p - a, ba = b - a;
-    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    float h = clamp(dot(pa, ba) / max(1e-8, dot(ba, ba)), 0.0, 1.0);
     return length(pa - ba * h);
   }
 
-  #ifdef USE_NOISE
-  uniform float u_curlScale;
-  uniform float u_curlStrength;
+  // Procedural 2D Simplex/Value Noise Helpers for Curl Noise
   vec2 hash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.xx + p3.yz) * p3.zy) * 2.0 - 1.0;
   }
-  vec3 noised(in vec2 p) {
+
+  float noise(in vec2 p) {
     vec2 i = floor(p); vec2 f = fract(p);
     vec2 u = f*f*f*(f*(f*6.0-15.0)+10.0);
-    vec2 ga = hash(i + vec2(0.0, 0.0)); vec2 gb = hash(i + vec2(1.0, 0.0));
-    vec2 gc = hash(i + vec2(0.0, 1.0)); vec2 gd = hash(i + vec2(1.0, 1.0));
-    float va = dot(ga, f - vec2(0.0, 0.0)); float vb = dot(gb, f - vec2(1.0, 0.0));
-    float vc = dot(gc, f - vec2(0.0, 1.0)); float vd = dot(gd, f - vec2(1.0, 1.0));
-    return vec3(va + u.x*(vb-va) + u.y*(vc-va) + u.x*u.y*(va-vb-vc+vd), ga + u.x*(gb-ga) + u.y*(gc-ga) + u.x*u.y*(ga-gb-gc+gd));
+    float va = dot(hash(i + vec2(0.0, 0.0)), f - vec2(0.0, 0.0));
+    float vb = dot(hash(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0));
+    float vc = dot(hash(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0));
+    float vd = dot(hash(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));
+    return va + u.x*(vb-va) + u.y*(vc-va) + u.x*u.y*(va-vb-vc+vd);
   }
-  #endif
+
+  vec2 curlNoise(vec2 p) {
+    float eps = 0.01;
+    float n_x1 = noise(p + vec2(eps, 0.0));
+    float n_x2 = noise(p - vec2(eps, 0.0));
+    float n_y1 = noise(p + vec2(0.0, eps));
+    float n_y2 = noise(p - vec2(0.0, eps));
+    float dg_dy = (n_y1 - n_y2) / (2.0 * eps);
+    float dg_dx = (n_x1 - n_x2) / (2.0 * eps);
+    return vec2(dg_dy, -dg_dx);
+  }
 
   void main() {
-    float dist = sdSegment(gl_FragCoord.xy, u_drawFrom.xy, u_drawTo.xy);
-    float progressOnSegment = clamp(dot(gl_FragCoord.xy - u_drawFrom.xy, u_drawTo.xy - u_drawFrom.xy) / max(0.0001, dot(u_drawTo.xy - u_drawFrom.xy, u_drawTo.xy - u_drawFrom.xy)), 0.0, 1.0);
-    vec2 radiusWeight = mix(u_drawFrom.zw, u_drawTo.zw, progressOnSegment);
-    
-    float drawingMask = 1.0 - smoothstep(-0.01, radiusWeight.x, dist);
-    
-    vec4 lowData = texture2D(u_lowPaintTexture, v_uv - u_scrollOffset);
-    vec2 velInv = (0.5 - lowData.xy) * u_pushStrength;
-    
-    #ifdef USE_NOISE
-    vec3 noiseVal = noised(gl_FragCoord.xy * u_curlScale * (1.0 - lowData.xy));
-    velInv += noiseVal.yz * (lowData.z + lowData.w) * u_curlStrength;
-    #endif
-    
-    vec4 data = texture2D(u_prevPaintTexture, v_uv - u_scrollOffset + velInv * u_paintTexelSize);
-    data.xy -= 0.5;
-    
-    vec4 delta = (u_dissipations.xxyz - 1.0) * data;
-    vec2 newVel = u_vel * drawingMask;
-    delta += vec4(newVel, radiusWeight.yy * drawingMask);
-    
-    delta.zw = sign(delta.zw) * max(vec2(0.004), abs(delta.zw));
-    data += delta;
-    data.xy += 0.5;
-    
-    gl_FragColor = clamp(data, vec4(0.0), vec4(1.0));
+    // Decode velocity from biased [0.0, 1.0] to true [-1.0, 1.0] space
+    vec2 prevVel = (texture2D(u_velocityTexture, v_uv).rg - 0.5) * 2.0;
+
+    // 4. Advect Velocity
+    vec2 advectUv = v_uv - prevVel * u_dt * u_texelSize;
+    vec2 advectedVel = (texture2D(u_velocityTexture, advectUv).rg - 0.5) * 2.0;
+
+    // Apply Decay
+    advectedVel *= u_decay;
+
+    // 3. Inject Gaussian velocity splat
+    float d = sdSegment(v_uv, u_prevPointer, u_pointer);
+    float splat = exp(-d * d / (2.0 * u_radius * u_radius));
+    vec2 splatVel = u_pointerVel * u_strength * splat;
+    advectedVel += splatVel;
+
+    // 4. Add Curl Noise (Turbulence)
+    vec2 curl = curlNoise(v_uv * u_curlScale + u_time * 0.15) * u_curlStrength;
+    advectedVel += curl * (0.1 + length(prevVel) * 0.9);
+
+    // Encode velocity back into [0.0, 1.0] texture space
+    vec2 finalVel = clamp(advectedVel, vec2(-1.0), vec2(1.0));
+    gl_FragColor = vec4(finalVel * 0.5 + 0.5, 0.0, 1.0);
   }
 `;
 
-export const DISTORTION_COMPOSITOR_FRAG = `
+// 3. GPGPU Dye Simulation Fragment Shader (Advection, Subtle Splat)
+export const DYE_FRAG = `
   precision highp float;
-  varying vec2 vUv;
-  uniform sampler2D u_texture;
-  uniform sampler2D u_screenPaintTexture;
-  uniform vec2 u_screenPaintTexelSize;
-  uniform float u_amount;
-  uniform float u_rgbShift;
-  uniform float u_multiplier;
-  uniform float u_colorMultiplier;
-  uniform float u_shade;
-  uniform float u_time;
-  uniform vec2 u_res;
+  uniform sampler2D u_dyeTexture;
+  uniform sampler2D u_velocityTexture;
+  varying vec2 v_uv;
 
-  float rand(vec2 n) { 
-    return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+  uniform vec2 u_texelSize;
+  uniform float u_dt;
+  uniform float u_decay;
+
+  uniform vec2 u_pointer;
+  uniform vec2 u_prevPointer;
+  uniform float u_radius;
+  uniform float u_dyeAmount;
+
+  float sdSegment(in vec2 p, in vec2 a, in vec2 b) {
+    vec2 pa = p - a, ba = b - a;
+    float h = clamp(dot(pa, ba) / max(1e-8, dot(ba, ba)), 0.0, 1.0);
+    return length(pa - ba * h);
   }
 
   void main() {
-    float bnoise = rand(gl_FragCoord.xy + fract(u_time));
-    vec4 data = texture2D(u_screenPaintTexture, vUv);
+    // Decode current velocity field
+    vec2 velocity = (texture2D(u_velocityTexture, v_uv).rg - 0.5) * 2.0;
+
+    // 7. Advect Dye
+    vec2 advectUv = v_uv - velocity * u_dt * u_texelSize;
+    float advectedDye = texture2D(u_dyeTexture, advectUv).r;
+
+    // Apply Dye Dissipation/Decay
+    advectedDye *= u_decay;
+
+    // 6. Inject Gaussian dye splat (nearly invisible, very subtle)
+    float d = sdSegment(v_uv, u_prevPointer, u_pointer);
+    float splat = exp(-d * d / (2.0 * u_radius * u_radius));
+    float splatDye = u_dyeAmount * splat;
+    advectedDye += splatDye;
+
+    gl_FragColor = vec4(clamp(advectedDye, 0.0, 1.0), 0.0, 0.0, 1.0);
+  }
+`;
+
+// 4. 9-Tap Gaussian Blur Fragment Shader (Dye Field Smoothing)
+export const BLUR_9_FRAG = `
+  precision highp float;
+  uniform sampler2D u_dyeTexture;
+  uniform vec2 u_texelSize;
+  varying vec2 v_uv;
+
+  void main() {
+    vec2 t = u_texelSize;
     
-    // Calculate trail weight and mask
-    float weight = (data.z + data.w) * 0.5;
-    float effectMask = smoothstep(0.0, 0.15, weight);
+    // 9-tap texture fetch matrix
+    float d00 = texture2D(u_dyeTexture, v_uv + vec2(-t.x, -t.y)).r;
+    float d10 = texture2D(u_dyeTexture, v_uv + vec2( 0.0, -t.y)).r;
+    float d20 = texture2D(u_dyeTexture, v_uv + vec2( t.x, -t.y)).r;
+    float d01 = texture2D(u_dyeTexture, v_uv + vec2(-t.x,  0.0)).r;
+    float d11 = texture2D(u_dyeTexture, v_uv).r;
+    float d21 = texture2D(u_dyeTexture, v_uv + vec2( t.x,  0.0)).r;
+    float d02 = texture2D(u_dyeTexture, v_uv + vec2(-t.x,  t.y)).r;
+    float d12 = texture2D(u_dyeTexture, v_uv + vec2( 0.0,  t.y)).r;
+    float d22 = texture2D(u_dyeTexture, v_uv + vec2( t.x,  t.y)).r;
+
+    // 9-Tap Gaussian Kernel weights:
+    // [ 1  2  1 ]
+    // [ 2  4  2 ] / 16
+    // [ 1  2  1 ]
+    float blurred = (d00 * 1.0 + d10 * 2.0 + d20 * 1.0 +
+                     d01 * 2.0 + d11 * 4.0 + d21 * 2.0 +
+                     d02 * 1.0 + d12 * 2.0 + d22 * 1.0) / 16.0;
+
+    gl_FragColor = vec4(blurred, 0.0, 0.0, 1.0);
+  }
+`;
+
+// 5. Compositing and Post-Process Distortion Fragment Shader
+export const DISTORTION_COMPOSITOR_FRAG = `
+  precision highp float;
+  varying vec2 vUv;
+  uniform sampler2D u_sceneTexture;
+  uniform sampler2D u_dyeBlurredTexture;
+  uniform vec2 u_texelSize;
+
+  uniform float u_refractionStrength;
+  uniform float u_blurRadius;
+  uniform float u_iridescentIntensity;
+
+  // Compute central difference gradient of the blurred dye field
+  vec2 getGradient(vec2 uv, vec2 texel) {
+    float dL = texture2D(u_dyeBlurredTexture, uv - vec2(texel.x, 0.0)).r;
+    float dR = texture2D(u_dyeBlurredTexture, uv + vec2(texel.x, 0.0)).r;
+    float dT = texture2D(u_dyeBlurredTexture, uv + vec2(0.0, texel.y)).r;
+    float dB = texture2D(u_dyeBlurredTexture, uv - vec2(0.0, texel.y)).r;
+    return vec2(dR - dL, dT - dB);
+  }
+
+  // Circular Variable-Rate Blur based on local dye density
+  vec4 sampleSceneBlurred(vec2 uv, float r) {
+    if (r <= 0.02) {
+      return texture2D(u_sceneTexture, uv);
+    }
+    vec4 col = vec4(0.0);
+    float totalWeight = 0.0;
     
-    // Sample original color for background consistency
-    vec4 sceneColor = texture2D(u_texture, vUv);
+    // Core center weight
+    col += texture2D(u_sceneTexture, uv) * 4.0;
+    totalWeight += 4.0;
     
-    // Early exit if no trail is present to maintain perfect sharpness
-    if (effectMask <= 0.0) {
-      gl_FragColor = sceneColor;
+    // Ring 1 offset
+    vec2 offset1 = vec2(r, 0.0) * u_texelSize;
+    vec2 offset2 = vec2(-r, 0.0) * u_texelSize;
+    vec2 offset3 = vec2(0.0, r) * u_texelSize;
+    vec2 offset4 = vec2(0.0, -r) * u_texelSize;
+    
+    // Diagonal Ring 1 offset
+    vec2 offset5 = vec2(r, r) * 0.707 * u_texelSize;
+    vec2 offset6 = vec2(-r, r) * 0.707 * u_texelSize;
+    vec2 offset7 = vec2(r, -r) * 0.707 * u_texelSize;
+    vec2 offset8 = vec2(-r, -r) * 0.707 * u_texelSize;
+    
+    col += texture2D(u_sceneTexture, uv + offset1) * 2.0;
+    col += texture2D(u_sceneTexture, uv + offset2) * 2.0;
+    col += texture2D(u_sceneTexture, uv + offset3) * 2.0;
+    col += texture2D(u_sceneTexture, uv + offset4) * 2.0;
+    
+    col += texture2D(u_sceneTexture, uv + offset5) * 1.0;
+    col += texture2D(u_sceneTexture, uv + offset6) * 1.0;
+    col += texture2D(u_sceneTexture, uv + offset7) * 1.0;
+    col += texture2D(u_sceneTexture, uv + offset8) * 1.0;
+    totalWeight += 12.0;
+    
+    return col / totalWeight;
+  }
+
+  void main() {
+    float dye = texture2D(u_dyeBlurredTexture, vUv).r;
+
+    // 10. CRITICAL: Ensure original 3D scene color, light, color space are absolutely untouched outside flow trails
+    if (dye < 0.0001) {
+      gl_FragColor = texture2D(u_sceneTexture, vUv);
       return;
     }
 
-    vec2 vel = (0.5 - data.xy - 0.001) * 2.0 * weight;
-    vec2 velocity = vel * u_amount / 4.0 * u_screenPaintTexelSize * u_multiplier;
-    float dispersion = 2.0 * u_rgbShift; // Multiplier for channel spread
-    
-    // Multi-tap dispersion sampling
-    vec3 distortedColor = vec3(0.0);
-    
-    // Sample 9 taps with channel shifting
-    vec2 uvBase = vUv + bnoise * velocity;
-    for(int i = 0; i < 9; i++) {
-      distortedColor.r += texture2D(u_texture, uvBase + velocity * dispersion * 0.2).r;
-      distortedColor.g += texture2D(u_texture, uvBase).g;
-      distortedColor.b += texture2D(u_texture, uvBase - velocity * dispersion * 0.2).b;
-      uvBase += velocity;
-    }
-    distortedColor /= 9.0;
-    
-    // Chromatic shimmer accent
-    vec3 shimmer = sin(vec3(vel.x + vel.y) * 40.0 + vec3(0.0, 2.0, 4.0) * u_rgbShift);
-    distortedColor += shimmer * smoothstep(0.4, -0.9, weight) * u_shade * max(abs(vel.x), abs(vel.y)) * u_colorMultiplier;
-    
-    gl_FragColor = mix(sceneColor, vec4(distortedColor, 1.0), effectMask);
+    // 9. Compute spatial gradient for Iridescent Boundary
+    vec2 grad = getGradient(vUv, u_texelSize);
+    float edgeWeight = length(grad);
+
+    // Iridescence direction (perpendicular to gradient vector)
+    vec2 perp = vec2(-grad.y, grad.x);
+    vec2 normPerp = normalize(perp + 1e-6);
+
+    // Colorize: Deep Blue on one side, Hot Magenta/Red on the other side of the shear layer
+    float shear = normPerp.x;
+    vec3 colorBlue = vec3(0.0, 0.28, 1.0);
+    vec3 colorRed = vec3(1.0, 0.03, 0.12);
+    vec3 iridColor = mix(colorBlue, colorRed, shear * 0.5 + 0.5);
+
+    // 10. Distort & Refract using dye density & edge gradient
+    // Displace texture coordinates backwards along gradient direction
+    vec2 refractedUv = vUv - grad * u_refractionStrength * dye * 8.0;
+    refractedUv = clamp(refractedUv, vec2(0.0001), vec2(0.9999));
+
+    // Variable blur radius driven by dye density
+    float currentBlurRadius = u_blurRadius * dye;
+    vec4 sceneColor = sampleSceneBlurred(refractedUv, currentBlurRadius);
+
+    // 10. Composite Iridescent overlay
+    // Iridescent intensity is determined by the gradient magnitude (edge weight) and dye presence
+    float iridIntensity = edgeWeight * u_iridescentIntensity * dye;
+    vec3 finalColor = sceneColor.rgb + iridColor * iridIntensity;
+
+    // Perfectly smooth mask blending at trail borders to completely isolate effect zones
+    float transitionMask = smoothstep(0.001, 0.04, dye);
+    vec4 originalSceneColor = texture2D(u_sceneTexture, vUv);
+
+    gl_FragColor = mix(originalSceneColor, vec4(finalColor, originalSceneColor.a), transitionMask);
   }
 `;
 
 const FluidDistortionEffect: React.FC = () => {
   const { gl, size } = useThree();
 
-  // Dynamic aspect ratio calculation to prevent any visual stretching across breakpoint devices
+  // Optimized internal simulation dimension
   const { simWidth, simHeight } = useMemo(() => {
     const base = 512;
     const aspect = size.width / size.height;
@@ -181,46 +291,56 @@ const FluidDistortionEffect: React.FC = () => {
     return { simWidth: w, simHeight: h };
   }, [size.width, size.height]);
 
-  // Track interaction variables
+  // Pointer position and state refs (UV based)
   const isDrawingRef = useRef(false);
-  const currentPointer = useRef(new THREE.Vector2(0, 0));
-  const prevPointer = useRef(new THREE.Vector2(0, 0));
+  const currentPointer = useRef(new THREE.Vector2(0.5, 0.5));
+  const prevPointer = useRef(new THREE.Vector2(0.5, 0.5));
+  const pointerVel = useRef(new THREE.Vector2(0, 0));
   const firstFrameRef = useRef(true);
 
-  // Keep a ref of active render targets to ensure proper disposal of old FBO resources during resize
+  // Active render target tracker
   const targetsRef = useRef<{
     sceneRenderTarget: THREE.WebGLRenderTarget;
-    paintTarget1: THREE.WebGLRenderTarget;
-    paintTarget2: THREE.WebGLRenderTarget;
-    blurTarget: THREE.WebGLRenderTarget;
+    velocityTarget1: THREE.WebGLRenderTarget;
+    velocityTarget2: THREE.WebGLRenderTarget;
+    dyeTarget1: THREE.WebGLRenderTarget;
+    dyeTarget2: THREE.WebGLRenderTarget;
+    dyeBlurredTarget: THREE.WebGLRenderTarget;
   } | null>(null);
 
-  // Setup Render Targets (FBOs) using useMemo for lifecycle retention
+  // Set up all WebGL FBO Render Targets
   const {
     sceneRenderTarget,
-    paintTarget1,
-    paintTarget2,
-    blurTarget,
+    velocityTarget1,
+    velocityTarget2,
+    dyeTarget1,
+    dyeTarget2,
+    dyeBlurredTarget,
     quadGeometry,
     orthoCamera
   } = useMemo(() => {
-    // Dispose of previous render targets to prevent memory/VRAM leaks
+    // Deep cleanup old targets on resize or recreate to prevent VRAM memory leaks
     if (targetsRef.current) {
       targetsRef.current.sceneRenderTarget.dispose();
-      targetsRef.current.paintTarget1.dispose();
-      targetsRef.current.paintTarget2.dispose();
-      targetsRef.current.blurTarget.dispose();
+      targetsRef.current.velocityTarget1.dispose();
+      targetsRef.current.velocityTarget2.dispose();
+      targetsRef.current.dyeTarget1.dispose();
+      targetsRef.current.dyeTarget2.dispose();
+      targetsRef.current.dyeBlurredTarget.dispose();
     }
 
     const dpr = gl.getPixelRatio();
-    const sceneTarget = new THREE.WebGLRenderTarget(size.width * dpr, size.height * dpr, {
+    const w = size.width * dpr;
+    const h = size.height * dpr;
+
+    const sceneTarget = new THREE.WebGLRenderTarget(w, h, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
       type: THREE.UnsignedByteType,
       depthBuffer: true,
       stencilBuffer: false,
-      colorSpace: THREE.SRGBColorSpace, // CRITICAL: Use SRGBColorSpace to match R3F canvas encoding and prevent double encoding / darkening
+      colorSpace: THREE.SRGBColorSpace, // CRITICAL: Maintain exact color encoding/space to prevent scene darkening
     });
 
     const createSimTarget = () => new THREE.WebGLRenderTarget(simWidth, simHeight, {
@@ -232,18 +352,43 @@ const FluidDistortionEffect: React.FC = () => {
       stencilBuffer: false,
     });
 
-    const pTarget1 = createSimTarget();
-    const pTarget2 = createSimTarget();
-    const bTarget = createSimTarget();
+    const vTarget1 = createSimTarget();
+    const vTarget2 = createSimTarget();
+    const dTarget1 = createSimTarget();
+    const dTarget2 = createSimTarget();
+    const dbTarget = createSimTarget();
 
+    // Fill initial FBOs with neutral baseline
+    const renderer = gl;
     const geometry = new THREE.PlaneGeometry(2, 2);
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const scene = new THREE.Scene();
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x808000 })); // Encode 0 velocity (0.5, 0.5)
+    scene.add(mesh);
+
+    renderer.setRenderTarget(vTarget1);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(vTarget2);
+    renderer.render(scene, camera);
+
+    mesh.material = new THREE.MeshBasicMaterial({ color: 0x000000 }); // Encode 0 dye concentration
+    renderer.setRenderTarget(dTarget1);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(dTarget2);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(dbTarget);
+    renderer.render(scene, camera);
+
+    mesh.geometry.dispose();
+    (mesh.material as THREE.Material).dispose();
 
     const newTargets = {
       sceneRenderTarget: sceneTarget,
-      paintTarget1: pTarget1,
-      paintTarget2: pTarget2,
-      blurTarget: bTarget,
+      velocityTarget1: vTarget1,
+      velocityTarget2: vTarget2,
+      dyeTarget1: dTarget1,
+      dyeTarget2: dTarget2,
+      dyeBlurredTarget: dbTarget,
     };
 
     targetsRef.current = newTargets;
@@ -255,35 +400,55 @@ const FluidDistortionEffect: React.FC = () => {
     };
   }, [gl, size.width, size.height, simWidth, simHeight]);
 
-  // Track rendering target references and dynamically sync when targets re-create
-  const paintTarget1Ref = useRef(paintTarget1);
-  const paintTarget2Ref = useRef(paintTarget2);
+  // Ping-pong buffer tracking refs
+  const velocityTarget1Ref = useRef(velocityTarget1);
+  const velocityTarget2Ref = useRef(velocityTarget2);
+  const dyeTarget1Ref = useRef(dyeTarget1);
+  const dyeTarget2Ref = useRef(dyeTarget2);
 
   useEffect(() => {
-    paintTarget1Ref.current = paintTarget1;
-    paintTarget2Ref.current = paintTarget2;
-  }, [paintTarget1, paintTarget2]);
+    velocityTarget1Ref.current = velocityTarget1;
+    velocityTarget2Ref.current = velocityTarget2;
+    dyeTarget1Ref.current = dyeTarget1;
+    dyeTarget2Ref.current = dyeTarget2;
+  }, [velocityTarget1, velocityTarget2, dyeTarget1, dyeTarget2]);
 
-  // Setup Shader Materials
-  const { paintMaterial, blurMaterial, compMaterial } = useMemo(() => {
-    const pMaterial = new THREE.ShaderMaterial({
+  // Setup separate shader materials for each pipeline stage
+  const { velocityMaterial, dyeMaterial, blurMaterial, compMaterial } = useMemo(() => {
+    const vMaterial = new THREE.ShaderMaterial({
       vertexShader: SIM_VERTEX,
-      fragmentShader: SCREEN_PAINT_FRAG,
-      defines: {
-        USE_NOISE: ''
-      },
+      fragmentShader: VELOCITY_FRAG,
       uniforms: {
-        u_lowPaintTexture: { value: null },
-        u_prevPaintTexture: { value: null },
-        u_paintTexelSize: { value: new THREE.Vector2(1 / simWidth, 1 / simHeight) },
-        u_scrollOffset: { value: new THREE.Vector2(0, 0) },
-        u_drawFrom: { value: new THREE.Vector4(-1000, -1000, 16.0, 1.0) },
-        u_drawTo: { value: new THREE.Vector4(-1000, -1000, 16.0, 1.0) },
-        u_pushStrength: { value: 84.0 }, // PUSH POWER: 84.0
-        u_dissipations: { value: new THREE.Vector3(0.992, 0.982, 0.982) }, // FLUID FLOW: Slower decay to let fluid waves persist and propagate beautifully
-        u_vel: { value: new THREE.Vector2(0, 0) },
-        u_curlScale: { value: 0.0085 }, // CHAOS: 17.00 scaled
-        u_curlStrength: { value: 0.102 } // CHAOS: 17.00 scaled
+        u_velocityTexture: { value: null },
+        u_texelSize: { value: new THREE.Vector2(1 / simWidth, 1 / simHeight) },
+        u_dt: { value: 0.016 },
+        u_decay: { value: 0.985 }, // Slight decay to let flow swirls persist beautifully
+        u_pointer: { value: new THREE.Vector2(0.5, 0.5) },
+        u_prevPointer: { value: new THREE.Vector2(0.5, 0.5) },
+        u_pointerVel: { value: new THREE.Vector2(0, 0) },
+        u_radius: { value: 0.045 }, // Gaussian splat size (relative to screen width)
+        u_strength: { value: 12.0 }, // Splat velocity impulse
+        u_curlScale: { value: 12.0 }, // Swirl frequency scale
+        u_curlStrength: { value: 0.15 }, // Chaos turbulence power
+        u_time: { value: 0.0 }
+      },
+      depthWrite: false,
+      depthTest: false
+    });
+
+    const dMaterial = new THREE.ShaderMaterial({
+      vertexShader: SIM_VERTEX,
+      fragmentShader: DYE_FRAG,
+      uniforms: {
+        u_dyeTexture: { value: null },
+        u_velocityTexture: { value: null },
+        u_texelSize: { value: new THREE.Vector2(1 / simWidth, 1 / simHeight) },
+        u_dt: { value: 0.016 },
+        u_decay: { value: 0.985 }, // Slow dye decay
+        u_pointer: { value: new THREE.Vector2(0.5, 0.5) },
+        u_prevPointer: { value: new THREE.Vector2(0.5, 0.5) },
+        u_radius: { value: 0.04 }, // Dye splat radius
+        u_dyeAmount: { value: 0.85 } // Dye density splat injection amount
       },
       depthWrite: false,
       depthTest: false
@@ -293,8 +458,8 @@ const FluidDistortionEffect: React.FC = () => {
       vertexShader: SIM_VERTEX,
       fragmentShader: BLUR_9_FRAG,
       uniforms: {
-        u_texture: { value: null },
-        u_delta: { value: new THREE.Vector2(1 / simWidth, 1 / simHeight) }
+        u_dyeTexture: { value: null },
+        u_texelSize: { value: new THREE.Vector2(1.2 / simWidth, 1.2 / simHeight) }
       },
       depthWrite: false,
       depthTest: false
@@ -304,32 +469,32 @@ const FluidDistortionEffect: React.FC = () => {
       vertexShader: SIM_VERTEX,
       fragmentShader: DISTORTION_COMPOSITOR_FRAG,
       uniforms: {
-        u_texture: { value: null },
-        u_screenPaintTexture: { value: null },
-        u_screenPaintTexelSize: { value: new THREE.Vector2(1 / simWidth, 1 / simHeight) },
-        u_amount: { value: 2.80 }, // FLUID REFRACTION: 2.80
-        u_rgbShift: { value: 0.50 }, // DISPERSION: 5.00 maps to 0.50 shift
-        u_multiplier: { value: 0.95 }, // PINCH DISTORTION: 0.95
-        u_colorMultiplier: { value: 2.2 },
-        u_shade: { value: 0.8 },
-        u_time: { value: 0.0 },
-        u_res: { value: new THREE.Vector2(size.width, size.height) }
+        u_sceneTexture: { value: null },
+        u_dyeBlurredTexture: { value: null },
+        u_texelSize: { value: new THREE.Vector2(1 / size.width, 1 / size.height) },
+        u_refractionStrength: { value: 0.28 }, // Subtle, premium refraction
+        u_blurRadius: { value: 12.0 }, // Maximum fluid blur
+        u_iridescentIntensity: { value: 1.4 } // Beautiful edge iridescence highlight
       },
       depthWrite: false,
       depthTest: false
     });
 
     return {
-      paintMaterial: pMaterial,
+      velocityMaterial: vMaterial,
+      dyeMaterial: dMaterial,
       blurMaterial: bMaterial,
       compMaterial: cMaterial
     };
-  }, [size.width, size.height, simWidth, simHeight]);
+  }, [simWidth, simHeight, size.width, size.height]);
 
-  // Build isolated Off-screen simulation scenes to keep main R3F graph clean
-  const { simScene, blurScene, compScene } = useMemo(() => {
-    const sScene = new THREE.Scene();
-    sScene.add(new THREE.Mesh(quadGeometry, paintMaterial));
+  // Build simulation Scenes
+  const { velocityScene, dyeScene, blurScene, compScene } = useMemo(() => {
+    const vScene = new THREE.Scene();
+    vScene.add(new THREE.Mesh(quadGeometry, velocityMaterial));
+
+    const dScene = new THREE.Scene();
+    dScene.add(new THREE.Mesh(quadGeometry, dyeMaterial));
 
     const bScene = new THREE.Scene();
     bScene.add(new THREE.Mesh(quadGeometry, blurMaterial));
@@ -338,13 +503,14 @@ const FluidDistortionEffect: React.FC = () => {
     cScene.add(new THREE.Mesh(quadGeometry, compMaterial));
 
     return {
-      simScene: sScene,
+      velocityScene: vScene,
+      dyeScene: dScene,
       blurScene: bScene,
       compScene: cScene
     };
-  }, [quadGeometry, paintMaterial, blurMaterial, compMaterial]);
+  }, [quadGeometry, velocityMaterial, dyeMaterial, blurMaterial, compMaterial]);
 
-  // Pointer Interaction Events (highly optimized for desktop hover and touch drags)
+  // Pointer Interaction Listeners mapping standard screen coordinates to UV coords
   useEffect(() => {
     const canvas = gl.domElement;
 
@@ -352,18 +518,19 @@ const FluidDistortionEffect: React.FC = () => {
       isDrawingRef.current = true;
 
       const rect = canvas.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = 1.0 - (e.clientY - rect.top) / rect.height;
 
       currentPointer.current.set(x, y);
       prevPointer.current.set(x, y);
+      pointerVel.current.set(0, 0);
       firstFrameRef.current = true;
     };
 
     const handlePointerMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = 1.0 - (e.clientY - rect.top) / rect.height;
 
       currentPointer.current.set(x, y);
     };
@@ -387,105 +554,137 @@ const FluidDistortionEffect: React.FC = () => {
     };
   }, [gl]);
 
-  // Frame Loop logic (Priority 1 disables default R3F screen flush, giving us control)
+  // Frame simulation and execution loops (Priority 1 hooks the screen render)
   useFrame((state) => {
     const { gl: renderer, scene, camera, size: currentSize, clock } = state;
 
-    // Rescale scene render target dynamically if viewport is resized
+    // Monitor canvas scale changes to resize targets
     const dpr = renderer.getPixelRatio();
     const w = currentSize.width * dpr;
     const h = currentSize.height * dpr;
     if (sceneRenderTarget.width !== w || sceneRenderTarget.height !== h) {
       sceneRenderTarget.setSize(w, h);
-      compMaterial.uniforms.u_res.value.set(currentSize.width, currentSize.height);
+      compMaterial.uniforms.u_texelSize.value.set(1 / currentSize.width, 1 / currentSize.height);
     }
 
-    // 1. Calculate interaction coordinates mapped to Simulation space
-    const prevX = (prevPointer.current.x * 0.5 + 0.5) * simWidth;
-    const prevY = (prevPointer.current.y * 0.5 + 0.5) * simHeight;
-    const currX = (currentPointer.current.x * 0.5 + 0.5) * simWidth;
-    const currY = (currentPointer.current.y * 0.5 + 0.5) * simHeight;
+    // 1. Calculate interaction dynamics (Pointer Splat inputs)
+    const dx = currentPointer.current.x - prevPointer.current.x;
+    const dy = currentPointer.current.y - prevPointer.current.y;
 
-    const dx = currX - prevX;
-    const dy = currY - prevY;
+    pointerVel.current.set(dx, dy);
 
-    // Scale push velocity based on cursor acceleration (clamped to prevent flat-clipping/saturation)
-    const velX = THREE.MathUtils.clamp(dx * 0.07, -0.45, 0.45);
-    const velY = THREE.MathUtils.clamp(dy * 0.07, -0.45, 0.45);
-
-    let brushRadius = 8.0;
-    let brushWeight = 0.0;
+    let currentSplatRadius = 0.015;
+    let currentSplatStrength = 0.0;
+    let currentDyeAmount = 0.0;
 
     if (isDrawingRef.current) {
-      brushRadius = 22.0;
-      brushWeight = 1.0;
+      currentSplatRadius = 0.035;
+      currentSplatStrength = 18.0;
+      currentDyeAmount = 0.75;
     } else {
-      // Gentle cursor movement wake for active mouse hover
-      const movement = Math.sqrt(dx * dx + dy * dy);
-      if (movement > 0.05) {
-        brushRadius = 12.0;
-        brushWeight = 0.22;
+      // Small ambient wake from passive cursor movement
+      const speed = Math.sqrt(dx * dx + dy * dy);
+      if (speed > 0.0001) {
+        currentSplatRadius = 0.022;
+        currentSplatStrength = 5.0;
+        currentDyeAmount = 0.15;
       }
     }
 
     if (firstFrameRef.current) {
-      paintMaterial.uniforms.u_vel.value.set(0, 0);
-      paintMaterial.uniforms.u_drawFrom.value.set(currX, currY, brushRadius, brushWeight);
-      paintMaterial.uniforms.u_drawTo.value.set(currX, currY, brushRadius, brushWeight);
+      velocityMaterial.uniforms.u_pointer.value.copy(currentPointer.current);
+      velocityMaterial.uniforms.u_prevPointer.value.copy(currentPointer.current);
+      velocityMaterial.uniforms.u_pointerVel.value.set(0, 0);
+      velocityMaterial.uniforms.u_strength.value = 0.0;
+
+      dyeMaterial.uniforms.u_pointer.value.copy(currentPointer.current);
+      dyeMaterial.uniforms.u_prevPointer.value.copy(currentPointer.current);
+      dyeMaterial.uniforms.u_dyeAmount.value = 0.0;
+
       firstFrameRef.current = false;
     } else {
-      paintMaterial.uniforms.u_vel.value.set(velX, velY);
-      paintMaterial.uniforms.u_drawFrom.value.set(prevX, prevY, brushRadius, brushWeight);
-      paintMaterial.uniforms.u_drawTo.value.set(currX, currY, brushRadius, brushWeight);
+      velocityMaterial.uniforms.u_pointer.value.copy(currentPointer.current);
+      velocityMaterial.uniforms.u_prevPointer.value.copy(prevPointer.current);
+      velocityMaterial.uniforms.u_pointerVel.value.copy(pointerVel.current);
+      velocityMaterial.uniforms.u_strength.value = currentSplatStrength;
+      velocityMaterial.uniforms.u_radius.value = currentSplatRadius;
+
+      dyeMaterial.uniforms.u_pointer.value.copy(currentPointer.current);
+      dyeMaterial.uniforms.u_prevPointer.value.copy(prevPointer.current);
+      dyeMaterial.uniforms.u_dyeAmount.value = currentDyeAmount;
+      dyeMaterial.uniforms.u_radius.value = currentSplatRadius;
     }
 
+    // Move pointers forward
     prevPointer.current.copy(currentPointer.current);
 
-    // 2. Render standard 3D Scene into our scene render target
+    // 2. Render normal 3D Scene into our scene buffer
     renderer.setRenderTarget(sceneRenderTarget);
     renderer.render(scene, camera);
 
-    // 3. Symmetrical 2D Blur pass for smooth fluid diffusion (runs every frame in a single pass)
-    blurMaterial.uniforms.u_texture.value = paintTarget1Ref.current.texture;
-    blurMaterial.uniforms.u_delta.value.set(1.2 / simWidth, 1.2 / simHeight);
+    // 3. Update Velocity State (Velocity GPGPU Step)
+    velocityMaterial.uniforms.u_velocityTexture.value = velocityTarget1Ref.current.texture;
+    velocityMaterial.uniforms.u_time.value = clock.getElapsedTime();
+    renderer.setRenderTarget(velocityTarget2Ref.current);
+    renderer.render(velocityScene, orthoCamera);
 
-    renderer.setRenderTarget(blurTarget);
+    // Swap velocity buffers
+    const tempVel = velocityTarget1Ref.current;
+    velocityTarget1Ref.current = velocityTarget2Ref.current;
+    velocityTarget2Ref.current = tempVel;
+
+    // 4. Update Dye State (Dye GPGPU Step)
+    dyeMaterial.uniforms.u_dyeTexture.value = dyeTarget1Ref.current.texture;
+    dyeMaterial.uniforms.u_velocityTexture.value = velocityTarget1Ref.current.texture;
+    renderer.setRenderTarget(dyeTarget2Ref.current);
+    renderer.render(dyeScene, orthoCamera);
+
+    // Swap dye buffers
+    const tempDye = dyeTarget1Ref.current;
+    dyeTarget1Ref.current = dyeTarget2Ref.current;
+    dyeTarget2Ref.current = tempDye;
+
+    // 5. 9-Tap Gaussian Blur on active Dye Field
+    blurMaterial.uniforms.u_dyeTexture.value = dyeTarget1Ref.current.texture;
+    renderer.setRenderTarget(dyeBlurredTarget);
     renderer.render(blurScene, orthoCamera);
 
-    // 4. Run paint simulation step
-    paintMaterial.uniforms.u_lowPaintTexture.value = blurTarget.texture;
-    paintMaterial.uniforms.u_prevPaintTexture.value = paintTarget1Ref.current.texture;
-
-    renderer.setRenderTarget(paintTarget2Ref.current);
-    renderer.render(simScene, orthoCamera);
-
-    // Ping-pong render targets swap
-    const temp = paintTarget1Ref.current;
-    paintTarget1Ref.current = paintTarget2Ref.current;
-    paintTarget2Ref.current = temp;
-
-    // 5. Compositing distortion pass back to the default screen buffer
-    compMaterial.uniforms.u_texture.value = sceneRenderTarget.texture;
-    compMaterial.uniforms.u_screenPaintTexture.value = paintTarget1Ref.current.texture;
-    compMaterial.uniforms.u_time.value = clock.getElapsedTime();
+    // 6. Compositing post-process step back to standard screen
+    compMaterial.uniforms.u_sceneTexture.value = sceneRenderTarget.texture;
+    compMaterial.uniforms.u_dyeBlurredTexture.value = dyeBlurredTarget.texture;
 
     renderer.setRenderTarget(null);
     renderer.render(compScene, orthoCamera);
   }, 1);
 
-  // Deep cleanup of all WebGL resources to fully prevent memory leaks
+  // Deep lifecycle clean-up of WebGL targets and allocations to prevent leaks
   useEffect(() => {
     return () => {
       sceneRenderTarget.dispose();
-      paintTarget1.dispose();
-      paintTarget2.dispose();
-      blurTarget.dispose();
+      velocityTarget1.dispose();
+      velocityTarget2.dispose();
+      dyeTarget1.dispose();
+      dyeTarget2.dispose();
+      dyeBlurredTarget.dispose();
       quadGeometry.dispose();
-      paintMaterial.dispose();
+      velocityMaterial.dispose();
+      dyeMaterial.dispose();
       blurMaterial.dispose();
       compMaterial.dispose();
     };
-  }, [sceneRenderTarget, paintTarget1, paintTarget2, blurTarget, quadGeometry, paintMaterial, blurMaterial, compMaterial]);
+  }, [
+    sceneRenderTarget,
+    velocityTarget1,
+    velocityTarget2,
+    dyeTarget1,
+    dyeTarget2,
+    dyeBlurredTarget,
+    quadGeometry,
+    velocityMaterial,
+    dyeMaterial,
+    blurMaterial,
+    compMaterial
+  ]);
 
   return null;
 };
