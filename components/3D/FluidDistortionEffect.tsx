@@ -126,30 +126,41 @@ export const DISTORTION_COMPOSITOR_FRAG = `
     float bnoise = rand(gl_FragCoord.xy + fract(u_time));
     vec4 data = texture2D(u_screenPaintTexture, vUv);
     
+    // Calculate trail weight and mask
     float weight = (data.z + data.w) * 0.5;
-    vec2 vel = (0.5 - data.xy - 0.001) * 2.0 * weight;
+    float effectMask = smoothstep(0.0, 0.15, weight);
     
+    // Sample original color for background consistency
+    vec4 sceneColor = texture2D(u_texture, vUv);
+    
+    // Early exit if no trail is present to maintain perfect sharpness
+    if (effectMask <= 0.0) {
+      gl_FragColor = sceneColor;
+      return;
+    }
+
+    vec2 vel = (0.5 - data.xy - 0.001) * 2.0 * weight;
     vec2 velocity = vel * u_amount / 4.0 * u_screenPaintTexelSize * u_multiplier;
     float dispersion = 2.0 * u_rgbShift; // Multiplier for channel spread
     
     // Multi-tap dispersion sampling
-    vec3 finalColor = vec3(0.0);
+    vec3 distortedColor = vec3(0.0);
     
     // Sample 9 taps with channel shifting
     vec2 uvBase = vUv + bnoise * velocity;
     for(int i = 0; i < 9; i++) {
-      finalColor.r += texture2D(u_texture, uvBase + velocity * dispersion * 0.2).r;
-      finalColor.g += texture2D(u_texture, uvBase).g;
-      finalColor.b += texture2D(u_texture, uvBase - velocity * dispersion * 0.2).b;
+      distortedColor.r += texture2D(u_texture, uvBase + velocity * dispersion * 0.2).r;
+      distortedColor.g += texture2D(u_texture, uvBase).g;
+      distortedColor.b += texture2D(u_texture, uvBase - velocity * dispersion * 0.2).b;
       uvBase += velocity;
     }
-    finalColor /= 9.0;
+    distortedColor /= 9.0;
     
     // Chromatic shimmer accent
     vec3 shimmer = sin(vec3(vel.x + vel.y) * 40.0 + vec3(0.0, 2.0, 4.0) * u_rgbShift);
-    finalColor += shimmer * smoothstep(0.4, -0.9, weight) * u_shade * max(abs(vel.x), abs(vel.y)) * u_colorMultiplier;
+    distortedColor += shimmer * smoothstep(0.4, -0.9, weight) * u_shade * max(abs(vel.x), abs(vel.y)) * u_colorMultiplier;
     
-    gl_FragColor = vec4(finalColor, 1.0);
+    gl_FragColor = mix(sceneColor, vec4(distortedColor, 1.0), effectMask);
   }
 `;
 
