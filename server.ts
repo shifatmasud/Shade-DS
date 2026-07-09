@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { fileURLToPath } from 'url';
 import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
@@ -12,8 +11,20 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const execAsync = promisify(exec);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+
+// Support both ESM and CJS for path resolution
+let __filename: string;
+let __dirname: string;
+
+try {
+  __filename = fileURLToPath(import.meta.url);
+  __dirname = path.dirname(__filename);
+} catch (e) {
+  // @ts-ignore - these exist in CJS
+  __filename = typeof filename !== 'undefined' ? filename : '';
+  // @ts-ignore
+  __dirname = typeof dirname !== 'undefined' ? dirname : process.cwd();
+}
 
 const GH_BINARY_PATH = path.join(process.cwd(), 'bin', 'gh');
 
@@ -285,6 +296,7 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -296,7 +308,8 @@ async function startServer() {
     app.use(express.static(distPath));
     
     // SPA fallback: send index.html for all other routes
-    app.get('*', (req, res) => {
+    // Express v5 requires '*all' for catch-all routes
+    app.get('*all', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
