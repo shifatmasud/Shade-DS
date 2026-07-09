@@ -119,6 +119,9 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
     uImpactActive: { value: [0.0, 0.0, 0.0] }
   });
 
+  const lastVelocity = useRef(new THREE.Vector3());
+  const accelSmooth = useRef(new THREE.Vector3());
+
   // --- WEB WORKER LIFE-CYCLE MANAGEMENT ---
   useEffect(() => {
     const workerCode = `
@@ -234,7 +237,26 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
         uniform float uImpactActive[3];
 
         vec3 getDeformedPos(vec3 localPos) {
-          // Multi-impact local collision soft-body deformation
+          // 1. Global Squash & Stretch based on Momentum (Acceleration)
+          float accelLen = length(uMomentumForce);
+          if (accelLen > 0.01) {
+            vec3 accelDir = normalize(uMomentumForce);
+            float strength = min(accelLen * 0.005, 0.22); // Tuned for soft jelly feel
+            
+            // Project vertex onto the acceleration axis
+            float projection = dot(localPos, accelDir);
+            
+            // Stretch along the axis of movement/acceleration
+            vec3 stretch = accelDir * (projection * strength);
+            
+            // Squash on perpendicular axes to preserve perceived volume
+            vec3 perp = localPos - (accelDir * projection);
+            vec3 squash = perp * (-strength * 0.45);
+            
+            localPos += stretch + squash;
+          }
+
+          // 2. Multi-impact local collision soft-body deformation
           vec3 collisionDeform = vec3(0.0);
           for (int i = 0; i < 3; i++) {
             if (uImpactActive[i] > 0.5) {
@@ -331,6 +353,28 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
       type: 'update',
       dt
     });
+
+    // 2. Physics-based acceleration tracking for squash & stretch
+    if (rigidBody?.current) {
+      const vel = rigidBody.current.linvel();
+      const vFinal = new THREE.Vector3(vel.x, vel.y, vel.z);
+      
+      // acceleration = (finalVelocity - initialVelocity) / deltaTime
+      const accel = vFinal.clone().sub(lastVelocity.current).divideScalar(Math.max(dt, 0.0001));
+      lastVelocity.current.copy(vFinal);
+
+      // Clamp extreme spikes (teleportation/snapping)
+      if (accel.length() > 150) accel.setLength(150);
+
+      // Smooth the acceleration to prevent jitter
+      accelSmooth.current.lerp(accel, 0.12);
+
+      // Convert world acceleration to local space for vertex shader
+      const invMatrix = new THREE.Matrix4().copy(meshRef.current.matrixWorld).invert();
+      const localAccel = accelSmooth.current.clone().transformDirection(invMatrix);
+      
+      uniformsRef.current.uMomentumForce.value.copy(localAccel);
+    }
   });
 
   return (
