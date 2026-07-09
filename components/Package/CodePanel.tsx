@@ -53,7 +53,6 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
           whileHover={{ scale: 1.1, backgroundColor: theme.Color.Accent.Surface[1], color: theme.Color.Accent.Content[1] }}
           whileTap={{ scale: 0.9 }}
           aria-label={isCopied ? 'Copied!' : 'Copy JSON'}
-          onPointerDown={(e) => e.stopPropagation()}
         >
           <AnimatedCopyIcon isCopied={isCopied} />
         </motion.button>

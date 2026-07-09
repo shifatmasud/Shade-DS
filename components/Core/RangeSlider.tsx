@@ -306,7 +306,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   };
 
   return (
-    <div onPointerDown={(e) => e.stopPropagation()}>
+    <div>
       <label style={{ ...theme.Type.Readable.Label.S, display: 'block', marginBottom: theme.space['Space.S'], color: theme.Color.Base.Content[2] }}>
         {label}
       </label>

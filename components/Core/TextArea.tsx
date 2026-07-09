@@ -37,7 +37,6 @@ const TextArea: React.FC<TextAreaProps> = ({ value, onChange, onFocus, onBlur, s
       onBlur={onBlur}
       spellCheck={false}
       style={{ ...baseStyle, ...style }}
-      onPointerDown={(e) => e.stopPropagation()}
     />
   );
 };

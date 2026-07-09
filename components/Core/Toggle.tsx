@@ -40,7 +40,7 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
   };
 
   return (
-    <div onPointerDown={(e) => e.stopPropagation()} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
       <label style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2] }}>
         {label}
       </label>

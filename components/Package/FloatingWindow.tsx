@@ -116,16 +116,20 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     >
       <div
         style={headerStyle}
-        onPointerDown={(e) => {
-          e.preventDefault();
-          dragControls.start(e);
-        }}
       >
-          <span style={{ ...theme.Type.Readable.Label.M, color: theme.Color.Base.Content[1], letterSpacing: '0.05em' }}>
-            {title.toUpperCase()}
-          </span>
+          <div 
+            style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'center', cursor: 'grab' }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              dragControls.start(e);
+            }}
+          >
+            <span style={{ ...theme.Type.Readable.Label.M, color: theme.Color.Base.Content[1], letterSpacing: '0.05em' }}>
+              {title.toUpperCase()}
+            </span>
+          </div>
           <motion.button
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            onClick={onClose}
             style={{
               width: theme.space['Space.M'], // Approximated from 14px to token
               height: theme.space['Space.M'],
@@ -133,20 +137,16 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
               backgroundColor: theme.Color.Error.Content[1],
               border: 'none',
               cursor: 'pointer',
-              boxShadow: theme.effects['Effect.Shadow.Inset.1'],
+              boxShadow: theme.effects['Effect.Shadow.Drop.1'],
             }}
             whileHover={{ scale: 1.2 }}
             whileTap={{ scale: 0.9 }}
             aria-label="Close"
-            onPointerDown={(e) => e.stopPropagation()}
           />
       </div>
       
       <div
         style={contentStyle}
-        onPointerDown={(e) => {
-          e.stopPropagation(); 
-        }}
       >
         {children}
       </div>

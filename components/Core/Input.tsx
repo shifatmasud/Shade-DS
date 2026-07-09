@@ -34,7 +34,7 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
   };
 
   return (
-    <div onPointerDown={(e) => e.stopPropagation()}>
+    <div>
       <label style={{ 
         ...theme.Type.Readable.Label.S, 
         textTransform: 'uppercase',
