@@ -86,6 +86,12 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
         tms[slotIndex] = 0.0;
         acts[slotIndex] = 1.0;
 
+        // Gentle kick for impact squash
+        if (intensity > 0.2) {
+          const impactStrength = Math.min(intensity * 1.5, 1.2);
+          squashVelocity.current -= impactStrength * 9.0; 
+        }
+
         // Also post message to web worker to sync the simulation timeline
         workerRef.current?.postMessage({
           type: 'triggerImpact',
@@ -107,7 +113,8 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
     uDragOffset: { value: new THREE.Vector3() },
     uWobbleOffset: { value: new THREE.Vector3() },
     uRadius: { value: size * 0.8 },
-    uMomentumForce: { value: new THREE.Vector3() },
+    uMomentumForce: { value: new THREE.Vector3() }, // Used for Velocity Stretch
+    uImpactSquash: { value: 0.0 }, // Global squash factor (0 to 1)
     uProximityPos: { value: new THREE.Vector3() },
     uProximityWeight: { value: 0.0 },
     uGroundY: { value: -1.5 },
@@ -120,7 +127,10 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
   });
 
   const lastVelocity = useRef(new THREE.Vector3());
-  const accelSmooth = useRef(new THREE.Vector3());
+  const lastPosition = useRef(new THREE.Vector3());
+  const smoothedVelocity = useRef(new THREE.Vector3());
+  const squashValue = useRef(0);
+  const squashVelocity = useRef(0);
 
   // --- WEB WORKER LIFE-CYCLE MANAGEMENT ---
   useEffect(() => {
@@ -209,6 +219,7 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
       shader.uniforms.uWobbleOffset = uniformsRef.current.uWobbleOffset;
       shader.uniforms.uRadius = uniformsRef.current.uRadius;
       shader.uniforms.uMomentumForce = uniformsRef.current.uMomentumForce;
+      shader.uniforms.uImpactSquash = uniformsRef.current.uImpactSquash;
       shader.uniforms.uProximityPos = uniformsRef.current.uProximityPos;
       shader.uniforms.uProximityWeight = uniformsRef.current.uProximityWeight;
       shader.uniforms.uGroundY = uniformsRef.current.uGroundY;
@@ -225,6 +236,7 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
         uniform vec3 uWobbleOffset;
         uniform float uRadius;
         uniform vec3 uMomentumForce;
+        uniform float uImpactSquash;
         uniform vec3 uProximityPos;
         uniform float uProximityWeight;
         uniform float uGroundY;
@@ -237,23 +249,26 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
         uniform float uImpactActive[3];
 
         vec3 getDeformedPos(vec3 localPos) {
-          // 1. Global Squash & Stretch based on Momentum (Acceleration)
-          float accelLen = length(uMomentumForce);
-          if (accelLen > 0.01) {
-            vec3 accelDir = normalize(uMomentumForce);
-            float strength = min(accelLen * 0.005, 0.22); // Tuned for soft jelly feel
+          // 1. Velocity-based Stretch (│) and Global Impact Squash (▬)
+          float velLen = length(uMomentumForce);
+          
+          // Highly noticeable coefficients for elastic visual feedback
+          float stretchS = min(velLen * 0.15, 1.2); 
+          float squashS = uImpactSquash * 0.9; 
+          
+          float totalS = stretchS + squashS;
+          
+          if (abs(totalS) > 0.005) {
+            vec3 velDir = velLen > 0.001 ? normalize(uMomentumForce) : vec3(0.0, 1.0, 0.0);
+            vec3 deformDir = (abs(squashS) > stretchS) ? vec3(0.0, 1.0, 0.0) : velDir;
             
-            // Project vertex onto the acceleration axis
-            float projection = dot(localPos, accelDir);
+            float projection = dot(localPos, deformDir);
+            localPos += deformDir * (projection * totalS);
             
-            // Stretch along the axis of movement/acceleration
-            vec3 stretch = accelDir * (projection * strength);
-            
-            // Squash on perpendicular axes to preserve perceived volume
-            vec3 perp = localPos - (accelDir * projection);
-            vec3 squash = perp * (-strength * 0.45);
-            
-            localPos += stretch + squash;
+            // Preservation of volume (approximate)
+            float perpFactor = 1.0 / sqrt(1.0 + totalS) - 1.0;
+            vec3 perp = localPos - (deformDir * dot(localPos, deformDir));
+            localPos += perp * perpFactor;
           }
 
           // 2. Multi-impact local collision soft-body deformation
@@ -360,26 +375,42 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
       dt
     });
 
-    // 2. Physics-based acceleration tracking for squash & stretch
-    if (rigidBody?.current) {
-      const vel = rigidBody.current.linvel();
-      const vFinal = new THREE.Vector3(vel.x, vel.y, vel.z);
+    // 2. Physics-based velocity tracking for stretch
+    if (rigidBody?.current && meshRef.current) {
+      const rb = rigidBody.current;
+      const vTarget = new THREE.Vector3();
       
-      // acceleration = (finalVelocity - initialVelocity) / deltaTime
-      const accel = vFinal.clone().sub(lastVelocity.current).divideScalar(Math.max(dt, 0.0001));
-      lastVelocity.current.copy(vFinal);
+      if (isDragging) {
+        const currentPos = rb.translation();
+        const p = new THREE.Vector3(currentPos.x, currentPos.y, currentPos.z);
+        vTarget.subVectors(p, lastPosition.current).divideScalar(Math.max(dt, 0.0001));
+        lastPosition.current.copy(p);
+      } else {
+        const vel = rb.linvel();
+        vTarget.set(vel.x, vel.y, vel.z);
+        const currentPos = rb.translation();
+        lastPosition.current.set(currentPos.x, currentPos.y, currentPos.z);
+      }
+      
+      // Smooth the velocity to prevent jitter and add "momentum" feel
+      smoothedVelocity.current.lerp(vTarget, 0.15);
 
-      // Clamp extreme spikes (teleportation/snapping)
-      if (accel.length() > 150) accel.setLength(150);
-
-      // Smooth the acceleration to prevent jitter
-      accelSmooth.current.lerp(accel, 0.12);
-
-      // Convert world acceleration to local space for vertex shader
+      // Convert world momentum to local space
+      meshRef.current.updateMatrixWorld();
       const invMatrix = new THREE.Matrix4().copy(meshRef.current.matrixWorld).invert();
-      const localAccel = accelSmooth.current.clone().transformDirection(invMatrix);
+      const localVel = smoothedVelocity.current.clone().transformDirection(invMatrix);
       
-      uniformsRef.current.uMomentumForce.value.copy(localAccel);
+      uniformsRef.current.uMomentumForce.value.copy(localVel);
+
+      // 3. Update Global Impact Squash Spring (▬)
+      // High damping for a gentler, more controlled "jelly" settle
+      const k = 165.0;
+      const d = 12.0;
+      const accel = -k * squashValue.current - d * squashVelocity.current;
+      squashVelocity.current += accel * dt;
+      squashValue.current += squashVelocity.current * dt;
+      
+      uniformsRef.current.uImpactSquash.value = THREE.MathUtils.clamp(squashValue.current, -0.6, 0.6);
     }
   });
 
