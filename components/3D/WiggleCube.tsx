@@ -343,8 +343,14 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
     }
   }, [color, transmission, customMaterial]);
 
-  useFrame((state, delta) => {
+  const timer = useRef<THREE.Timer | null>(null);
+
+  useFrame((state) => {
     if (!meshRef.current) return;
+
+    if (!timer.current) timer.current = new THREE.Timer();
+    timer.current.update();
+    const delta = timer.current.getDelta();
 
     const dt = Math.min(delta, 0.03);
 

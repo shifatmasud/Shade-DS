@@ -4,13 +4,14 @@
  */
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Sky } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Environment, Sky } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-three/rapier';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Info, X, Copy, Check } from 'phosphor-react';
+import { ErrorBoundary } from 'react-error-boundary';
 
 gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
@@ -77,12 +78,18 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
     rigidBodyRef.current?.setLinvel({ x: 0, y: 0, z: 0 }, true);
     rigidBodyRef.current?.setAngvel({ x: 0, y: 0, z: 0 }, true);
   };
+  const timer = useRef<THREE.Timer | null>(null);
 
   useFrame((state) => {
+    if (!timer.current) timer.current = new THREE.Timer();
+    timer.current.update();
+    const delta = timer.current.getDelta();
+    
     // Track pointer position NDC
     pointerPos.current.set(state.pointer.x, state.pointer.y, 0);
 
     if (isDragging && rigidBodyRef.current) {
+      const dt = Math.min(delta, 0.03);
       const intersection = new THREE.Vector3();
       if (state.raycaster.ray.intersectPlane(dragPlane.current, intersection)) {
         const targetPos = intersection.clone().add(dragOffset.current);
@@ -232,7 +239,13 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
     e.target.releasePointerCapture(e.pointerId);
   };
 
-  useFrame((state, delta) => {
+  const timer = useRef<THREE.Timer | null>(null);
+
+  useFrame((state) => {
+    if (!timer.current) timer.current = new THREE.Timer();
+    timer.current.update();
+    const delta = timer.current.getDelta();
+
     // Track pointer position in world space
     pointerPos.current.set(state.pointer.x, state.pointer.y, 0);
 
@@ -413,15 +426,19 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
     letterSpacing: '0.05em',
   };
   useEffect(() => {
+    const timer = new THREE.Timer();
     let frameCount = 0;
-    let lastTime = performance.now();
+    let lastTime = 0;
     let requestId: number;
 
-    const loop = () => {
+    const loop = (timestamp: number) => {
+      timer.update(timestamp);
       frameCount++;
-      const now = performance.now();
-      if (now >= lastTime + 1000) {
-        setFps(Math.round((frameCount * 1000) / (now - lastTime)));
+      const now = timer.getElapsed();
+      
+      // Update FPS every second
+      if (now >= lastTime + 1) {
+        setFps(frameCount);
         frameCount = 0;
         lastTime = now;
       }
@@ -573,44 +590,47 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
         )}
       </AnimatePresence>
 
-      <Canvas 
-        shadows={{ type: THREE.PCFShadowMap }} 
-        dpr={[1, 2]}
-        gl={{ 
-          antialias: true,
-          powerPreference: 'high-performance'
-        }}
-      >
-        <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={50} />
-        <OrbitControls 
-          makeDefault 
-          enabled={controlsEnabled}
-          minPolarAngle={0} 
-          maxPolarAngle={Math.PI / 2.1} 
-        />
-        
-        <ambientLight intensity={0.5} />
-        <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
-        
-        <Physics gravity={[0, -9.81, 0]}>
-          <RotatingBox 
-            onDragStart={() => setControlsEnabled(false)} 
-            onDragEnd={() => setControlsEnabled(true)} 
+      <ErrorBoundary fallback={<div style={{ color: 'white', padding: '20px' }}>3D Scene Error. Please check console.</div>}>
+        <Canvas 
+          shadows={{ type: THREE.PCFShadowMap }} 
+          dpr={[1, 2]}
+          gl={{ 
+            antialias: true,
+            powerPreference: 'high-performance',
+            alpha: true
+          }}
+        >
+          <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={50} />
+          <OrbitControls 
+            makeDefault 
+            enabled={controlsEnabled}
+            minPolarAngle={0} 
+            maxPolarAngle={Math.PI / 2.1} 
           />
-          {cubes.map((cube) => (
-            <PhysicsCube 
-              key={cube.id} 
-              {...cube} 
+          
+          <ambientLight intensity={0.5} />
+          <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+          
+          <Physics gravity={[0, -9.81, 0]}>
+            <RotatingBox 
               onDragStart={() => setControlsEnabled(false)} 
               onDragEnd={() => setControlsEnabled(true)} 
             />
-          ))}
-          <Floor />
-        </Physics>
-        
-        {showSky && <Sky sunPosition={[1, 0.2, 1]} />}
-        <Environment preset="city" />
-      </Canvas>
+            {cubes.map((cube) => (
+              <PhysicsCube 
+                key={cube.id} 
+                {...cube} 
+                onDragStart={() => setControlsEnabled(false)} 
+                onDragEnd={() => setControlsEnabled(true)} 
+              />
+            ))}
+            <Floor />
+          </Physics>
+          
+          {showSky && <Sky sunPosition={[1, 0.2, 1]} />}
+          <Environment preset="city" />
+        </Canvas>
+      </ErrorBoundary>
       
       <div style={fpsStyle}>
         <span style={{ opacity: 0.6 }}>FPS</span>
