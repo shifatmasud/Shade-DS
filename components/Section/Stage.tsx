@@ -188,14 +188,7 @@ const BlueprintOverlay: React.FC<{ anatomy: ElementAnatomy }> = ({ anatomy }) =>
           zIndex: 10,
           transform: 'translateZ(0px)'
       }}>
-        <motion.svg 
-            width="100%" 
-            height="100%" 
-            style={{ overflow: 'visible' }}
-            initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }}
-            animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-        >
+        <svg width="100%" height="100%" style={{ overflow: 'visible' }}>
             <defs>
                 <pattern id="hatch" width="4" height="4" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
                     <line x1="0" y1="0" x2="0" y2="4" style={{ stroke: colorLayout, strokeWidth: 1, opacity: 0.2 }} />
@@ -267,7 +260,7 @@ const BlueprintOverlay: React.FC<{ anatomy: ElementAnatomy }> = ({ anatomy }) =>
                 })()}
                 {padding.right > 0 && <DimensionLine x1={width - padding.right} y1={height} x2={width} y2={height} label={`${Math.round(padding.right)}`} offset={LINE_OFFSET} color={colorLayout} position="bottom" />}
             </g>
-        </motion.svg>
+        </svg>
       </div>
     );
 };
@@ -345,18 +338,11 @@ const TokenOverlay: React.FC<{ anatomy: ElementAnatomy; btnProps: StageComponent
 
   return (
     <div style={{ position: 'absolute', top: -PAD, left: -PAD, width: width + PAD * 2, height: height + PAD * 2, zIndex: 11, transform: 'translateZ(10px)' }}>
-      <motion.svg 
-        width="100%" 
-        height="100%" 
-        style={{ overflow: 'visible', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
-        initial={{ opacity: 0, filter: 'blur(8px)' }}
-        animate={{ opacity: 1, filter: 'blur(0px)' }}
-        transition={{ duration: 1, ease: "easeInOut" }}
-      >
+      <svg width="100%" height="100%" style={{ overflow: 'visible', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
         <g transform={`translate(${PAD}, ${PAD})`}>
           {tokens.map((t, i) => <TokenConnector key={i} {...t} />)}
         </g>
-      </motion.svg>
+      </svg>
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         <div style={{ position: 'absolute', top: PAD, left: PAD }}>
             {tokens.map((t, i) => <TokenBadge key={i} {...t} />)}

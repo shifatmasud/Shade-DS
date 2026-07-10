@@ -53,9 +53,9 @@ const TokenConnector: React.FC<TokenConnectorProps> = ({ variant, x, y, targetX,
         fill={fillColor}
         stroke={strokeColor}
         strokeWidth="1.5"
-        initial={{ scale: 0, opacity: 0, filter: 'blur(4px)' }}
-        animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-        transition={{ delay: delay + 0.5, type: 'spring', stiffness: 300, damping: 20 }}
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: delay + 0.5, type: 'spring' }}
       />
     </g>
   );

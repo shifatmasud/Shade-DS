@@ -49,9 +49,9 @@ const TokenBadge: React.FC<TokenBadgeProps> = ({ label, variant, x, y, delay }) 
         boxShadow: theme.effects['Effect.Shadow.Drop.1'],
         zIndex: 12,
       }}
-      initial={{ scale: 0.8, opacity: 0, filter: 'blur(4px)' }}
-      animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-      transition={{ delay, type: 'spring', stiffness: 260, damping: 20 }}
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ delay, type: 'spring' }}
       whileDrag={{ cursor: 'grabbing', scale: 1.1 }}
     >
       {label}

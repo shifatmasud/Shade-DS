@@ -8,9 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import { GoogleGenAI, Type } from "@google/genai";
 import { MetaButtonProps } from '../../types/index.tsx';
-import { PaperPlaneTilt, Robot, User, X } from 'phosphor-react';
+import { PaperPlaneTilt, Robot, User, X, Copy, Check } from 'phosphor-react';
 import CustomScrollbar from '../Core/CustomScrollbar.tsx';
-import { AnimatedCopyIcon } from '../Core/AnimatedCopyIcon.tsx';
 
 const allComponents = import.meta.glob('../../components/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const hooks = import.meta.glob('../../hooks/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
@@ -73,7 +72,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
   const handleCopy = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 4000);
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
   const generateContentWithRetry = async (ai: GoogleGenAI, params: any, retries = 3, delay = 1000): Promise<any> => {
@@ -230,7 +229,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                 }}>
                   {msg.text}
                 </div>
-                <motion.button
+                <button
                   onClick={() => handleCopy(msg.text, i)}
                   style={{
                     background: 'none',
@@ -245,12 +244,9 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                     ...theme.Type.Readable.Label.S,
                     marginTop: `calc(-1 * ${theme.space['Space.2XS']})`,
                   }}
-                  whileHover={{ opacity: 1, scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
-                  <AnimatedCopyIcon isCopied={copiedIndex === i} />
-                  <span>{copiedIndex === i ? 'Copied' : 'Copy'}</span>
-                </motion.button>
+                  {copiedIndex === i ? <><Check size={10} color={theme.Color.Success.Content[1]} /> Copied</> : <><Copy size={10} /> Copy</>}
+                </button>
               </div>
             ))}
             {isLoading && (

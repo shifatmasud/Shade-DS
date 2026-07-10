@@ -341,34 +341,15 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
             >
               <span style={{ position: 'relative', zIndex: 1 }}>{option.label}</span>
               {option.value === value && (
-                  <motion.span 
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}
-                  >
-                    <motion.svg 
-                      width="12" 
-                      height="12" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="3" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                      animate={{ 
-                        scale: [0.9, 1],
-                        opacity: [0.8, 1],
-                        filter: ['blur(1px)', 'blur(0px)']
-                      }}
-                    >
-                      <motion.polyline 
-                        points="20 6 9 17 4 12" 
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 0.4, ease: 'easeOut' }}
-                      />
-                    </motion.svg>
-                  </motion.span>
+                <motion.span 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </motion.span>
               )}
             </motion.div>
           ))
@@ -485,29 +466,9 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           style={{ display: 'flex', alignItems: 'center' }}
         >
-          <motion.svg 
-            width="12" 
-            height="12" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2.5" 
-            strokeLinecap="round" 
-            strokeLinejoin="round"
-            animate={{ 
-              opacity: [0.7, 1],
-              scale: isOpen ? 1.1 : 1,
-              filter: isOpen ? 'blur(0.5px)' : 'blur(0px)'
-            }}
-            transition={{ duration: 0.3 }}
-          >
-            <motion.polyline 
-              points="6 9 12 15 18 9"
-              animate={{ 
-                color: isOpen ? theme.Color.Accent.Surface[1] : 'currentColor'
-              }}
-            />
-          </motion.svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
         </motion.span>
       </motion.button>
 

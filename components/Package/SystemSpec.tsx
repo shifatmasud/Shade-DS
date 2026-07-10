@@ -11,6 +11,8 @@ import {
   Wrench, 
   Palette, 
   FileText, 
+  Copy, 
+  Check,
   DeviceMobile,
   Target,
   Lightning,
@@ -19,7 +21,6 @@ import {
   Layout,
   Stack
 } from 'phosphor-react';
-import { AnimatedCopyIcon } from '../Core/AnimatedCopyIcon.tsx';
 
 const SystemSpec = () => {
   const { theme } = useTheme();
@@ -125,7 +126,7 @@ Inside the target file:
   const handleCopy = () => {
     navigator.clipboard.writeText(markdownContent);
     setCopied(true);
-    setTimeout(() => setCopied(false), 4000);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const sectionStyle: React.CSSProperties = {
@@ -232,14 +233,7 @@ Inside the target file:
       {/* Core Rules */}
       <section style={sectionStyle}>
         <div style={headerStyle}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
-            whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            style={{ display: 'flex' }}
-          >
-            <CheckCircle size={20} weight="bold" />
-          </motion.div>
+          <CheckCircle size={20} weight="bold" />
           CORE RULES
         </div>
         <ul style={listStyle}>
@@ -253,9 +247,9 @@ Inside the target file:
             <motion.li 
               key={i} 
               style={itemStyle}
-              initial={{ opacity: 0, x: -10, filter: 'blur(2px)' }}
-              whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-              transition={{ delay: i * 0.1, duration: 0.4 }}
+              initial={{ opacity: 0, x: -10 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.1 }}
             >
               <span style={{ color: theme.Color.Base.Content[1], fontWeight: 600 }}>{i + 1}.</span>
               {rule}
@@ -267,14 +261,7 @@ Inside the target file:
       {/* Execution Rules */}
       <section style={sectionStyle}>
         <div style={headerStyle}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
-            whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            style={{ display: 'flex' }}
-          >
-            <Play size={20} weight="bold" />
-          </motion.div>
+          <Play size={20} weight="bold" />
           EXECUTION RULES
         </div>
         <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, opacity: 0.7 }}>Before any task, generate:</p>
@@ -296,9 +283,6 @@ Inside the target file:
                 gap: theme.space['Space.S'],
                 textAlign: 'center'
               }}
-              initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
-              whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-              transition={{ delay: i * 0.1, duration: 0.4 }}
               whileHover={{ scale: 1.05, backgroundColor: theme.Color.Base.Surface[3] }}
             >
               <div style={{ color: theme.Color.Base.Content[1] }}>{item.icon}</div>
@@ -311,14 +295,7 @@ Inside the target file:
       {/* Engineering Rules */}
       <section style={sectionStyle}>
         <div style={headerStyle}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
-            whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            style={{ display: 'flex' }}
-          >
-            <Wrench size={20} weight="bold" />
-          </motion.div>
+          <Wrench size={20} weight="bold" />
           ENGINEERING RULES
         </div>
         <ul style={listStyle}>
@@ -336,9 +313,9 @@ Inside the target file:
             <motion.li 
               key={i} 
               style={itemStyle}
-              initial={{ opacity: 0, y: 10, filter: 'blur(2px)' }}
-              whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ delay: i * 0.05, duration: 0.3 }}
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
             >
               <div style={{ color: theme.Color.Base.Content[3], marginTop: '2px' }}>{rule.icon}</div>
               {rule.text}
@@ -350,14 +327,7 @@ Inside the target file:
       {/* Design Rules */}
       <section style={sectionStyle}>
         <div style={headerStyle}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
-            whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            style={{ display: 'flex' }}
-          >
-            <Palette size={20} weight="bold" />
-          </motion.div>
+          <Palette size={20} weight="bold" />
           DESIGN RULES
         </div>
         
@@ -379,47 +349,33 @@ Inside the target file:
                 { role: 'Data', font: 'JetBrains Mono', style: { ...theme.Type.Expressive.Data } },
                 { role: 'Quotes', font: 'Cause', style: { ...theme.Type.Expressive.Quote, fontStyle: 'italic' } },
               ].map((item, i) => (
-                <motion.div 
-                  key={i} 
-                  style={{ 
-                    backgroundColor: theme.Color.Base.Surface[2],
-                    padding: theme.space['Space.M'],
-                    borderRadius: theme.radius['Radius.M'],
-                    ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: theme.space['Space.2XS']
-                  }}
-                  initial={{ opacity: 0, scale: 0.95, filter: 'blur(2px)' }}
-                  whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                  transition={{ delay: i * 0.1, duration: 0.4 }}
-                >
+                <div key={i} style={{ 
+                  backgroundColor: theme.Color.Base.Surface[2],
+                  padding: theme.space['Space.M'],
+                  borderRadius: theme.radius['Radius.M'],
+                  ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: theme.space['Space.2XS']
+                }}>
                   <div style={{ ...itemStyle, ...theme.Type.Readable.Label.S, opacity: 0.5, textTransform: 'uppercase' }}>{item.role}</div>
                   <div style={{ ...itemStyle, ...item.style, color: theme.Color.Base.Content[1] }}>{item.font}</div>
-                </motion.div>
+                </div>
               ))}
             </div>
           </div>
 
           {/* Tokens */}
-          <motion.div
-            initial={{ opacity: 0, y: 10, filter: 'blur(2px)' }}
-            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.4 }}
-          >
+          <div>
             <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               <Target size={16} /> Tokens
             </div>
             <code style={dataStyle}>Category.Purpose.Context.Level</code>
             <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, marginTop: theme.space['Space.2XS'] }}>Never use literal values.</p>
-          </motion.div>
+          </div>
 
           {/* Motion */}
-          <motion.div
-            initial={{ opacity: 0, y: 10, filter: 'blur(2px)' }}
-            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-          >
+          <div>
             <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               <Lightning size={16} /> Motion
             </div>
@@ -433,35 +389,22 @@ Inside the target file:
                 <div style={{ ...theme.Type.Readable.Body.L }}>300ms</div>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Documentation Rules */}
       <section style={sectionStyle}>
         <div style={headerStyle}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
-            whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            style={{ display: 'flex' }}
-          >
-            <FileText size={20} weight="bold" />
-          </motion.div>
+          <FileText size={20} weight="bold" />
           DOCUMENTATION RULES
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.S'] }}>
           {['README.md', 'noteBook.md', 'bugReport.md'].map((file, i) => (
-            <motion.div 
-              key={i} 
-              style={{ ...itemStyle, alignItems: 'center' }}
-              initial={{ opacity: 0, x: -5, filter: 'blur(1px)' }}
-              whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-              transition={{ delay: i * 0.1, duration: 0.3 }}
-            >
+            <div key={i} style={{ ...itemStyle, alignItems: 'center' }}>
               <div style={{ width: theme.space['Space.S'], height: theme.space['Space.S'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[1] }} />
               {file}
-            </motion.div>
+            </div>
           ))}
         </div>
         <div style={quoteStyle}>
@@ -472,14 +415,7 @@ Inside the target file:
       {/* Safety Rules */}
       <section style={sectionStyle}>
         <div style={headerStyle}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
-            whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            style={{ display: 'flex' }}
-          >
-            <CheckCircle size={20} weight="bold" />
-          </motion.div>
+          <Check size={20} weight="bold" />
           SAFETY RULES
         </div>
         <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, opacity: 0.7 }}>When change, write, update code (inside target file):</p>
@@ -494,9 +430,9 @@ Inside the target file:
             <motion.li 
               key={i} 
               style={itemStyle}
-              initial={{ opacity: 0, x: 10, filter: 'blur(2px)' }}
-              whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-              transition={{ delay: i * 0.05, duration: 0.3 }}
+              initial={{ opacity: 0, x: 10 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
             >
               <div style={{ color: theme.Color.Base.Content[1], fontWeight: 600 }}>{i + 1}.</div>
               {rule}
@@ -509,7 +445,7 @@ Inside the target file:
       <div style={{ padding: theme.space['Space.XL'], display: 'flex', justifyContent: 'center' }}>
         <motion.button
           onClick={handleCopy}
-          whileHover={{ scale: 1.02, backgroundColor: theme.Color.Accent.Surface[1], color: theme.Color.Accent.Content[1] }}
+          whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           style={{
             display: 'flex',
@@ -523,10 +459,10 @@ Inside the target file:
             ...theme.Type.Readable.Title.L,
             cursor: 'pointer',
             boxShadow: theme.effects['Effect.Shadow.Drop.2'],
-            transition: 'background-color 0.2s, color 0.2s'
+            transition: 'background-color 0.2s'
           }}
         >
-          <AnimatedCopyIcon isCopied={copied} />
+          {copied ? <Check size={20} weight="bold" /> : <Copy size={20} weight="bold" />}
           {copied ? 'COPIED!' : 'COPY AS MARKDOWN'}
         </motion.button>
       </div>
