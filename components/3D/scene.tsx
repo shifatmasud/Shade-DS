@@ -10,7 +10,8 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-three/rapier';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Info, X, Copy, Check } from 'phosphor-react';
+import { Info, X } from 'phosphor-react';
+import { AnimatedCopyIcon } from '../Core/AnimatedCopyIcon.tsx';
 import { ErrorBoundary } from 'react-error-boundary';
 
 gsap.registerPlugin(useGSAP);
@@ -370,7 +371,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
   const handleCopy = () => {
     navigator.clipboard.writeText(agentInstructions);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 4000);
   };
 
   // STYLE: Derived from theme
@@ -493,102 +494,99 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
       </button>
 
       {/* Dialog Overlay */}
-      <AnimatePresence>
-        {showDialog && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+      {showDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: theme.space['Space.L'],
+          }}
+          onClick={() => setShowDialog(false)}
+        >
+          <div
             style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundColor: 'rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(4px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 100,
+              backgroundColor: theme.Color.Base.Surface[1],
+              borderRadius: theme.radius['Radius.L'],
               padding: theme.space['Space.L'],
+              maxWidth: theme.space['Space.Panel.Width'],
+              width: '100%',
+              position: 'relative',
+              boxShadow: theme.effects['Effect.Shadow.Drop.3'],
+              ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
             }}
-            onClick={() => setShowDialog(false)}
+            onClick={(e) => e.stopPropagation()}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            <button
+              onClick={() => setShowDialog(false)}
               style={{
-                backgroundColor: theme.Color.Base.Surface[1],
-                borderRadius: theme.radius['Radius.L'],
-                padding: theme.space['Space.L'],
-                maxWidth: theme.space['Space.Panel.Width'],
-                width: '100%',
-                position: 'relative',
-                boxShadow: theme.effects['Effect.Shadow.Drop.3'],
-                ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
+                position: 'absolute',
+                top: theme.space['Space.M'],
+                right: theme.space['Space.M'],
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: theme.Color.Base.Content[2],
               }}
-              onClick={(e) => e.stopPropagation()}
             >
-              <button
-                onClick={() => setShowDialog(false)}
-                style={{
-                  position: 'absolute',
-                  top: theme.space['Space.M'],
-                  right: theme.space['Space.M'],
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: theme.Color.Base.Content[2],
-                }}
-              >
-                <X size={20} />
-              </button>
+              <X size={20} />
+            </button>
 
-              <h2 style={{ ...theme.Type.Expressive.Headline.M, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.M'] }}>
-                Viewport Slot
-              </h2>
-              
-              <div style={{ marginBottom: theme.space['Space.L'] }}>
-                <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[1], lineHeight: 1.5, marginBottom: theme.space['Space.S'] }}>
-                  {humanExplanation}
-                </p>
-              </div>
+            <h2 style={{ ...theme.Type.Expressive.Headline.M, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.M'] }}>
+              Viewport Slot
+            </h2>
+            
+            <div style={{ marginBottom: theme.space['Space.L'] }}>
+              <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[1], lineHeight: 1.5, marginBottom: theme.space['Space.S'] }}>
+                {humanExplanation}
+              </p>
+            </div>
 
-              <div style={{ 
-                backgroundColor: theme.Color.Base.Surface[2], 
-                padding: theme.space['Space.M'], 
-                borderRadius: theme.radius['Radius.M'], 
-                border: `1px dashed ${theme.Color.Base.Content[3]}` 
-              }}>
-                <p style={{ ...theme.Type.Readable.Body.S, color: theme.Color.Base.Content[2], lineHeight: 1.5, whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
-                  {agentInstructions}
-                </p>
-              </div>
+            <div style={{ 
+              backgroundColor: theme.Color.Base.Surface[2], 
+              padding: theme.space['Space.M'], 
+              borderRadius: theme.radius['Radius.M'], 
+              border: `1px dashed ${theme.Color.Base.Content[3]}`,
+              maxHeight: '200px',
+              overflowY: 'auto'
+            }}>
+              <p style={{ ...theme.Type.Readable.Body.S, color: theme.Color.Base.Content[2], lineHeight: 1.5, whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                {agentInstructions}
+              </p>
+            </div>
 
-              <button
-                onClick={handleCopy}
-                style={{
-                  width: '100%',
-                  padding: theme.space['Space.M'],
-                  borderRadius: theme.radius['Radius.M'],
-                  backgroundColor: theme.Color.Active.Surface[1],
-                  color: theme.Color.Active.Content[1],
-                  border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: theme.space['Space.S'],
-                  cursor: 'pointer',
-                  ...theme.Type.Readable.Body.M,
-                  fontWeight: 600,
-                }}
-              >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
-                {copied ? 'Copied!' : 'Copy Instructions'}
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <button
+              onClick={handleCopy}
+              style={{
+                width: '100%',
+                marginTop: theme.space['Space.M'],
+                padding: theme.space['Space.M'],
+                borderRadius: theme.radius['Radius.M'],
+                backgroundColor: theme.Color.Active.Surface[1],
+                color: theme.Color.Active.Content[1],
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: theme.space['Space.S'],
+                cursor: 'pointer',
+                ...theme.Type.Readable.Body.M,
+                fontWeight: 600,
+                transition: 'background-color 0.2s ease',
+              }}
+            >
+              <AnimatedCopyIcon isCopied={copied} />
+              {copied ? 'Copied!' : 'Copy Instructions'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <ErrorBoundary fallback={<div style={{ color: 'white', padding: '20px' }}>3D Scene Error. Please check console.</div>}>
         <Canvas 

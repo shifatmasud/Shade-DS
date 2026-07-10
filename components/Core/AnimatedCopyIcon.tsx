@@ -20,15 +20,25 @@ export const AnimatedCopyIcon: React.FC<AnimatedCopyIconProps> = ({ isCopied }) 
       style={{ width: 14, height: 14 }}
       fill="currentColor"
       aria-hidden="true"
+      animate={{ 
+        scale: isCopied ? [1, 1.1, 1] : 1,
+        rotate: isCopied ? [0, 5, 0] : 0,
+        opacity: [0.9, 1],
+        filter: isCopied ? ['blur(1px)', 'blur(0px)'] : 'blur(0px)'
+      }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
     >
       <motion.path
-        initial={false}
-        animate={{ d: isCopied ? checkPath : copyPath }}
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={{ 
+          d: isCopied ? checkPath : copyPath,
+          pathLength: 1,
+          opacity: 1
+        }}
         transition={{ 
-            type: 'spring', 
-            stiffness: 350, 
-            damping: 25,
-            mass: 0.7,
+          duration: 0.6, 
+          ease: [0.22, 1, 0.36, 1], // Smooth easeOutExpo
+          opacity: { duration: 0.3 }
         }}
       />
     </motion.svg>
