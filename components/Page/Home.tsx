@@ -385,7 +385,7 @@ const Home = () => {
     <div style={{
       width: '100vw',
       height: '100vh',
-      backgroundColor: theme.Color.Base.Surface[1],
+      backgroundColor: 'transparent',
       overflow: 'hidden',
       position: 'relative',
       display: 'flex',

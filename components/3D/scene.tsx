@@ -11,7 +11,7 @@ import { useGSAP } from '@gsap/react';
 import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-three/rapier';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Info, X, Copy } from 'phosphor-react';
-import { AnimatedCheckIcon, FluidContent } from '../Core';
+import { AnimatedCheckIcon } from '../Core';
 import { ErrorBoundary } from 'react-error-boundary';
 
 gsap.registerPlugin(useGSAP);
@@ -583,13 +583,8 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
                   fontWeight: 600,
                 }}
               >
-                <FluidContent 
-                  contentKey={copied ? 'copied' : 'copy'}
-                  style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}
-                >
-                  {copied ? <AnimatedCheckIcon size={18} /> : <Copy size={18} />}
-                  {copied ? 'Copied!' : 'Copy Instructions'}
-                </FluidContent>
+                {copied ? <AnimatedCheckIcon size={18} /> : <Copy size={18} />}
+                {copied ? 'Copied!' : 'Copy Instructions'}
               </button>
             </motion.div>
           </motion.div>
@@ -640,7 +635,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
       
       <div style={fpsStyle}>
         <span style={{ opacity: 0.6 }}>FPS</span>
-        <AnimatedCounter value={fps} useFormatting={false} layout />
+        <AnimatedCounter value={fps} useFormatting={false} />
       </div>
     </div>
   );

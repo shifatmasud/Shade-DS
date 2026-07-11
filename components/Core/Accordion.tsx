@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus } from 'phosphor-react';
 import { useTheme } from '../../Theme.tsx';
-import FluidContent from './FluidContent.tsx';
 
 interface AccordionProps {
   title: string;
@@ -55,11 +54,9 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <FluidContent contentKey={title}>
-          <span style={titleStyle}>{title}</span>
-        </FluidContent>
+        <span style={titleStyle}>{title}</span>
         <motion.div
-          layout
+          layout="position"
           initial={false}
           animate={{ 
             rotate: isOpen ? 45 : 0,
@@ -76,7 +73,7 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
           /* Masked slide: outer container handles height clip, inner handles vertical motion */
           <motion.div
             key="content"
-            layout
+            layout="position"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -87,7 +84,7 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
             style={{ overflow: 'hidden' }}
           >
             <motion.div
-              layout
+              layout="position"
               initial={{ y: -20 }}
               animate={{ y: 0 }}
               exit={{ y: -20 }}

@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme';
-import FluidContent from './FluidContent.tsx';
 
 interface SegmentedControlItem {
   id: string;
@@ -31,7 +30,6 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
   const itemStyle: React.CSSProperties = {
     position: 'relative',
     display: 'flex',
-    flex: 1, // Ensure each segment takes equal space to prevent layout shifts
     alignItems: 'center',
     justifyContent: 'center',
     padding: `${theme.space['Space.S']} ${theme.space['Space.M']}`,
@@ -64,11 +62,9 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
             onClick={() => onSelect(item.id)}
             animate={{ color: isActive ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2] }}
           >
-            <FluidContent contentKey={item.id}>
-              <div style={{ display: 'flex', alignItems: 'center', opacity: isActive ? 1 : 0.7 }}>
-                {item.icon}
-              </div>
-            </FluidContent>
+            <div style={{ display: 'flex', alignItems: 'center', opacity: isActive ? 1 : 0.7 }}>
+              {item.icon}
+            </div>
             <motion.div
               style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}
               initial={{ width: 0, marginLeft: 0 }}
@@ -78,9 +74,7 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
               }}
               transition={{ type: 'spring', damping: 20, stiffness: 200 }}
             >
-              <FluidContent contentKey={item.id}>
-                <span style={{ ...theme.Type.Readable.Label.M }}>{item.label}</span>
-              </FluidContent>
+              <span style={{ ...theme.Type.Readable.Label.M }}>{item.label}</span>
             </motion.div>
             
             {isActive && (

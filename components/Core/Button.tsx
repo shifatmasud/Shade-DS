@@ -8,9 +8,8 @@
  * To undo: replace its entire contents with /components/staged/Button.tsx.
  */
 import React from 'react';
-import { motion, type MotionValue, useMotionValue, useTransform } from 'framer-motion';
+import { motion, type MotionValue, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import FluidContent from './FluidContent.tsx';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
 export type ButtonSize = 'S' | 'M' | 'L';
@@ -19,7 +18,7 @@ interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   label: string;
-  icon?: React.ReactNode;
+  icon?: string;
   customFill?: string | MotionValue<string>;
   customColor?: string | MotionValue<string>;
   customRadius?: string | MotionValue<string>;
@@ -86,26 +85,26 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     switch (variant) {
       case 'primary':
         return {
-          backgroundColor: resolvedFill,
+          background: resolvedFill,
           color: resolvedColor,
           border: 'none',
           boxShadow: theme.effects['Effect.Shadow.Drop.1'],
         };
       case 'secondary':
         return {
-          backgroundColor: resolvedFill,
+          background: resolvedFill,
           color: resolvedColor,
           border: 'none',
         };
       case 'outline':
         return {
-          backgroundColor: resolvedFill,
+          background: resolvedFill,
           color: resolvedColor,
           ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
         };
       case 'destructive':
         return {
-          backgroundColor: resolvedFill,
+          background: resolvedFill,
           color: resolvedColor,
           border: 'none',
           boxShadow: `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}, ${theme.effects['Effect.Shadow.Drop.1']}`,
@@ -113,7 +112,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       case 'tertiary':
       default:
         return {
-          backgroundColor: resolvedFill,
+          background: resolvedFill,
           color: resolvedColor,
           border: 'none',
           boxShadow: 'none',
@@ -153,27 +152,52 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         ...baseStyles,
         borderRadius: customRadius || theme.radius['Radius.Full'],
         ...style,
+        background: 'transparent', // We'll use a layered background for the mask slide
       }}
       disabled={disabled}
       whileHover={disabled ? undefined : { scale: 1.02, y: -1 }}
       whileTap={disabled ? undefined : { scale: 0.98, y: 0 }}
-      transition={{ duration: 0.1, ease: 'easeOut' }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
       onClick={onClick}
     >
-      <FluidContent 
-        contentKey={label}
-        style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          gap: theme.space['Space.S'],
-          width: '100%',
-          height: '100%'
+      {/* Background Layers for Mask Slide */}
+      <motion.div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: fallbackBg,
+          zIndex: -2,
         }}
-      >
-        {icon && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>}
-        <span>{label}</span>
-      </FluidContent>
+      />
+      <AnimatePresence mode="popLayout">
+        <motion.div
+          key={variant}
+          initial={{ clipPath: 'inset(0 100% 0 0)' }}
+          animate={{ clipPath: 'inset(0 0% 0 0)' }}
+          exit={{ clipPath: 'inset(0 0 0 100%)' }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: resolvedFill,
+            zIndex: -1,
+          }}
+        />
+      </AnimatePresence>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`${icon}-${label}`}
+          initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}
+        >
+          {icon && <i className={`ph-bold ${icon}`} style={{ fontSize: '1.20em' }} />}
+          <span>{label}</span>
+        </motion.div>
+      </AnimatePresence>
       
       {/* Native Hover Overlay */}
       {!disabled && (
@@ -181,7 +205,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           style={{
             position: 'absolute',
             inset: 0,
-            backgroundColor: 'currentColor',
+            background: 'currentColor',
             opacity: 0,
             pointerEvents: 'none',
           }}

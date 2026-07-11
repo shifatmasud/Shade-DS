@@ -122,7 +122,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </Accordion>
 
       <Accordion title="Component">
-        <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
+        <motion.div layout="size" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           <Select<any>
             label="Component Type"
             value={btnProps.componentType}

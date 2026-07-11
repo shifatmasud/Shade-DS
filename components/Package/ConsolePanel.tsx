@@ -4,7 +4,6 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { useTheme } from '../../Theme.tsx';
-import FluidContent from '../Core/FluidContent.tsx';
 import { LogEntry as LogEntryType } from '../../types/index.tsx';
 import LogEntry from '../Core/LogEntry.tsx';
 
@@ -33,18 +32,16 @@ const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs }) => {
         width: '100%'
     }}>
       {logs.length === 0 && (
-          <FluidContent>
-            <div style={{ 
-                ...emptyTextStyle, 
-                color: theme.Color.Base.Content[3],
-                opacity: 0.5,
-                padding: theme.space['Space.S'],
-                textAlign: 'center',
-                marginTop: theme.space['Space.M']
-            }}>
-              Waiting for system events...
-            </div>
-          </FluidContent>
+          <div style={{ 
+              ...emptyTextStyle, 
+              color: theme.Color.Base.Content[3],
+              opacity: 0.5,
+              padding: theme.space['Space.S'],
+              textAlign: 'center',
+              marginTop: theme.space['Space.M']
+          }}>
+            Waiting for system events...
+          </div>
       )}
       
       {logs.map(log => <LogEntry key={log.id} log={log} />)}

@@ -5,16 +5,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import { 
-  Copy, 
-  Info, 
-  Play, 
-  Shield, 
-  Cpu, 
-  Palette, 
-  FileText 
-} from 'phosphor-react';
-import { Button, AnimatedCheckIcon } from '../Core';
+import { Copy, Info, Play, Shield, Cpu, Palette, FileText } from 'phosphor-react';
+import { AnimatedCheckIcon } from '../Core';
 
 const SYSTEM_SPEC_MARKDOWN = `# System Spec
 
@@ -182,20 +174,30 @@ const SystemSpecWindow = () => {
           <Shield size={20} weight="fill" color={theme.Color.Focus.Content[1]} />
           <span style={{ fontFamily: 'Bebas Neue', fontSize: theme.Type.Readable.Title.L.fontSize }}>System Protocol v1.0</span>
         </div>
-        <div style={{ width: '160px' }}>
-          <Button 
-            onClick={handleCopy}
-            variant="secondary"
-            size="S"
-            label={copied ? 'Copied!' : 'Copy Markdown'}
-            icon={copied ? <AnimatedCheckIcon size={14} color={theme.Color.Success.Content[1]} /> : <Copy size={14} />}
-            customFill={copied ? theme.Color.Success.Surface[1] : theme.Color.Base.Surface[2]}
-            customColor={copied ? theme.Color.Success.Content[1] : theme.Color.Base.Content[1]}
-            style={{
-              width: '100%',
-            }}
-          />
-        </div>
+        <button 
+          onClick={handleCopy}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.space['Space.XS'],
+            padding: `${theme.space['Space.XS']} ${theme.space['Space.M']}`,
+            borderRadius: theme.radius['Radius.S'],
+            /* 
+             * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
+             * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`
+             */
+            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+            backgroundColor: theme.Color.Base.Surface[2],
+            color: theme.Color.Base.Content[1],
+            cursor: 'pointer',
+            fontSize: theme.Type.Readable.Label.M.fontSize,
+            fontFamily: 'Inter',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {copied ? <AnimatedCheckIcon size={14} color={theme.Color.Success.Content[1]} /> : <Copy size={14} />}
+          {copied ? 'Copied!' : 'Copy Markdown'}
+        </button>
       </div>
 
       {/* Core Rules */}

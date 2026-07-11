@@ -5,7 +5,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import FluidContent from './FluidContent.tsx';
 
 interface SegmentedTabProps {
   tabs: { id: string; title: string; icon?: React.ReactNode }[];
@@ -70,13 +69,10 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
                 }}
               />
             )}
-            <FluidContent 
-              contentKey={tab.id}
-              style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], opacity: isActive ? 1 : 0.7 }}
-            >
+            <span style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], opacity: isActive ? 1 : 0.7 }}>
               {tab.icon}
               {tab.title}
-            </FluidContent>
+            </span>
           </button>
         );
       })}

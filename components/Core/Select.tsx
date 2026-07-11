@@ -6,7 +6,6 @@ import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useId
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import FluidContent from './FluidContent.tsx';
 
 /**
  * SHADE DSL ARCHITECTURE
@@ -340,9 +339,7 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
               onMouseEnter={() => setHoveredIdx(idx)}
               whileTap={{ scale: 0.98 }}
             >
-            <FluidContent contentKey={option.value}>
               <span style={{ position: 'relative', zIndex: 1 }}>{option.label}</span>
-            </FluidContent>
               {option.value === value && (
                 <motion.span 
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -361,9 +358,7 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
 
       {isGrid && (
         <motion.div style={styles.floatingLabel}>
-          <FluidContent contentKey={hoveredLabel}>
-            <motion.span>{hoveredLabel}</motion.span>
-          </FluidContent>
+          <motion.span>{hoveredLabel}</motion.span>
         </motion.div>
       )}
     </motion.div>
@@ -450,11 +445,11 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
   };
 
   return (
-    <motion.div layout ref={containerRef} style={styles.container}>
+    <motion.div layout="size" ref={containerRef} style={styles.container}>
       <div style={styles.label}>{label}</div>
       
       <motion.button
-        layout
+        layout="size"
         ref={triggerRef}
         style={styles.trigger}
         onClick={() => setIsOpen(!isOpen)}
@@ -462,13 +457,19 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
         whileTap={{ scale: 0.995 }}
         type="button"
       >
-        <FluidContent 
-          contentKey={currentOption?.value}
-          style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], opacity: currentOption ? 1 : 0.5, width: '100%', justifyContent: 'flex-start' }}
-        >
-          {currentIcon && <i className={`ph-bold ${currentIcon}`} style={{ fontSize: '18px' }} />}
-          <span>{currentLabel}</span>
-        </FluidContent>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={value}
+            initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], opacity: currentOption ? 1 : 0.5 }}
+          >
+            {currentIcon && <i className={`ph-bold ${currentIcon}`} style={{ fontSize: '18px' }} />}
+            <span>{currentLabel}</span>
+          </motion.div>
+        </AnimatePresence>
         <motion.span
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}

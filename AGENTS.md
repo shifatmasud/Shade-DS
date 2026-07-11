@@ -62,11 +62,6 @@ For every task involving component creation or modification:
 2. **Review**: Ensure the DATA, LOGIC, and RENDER segments are clearly defined.
 3. **Execute**: Generate the React code based on the DSL model.
 
-## Fluid Motion Suite
-- You MUST apply the **Fluid Motion Suite** (gentle spring, opacity, scale, and blur animation) to all interactive element contents that change (e.g., text labels, icons, status indicators).
-- **Rule**: Instant transitions or simple opacity-only transitions are strictly forbidden for content swaps.
-- **Implementation**: Wrap changing content in the `FluidContent` component (from `/components/Core/FluidContent.tsx`) and provide a `contentKey` to trigger the transition when the content changes.
-
 ## Interaction & Touch Parity
 - You MUST ensure high-quality interactive parity between mouse and touch devices.
 - **Content-Changing Elements**: All interactive elements that change their contents (e.g., buttons with dynamic labels, loading states, or toggles) MUST have `width: "100%"` (or equivalent flex-grow) to prevent layout shifts during content transitions.
@@ -91,6 +86,11 @@ Ensure all animations adhere to the core principle of physical predictability:
 ### Simple Design Principle
 - **System-initiated motion** &rarr; **Easing** *(Fast-to-slow / Slow-to-fast paths)*
 - **User-manipulated motion** &rarr; **Spring** *(Dynamic, tactile, responsive)*
+
+## Fluid Motion Suite
+- You MUST apply the Fluid Motion Suite (snappy time based spring, opacity, scale, and blur animation) to all interactive element contents that change (e.g., text labels, icons, status indicators).
+- Rule: Instant transitions or simple opacity-only transitions are strictly forbidden for content swaps.
+- Animate surface color change with mask slide.
 
 ## Safety Rules
 ### File-Level Safety Protocols

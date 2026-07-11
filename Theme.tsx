@@ -191,7 +191,7 @@ const GlobalStyles = ({ theme }: { theme: any }) => {
         -moz-osx-font-smoothing: grayscale; 
         text-rendering: optimizeLegibility; 
       }
-      body { transition: background-color ${time['Time.3x']} ease; }
+      body { transition: background-color 800ms ease-in-out; }
       
       /* Custom Scrollbar Styles */
       * {
@@ -236,7 +236,7 @@ type ResolvedRawTheme = Resolved<typeof rawTheme>;
 type ThemeName = 'light' | 'dark';
 type ThemeContextType = {
   themeName: ThemeName;
-  setThemeName: (themeName: ThemeName) => void;
+  setThemeName: React.Dispatch<React.SetStateAction<ThemeName>>;
   theme: typeof lightThemeColors & ResolvedRawTheme;
 };
 

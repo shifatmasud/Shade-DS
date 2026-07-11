@@ -7,7 +7,6 @@ export { default as Button } from './Button.tsx';
 export { default as Confetti } from './Confetti.tsx';
 export { default as CustomScrollbar } from './CustomScrollbar.tsx';
 export { default as DockIcon } from './DockIcon.tsx';
-export { default as FluidContent, fluidMotionVariants, fluidMotionTransition } from './FluidContent.tsx';
 export { default as Input } from './Input.tsx';
 export { default as LogEntry } from './LogEntry.tsx';
 export { default as RangeSlider } from './RangeSlider.tsx';

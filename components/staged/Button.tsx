@@ -7,7 +7,6 @@ import { useTheme } from '../../Theme.tsx';
 import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
 import StateLayer from '../Core/StateLayer.tsx';
 import RippleLayer, { Ripple } from '../Core/RippleLayer.tsx';
-import FluidContent from '../Core/FluidContent.tsx';
 import { playSound } from '../../services/soundService';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
@@ -410,12 +409,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       <motion.div style={{ ...layerWrapperStyle, transform: zContent, border: getDebugBorder(colors.content) }} />
 
       <motion.div style={{ ...contentWrapperStyle, transform: zContent }}>
-        <FluidContent contentKey={icon}>
-          {icon && <i className={`ph-bold ${icon}`} draggable={false} style={{ fontSize: '1.25em' }} />}
-        </FluidContent>
-        <FluidContent contentKey={label}>
-          <span draggable={false}>{label}</span>
-        </FluidContent>
+        {icon && <i className={`ph-bold ${icon}`} draggable={false} style={{ fontSize: '1.25em' }} />}
+        <span draggable={false}>{label}</span>
       </motion.div>
     </motion.button>
   );

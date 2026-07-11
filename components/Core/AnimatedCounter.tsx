@@ -59,7 +59,6 @@ interface AnimatedCounterProps {
   value: number | MotionValue<number>;
   useFormatting?: boolean;
   decimals?: number;
-  layout?: boolean | 'position' | 'size' | 'preserve-aspect';
 }
 
 const isMotionValue = (val: any): val is MotionValue<number> => {
@@ -82,8 +81,7 @@ function getTracks(valueStr: string) {
 const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ 
   value, 
   useFormatting = true,
-  decimals = 0,
-  layout
+  decimals = 0 
 }) => {
   const localMV = useMotionValue(typeof value === 'number' ? value : 0);
   
@@ -188,7 +186,6 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
       justifyContent: 'center',
       lineHeight: DIGIT_HEIGHT,
       fontVariantNumeric: 'tabular-nums',
-      width: '100%', // SHADE DSL: Enforce full width to prevent layout shifts
     } as React.CSSProperties,
     char: {
       height: DIGIT_HEIGHT,
@@ -196,7 +193,7 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
   };
 
   return (
-    <motion.div style={styles.container} layout={layout}>
+    <div style={styles.container}>
       {tracks.map((track) => {
         if (!track.isDigit) {
           return (
@@ -209,7 +206,7 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
           return <Digit key={track.key} mv={mv} />;
         }
       })}
-    </motion.div>
+    </div>
   );
 };
 

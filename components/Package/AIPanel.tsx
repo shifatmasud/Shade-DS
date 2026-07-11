@@ -9,7 +9,7 @@ import { useTheme } from '../../Theme.tsx';
 import { GoogleGenAI, Type } from "@google/genai";
 import { MetaButtonProps } from '../../types/index.tsx';
 import { PaperPlaneTilt, Robot, User, X, Copy } from 'phosphor-react';
-import { AnimatedCheckIcon, FluidContent } from '../Core';
+import { AnimatedCheckIcon } from '../Core';
 import CustomScrollbar from '../Core/CustomScrollbar.tsx';
 
 const allComponents = import.meta.glob('../../components/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
@@ -241,37 +241,44 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                     padding: `${theme.space['Space.2XS']} ${theme.space['Space.XS']}`,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'flex-start', // Align to start
                     gap: theme.space['Space.XS'],
                     ...theme.Type.Readable.Label.S,
                     marginTop: `calc(-1 * ${theme.space['Space.2XS']})`,
-                    minWidth: '60px', // SHADE DSL: Fixed width to prevent layout shifts
                   }}
                 >
-                  <FluidContent 
-                    contentKey={copiedIndex === i ? 'copied' : 'copy'}
-                    style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'] }}
-                  >
+                  <AnimatePresence mode="wait">
                     {copiedIndex === i ? (
-                      <>
-                        <AnimatedCheckIcon size={10} color={theme.Color.Success.Content[1]} /> 
-                        Copied
-                      </>
+                      <motion.div
+                        key="copied"
+                        initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'] }}
+                      >
+                        <AnimatedCheckIcon size={10} color={theme.Color.Success.Content[1]} /> Copied
+                      </motion.div>
                     ) : (
-                      <>
-                        <Copy size={10} /> 
-                        Copy
-                      </>
+                      <motion.div
+                        key="copy"
+                        initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'] }}
+                      >
+                        <Copy size={10} /> Copy
+                      </motion.div>
                     )}
-                  </FluidContent>
+                  </AnimatePresence>
                 </button>
               </div>
             ))}
             {isLoading && (
               <div style={{ display: 'flex', gap: theme.space['Space.XS'], padding: theme.space['Space.2XS'] }}>
-                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
+                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8], filter: ['blur(2px)', 'blur(0px)', 'blur(2px)'] }} transition={{ repeat: Infinity, duration: 1.5 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
+                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8], filter: ['blur(2px)', 'blur(0px)', 'blur(2px)'] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.2 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
+                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8], filter: ['blur(2px)', 'blur(0px)', 'blur(2px)'] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.4 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
               </div>
             )}
           </div>
