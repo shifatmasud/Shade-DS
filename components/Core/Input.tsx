@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import { useTheme } from '../../Theme.tsx';
+import FluidContent from './FluidContent.tsx';
 
 interface InputProps {
   label: string;
@@ -35,17 +36,19 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
 
   return (
     <div>
-      <label style={{ 
-        ...theme.Type.Readable.Label.S, 
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
-        display: 'block', 
-        marginBottom: theme.space['Space.XS'], 
-        color: theme.Color.Base.Content[2],
-        opacity: theme.opacity['Opacity.High']
-      }}>
-        {label}
-      </label>
+      <FluidContent contentKey={label}>
+        <label style={{ 
+          ...theme.Type.Readable.Label.S, 
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          display: 'block', 
+          marginBottom: theme.space['Space.XS'], 
+          color: theme.Color.Base.Content[2],
+          opacity: theme.opacity['Opacity.High']
+        }}>
+          {label}
+        </label>
+      </FluidContent>
       <input 
         type={type} 
         value={value} 

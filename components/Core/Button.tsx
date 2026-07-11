@@ -10,6 +10,7 @@
 import React from 'react';
 import { motion, type MotionValue, useMotionValue, useTransform } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import FluidContent from './FluidContent.tsx';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
 export type ButtonSize = 'S' | 'M' | 'L';
@@ -18,7 +19,7 @@ interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   label: string;
-  icon?: string;
+  icon?: React.ReactNode;
   customFill?: string | MotionValue<string>;
   customColor?: string | MotionValue<string>;
   customRadius?: string | MotionValue<string>;
@@ -85,26 +86,26 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     switch (variant) {
       case 'primary':
         return {
-          background: resolvedFill,
+          backgroundColor: resolvedFill,
           color: resolvedColor,
           border: 'none',
           boxShadow: theme.effects['Effect.Shadow.Drop.1'],
         };
       case 'secondary':
         return {
-          background: resolvedFill,
+          backgroundColor: resolvedFill,
           color: resolvedColor,
           border: 'none',
         };
       case 'outline':
         return {
-          background: resolvedFill,
+          backgroundColor: resolvedFill,
           color: resolvedColor,
           ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
         };
       case 'destructive':
         return {
-          background: resolvedFill,
+          backgroundColor: resolvedFill,
           color: resolvedColor,
           border: 'none',
           boxShadow: `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}, ${theme.effects['Effect.Shadow.Drop.1']}`,
@@ -112,7 +113,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       case 'tertiary':
       default:
         return {
-          background: resolvedFill,
+          backgroundColor: resolvedFill,
           color: resolvedColor,
           border: 'none',
           boxShadow: 'none',
@@ -159,8 +160,20 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       transition={{ duration: 0.1, ease: 'easeOut' }}
       onClick={onClick}
     >
-      {icon && <i className={`ph-bold ${icon}`} style={{ fontSize: '1.20em' }} />}
-      <span>{label}</span>
+      <FluidContent 
+        contentKey={label}
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          gap: theme.space['Space.S'],
+          width: '100%',
+          height: '100%'
+        }}
+      >
+        {icon && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>}
+        <span>{label}</span>
+      </FluidContent>
       
       {/* Native Hover Overlay */}
       {!disabled && (
@@ -168,7 +181,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'currentColor',
+            backgroundColor: 'currentColor',
             opacity: 0,
             pointerEvents: 'none',
           }}

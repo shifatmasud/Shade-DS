@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import FluidContent from './FluidContent.tsx';
 import { AnimatedCheckIcon } from './AnimatedCheckIcon.tsx';
 
 const copyPath = "M216,40H88a8,8,0,0,0-8,8V88H40a8,8,0,0,0-8,8v120a8,8,0,0,0,8,8H160a8,8,0,0,0,8-8V184h48a8,8,0,0,0,8-8V48A8,8,0,0,0,216,40Zm-56,168H48V104H160Zm48-48H176V96a8,8,0,0,0-8-8H96V56H208Z";
@@ -22,35 +23,23 @@ export const AnimatedCopyIcon: React.FC<AnimatedCopyIconProps> = ({ isCopied }) 
       justifyContent: 'center',
       position: 'relative'
     }}>
-      <AnimatePresence mode="wait">
+      <FluidContent contentKey={isCopied ? 'check' : 'copy'}>
         {isCopied ? (
-          <motion.div
-            key="check"
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.5 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AnimatedCheckIcon size={14} strokeWidth={32} />
-          </motion.div>
+          </div>
         ) : (
-          <motion.svg
-            key="copy"
+          <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 256 256"
             style={{ width: 14, height: 14 }}
             fill="currentColor"
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.5 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 25 }}
             aria-hidden="true"
           >
             <path d={copyPath} />
-          </motion.svg>
+          </svg>
         )}
-      </AnimatePresence>
+      </FluidContent>
     </div>
   );
 };

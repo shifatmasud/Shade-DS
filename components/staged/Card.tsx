@@ -7,6 +7,7 @@ import { useTheme } from '../../Theme.tsx';
 import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
 import StateLayer from '../Core/StateLayer.tsx';
 import RippleLayer, { Ripple } from '../Core/RippleLayer.tsx';
+import FluidContent from '../Core/FluidContent.tsx';
 
 interface CardProps {
   label: string; // Used as title
@@ -315,41 +316,47 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
           gap: theme.space['Space.XS'], 
           border: getDebugBorder(colors.content)
       }}>
-        <span draggable={false} style={{ 
-            ...theme.Type.Readable.Label.S, 
-            color: contentColor2, 
-            textTransform: 'uppercase', 
-            letterSpacing: '0.1em',
-            fontWeight: 700 
-        }}>
-            Interactive Prototype
-        </span>
+        <FluidContent contentKey="interactive-prototype">
+          <span draggable={false} style={{ 
+              ...theme.Type.Readable.Label.S, 
+              color: contentColor2, 
+              textTransform: 'uppercase', 
+              letterSpacing: '0.1em',
+              fontWeight: 700 
+          }}>
+              Interactive Prototype
+          </span>
+        </FluidContent>
         
-        <motion.h3 className="card-title" draggable={false} style={{ 
-            ...theme.Type.Expressive.Headline.S, 
-            margin: 0, 
-            color: contentColor1,
-            fontSize: theme.Type.Expressive.Headline.L.fontSize, 
-            lineHeight: 1
-        }}>
-            {label}
-        </motion.h3>
+        <FluidContent contentKey={label}>
+          <motion.h3 className="card-title" draggable={false} style={{ 
+              ...theme.Type.Expressive.Headline.S, 
+              margin: 0, 
+              color: contentColor1,
+              fontSize: theme.Type.Expressive.Headline.L.fontSize, 
+              lineHeight: 1
+          }}>
+              {label}
+          </motion.h3>
+        </FluidContent>
         
-        <p className="card-body" draggable={false} style={{ 
-            ...theme.Type.Readable.Body.M, 
-            margin: 0, 
-            color: contentColor2,
-            lineHeight: 1.5,
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            textWrap: 'pretty' as any,
-        }}>
-          A dynamic component demonstrating nested radius math and expressive typography. 
-          Perfect for modern, data-driven interfaces with accessible color contrast 
-          and tight vertical rhythm.
-        </p>
+        <FluidContent contentKey="card-body">
+          <p className="card-body" draggable={false} style={{ 
+              ...theme.Type.Readable.Body.M, 
+              margin: 0, 
+              color: contentColor2,
+              lineHeight: 1.5,
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              textWrap: 'pretty' as any,
+          }}>
+            A dynamic component demonstrating nested radius math and expressive typography. 
+            Perfect for modern, data-driven interfaces with accessible color contrast 
+            and tight vertical rhythm.
+          </p>
+        </FluidContent>
       </motion.div>
     </motion.div>
   );

@@ -10,6 +10,7 @@
 import React from 'react';
 import { motion, type MotionValue, useMotionValue, useTransform } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import FluidContent from '../Core/FluidContent.tsx';
 
 interface CardProps {
   label: string; // Used as title
@@ -146,7 +147,9 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>((({
             fontSize: theme.Type.Expressive.Headline.L.fontSize, 
             lineHeight: 1
         }}>
-          {label}
+          <FluidContent contentKey={label}>
+            {label}
+          </FluidContent>
         </h3>
         <p className="card-body" style={{ 
             ...theme.Type.Readable.Body.M, 

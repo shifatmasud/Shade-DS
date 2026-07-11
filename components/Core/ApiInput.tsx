@@ -93,6 +93,7 @@ const ApiInput: React.FC<ApiInputProps> = ({
           onClick={handleSave}
           style={{
             height: '32px',
+            minWidth: '80px', // SHADE DSL: Fixed width to prevent layout shifts between SAVE and SAVED
             padding: '0 12px',
             borderRadius: theme.radius['Radius.S'],
             backgroundColor: isSaved ? theme.Color.Success.Surface[1] : theme.Color.Base.Content[1],
@@ -104,6 +105,7 @@ const ApiInput: React.FC<ApiInputProps> = ({
             justifyContent: 'center',
             gap: '6px',
             transition: 'all 0.2s ease',
+            flexShrink: 0,
           }}
         >
           <AnimatePresence mode="wait">

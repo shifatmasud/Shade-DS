@@ -5,6 +5,7 @@
 import React, { useEffect } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import FluidContent from './FluidContent.tsx';
 
 interface ToggleProps {
   label: string;
@@ -54,9 +55,11 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-      <label style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2] }}>
-        {label}
-      </label>
+      <FluidContent contentKey={label}>
+        <label style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2] }}>
+          {label}
+        </label>
+      </FluidContent>
       <motion.div 
         style={trackStyle} 
         onClick={onToggle}

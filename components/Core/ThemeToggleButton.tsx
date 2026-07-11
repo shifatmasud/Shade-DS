@@ -3,20 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import FluidContent from './FluidContent.tsx';
 
 const ThemeToggleButton = () => {
   const { themeName, setThemeName, theme } = useTheme();
 
   const toggleTheme = () => {
     setThemeName(themeName === 'light' ? 'dark' : 'light');
-  };
-  
-  const iconVariants = {
-    hidden: { opacity: 0, rotate: -90, scale: 0.5 },
-    visible: { opacity: 1, rotate: 0, scale: 1 },
-    exit: { opacity: 0, rotate: 90, scale: 0.5 },
   };
   
   const styles: { [key: string]: React.CSSProperties } = {
@@ -59,18 +54,15 @@ const ThemeToggleButton = () => {
       dragMomentum={false}
       transition={{ duration: 0.2 }}
     >
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={themeName}
+      <FluidContent 
+        contentKey={themeName}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}
+      >
+        <span
           className={themeName === 'dark' ? 'ph-bold ph-moon' : 'ph-bold ph-sun'}
           style={styles.icon}
-          variants={iconVariants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          transition={{ duration: 0.2, ease: 'easeInOut' }}
         />
-      </AnimatePresence>
+      </FluidContent>
     </motion.button>
   );
 };

@@ -9,7 +9,7 @@ import { useTheme } from '../../Theme.tsx';
 import { GoogleGenAI, Type } from "@google/genai";
 import { MetaButtonProps } from '../../types/index.tsx';
 import { PaperPlaneTilt, Robot, User, X, Copy } from 'phosphor-react';
-import { AnimatedCheckIcon } from '../Core';
+import { AnimatedCheckIcon, FluidContent } from '../Core';
 import CustomScrollbar from '../Core/CustomScrollbar.tsx';
 
 const allComponents = import.meta.glob('../../components/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
@@ -241,12 +241,29 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                     padding: `${theme.space['Space.2XS']} ${theme.space['Space.XS']}`,
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'flex-start', // Align to start
                     gap: theme.space['Space.XS'],
                     ...theme.Type.Readable.Label.S,
                     marginTop: `calc(-1 * ${theme.space['Space.2XS']})`,
+                    minWidth: '60px', // SHADE DSL: Fixed width to prevent layout shifts
                   }}
                 >
-                  {copiedIndex === i ? <><AnimatedCheckIcon size={10} color={theme.Color.Success.Content[1]} /> Copied</> : <><Copy size={10} /> Copy</>}
+                  <FluidContent 
+                    contentKey={copiedIndex === i ? 'copied' : 'copy'}
+                    style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'] }}
+                  >
+                    {copiedIndex === i ? (
+                      <>
+                        <AnimatedCheckIcon size={10} color={theme.Color.Success.Content[1]} /> 
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={10} /> 
+                        Copy
+                      </>
+                    )}
+                  </FluidContent>
                 </button>
               </div>
             ))}

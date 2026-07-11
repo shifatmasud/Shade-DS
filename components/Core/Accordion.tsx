@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus } from 'phosphor-react';
 import { useTheme } from '../../Theme.tsx';
+import FluidContent from './FluidContent.tsx';
 
 interface AccordionProps {
   title: string;
@@ -54,7 +55,9 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <span style={titleStyle}>{title}</span>
+        <FluidContent contentKey={title}>
+          <span style={titleStyle}>{title}</span>
+        </FluidContent>
         <motion.div
           layout
           initial={false}

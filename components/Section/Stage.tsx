@@ -21,6 +21,7 @@ import TokenBadge from '../Package/TokenBadge.tsx';
 import TokenConnector from '../Package/TokenConnector.tsx';
 import { LiveProvider, LiveEditor, LiveError, LivePreview } from 'react-live';
 import * as Core from '../Core/index.tsx';
+import FluidContent from '../Core/FluidContent.tsx';
 import * as Package from '../Package/index.tsx';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 import { FallbackProps } from 'react-error-boundary';
@@ -45,10 +46,14 @@ const CustomPlaceholder = () => {
             textAlign: 'center'
         }}>
             <Code size={32} weight="duotone" />
-            <div style={{ ...theme.Type.Readable.Label.S }}>Empty Custom Component</div>
-            <div style={{ ...theme.Type.Readable.Label.S, opacity: 0.6 }}>
-                Use the Agent panel to generate code or edit manually in the Code panel.
-            </div>
+            <FluidContent>
+              <div style={{ ...theme.Type.Readable.Label.S }}>Empty Custom Component</div>
+            </FluidContent>
+            <FluidContent>
+              <div style={{ ...theme.Type.Readable.Label.S, opacity: 0.6 }}>
+                  Use the Agent panel to generate code or edit manually in the Code panel.
+              </div>
+            </FluidContent>
         </div>
     );
 };
@@ -70,10 +75,14 @@ const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
       border: `1px solid ${theme.Color.Error.Content[1]}`,
       ...theme.Type.Expressive.Data,
     }}>
-      <strong>Component failed to render.</strong>
-      <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginTop: '8px' }}>
-        {error.toString()}
-      </pre>
+      <FluidContent>
+        <strong>Component failed to render.</strong>
+      </FluidContent>
+      <FluidContent contentKey={error.toString()}>
+        <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginTop: '8px' }}>
+          {error.toString()}
+        </pre>
+      </FluidContent>
     </div>
   );
 };
@@ -368,14 +377,16 @@ const HUDItem: React.FC<{ layer: any, gap: MotionValue<number>, isLast: boolean 
                boxShadow: theme.effects['Effect.Shadow.Drop.1'],
                flexShrink: 0
            }} />
-           <span style={{ 
-               ...theme.Type.Expressive.Data, fontWeight: 'bold', color: layer.stroke,
-               backgroundColor: layer.fill, padding: '0 8px', height: '20px',
-               borderRadius: '10px', border: `1px solid ${layer.stroke}`,
-               whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1
-           }}>
-               {layer.label}
-           </span>
+           <FluidContent contentKey={layer.label}>
+             <span style={{ 
+                 ...theme.Type.Expressive.Data, fontWeight: 'bold', color: layer.stroke,
+                 backgroundColor: layer.fill, padding: '0 8px', height: '20px',
+                 borderRadius: '10px', border: `1px solid ${layer.stroke}`,
+                 whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1
+             }}>
+                 {layer.label}
+             </span>
+           </FluidContent>
         </motion.div>
     );
 }
@@ -409,16 +420,18 @@ const LayerStackHUD = ({ layerSpacing, isCard }: { layerSpacing: MotionValue<num
                 zIndex: 100,
             }}
         >
-            <span style={{ 
-                ...theme.Type.Readable.Label.S, 
-                color: theme.Color.Base.Content[3], 
-                marginBottom: theme.space['Space.S'], 
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                paddingLeft: '20px' 
-            }}>
-                Layer Stack
-            </span>
+            <FluidContent>
+              <span style={{ 
+                  ...theme.Type.Readable.Label.S, 
+                  color: theme.Color.Base.Content[3], 
+                  marginBottom: theme.space['Space.S'], 
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  paddingLeft: '20px' 
+              }}>
+                  Layer Stack
+              </span>
+            </FluidContent>
             {layers.map((layer, i) => (
                 <HUDItem key={layer.label} layer={layer} gap={gap} isLast={i === layers.length - 1} />
             ))}

@@ -5,6 +5,7 @@
 import React from 'react';
 import { motion, useDragControls, useMotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import FluidContent from '../Core/FluidContent.tsx';
 
 /**
  * 🧱 Floating Window Component
@@ -124,9 +125,11 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
               dragControls.start(e);
             }}
           >
-            <span style={{ ...theme.Type.Readable.Label.M, color: theme.Color.Base.Content[1], letterSpacing: '0.05em' }}>
-              {title.toUpperCase()}
-            </span>
+            <FluidContent contentKey={title}>
+              <span style={{ ...theme.Type.Readable.Label.M, color: theme.Color.Base.Content[1], letterSpacing: '0.05em' }}>
+                {title.toUpperCase()}
+              </span>
+            </FluidContent>
           </div>
           <motion.button
             onClick={onClose}

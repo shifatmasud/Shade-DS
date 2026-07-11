@@ -7,6 +7,7 @@ import React from 'react';
 import { motion, MotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme';
 import { FeedbackVariant } from '../../types';
+import FluidContent from '../Core/FluidContent.tsx';
 
 interface TokenBadgeProps {
   label: string;
@@ -54,7 +55,9 @@ const TokenBadge: React.FC<TokenBadgeProps> = ({ label, variant, x, y, delay }) 
       transition={{ delay, type: 'spring' }}
       whileDrag={{ cursor: 'grabbing', scale: 1.1 }}
     >
-      {label}
+      <FluidContent contentKey={label}>
+        {label}
+      </FluidContent>
     </motion.div>
   );
 };

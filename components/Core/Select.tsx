@@ -6,6 +6,7 @@ import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useId
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import FluidContent from './FluidContent.tsx';
 
 /**
  * SHADE DSL ARCHITECTURE
@@ -339,7 +340,9 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
               onMouseEnter={() => setHoveredIdx(idx)}
               whileTap={{ scale: 0.98 }}
             >
+            <FluidContent contentKey={option.value}>
               <span style={{ position: 'relative', zIndex: 1 }}>{option.label}</span>
+            </FluidContent>
               {option.value === value && (
                 <motion.span 
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -358,7 +361,9 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
 
       {isGrid && (
         <motion.div style={styles.floatingLabel}>
-          <motion.span>{hoveredLabel}</motion.span>
+          <FluidContent contentKey={hoveredLabel}>
+            <motion.span>{hoveredLabel}</motion.span>
+          </FluidContent>
         </motion.div>
       )}
     </motion.div>
@@ -457,10 +462,13 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
         whileTap={{ scale: 0.995 }}
         type="button"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], opacity: currentOption ? 1 : 0.5 }}>
+        <FluidContent 
+          contentKey={currentOption?.value}
+          style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], opacity: currentOption ? 1 : 0.5, width: '100%', justifyContent: 'flex-start' }}
+        >
           {currentIcon && <i className={`ph-bold ${currentIcon}`} style={{ fontSize: '18px' }} />}
           <span>{currentLabel}</span>
-        </div>
+        </FluidContent>
         <motion.span
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}

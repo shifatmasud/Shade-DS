@@ -144,7 +144,7 @@ export const useElementAnatomy = (
         }
       }
 
-      setAnatomy({
+      const newAnatomy: ElementAnatomy = {
         width: element.offsetWidth,
         height: element.offsetHeight,
         scaleFactor: scaleX,
@@ -159,21 +159,48 @@ export const useElementAnatomy = (
         children: childrenMetrics,
         gap,
         verticalGap,
+      };
+
+      setAnatomy(prev => {
+        if (!prev) return newAnatomy;
+        
+        // Deep comparison (simplified for performance)
+        const isSame = 
+          prev.width === newAnatomy.width &&
+          prev.height === newAnatomy.height &&
+          prev.scaleFactor === newAnatomy.scaleFactor &&
+          prev.gap === newAnatomy.gap &&
+          prev.verticalGap === newAnatomy.verticalGap &&
+          JSON.stringify(prev.padding) === JSON.stringify(newAnatomy.padding) &&
+          JSON.stringify(prev.border) === JSON.stringify(newAnatomy.border) &&
+          JSON.stringify(prev.children) === JSON.stringify(newAnatomy.children);
+          
+        return isSame ? prev : newAnatomy;
       });
     };
 
     measure();
 
-    const resizeObserver = new ResizeObserver(measure);
+    let timeoutId: number | null = null;
+    const debouncedMeasure = () => {
+      if (timeoutId) return;
+      timeoutId = window.requestAnimationFrame(() => {
+        measure();
+        timeoutId = null;
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(debouncedMeasure);
     resizeObserver.observe(element);
     
     // Also observe mutations in children/attributes which might shift layout
-    const mutationObserver = new MutationObserver(measure);
+    const mutationObserver = new MutationObserver(debouncedMeasure);
     mutationObserver.observe(element, { attributes: true, childList: true, subtree: true });
 
     return () => {
       resizeObserver.disconnect();
       mutationObserver.disconnect();
+      if (timeoutId) window.cancelAnimationFrame(timeoutId);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref, JSON.stringify(selectors), ...deps]);
