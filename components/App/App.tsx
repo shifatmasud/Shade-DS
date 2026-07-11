@@ -18,7 +18,6 @@ const App = () => {
       position: 'relative', 
       overflow: 'hidden', 
       backgroundColor: theme.Color.Base.Surface[1],
-      transition: 'background-color 800ms ease-in-out'
     }}>
       <div style={{ position: 'relative', zIndex: 1, height: '100%', width: '100%', backgroundColor: 'transparent' }}>
         <CustomScrollbar>

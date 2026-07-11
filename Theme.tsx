@@ -191,7 +191,13 @@ const GlobalStyles = ({ theme }: { theme: any }) => {
         -moz-osx-font-smoothing: grayscale; 
         text-rendering: optimizeLegibility; 
       }
-      body { transition: background-color 800ms ease-in-out; }
+      body {  }
+
+      ::view-transition-old(root),
+      ::view-transition-new(root) {
+        animation: none;
+        mix-blend-mode: normal;
+      }
       
       /* Custom Scrollbar Styles */
       * {
