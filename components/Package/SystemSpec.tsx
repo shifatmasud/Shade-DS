@@ -6,13 +6,11 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import { 
-  CheckCircle, 
   Play, 
   Wrench, 
   Palette, 
   FileText, 
   Copy, 
-  Check,
   DeviceMobile,
   Target,
   Lightning,
@@ -21,6 +19,7 @@ import {
   Layout,
   Stack
 } from 'phosphor-react';
+import { AnimatedCheckIcon } from '../Core';
 
 const SystemSpec = () => {
   const { theme } = useTheme();
@@ -233,7 +232,7 @@ Inside the target file:
       {/* Core Rules */}
       <section style={sectionStyle}>
         <div style={headerStyle}>
-          <CheckCircle size={20} weight="bold" />
+          <AnimatedCheckIcon size={20} />
           CORE RULES
         </div>
         <ul style={listStyle}>
@@ -415,7 +414,7 @@ Inside the target file:
       {/* Safety Rules */}
       <section style={sectionStyle}>
         <div style={headerStyle}>
-          <Check size={20} weight="bold" />
+          <AnimatedCheckIcon size={20} />
           SAFETY RULES
         </div>
         <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, opacity: 0.7 }}>When change, write, update code (inside target file):</p>
@@ -462,7 +461,7 @@ Inside the target file:
             transition: 'background-color 0.2s'
           }}
         >
-          {copied ? <Check size={20} weight="bold" /> : <Copy size={20} weight="bold" />}
+          {copied ? <AnimatedCheckIcon size={20} color={theme.Color.Base.Surface[1]} /> : <Copy size={20} weight="bold" />}
           {copied ? 'COPIED!' : 'COPY AS MARKDOWN'}
         </motion.button>
       </div>

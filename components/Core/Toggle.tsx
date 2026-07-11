@@ -2,8 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect } from 'react';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 
 interface ToggleProps {
@@ -19,6 +19,19 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
   // In Light Mode, Active Surface is pastel, so Content (Strong Purple) gives the correct "On" state.
   // In Dark Mode, Active Surface is dark, so Content (Light Purple) gives the correct high-contrast "On" state.
   const activeColor = theme.Color.Active.Content[1];
+
+  const motionX = useMotionValue(isOn ? 16 : 0);
+  const springX = useSpring(motionX, { stiffness: 600, damping: 35, mass: 1 });
+
+  useEffect(() => {
+    motionX.set(isOn ? 16 : 0);
+  }, [isOn, motionX]);
+
+  // Map the spring-driven x position to a gentle squish effect.
+  // Max squish at the midpoint (8px). 
+  // We use a slight curve-like mapping by defining the midpoint.
+  const scaleX = useTransform(springX, [0, 8, 16], [1, 1.25, 1]);
+  const scaleY = useTransform(springX, [0, 8, 16], [1, 0.75, 1]);
 
   const trackStyle: React.CSSProperties = {
     width: '40px',
@@ -52,22 +65,13 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
         transition={{ duration: 0.2 }}
       >
         <motion.div
-          style={{ ...thumbStyle, originX: 0.5, originY: 0.5 }}
-          initial={false}
-          animate={{ 
-            x: isOn ? 16 : 0,
-            scaleX: [1, 1.25, 1],
-            scaleY: [1, 0.8, 1],
-          }}
-          whileTap={{ 
-            scaleX: 1.1, 
-            scaleY: 0.9,
-            transition: { duration: 0.1 }
-          }}
-          transition={{ 
-            x: { type: 'spring', stiffness: 500, damping: 30, mass: 1 },
-            scaleX: { times: [0, 0.5, 1], duration: 0.3 },
-            scaleY: { times: [0, 0.5, 1], duration: 0.3 },
+          style={{ 
+            ...thumbStyle, 
+            x: springX,
+            scaleX,
+            scaleY,
+            originX: 0.5, 
+            originY: 0.5 
           }}
         />
       </motion.div>

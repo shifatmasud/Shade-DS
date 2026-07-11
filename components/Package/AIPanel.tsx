@@ -8,7 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import { GoogleGenAI, Type } from "@google/genai";
 import { MetaButtonProps } from '../../types/index.tsx';
-import { PaperPlaneTilt, Robot, User, X, Copy, Check } from 'phosphor-react';
+import { PaperPlaneTilt, Robot, User, X, Copy } from 'phosphor-react';
+import { AnimatedCheckIcon } from '../Core';
 import CustomScrollbar from '../Core/CustomScrollbar.tsx';
 
 const allComponents = import.meta.glob('../../components/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
@@ -245,7 +246,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
                     marginTop: `calc(-1 * ${theme.space['Space.2XS']})`,
                   }}
                 >
-                  {copiedIndex === i ? <><Check size={10} color={theme.Color.Success.Content[1]} /> Copied</> : <><Copy size={10} /> Copy</>}
+                  {copiedIndex === i ? <><AnimatedCheckIcon size={10} color={theme.Color.Success.Content[1]} /> Copied</> : <><Copy size={10} /> Copy</>}
                 </button>
               </div>
             ))}

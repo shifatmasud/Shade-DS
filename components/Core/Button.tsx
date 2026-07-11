@@ -131,7 +131,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   const baseStyles: React.CSSProperties = {
     position: 'relative',
-    display: 'inline-flex',
+    display: 'flex',
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.space['Space.S'],

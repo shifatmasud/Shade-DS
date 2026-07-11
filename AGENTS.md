@@ -64,6 +64,7 @@ For every task involving component creation or modification:
 
 ## Interaction & Touch Parity
 - You MUST ensure high-quality interactive parity between mouse and touch devices.
+- **Content-Changing Elements**: All interactive elements that change their contents (e.g., buttons with dynamic labels, loading states, or toggles) MUST have `width: "100%"` (or equivalent flex-grow) to prevent layout shifts during content transitions.
 - **Hover-to-Drag Translation**: When implementing hover-driven UI (e.g., list highlights, sliders, grid previews), you MUST implement equivalent `onTouchMove` logic that allows users to "scrub" or "drag" across items to preview state changes before releasing to select.
 - **Event Mapping**: 
   - `onMouseEnter` / `onMouseOver` → Implement coordinate-based hit-testing in `onTouchMove`.

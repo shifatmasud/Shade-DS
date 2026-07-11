@@ -1,4 +1,5 @@
 export { default as Accordion } from './Accordion.tsx';
+export { AnimatedCheckIcon } from './AnimatedCheckIcon.tsx';
 export { AnimatedCopyIcon } from './AnimatedCopyIcon.tsx';
 export { default as AnimatedCounter } from './AnimatedCounter.tsx';
 export { default as ApiInput } from './ApiInput.tsx';

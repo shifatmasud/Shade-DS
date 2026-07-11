@@ -19,6 +19,7 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
 
   const containerStyle: React.CSSProperties = {
     display: 'flex',
+    width: '100%',
     alignItems: 'center',
     padding: theme.space['Space.XS'],
     backgroundColor: theme.Color.Base.Surface[2],

@@ -5,7 +5,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import { Copy, Check, Info, Play, Shield, Cpu, Palette, FileText } from 'phosphor-react';
+import { Copy, Info, Play, Shield, Cpu, Palette, FileText } from 'phosphor-react';
+import { AnimatedCheckIcon } from '../Core';
 
 const SYSTEM_SPEC_MARKDOWN = `# System Spec
 
@@ -194,7 +195,7 @@ const SystemSpecWindow = () => {
             transition: 'all 0.2s ease',
           }}
         >
-          {copied ? <Check size={14} color={theme.Color.Success.Content[1]} /> : <Copy size={14} />}
+          {copied ? <AnimatedCheckIcon size={14} color={theme.Color.Success.Content[1]} /> : <Copy size={14} />}
           {copied ? 'Copied!' : 'Copy Markdown'}
         </button>
       </div>

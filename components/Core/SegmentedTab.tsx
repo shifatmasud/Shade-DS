@@ -18,6 +18,7 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
   return (
     <div style={{
       display: 'flex',
+      width: '100%',
       padding: theme.space['Space.2XS'],
       backgroundColor: theme.Color.Base.Surface[2],
       borderRadius: theme.radius['Radius.M'],

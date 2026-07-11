@@ -4,7 +4,8 @@
  */
 import React, { useState } from 'react';
 import { useTheme } from '../../Theme.tsx';
-import { Eye, EyeSlash, FloppyDisk, Check } from 'phosphor-react';
+import { Eye, EyeSlash, FloppyDisk } from 'phosphor-react';
+import { AnimatedCheckIcon } from '../Core';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ApiInputProps {
@@ -114,7 +115,7 @@ const ApiInput: React.FC<ApiInputProps> = ({
                 exit={{ scale: 0.5, opacity: 0 }}
                 style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                <Check size={14} weight="bold" />
+                <AnimatedCheckIcon size={14} color={theme.Color.Success.Content[1]} />
                 <span style={{ ...theme.Type.Readable.Label.S, fontWeight: 700 }}>SAVED</span>
               </motion.div>
             ) : (

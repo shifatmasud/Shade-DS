@@ -10,7 +10,8 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-three/rapier';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Info, X, Copy, Check } from 'phosphor-react';
+import { Info, X, Copy } from 'phosphor-react';
+import { AnimatedCheckIcon } from '../Core';
 import { ErrorBoundary } from 'react-error-boundary';
 
 gsap.registerPlugin(useGSAP);
@@ -582,7 +583,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
                   fontWeight: 600,
                 }}
               >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
+                {copied ? <AnimatedCheckIcon size={18} /> : <Copy size={18} />}
                 {copied ? 'Copied!' : 'Copy Instructions'}
               </button>
             </motion.div>
