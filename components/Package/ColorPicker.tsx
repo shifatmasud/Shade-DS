@@ -428,7 +428,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCom
       (window as any).openColorPicker(pickerId, {
         label: label || "Color Picker",
         startX: pickerId === "fillColor" ? -140 : 140, // Elegant side-by-side split layout
-        startY: 0
+        startY: 120
       });
     }
   };

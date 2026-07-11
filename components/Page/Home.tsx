@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
+import { useMotionValue, useTransform, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import ThemeToggleButton from '../Core/ThemeToggleButton.tsx';
 import FloatingWindow from '../Package/FloatingWindow.tsx';
@@ -140,13 +140,13 @@ const Home = () => {
   };
 
   const [windows, setWindows] = useState<Record<WindowId, WindowState>>({
-    control: { id: 'control', title: 'Control', isOpen: false, zIndex: 1, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
-    code: { id: 'code', title: 'Code I/O', isOpen: false, zIndex: 2, x: 0, y: 0, height: CODE_PANEL_HEIGHT },
-    console: { id: 'console', title: 'Console', isOpen: false, zIndex: 3, x: 0, y: 0, height: CONSOLE_PANEL_HEIGHT },
-    styles: { id: 'styles', title: 'Style Guide', isOpen: false, zIndex: 4, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
-    systemSpec: { id: 'systemSpec', title: 'System Spec', isOpen: false, zIndex: 5, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
-    ai: { id: 'ai', title: 'AI Agent', isOpen: false, zIndex: 6, x: 0, y: 0, height: 480 },
-    settings: { id: 'settings', title: 'Settings', isOpen: false, zIndex: 7, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
+    control: { id: 'control', title: 'Control', isOpen: false, zIndex: 1, x: 0, y: 120, height: CONTROL_PANEL_HEIGHT },
+    code: { id: 'code', title: 'Code I/O', isOpen: false, zIndex: 2, x: 0, y: 120, height: CODE_PANEL_HEIGHT },
+    console: { id: 'console', title: 'Console', isOpen: false, zIndex: 3, x: 0, y: 120, height: CONSOLE_PANEL_HEIGHT },
+    styles: { id: 'styles', title: 'Style Guide', isOpen: false, zIndex: 4, x: 0, y: 120, height: CONTROL_PANEL_HEIGHT },
+    systemSpec: { id: 'systemSpec', title: 'System Spec', isOpen: false, zIndex: 5, x: 0, y: 120, height: CONTROL_PANEL_HEIGHT },
+    ai: { id: 'ai', title: 'AI Agent', isOpen: false, zIndex: 6, x: 0, y: 120, height: 480 },
+    settings: { id: 'settings', title: 'Settings', isOpen: false, zIndex: 7, x: 0, y: 120, height: CONTROL_PANEL_HEIGHT },
   });
 
   // --- Router Synchronization ---
@@ -414,155 +414,159 @@ const Home = () => {
       />
 
       {/* --- WINDOWS --- */}
-      <AnimatePresence>
-        {uiMode === 'default' && windows.control.isOpen && (
-          <FloatingWindow
-            key="control"
-            {...windows.control}
-            onClose={() => toggleWindow('control')}
-            onResize={(newHeight) => handleResize('control', newHeight)}
-            onFocus={() => bringToFront('control')}
-            footer={undoRedoComponent}
-          >
-            <ControlPanel
-                btnProps={btnProps}
-                onPropChange={handlePropChange}
-                radiusMotionValue={radiusMotionValue}
-                onRadiusCommit={handleRadiusCommit}
-                showMeasurements={showMeasurements}
-                onToggleMeasurements={handleToggleMeasurements}
-                showTokens={showTokens}
-                onToggleTokens={handleToggleTokens}
-                showStyles={windows.styles.isOpen}
-                onToggleStyles={() => toggleWindow('styles')}
-                showSystemSpec={windows.systemSpec.isOpen}
-                onToggleSystemSpec={() => toggleWindow('systemSpec')}
-                // 3D Props
-                view3D={view3D}
-                onToggleView3D={() => setView3D(!view3D)}
-                layerSpacing={layerSpacing}
-                viewRotateX={viewRotateX}
-                viewRotateZ={viewRotateZ}
-                uiMode={uiMode}
-                onToggleUIMode={() => setUiMode(uiMode === 'default' ? 'lean' : 'default')}
-                showThemeToggle={showThemeToggle}
-                onToggleThemeButton={() => setShowThemeToggle(!showThemeToggle)}
-                isAIControlEnabled={isAIControlEnabled}
-                onToggleAIControl={handleToggleAIControl}
-                geminiApiKey={geminiApiKey}
-                onGeminiApiKeyChange={handleGeminiApiKeyChange}
-            />
-          </FloatingWindow>
-        )}
-
-        {uiMode === 'default' && windows.code.isOpen && (
-          <FloatingWindow
-            key="code"
-            {...windows.code}
-            onClose={() => toggleWindow('code')}
-            onResize={(newHeight) => handleResize('code', newHeight)}
-            onFocus={() => bringToFront('code')}
-            footer={undoRedoComponent}
-          >
-            <CodePanel
-              codeText={codeText}
-              onCodeChange={handleCodeChange}
-              onCopyCode={handleCopyCode}
-              onFocus={() => setIsCodeFocused(true)}
-              onBlur={() => setIsCodeFocused(false)}
-              btnProps={btnProps}
-            />
-          </FloatingWindow>
-        )}
-
-        {uiMode === 'default' && windows.console.isOpen && (
-          <FloatingWindow
-            key="console"
-            {...windows.console}
-            onClose={() => toggleWindow('console')}
-            onResize={(newHeight) => handleResize('console', newHeight)}
-            onFocus={() => bringToFront('console')}
-            footer={undoRedoComponent}
-          >
-            <ConsolePanel logs={logs} />
-          </FloatingWindow>
-        )}
-
-        {windows.styles.isOpen && (
-          <FloatingWindow
-            key="styles"
-            {...windows.styles}
-            onClose={() => toggleWindow('styles')}
-            onResize={(newHeight) => handleResize('styles', newHeight)}
-            onFocus={() => bringToFront('styles')}
-          >
-            <StyleGuidePanel />
-          </FloatingWindow>
-        )}
-
-        {windows.systemSpec.isOpen && (
-          <FloatingWindow
-            key="systemSpec"
-            {...windows.systemSpec}
-            onClose={() => toggleWindow('systemSpec')}
-            onResize={(newHeight) => handleResize('systemSpec', newHeight)}
-            onFocus={() => bringToFront('systemSpec')}
-          >
-            <SystemSpec />
-          </FloatingWindow>
-        )}
-
-        {windows.ai.isOpen && (
-          <FloatingWindow
-            key="ai"
-            {...windows.ai}
-            onClose={() => {
-              toggleWindow('ai');
-              setIsAIControlEnabled(false);
-            }}
-            onResize={(newHeight) => handleResize('ai', newHeight)}
-            onFocus={() => bringToFront('ai')}
-          >
-            <AIPanel 
-              appState={btnProps} 
-              onUpdateState={(updates) => handlePropChange({ ...updates, componentType: 'custom' })}
-              apiKey={geminiApiKey}
-            />
-          </FloatingWindow>
-        )}
-
-        {/* --- LEAN MODE WINDOW --- */}
-        {/* Moved inside AnimatePresence for exit transitions */}
-        {uiMode === 'lean' && windows.control.isOpen && (
-          <FloatingWindow
-            key="lean-window"
-            {...windows.control}
-            onClose={() => toggleWindow('control')}
-            onFocus={() => bringToFront('control')}
-            onResize={(newHeight) => handleResize('control', newHeight)}
-            footer={undoRedoComponent}
-          >
-            <TabbedPanel 
-              panels={[
-                { id: 'control', title: 'Control', icon: <Sliders size={16} />, content: <ControlPanel btnProps={btnProps} onPropChange={handlePropChange} radiusMotionValue={radiusMotionValue} onRadiusCommit={handleRadiusCommit} showMeasurements={showMeasurements} onToggleMeasurements={handleToggleMeasurements} showTokens={showTokens} onToggleTokens={handleToggleTokens} 
+      <LayoutGroup>
+        <AnimatePresence>
+          {uiMode === 'default' && windows.control.isOpen && (
+            <FloatingWindow
+              key="control"
+              {...windows.control}
+              layoutId="control-window"
+              onClose={() => toggleWindow('control')}
+              onResize={(newHeight) => handleResize('control', newHeight)}
+              onFocus={() => bringToFront('control')}
+              footer={undoRedoComponent}
+            >
+              <ControlPanel
+                  btnProps={btnProps}
+                  onPropChange={handlePropChange}
+                  radiusMotionValue={radiusMotionValue}
+                  onRadiusCommit={handleRadiusCommit}
+                  showMeasurements={showMeasurements}
+                  onToggleMeasurements={handleToggleMeasurements}
+                  showTokens={showTokens}
+                  onToggleTokens={handleToggleTokens}
                   showStyles={windows.styles.isOpen}
                   onToggleStyles={() => toggleWindow('styles')}
                   showSystemSpec={windows.systemSpec.isOpen}
                   onToggleSystemSpec={() => toggleWindow('systemSpec')}
-                  view3D={view3D} onToggleView3D={() => setView3D(!view3D)} layerSpacing={layerSpacing} viewRotateX={viewRotateX} viewRotateZ={viewRotateZ} uiMode={uiMode} onToggleUIMode={() => setUiMode(prev => prev === 'default' ? 'lean' : 'default')}
+                  // 3D Props
+                  view3D={view3D}
+                  onToggleView3D={() => setView3D(!view3D)}
+                  layerSpacing={layerSpacing}
+                  viewRotateX={viewRotateX}
+                  viewRotateZ={viewRotateZ}
+                  uiMode={uiMode}
+                  onToggleUIMode={() => setUiMode(uiMode === 'default' ? 'lean' : 'default')}
                   showThemeToggle={showThemeToggle}
                   onToggleThemeButton={() => setShowThemeToggle(!showThemeToggle)}
                   isAIControlEnabled={isAIControlEnabled}
                   onToggleAIControl={handleToggleAIControl}
                   geminiApiKey={geminiApiKey}
-                  onGeminiApiKeyChange={handleGeminiApiKeyChange} /> },
-                { id: 'code', title: 'Code I/O', icon: <Code size={16} />, content: <CodePanel codeText={codeText} onCodeChange={handleCodeChange} onCopyCode={handleCopyCode} onFocus={() => setIsCodeFocused(true)} onBlur={() => setIsCodeFocused(false)} btnProps={btnProps} /> },
-                { id: 'console', title: 'Console', icon: <Terminal size={16} />, content: <ConsolePanel logs={logs} /> },
-              ]}
-            />
-          </FloatingWindow>
-        )}
-      </AnimatePresence>
+                  onGeminiApiKeyChange={handleGeminiApiKeyChange}
+              />
+            </FloatingWindow>
+          )}
+
+          {uiMode === 'default' && windows.code.isOpen && (
+            <FloatingWindow
+              key="code"
+              {...windows.code}
+              onClose={() => toggleWindow('code')}
+              onResize={(newHeight) => handleResize('code', newHeight)}
+              onFocus={() => bringToFront('code')}
+              footer={undoRedoComponent}
+            >
+              <CodePanel
+                codeText={codeText}
+                onCodeChange={handleCodeChange}
+                onCopyCode={handleCopyCode}
+                onFocus={() => setIsCodeFocused(true)}
+                onBlur={() => setIsCodeFocused(false)}
+                btnProps={btnProps}
+              />
+            </FloatingWindow>
+          )}
+
+          {uiMode === 'default' && windows.console.isOpen && (
+            <FloatingWindow
+              key="console"
+              {...windows.console}
+              onClose={() => toggleWindow('console')}
+              onResize={(newHeight) => handleResize('console', newHeight)}
+              onFocus={() => bringToFront('console')}
+              footer={undoRedoComponent}
+            >
+              <ConsolePanel logs={logs} />
+            </FloatingWindow>
+          )}
+
+          {windows.styles.isOpen && (
+            <FloatingWindow
+              key="styles"
+              {...windows.styles}
+              onClose={() => toggleWindow('styles')}
+              onResize={(newHeight) => handleResize('styles', newHeight)}
+              onFocus={() => bringToFront('styles')}
+            >
+              <StyleGuidePanel />
+            </FloatingWindow>
+          )}
+
+          {windows.systemSpec.isOpen && (
+            <FloatingWindow
+              key="systemSpec"
+              {...windows.systemSpec}
+              onClose={() => toggleWindow('systemSpec')}
+              onResize={(newHeight) => handleResize('systemSpec', newHeight)}
+              onFocus={() => bringToFront('systemSpec')}
+            >
+              <SystemSpec />
+            </FloatingWindow>
+          )}
+
+          {windows.ai.isOpen && (
+            <FloatingWindow
+              key="ai"
+              {...windows.ai}
+              onClose={() => {
+                toggleWindow('ai');
+                setIsAIControlEnabled(false);
+              }}
+              onResize={(newHeight) => handleResize('ai', newHeight)}
+              onFocus={() => bringToFront('ai')}
+            >
+              <AIPanel 
+                appState={btnProps} 
+                onUpdateState={(updates) => handlePropChange({ ...updates, componentType: 'custom' })}
+                apiKey={geminiApiKey}
+              />
+            </FloatingWindow>
+          )}
+
+          {/* --- LEAN MODE WINDOW --- */}
+          {/* Moved inside AnimatePresence for exit transitions */}
+          {uiMode === 'lean' && windows.control.isOpen && (
+            <FloatingWindow
+              key="lean-window"
+              {...windows.control}
+              layoutId="control-window"
+              onClose={() => toggleWindow('control')}
+              onFocus={() => bringToFront('control')}
+              onResize={(newHeight) => handleResize('control', newHeight)}
+              footer={undoRedoComponent}
+            >
+              <TabbedPanel 
+                panels={[
+                  { id: 'control', title: 'Control', icon: <Sliders size={16} />, content: <ControlPanel btnProps={btnProps} onPropChange={handlePropChange} radiusMotionValue={radiusMotionValue} onRadiusCommit={handleRadiusCommit} showMeasurements={showMeasurements} onToggleMeasurements={handleToggleMeasurements} showTokens={showTokens} onToggleTokens={handleToggleTokens} 
+                    showStyles={windows.styles.isOpen}
+                    onToggleStyles={() => toggleWindow('styles')}
+                    showSystemSpec={windows.systemSpec.isOpen}
+                    onToggleSystemSpec={() => toggleWindow('systemSpec')}
+                    view3D={view3D} onToggleView3D={() => setView3D(!view3D)} layerSpacing={layerSpacing} viewRotateX={viewRotateX} viewRotateZ={viewRotateZ} uiMode={uiMode} onToggleUIMode={() => setUiMode(prev => prev === 'default' ? 'lean' : 'default')}
+                    showThemeToggle={showThemeToggle}
+                    onToggleThemeButton={() => setShowThemeToggle(!showThemeToggle)}
+                    isAIControlEnabled={isAIControlEnabled}
+                    onToggleAIControl={handleToggleAIControl}
+                    geminiApiKey={geminiApiKey}
+                    onGeminiApiKeyChange={handleGeminiApiKeyChange} /> },
+                  { id: 'code', title: 'Code I/O', icon: <Code size={16} />, content: <CodePanel codeText={codeText} onCodeChange={handleCodeChange} onCopyCode={handleCopyCode} onFocus={() => setIsCodeFocused(true)} onBlur={() => setIsCodeFocused(false)} btnProps={btnProps} /> },
+                  { id: 'console', title: 'Console', icon: <Terminal size={16} />, content: <ConsolePanel logs={logs} /> },
+                ]}
+              />
+            </FloatingWindow>
+          )}
+        </AnimatePresence>
+      </LayoutGroup>
 
       {/* --- PERSISTENT COLOR PICKERS --- */}
       <AnimatePresence>

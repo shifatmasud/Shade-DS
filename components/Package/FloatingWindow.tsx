@@ -22,6 +22,7 @@ interface FloatingWindowProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   onResize?: (height: number) => void;
+  layoutId?: string;
 }
 
 const FloatingWindow: React.FC<FloatingWindowProps> = ({
@@ -33,6 +34,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
   onFocus,
   children,
   footer,
+  layoutId,
 }) => {
   const { theme, themeName } = useTheme();
   const dragControls = useDragControls();
@@ -44,7 +46,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
 
   const styles: React.CSSProperties = {
     position: 'absolute',
-    top: '50%',
+    top: 0,
     left: '50%',
     width: theme.space['Space.Panel.Width'],
     height: 'auto',
@@ -63,7 +65,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     zIndex: zIndex,
     display: 'flex',
     flexDirection: 'column',
-    translate: '-50% -50%',
+    translate: '-50% 0',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -103,7 +105,9 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
 
   return (
     <motion.div
-      style={{ ...styles, x, y }}
+      layout
+      layoutId={layoutId}
+      style={{ ...styles, x, y, originY: 0, transformOrigin: 'top center' }}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -112,9 +116,13 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
       dragControls={dragControls}
       dragMomentum={false}
       onPointerDown={() => onFocus()}
-      transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+      transition={{ 
+        layout: { type: 'spring', damping: 30, stiffness: 300 },
+        default: { type: 'spring', damping: 28, stiffness: 320 }
+      }}
     >
-      <div
+      <motion.div
+        layout="position"
         style={headerStyle}
       >
           <div 
@@ -129,6 +137,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
             </span>
           </div>
           <motion.button
+            layout
             onClick={onClose}
             style={{
               width: theme.space['Space.M'], // Approximated from 14px to token
@@ -143,15 +152,17 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
             whileTap={{ scale: 0.9 }}
             aria-label="Close"
           />
-      </div>
+      </motion.div>
       
-      <div
+      <motion.div
+        layout="position"
         style={contentStyle}
       >
         {children}
-      </div>
+      </motion.div>
       {footer && (
-        <div
+        <motion.div
+          layout="position"
           style={footerStyle}
           onPointerDown={(e) => {
             e.preventDefault();
@@ -159,7 +170,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
           }}
         >
           {footer}
-        </div>
+        </motion.div>
       )}
     </motion.div>
   );

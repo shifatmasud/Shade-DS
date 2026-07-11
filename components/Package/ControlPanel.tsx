@@ -102,7 +102,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   return (
     <>
       <Accordion title="Global" defaultOpen>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
+        <motion.div layout="position" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <Toggle
             label="Lean UI Mode"
             isOn={uiMode === 'lean'}
@@ -118,11 +118,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             isOn={showThemeToggle}
             onToggle={onToggleThemeButton}
           />
-        </div>
+        </motion.div>
       </Accordion>
 
       <Accordion title="Component">
-        <motion.div layout="size" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
+        <motion.div layout="position" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           <Select<any>
             label="Component Type"
             value={btnProps.componentType}
@@ -209,7 +209,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </Accordion>
 
       <Accordion title="Appearance">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
+        <motion.div layout="position" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           <RangeSlider
             label="Corner Radius"
             motionValue={radiusMotionValue}
@@ -218,7 +218,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             max={56}
           />
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'], width: '100%' }}>
+          <motion.div layout="position" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'], width: '100%' }}>
             {!isTertiary && (
               <ColorPicker
                 label="Fill Color"
@@ -231,12 +231,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               value={btnProps.customColor || (btnProps.variant === 'primary' ? (themeName === 'dark' ? '#000000' : '#ffffff') : (themeName === 'dark' ? '#ffffff' : '#111111'))}
               onChange={(e) => onPropChange('customColor', e.target.value)}
             />
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </Accordion>
 
       <Accordion title="State">
-        <div style={{ width: '100%' }}>
+        <motion.div layout="position" style={{ width: '100%' }}>
           <Select<any> 
               label="Interaction State"
               value={currentInteraction}
@@ -249,11 +249,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                   { value: 'disabled', label: 'Disabled' },
               ]}
           />
-        </div>
+        </motion.div>
       </Accordion>
 
       <Accordion title="Agent">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
+        <motion.div layout="position" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <Toggle
             label="AI Control"
             isOn={isAIControlEnabled}
@@ -266,11 +266,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             onSave={onGeminiApiKeyChange}
             placeholder="Enter your API key"
           />
-        </div>
+        </motion.div>
       </Accordion>
 
       <Accordion title="Inspector">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
+        <motion.div layout="position" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <Toggle
             label="Show Measurements"
             isOn={showMeasurements}
@@ -298,7 +298,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           />
           
           {view3D && (
-            <div style={{ 
+            <motion.div 
+              layout="position"
+              style={{ 
               marginTop: theme.space['Space.S'], 
               padding: theme.space['Space.M'], 
               backgroundColor: theme.Color.Base.Surface[2], 
@@ -329,9 +331,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 min={0}
                 max={360}
               />
-            </div>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
       </Accordion>
     </>
   );

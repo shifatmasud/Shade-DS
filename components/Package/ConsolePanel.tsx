@@ -15,9 +15,16 @@ const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs }) => {
   const { theme } = useTheme();
   const endRef = useRef<HTMLDivElement>(null);
 
+  const isFirstRender = useRef(true);
+
   // Auto-scroll to bottom
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isFirstRender.current) {
+      endRef.current?.scrollIntoView({ behavior: 'auto' });
+      isFirstRender.current = false;
+    } else {
+      endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [logs]);
 
   // Clean the token to remove non-style props
