@@ -93,7 +93,6 @@ Never overwrite previous entries.`;
 
 const SystemSpecWindow = () => {
   const { theme } = useTheme();
-  const [copied, setCopied] = useState(false);
 
   const fallbackCopy = (text: string): boolean => {
     try {
@@ -119,24 +118,12 @@ const SystemSpecWindow = () => {
     const text = SYSTEM_SPEC_MARKDOWN;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text)
-        .then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        })
         .catch((err) => {
           console.warn('Clipboard write failed, trying fallback:', err);
-          const success = fallbackCopy(text);
-          if (success) {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }
+          fallbackCopy(text);
         });
     } else {
-      const success = fallbackCopy(text);
-      if (success) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
+      fallbackCopy(text);
     }
   };
 

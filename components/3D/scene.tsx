@@ -395,7 +395,6 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
   const [fps, setFps] = useState(0);
 
   const [showDialog, setShowDialog] = useState(false);
-  const [copied, setCopied] = useState(false);
   const humanExplanation = 'This is the "Viewport Slot" extension. Use this when you need a fresh, isolated project component in the viewport. To use: Copy these instructions and provide them to the agent when you are ready to generate a new component for the viewport.';
   const agentInstructions = 'Agent Instructions:\n1. Render this component into the /components/staged/ directory.\n2. In /components/Section/Stage.tsx, update the imports to include only the new component.\n3. Remove all other files in /components/staged/ and all references to them in Stage.tsx or other files.\n4. Synchronize controls, code, and console outputs to this new component.';
 
@@ -423,24 +422,12 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
     const text = agentInstructions;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text)
-        .then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        })
         .catch((err) => {
           console.warn('Clipboard write failed, trying fallback:', err);
-          const success = fallbackCopy(text);
-          if (success) {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }
+          fallbackCopy(text);
         });
     } else {
-      const success = fallbackCopy(text);
-      if (success) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
+      fallbackCopy(text);
     }
   };
 

@@ -198,7 +198,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     transition: 'background-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
     boxShadow: getButtonShadow(),
     isolation: 'isolate',
-    pointerEvents: isSuccess ? 'none' : 'auto',
+    // GESTURE LOCKUP FIX: Keep pointerEvents as 'auto' during success to allow the browser and Framer Motion to receive pointerup/mouseup events, preventing UI freeze.
+    pointerEvents: 'auto',
     ...getSizeStyles(),
     ...getVariantStyles(),
   };
@@ -234,6 +235,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       animate={animate}
       transition={transition || { type: 'spring', stiffness: 400, damping: 30 }}
       onClick={handleClick}
+      data-success={isSuccess ? "true" : "false"}
       {...(rest as any)}
     >
       {/* Background Layers for Mask Slide */}

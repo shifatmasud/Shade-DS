@@ -27,10 +27,16 @@ const ApiInput: React.FC<ApiInputProps> = ({
   const [isVisible, setIsVisible] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  React.useEffect(() => {
+    if (isSaved) {
+      const timer = setTimeout(() => setIsSaved(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSaved]);
+
   const handleSave = () => {
     onSave(value);
     setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2000);
   };
 
   return (

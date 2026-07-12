@@ -75,6 +75,11 @@ export default function RippleLayer({
     if (!target) return;
 
     const handleClick = (e: MouseEvent) => {
+      // Guard: Do not trigger ripple when parent is showing success or is disabled
+      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+        return;
+      }
+
       const rect = target.getBoundingClientRect();
       let x, y;
       

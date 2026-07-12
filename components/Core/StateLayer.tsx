@@ -78,6 +78,10 @@ export default function StateLayer({
     if (!target) return;
 
     const handleEnter = (e: PointerEvent) => {
+      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+        setIsActive(false);
+        return;
+      }
       const rect = target.getBoundingClientRect();
       setDimensions({ width: rect.width, height: rect.height });
       setIsActive(true);
@@ -86,6 +90,10 @@ export default function StateLayer({
     const handleLeave = () => setIsActive(false);
 
     const handleMove = (e: PointerEvent) => {
+      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+        setIsActive(false);
+        return;
+      }
       const rect = target.getBoundingClientRect();
       setMousePos({
         x: e.clientX - rect.left,
@@ -94,6 +102,10 @@ export default function StateLayer({
     };
 
     const handleTouchMove = (e: TouchEvent) => {
+      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+        setIsActive(false);
+        return;
+      }
       // Prevent scrolling when scrubbing the state layer
       if (e.cancelable) e.preventDefault();
       const rect = target.getBoundingClientRect();
@@ -115,6 +127,10 @@ export default function StateLayer({
     };
 
     const handleDown = (e: PointerEvent) => {
+      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+        setIsActive(false);
+        return;
+      }
       const rect = target.getBoundingClientRect();
       setDimensions({ width: rect.width, height: rect.height });
       setMousePos({

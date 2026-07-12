@@ -23,7 +23,6 @@ import { AnimatedCheckIcon, Button } from '../Core';
 
 const SystemSpec = () => {
   const { theme } = useTheme();
-  const [copied, setCopied] = useState(false);
 
   const markdownContent = `# System Spec
 
@@ -124,8 +123,6 @@ Inside the target file:
 
   const handleCopy = () => {
     navigator.clipboard.writeText(markdownContent);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   const sectionStyle: React.CSSProperties = {

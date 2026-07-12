@@ -248,8 +248,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     ...variantStyles,
     ...sizeStyles,
     boxShadow: getButtonShadow(disabled ? 'disabled' : (forcedActive ? 'active' : (effectiveHover ? 'hover' : 'idle'))),
-    // INTERACTION GUARD: Disable pointer events during the success animation to completely prevent duplicate clicks or tap gestures from locking up Framer Motion
-    pointerEvents: isSuccess ? 'none' : 'auto',
+    // GESTURE LOCKUP FIX: Keep pointerEvents as 'auto' during success to allow the browser and Framer Motion to receive pointerup/mouseup events, preventing UI freeze.
+    pointerEvents: 'auto',
   };
 
   // State Layer Opacity
@@ -339,6 +339,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       animate={getAnimateState()}
       whileTap={forcedActive ? undefined : { scale: 0.95, y: 2, boxShadow: getButtonShadow('active') }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
+      data-success={isSuccess ? "true" : "false"}
     >
       {/* 0. SURFACE LAYER (Base Z=0) */}
       <motion.div style={{ ...layerWrapperStyle, zIndex: 0, border: getDebugBorder(colors.surface) }} />
