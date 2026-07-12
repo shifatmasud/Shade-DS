@@ -16,7 +16,7 @@ interface TokenBadgeProps {
   delay: number;
 }
 
-const TokenBadge: React.FC<TokenBadgeProps> = ({ label, variant, x, y, delay }) => {
+const TokenBadge: React.FC<TokenBadgeProps> = React.memo(({ label, variant, x, y, delay }) => {
   const { theme } = useTheme();
   const colors = theme.Color[variant];
   const strokeColor = colors.Content[1];
@@ -57,7 +57,7 @@ const TokenBadge: React.FC<TokenBadgeProps> = ({ label, variant, x, y, delay }) 
       {label}
     </motion.div>
   );
-};
+});
 
 export default TokenBadge;
 

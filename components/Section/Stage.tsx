@@ -287,6 +287,14 @@ const getTokenVariant = (label: string): FeedbackVariant => {
 const TokenOverlay: React.FC<{ anatomy: ElementAnatomy; btnProps: StageComponentProps }> = ({ anatomy, btnProps }) => {
   const { width, height, children, gap, padding } = anatomy;
   const PAD = 100;
+  
+  // Persist MotionValues to allow free dragging without snapping back on re-renders
+  const mvsRef = useRef<Record<string, { 
+    x: MotionValue<number>; 
+    y: MotionValue<number>; 
+    tx: MotionValue<number>; 
+    ty: MotionValue<number>; 
+  }>>({});
 
   const tokens = useMemo(() => {
     const tokenData = [];
@@ -325,13 +333,30 @@ const TokenOverlay: React.FC<{ anatomy: ElementAnatomy; btnProps: StageComponent
     }
 
     return tokenData.map(t => {
-      const width = t.label.length * 7 + 16; // Estimate width based on label
+      const tWidth = t.label.length * 7 + 16;
+      
+      // Reuse or initialize MotionValues
+      if (!mvsRef.current[t.label]) {
+          mvsRef.current[t.label] = {
+              x: motionValue(t.x),
+              y: motionValue(t.y),
+              tx: motionValue(t.targetX),
+              ty: motionValue(t.targetY)
+          };
+      } else {
+          // Imperatively update target positions without re-rendering
+          mvsRef.current[t.label].tx.set(t.targetX);
+          mvsRef.current[t.label].ty.set(t.targetY);
+      }
+
       return {
         ...t,
         variant: getTokenVariant(t.label),
-        x: motionValue(t.x),
-        y: motionValue(t.y),
-        width,
+        x: mvsRef.current[t.label].x,
+        y: mvsRef.current[t.label].y,
+        targetX: mvsRef.current[t.label].tx,
+        targetY: mvsRef.current[t.label].ty,
+        width: tWidth,
       };
     });
   }, [anatomy, btnProps]);

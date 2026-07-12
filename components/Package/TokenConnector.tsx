@@ -12,8 +12,8 @@ interface TokenConnectorProps {
   variant: FeedbackVariant;
   x: MotionValue<number>;
   y: MotionValue<number>;
-  targetX: number;
-  targetY: number;
+  targetX: MotionValue<number>;
+  targetY: MotionValue<number>;
   delay: number;
   width: number;
 }
@@ -24,14 +24,16 @@ const TokenConnector: React.FC<TokenConnectorProps> = ({ variant, x, y, targetX,
   const strokeColor = colors.Content[1];
   const fillColor = colors.Surface[1];
 
-  const path = useTransform([x, y], ([latestX, latestY]) => {
+  const path = useTransform([x, y, targetX, targetY], ([latestX, latestY, tX, tY]) => {
     const numX = latestX as number;
     const numY = latestY as number;
+    const numTX = tX as number;
+    const numTY = tY as number;
     const startX = numX + width / 2;
     const startY = numY + 10; // Badge height is 20, so center is 10
     const cp1x = startX;
-    const cp1y = targetY;
-    return `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${targetX} ${startY}, ${targetX} ${targetY}`;
+    const cp1y = numTY;
+    return `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${numTX} ${startY}, ${numTX} ${numTY}`;
   });
 
   return (
