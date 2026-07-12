@@ -43,6 +43,7 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
     e.stopPropagation();
     setIsDragging(true);
     onDragStart?.();
+    playSound('grab', 0.8);
     e.target.setPointerCapture(e.pointerId);
 
     // Save world coordinates of pickup hit point
@@ -77,6 +78,7 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
     e.stopPropagation();
     setIsDragging(false);
     onDragEnd?.();
+    playSound('letgo', 0.6);
     if (e.target.hasPointerCapture(e.pointerId)) {
       e.target.releasePointerCapture(e.pointerId);
     }
@@ -185,7 +187,15 @@ const Floor = () => (
   <RigidBody type="fixed" position={[0, -2, 0]}>
     <mesh receiveShadow>
       <boxGeometry args={[20, 1, 20]} />
-      <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+      <meshPhysicalMaterial 
+        color="#08080c" 
+        roughness={0.12} 
+        metalness={0.5}
+        clearcoat={1.0}
+        clearcoatRoughness={0.08}
+        transmission={0.2}
+        thickness={0.5}
+      />
     </mesh>
   </RigidBody>
 );
@@ -210,6 +220,7 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
     e.stopPropagation();
     setIsDragging(true);
     onDragStart?.();
+    playSound('grab', 0.8);
     e.target.setPointerCapture(e.pointerId);
 
     // Save world coordinates of pickup hit point
@@ -243,6 +254,7 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
   const handlePointerUp = (e: any) => {
     setIsDragging(false);
     onDragEnd?.();
+    playSound('letgo', 0.6);
     e.target.releasePointerCapture(e.pointerId);
   };
 
@@ -514,37 +526,46 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
       color: randomColor,
       position: [(Math.random() - 0.5) * 4, 10, (Math.random() - 0.5) * 4],
     });
+    playSound('spawn', 0.85);
   };
 
   return (
     <div style={{ width: '100%', height: '100%', minHeight: '400px', position: 'relative', overflow: 'hidden', background: '#050505' }}>
       <div style={overlayStyle}>
-        <button style={buttonStyle} onClick={spawnCube}>
+        <motion.button 
+          style={buttonStyle} 
+          onClick={spawnCube}
+          whileHover={{ scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.25)' }}
+          whileTap={{ scale: 0.95 }}
+        >
           Spawn Jelly Cube
-        </button>
+        </motion.button>
       </div>
 
       {/* Info Trigger */}
       <motion.button
         onClick={() => setShowDialog(true)}
-        whileHover={{ scale: 1.05 }}
+        whileHover={{ scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.25)' }}
         whileTap={{ scale: 0.95 }}
         style={{
           position: 'absolute',
           top: theme.space['Space.M'],
           right: theme.space['Space.M'],
-          width: theme.space['Space.3XL'],
-          height: theme.space['Space.3XL'],
-          borderRadius: theme.radius['Radius.Full'],
-          backgroundColor: theme.Color.Base.Surface[2],
-          color: theme.Color.Base.Content[1],
-          ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+          width: '40px',
+          height: '40px',
+          borderRadius: '50%',
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          color: '#ffffff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 50,
-          boxShadow: theme.effects['Effect.Shadow.Drop.1'],
+          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+          transition: 'border-color 0.3s ease, background-color 0.3s ease',
         }}
       >
         <Info size={20} />
@@ -659,8 +680,11 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
             maxPolarAngle={Math.PI / 2.1} 
           />
           
-          <ambientLight intensity={0.5} />
+          <ambientLight intensity={0.25} />
           <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={512} shadow-mapSize-height={512} />
+          <pointLight position={[-6, 4, -6]} intensity={350} color="#00e5ff" />
+          <pointLight position={[6, 3, 6]} intensity={250} color="#ff00a0" />
+          <gridHelper args={[20, 20, '#444455', '#161622']} position={[0, -1.49, 0]} />
           
           <Physics gravity={[0, -9.81, 0]}>
             <RotatingBox 

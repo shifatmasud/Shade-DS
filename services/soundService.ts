@@ -137,6 +137,41 @@ export const RECIPES = {
     ],
     shimmer: { delay: 0.1, feedback: 0.22, wet: 0.16, lowpass: 4500 },
   },
+  /** A soft, wet, multi-layered squishy thump for jelly cubes colliding. */
+  jelly_impact: {
+    masterGain: 0.55,
+    layers: [
+      { kind: "tone", waveform: "sine", frequency: 160, glideTo: 65, glideTime: 0.18, attack: 0.005, decay: 0.22, peak: 0.25 },
+      { kind: "tone", waveform: "sine", frequency: 320, glideTo: 140, glideTime: 0.12, attack: 0.01, decay: 0.15, peak: 0.18, detune: 8 },
+      { kind: "noise", filterType: "bandpass", filterFrequency: 900, filterQ: 2.0, attack: 0.002, decay: 0.03, peak: 0.15 }
+    ],
+    shimmer: { delay: 0.08, feedback: 0.15, wet: 0.1, lowpass: 2000 }
+  },
+  /** A playful rising bubble pop when a jelly cube spawns. */
+  jelly_spawn: {
+    masterGain: 0.45,
+    layers: [
+      { kind: "tone", waveform: "sine", frequency: 220, glideTo: 880, glideTime: 0.09, attack: 0.004, decay: 0.12, peak: 0.15 },
+      { kind: "tone", waveform: "sine", frequency: 2400, attack: 0.001, decay: 0.015, peak: 0.02 },
+      { kind: "noise", filterType: "bandpass", filterFrequency: 3000, filterQ: 3.0, attack: 0.001, decay: 0.02, peak: 0.05 }
+    ],
+    shimmer: { delay: 0.06, feedback: 0.2, wet: 0.08, lowpass: 5000 }
+  },
+  /** A rapid, suction-like downward swoop with high-frequency contact for picking up a jelly cube. */
+  jelly_grab: {
+    masterGain: 0.4,
+    layers: [
+      { kind: "tone", waveform: "sine", frequency: 750, glideTo: 220, glideTime: 0.07, attack: 0.003, decay: 0.08, peak: 0.14 },
+      { kind: "noise", filterType: "highpass", filterFrequency: 1800, filterQ: 1.0, attack: 0.002, decay: 0.04, peak: 0.08 }
+    ]
+  },
+  /** A gentle low-mid release swoosh when letting a jelly cube go. */
+  jelly_release: {
+    masterGain: 0.35,
+    layers: [
+      { kind: "tone", waveform: "sine", frequency: 280, glideTo: 160, glideTime: 0.12, attack: 0.008, decay: 0.14, peak: 0.12 }
+    ]
+  },
 } as const satisfies Record<string, SoundRecipe>;
 
 export type SoundName = keyof typeof RECIPES;
@@ -148,7 +183,7 @@ export function isSoundName(value: unknown): value is SoundName {
 /** All available sound names, derived from the recipe palette. */
 export const sounds = Object.keys(RECIPES) as readonly SoundName[];
 
-export type SoundType = SoundName | 'click' | 'hover' | 'press' | 'drag' | 'impact';
+export type SoundType = SoundName | 'click' | 'hover' | 'press' | 'drag' | 'impact' | 'spawn' | 'grab' | 'letgo';
 
 function resolveSoundName(name: string): SoundName {
   if (isSoundName(name)) return name;
@@ -158,7 +193,10 @@ function resolveSoundName(name: string): SoundName {
     case 'press': return 'press';
     case 'release': return 'release';
     case 'drag': return 'whisper';
-    case 'impact': return 'droplet';
+    case 'impact': return 'jelly_impact';
+    case 'spawn': return 'jelly_spawn';
+    case 'grab': return 'jelly_grab';
+    case 'letgo': return 'jelly_release';
     default: return 'tick';
   }
 }
