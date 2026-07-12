@@ -5,6 +5,7 @@
 import React from 'react';
 import { useTheme } from '../../Theme.tsx';
 import { LogEntry as LogEntryType } from '../../types/index.tsx';
+import DoubleLayeredText from './DoubleLayeredText.tsx';
 
 interface LogEntryProps {
   log: LogEntryType;
@@ -67,7 +68,12 @@ const LogEntry: React.FC<LogEntryProps> = ({ log }) => {
           wordBreak: 'break-word',
           flex: 1
       }}>
-          {log.message}
+          <DoubleLayeredText 
+            text={log.message}
+            color={getLogColor(log.message)}
+            shimmerColor={getLogColor(log.message)}
+            typingSpeed={0.015}
+          />
       </span>
     </div>
   );

@@ -9,6 +9,7 @@ export { default as CustomScrollbar } from './CustomScrollbar.tsx';
 export { default as DockIcon } from './DockIcon.tsx';
 export { default as Input } from './Input.tsx';
 export { default as LogEntry } from './LogEntry.tsx';
+export { default as DoubleLayeredText } from './DoubleLayeredText.tsx';
 export { default as RangeSlider } from './RangeSlider.tsx';
 export { default as RippleLayer } from './RippleLayer.tsx';
 export { default as SegmentedTab } from './SegmentedTab.tsx';
