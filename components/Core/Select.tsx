@@ -100,6 +100,11 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
 
   const [hoveredIdx, setHoveredIdx] = useState(-1);
 
+  // Selected indicator motion values
+  const sTop = useMotionValue(0);
+  const sLeft = useMotionValue(0);
+  const sOpacity = useMotionValue(0);
+
   const updateHighlight = useCallback(() => {
     if (hoveredIdx === -1 || !dropdownRef.current || !scrollRef.current) {
       animate(hOpacity, 0, { duration: 0.1 });
@@ -130,9 +135,46 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
     }
   }, [hoveredIdx, isGrid, hTop, hLeft, hWidth, hHeight, hOpacity]);
 
+  const updateSelected = useCallback(() => {
+    if (!scrollRef.current || !isGrid) {
+      sOpacity.set(0);
+      return;
+    }
+    const idx = options.findIndex(o => o.value === value);
+    if (idx === -1) {
+      sOpacity.set(0);
+      return;
+    }
+    const items = scrollRef.current.querySelectorAll('[data-grid-item]');
+    const targetItem = items[idx] as HTMLElement;
+    
+    if (targetItem) {
+      const target = {
+        top: targetItem.offsetTop + targetItem.offsetHeight - 10,
+        left: targetItem.offsetLeft + targetItem.offsetWidth / 2 - 2,
+      };
+
+      if (sOpacity.get() > 0) {
+        animate(sTop, target.top, { type: 'spring', stiffness: 500, damping: 35 });
+        animate(sLeft, target.left, { type: 'spring', stiffness: 500, damping: 35 });
+      } else {
+        sTop.set(target.top);
+        sLeft.set(target.left);
+        animate(sOpacity, 1, { duration: 0.2 });
+      }
+    }
+  }, [value, options, isGrid, sTop, sLeft, sOpacity]);
+
   useEffect(() => {
     updateHighlight();
   }, [updateHighlight]);
+
+  useEffect(() => {
+    updateSelected();
+    // Small delay to ensure layout is settled
+    const timer = setTimeout(updateSelected, 32);
+    return () => clearTimeout(timer);
+  }, [updateSelected]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!scrollRef.current) return;
@@ -214,7 +256,6 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      transition: `color ${theme.time['Time.1x']} ease`,
     }),
     gridContainer: {
       display: 'grid',
@@ -235,7 +276,6 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
       color: isSelected ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2],
       fontSize: '20px',
       zIndex: 1,
-      transition: `color ${theme.time['Time.1x']} ease`,
     }),
     floatingLabel: {
       position: 'fixed' as const,
@@ -295,6 +335,22 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
           }}
         />
 
+        {/* Selected Indicator Dot */}
+        <motion.div
+          style={{
+            position: 'absolute',
+            pointerEvents: 'none',
+            zIndex: 2,
+            width: '4px',
+            height: '4px',
+            borderRadius: '50%',
+            backgroundColor: theme.Color.Base.Content[1],
+            top: sTop,
+            left: sLeft,
+            opacity: sOpacity,
+          }}
+        />
+
         {isGrid ? (
           <div style={styles.gridContainer}>
             {options.map((option, idx) => (
@@ -302,6 +358,7 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
                 key={option.value}
                 data-grid-item
                 onClick={() => onSelect(option.value)}
+                animate={{ color: option.value === value ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2] }}
                 style={styles.gridItem(option.value === value)}
                 onMouseEnter={() => setHoveredIdx(idx)}
                 whileTap={{ scale: 0.95 }}
@@ -310,22 +367,6 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
                   <i className={`ph-bold ${option.icon}`} />
                 ) : (
                   <span style={{ fontSize: '14px' }}>{option.label.slice(0, 2)}</span>
-                )}
-                {option.value === value && (
-                   <motion.div
-                    layoutId={`selected-dot-${instanceId}`}
-                    style={{
-                      position: 'absolute',
-                      bottom: '6px',
-                      left: '50%',
-                      translateX: '-50%',
-                      width: '4px',
-                      height: '4px',
-                      borderRadius: '50%',
-                      backgroundColor: theme.Color.Base.Content[1],
-                      zIndex: 2,
-                    }}
-                   />
                 )}
               </motion.div>
             ))}

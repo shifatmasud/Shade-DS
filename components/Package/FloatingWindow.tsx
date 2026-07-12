@@ -50,7 +50,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
 
   const styles: React.CSSProperties = {
     position: 'absolute',
-    top: 0,
+    top: '50%',
     left: '50%',
     width: theme.space['Space.Panel.Width'],
     height: height ? `${height}px` : 'auto',
@@ -69,7 +69,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     zIndex: zIndex,
     display: 'flex',
     flexDirection: 'column',
-    translate: '-50% 0',
+    translate: '-50% -50%',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -113,7 +113,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
   return (
     <motion.div
       layoutId={layoutId}
-      style={{ ...styles, x, y, originY: 0, transformOrigin: 'top center' }}
+      style={{ ...styles, x, y, transformOrigin: 'center center' }}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
