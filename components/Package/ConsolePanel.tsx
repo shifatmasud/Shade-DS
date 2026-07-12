@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../../Theme.tsx';
 import { LogEntry as LogEntryType } from '../../types/index.tsx';
 import LogEntry from '../Core/LogEntry.tsx';
@@ -14,6 +14,7 @@ interface ConsolePanelProps {
 const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs }) => {
   const { theme } = useTheme();
   const endRef = useRef<HTMLDivElement>(null);
+  const [completedLogs, setCompletedLogs] = useState<Record<string, boolean>>({});
 
   const isFirstRender = useRef(true);
 
@@ -24,6 +25,27 @@ const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs }) => {
       isFirstRender.current = false;
     } else {
       endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
+
+  // Keep completedLogs state in sync with existing logs list
+  useEffect(() => {
+    if (logs.length === 0) {
+      setCompletedLogs({});
+    } else {
+      const logIds = new Set(logs.map(l => l.id));
+      setCompletedLogs(prev => {
+        let hasOrphan = false;
+        const cleaned: Record<string, boolean> = {};
+        for (const id in prev) {
+          if (logIds.has(id)) {
+            cleaned[id] = true;
+          } else {
+            hasOrphan = true;
+          }
+        }
+        return hasOrphan ? cleaned : prev;
+      });
     }
   }, [logs]);
 
@@ -51,7 +73,22 @@ const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs }) => {
           </div>
       )}
       
-      {logs.map(log => <LogEntry key={log.id} log={log} />)}
+      {logs.map((log, index) => {
+        const isPreviousComplete = index === 0 || !!completedLogs[logs[index - 1].id];
+        return (
+          <LogEntry 
+            key={log.id} 
+            log={log} 
+            active={isPreviousComplete}
+            onComplete={() => {
+              setCompletedLogs(prev => {
+                if (prev[log.id]) return prev;
+                return { ...prev, [log.id]: true };
+              });
+            }}
+          />
+        );
+      })}
       
       <div ref={endRef} />
     </div>

@@ -9,9 +9,11 @@ import DoubleLayeredText from './DoubleLayeredText.tsx';
 
 interface LogEntryProps {
   log: LogEntryType;
+  active?: boolean;
+  onComplete?: () => void;
 }
 
-const LogEntry: React.FC<LogEntryProps> = ({ log }) => {
+const LogEntry: React.FC<LogEntryProps> = ({ log, active = true, onComplete }) => {
   const { theme } = useTheme();
 
   const getLogColor = (msg: string) => {
@@ -72,7 +74,9 @@ const LogEntry: React.FC<LogEntryProps> = ({ log }) => {
             text={log.message}
             color={getLogColor(log.message)}
             shimmerColor={getLogColor(log.message)}
-            typingSpeed={0.015}
+            typingSpeed={0.008}
+            active={active}
+            onComplete={onComplete}
           />
       </span>
     </div>

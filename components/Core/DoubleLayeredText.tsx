@@ -23,6 +23,8 @@ interface DoubleLayeredTextProps {
   repeatShimmer?: boolean;
   /** Delay in seconds between shimmer repetitions */
   shimmerDelay?: number;
+  /** Controls when the typing sequence starts. Set to false to queue. */
+  active?: boolean;
 }
 
 /**
@@ -36,11 +38,12 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
   text,
   color,
   shimmerColor = '#ffffff',
-  typingSpeed = 0.025,
+  typingSpeed = 0.012,
   delay = 0,
   onComplete,
   repeatShimmer = true,
   shimmerDelay = 4,
+  active = true,
 }) => {
   const { theme } = useTheme();
   const [displayedCount, setDisplayedCount] = useState(0);
@@ -53,14 +56,27 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
   const characters = Array.from(text);
 
   useEffect(() => {
-    // Reset state when text/speed changes
+    // Reset state when text/speed changes or if deactivated
     setIsComplete(false);
     setDisplayedCount(0);
+
+    if (!active) {
+      return;
+    }
 
     let startTimeout: NodeJS.Timeout;
     let typingInterval: NodeJS.Timeout;
 
     const startTyping = () => {
+      // If text is empty, complete immediately
+      if (characters.length === 0) {
+        setIsComplete(true);
+        if (onComplete) {
+          onComplete();
+        }
+        return;
+      }
+
       typingInterval = setInterval(() => {
         setDisplayedCount((prev) => {
           const next = prev + 1;
@@ -87,7 +103,7 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
       clearTimeout(startTimeout);
       clearInterval(typingInterval);
     };
-  }, [text, typingSpeed, delay]);
+  }, [text, typingSpeed, delay, active]);
 
   // Common typography/wrap styles to ensure identical rendering across layers
   const commonTextStyle: React.CSSProperties = {
@@ -127,7 +143,7 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
         ))}
 
         {/* Tactile Blinking Terminal Cursor */}
-        {!isComplete && (
+        {!isComplete && active && (
           <motion.span
             animate={{ opacity: [1, 1, 0, 0, 1] }}
             transition={{ 
