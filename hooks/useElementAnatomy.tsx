@@ -52,13 +52,20 @@ interface Selectors {
 export const useElementAnatomy = (
   ref: RefObject<HTMLElement>,
   selectors: Selectors,
+  enabled: boolean = true,
   deps: any[] = []
 ): ElementAnatomy | null => {
   const [anatomy, setAnatomy] = useState<ElementAnatomy | null>(null);
 
   useLayoutEffect(() => {
+    if (!enabled) {
+      setAnatomy(prev => prev === null ? null : null);
+      return;
+    }
     const element = ref.current;
     if (!element) return;
+
+    let rafId: number | null = null;
 
     const measure = () => {
       // 1. Get Viewport Metrics (Scaled)
@@ -70,7 +77,7 @@ export const useElementAnatomy = (
       // 3. Calculate Scale Factor
       // If the visual width (rect.width) is different from offsetWidth, a transform is applied.
       // We divide to find the multiplier. Default to 1 if 0 to avoid Infinity.
-      const scaleX = rect.width / (element.offsetWidth || 1);
+      const scaleX = (rect.width / (element.offsetWidth || 1)) || 1;
       
       // 4. Parse Box Model (CSS values are already "logical", no unscaling needed)
       const padding = {
@@ -145,16 +152,16 @@ export const useElementAnatomy = (
       }
 
       setAnatomy({
-        width: element.offsetWidth,
-        height: element.offsetHeight,
+        width: element.offsetWidth || 0,
+        height: element.offsetHeight || 0,
         scaleFactor: scaleX,
         padding,
         border,
         contentBox: {
             x: padding.left + border.left,
             y: padding.top + border.top,
-            width: element.offsetWidth - (padding.left + padding.right + border.left + border.right),
-            height: element.offsetHeight - (padding.top + padding.bottom + border.top + border.bottom),
+            width: (element.offsetWidth || 0) - (padding.left + padding.right + border.left + border.right),
+            height: (element.offsetHeight || 0) - (padding.top + padding.bottom + border.top + border.bottom),
         },
         children: childrenMetrics,
         gap,
@@ -162,21 +169,32 @@ export const useElementAnatomy = (
       });
     };
 
+    const throttledMeasure = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        measure();
+        rafId = null;
+      });
+    };
+
     measure();
 
-    const resizeObserver = new ResizeObserver(measure);
+    const resizeObserver = new ResizeObserver(throttledMeasure);
     resizeObserver.observe(element);
     
     // Also observe mutations in children/attributes which might shift layout
-    const mutationObserver = new MutationObserver(measure);
+    const mutationObserver = new MutationObserver(throttledMeasure);
     mutationObserver.observe(element, { attributes: true, childList: true, subtree: true });
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       resizeObserver.disconnect();
       mutationObserver.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref, JSON.stringify(selectors), ...deps]);
+  }, [ref, JSON.stringify(selectors), enabled, JSON.stringify(deps)]);
 
   return anatomy;
 };

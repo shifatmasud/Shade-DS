@@ -74,7 +74,7 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, active = true, onComplete }) =
             text={log.message}
             color={getLogColor(log.message)}
             shimmerColor={getLogColor(log.message)}
-            typingSpeed={0.008}
+            typingSpeed={0.003}
             active={active}
             onComplete={onComplete}
           />

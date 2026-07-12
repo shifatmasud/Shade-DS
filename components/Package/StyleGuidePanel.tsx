@@ -219,4 +219,4 @@ const StyleGuidePanel: React.FC = () => {
   );
 };
 
-export default StyleGuidePanel;
+export default React.memo(StyleGuidePanel);

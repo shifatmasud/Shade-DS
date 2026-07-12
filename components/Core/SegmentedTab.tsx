@@ -5,6 +5,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import { playSound } from '../../services/soundService';
 
 interface SegmentedTabProps {
   tabs: { id: string; title: string; icon?: React.ReactNode }[];
@@ -31,7 +32,10 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
         return (
           <button
             key={tab.id}
-            onClick={() => onTabClick(tab.id)}
+            onClick={() => {
+              playSound('tick');
+              onTabClick(tab.id);
+            }}
             style={{
               flex: 1,
               display: 'flex',

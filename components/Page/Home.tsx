@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useMotionValue, useTransform, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import ThemeToggleButton from '../Core/ThemeToggleButton.tsx';
 import FloatingWindow from '../Package/FloatingWindow.tsx';
@@ -22,6 +22,7 @@ import Confetti from '../Core/Confetti.tsx';
 import { Sliders, Code, Terminal } from 'phosphor-react';
 import { WindowId, WindowState, LogEntry, MetaButtonProps } from '../../types/index.tsx';
 import { FloatingColorPickerWindow } from '../Package/ColorPicker.tsx';
+import { setSoundEnabled, isSoundEnabled } from '../../services/soundService.ts';
 
 /**
  * 🏎️ Main Page
@@ -33,6 +34,17 @@ const Home = () => {
   const navigate = useNavigate();
   const [uiMode, setUiMode] = useState<'default' | 'lean'>('lean');
   const [showThemeToggle, setShowThemeToggle] = useState(false);
+
+  const typingSessionRef = useRef<{ beforeProps: MetaButtonProps; key: string } | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
   
   // -- App State --
   const [btnProps, setBtnProps] = useState<MetaButtonProps>({
@@ -73,6 +85,27 @@ const Home = () => {
 
   // -- Confetti State --
   const [confettiTrigger, setConfettiTrigger] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(() => {
+    const saved = localStorage.getItem('showConfetti');
+    return saved !== 'false';
+  });
+  const [enableSound, setEnableSound] = useState(() => {
+    return isSoundEnabled();
+  });
+
+  const handleToggleConfetti = () => {
+    const nextVal = !showConfetti;
+    setShowConfetti(nextVal);
+    localStorage.setItem('showConfetti', nextVal ? 'true' : 'false');
+    logEvent(`Confetti toggled: ${nextVal ? 'On' : 'Off'}`);
+  };
+
+  const handleToggleSound = () => {
+    const nextVal = !enableSound;
+    setEnableSound(nextVal);
+    setSoundEnabled(nextVal);
+    logEvent(`Sound toggled: ${nextVal ? 'On' : 'Off'}`);
+  };
 
   // -- Real-time MotionValue for live UI updates --
   // We use useMemo to ensure these MotionValues are truly stable even if Home re-renders
@@ -205,7 +238,7 @@ const Home = () => {
   const [isCodeFocused, setIsCodeFocused] = useState(false);
   
   useEffect(() => {
-    if (!isCodeFocused) {
+    if (!isCodeFocused && !typingSessionRef.current) {
       setCodeText(JSON.stringify(btnProps, null, 2));
     }
   }, [btnProps, isCodeFocused]);
@@ -316,11 +349,56 @@ const Home = () => {
   
   const handlePropChange = (keyOrObj: string | Partial<MetaButtonProps>, value?: any) => {
     if (typeof keyOrObj === 'string') {
-        updateBtnProps({ ...btnProps, [keyOrObj]: value });
-        logEvent(`Prop updated: ${keyOrObj} = ${value}`);
+      const key = keyOrObj;
+      if (key === 'label' || key === 'customRadius' || key === 'customFill' || key === 'customColor') {
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+
+        if (!typingSessionRef.current) {
+          typingSessionRef.current = { beforeProps: { ...btnProps }, key };
+        }
+
+        const nextProps = { ...btnProps, [key]: value };
+        updateBtnProps(nextProps, false); // Update state instantly for live UI feedback, but do NOT save history yet
+
+        typingTimeoutRef.current = setTimeout(() => {
+          if (typingSessionRef.current) {
+            const before = typingSessionRef.current.beforeProps;
+            if (JSON.stringify(before) !== JSON.stringify(nextProps)) {
+              setHistory(prev => [...prev, before]);
+              setFuture([]);
+              logEvent(`Prop updated: ${key} = ${value}`);
+            }
+            typingSessionRef.current = null;
+            setCodeText(JSON.stringify(nextProps, null, 2));
+          }
+        }, 500);
+      } else {
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+          if (typingSessionRef.current) {
+            const before = typingSessionRef.current.beforeProps;
+            setHistory(prev => [...prev, before]);
+            setFuture([]);
+            typingSessionRef.current = null;
+          }
+        }
+        updateBtnProps({ ...btnProps, [key]: value }, true);
+        logEvent(`Prop updated: ${key} = ${value}`);
+      }
     } else {
-        updateBtnProps({ ...btnProps, ...keyOrObj });
-        logEvent(`State updated: ${Object.keys(keyOrObj).join(', ')}`);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        if (typingSessionRef.current) {
+          const before = typingSessionRef.current.beforeProps;
+          setHistory(prev => [...prev, before]);
+          setFuture([]);
+          typingSessionRef.current = null;
+        }
+      }
+      updateBtnProps({ ...btnProps, ...keyOrObj }, true);
+      logEvent(`State updated: ${Object.keys(keyOrObj).join(', ')}`);
     }
   };
 
@@ -333,7 +411,25 @@ const Home = () => {
     setCodeText(newVal);
     try {
       const parsed = JSON.parse(newVal);
-      updateBtnProps(parsed, true);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (!typingSessionRef.current) {
+        typingSessionRef.current = { beforeProps: { ...btnProps }, key: 'customCode' };
+      }
+      updateBtnProps(parsed, false);
+
+      typingTimeoutRef.current = setTimeout(() => {
+        if (typingSessionRef.current) {
+          const before = typingSessionRef.current.beforeProps;
+          if (JSON.stringify(before) !== JSON.stringify(parsed)) {
+            setHistory(prev => [...prev, before]);
+            setFuture([]);
+            logEvent('Code direct modification committed');
+          }
+          typingSessionRef.current = null;
+        }
+      }, 800);
     } catch (err) {
       // Invalid JSON, just update text
     }
@@ -370,7 +466,9 @@ const Home = () => {
   
   const handleStageButtonClick = () => {
     logEvent('Component Interacted! (Triggered Action)');
-    setConfettiTrigger(prev => prev + 1);
+    if (showConfetti) {
+      setConfettiTrigger(prev => prev + 1);
+    }
   };
 
   const undoRedoComponent = (
@@ -415,8 +513,7 @@ const Home = () => {
       />
 
       {/* --- WINDOWS --- */}
-      <LayoutGroup>
-        <AnimatePresence>
+      <AnimatePresence>
           {uiMode === 'default' && windows.control.isOpen && (
             <FloatingWindow
               key="control"
@@ -454,6 +551,10 @@ const Home = () => {
                   onToggleAIControl={handleToggleAIControl}
                   geminiApiKey={geminiApiKey}
                   onGeminiApiKeyChange={handleGeminiApiKeyChange}
+                  showConfetti={showConfetti}
+                  onToggleConfetti={handleToggleConfetti}
+                  enableSound={enableSound}
+                  onToggleSound={handleToggleSound}
               />
             </FloatingWindow>
           )}
@@ -545,6 +646,7 @@ const Home = () => {
               onFocus={() => bringToFront('control')}
               onResize={(newHeight) => handleResize('control', newHeight)}
               footer={undoRedoComponent}
+              disableContentScroll={true}
             >
               <TabbedPanel 
                 panels={[
@@ -559,7 +661,11 @@ const Home = () => {
                     isAIControlEnabled={isAIControlEnabled}
                     onToggleAIControl={handleToggleAIControl}
                     geminiApiKey={geminiApiKey}
-                    onGeminiApiKeyChange={handleGeminiApiKeyChange} /> },
+                    onGeminiApiKeyChange={handleGeminiApiKeyChange}
+                    showConfetti={showConfetti}
+                    onToggleConfetti={handleToggleConfetti}
+                    enableSound={enableSound}
+                    onToggleSound={handleToggleSound} /> },
                   { id: 'code', title: 'Code I/O', icon: <Code size={16} />, content: <CodePanel codeText={codeText} onCodeChange={handleCodeChange} onCopyCode={handleCopyCode} onFocus={() => setIsCodeFocused(true)} onBlur={() => setIsCodeFocused(false)} btnProps={btnProps} /> },
                   { id: 'console', title: 'Console', icon: <Terminal size={16} />, content: <ConsolePanel logs={logs} /> },
                 ]}
@@ -567,7 +673,6 @@ const Home = () => {
             </FloatingWindow>
           )}
         </AnimatePresence>
-      </LayoutGroup>
 
       {/* --- PERSISTENT COLOR PICKERS --- */}
       <AnimatePresence>

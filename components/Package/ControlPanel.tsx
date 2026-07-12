@@ -41,6 +41,10 @@ interface ControlPanelProps {
   onToggleAIControl: () => void;
   geminiApiKey: string;
   onGeminiApiKeyChange: (key: string) => void;
+  showConfetti: boolean;
+  onToggleConfetti: () => void;
+  enableSound: boolean;
+  onToggleSound: () => void;
 }
 
 const ControlPanel: React.FC<ControlPanelProps> = ({ 
@@ -68,7 +72,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   isAIControlEnabled,
   onToggleAIControl,
   geminiApiKey,
-  onGeminiApiKeyChange
+  onGeminiApiKeyChange,
+  showConfetti,
+  onToggleConfetti,
+  enableSound,
+  onToggleSound,
 }) => {
   const { theme, themeName, setThemeName } = useTheme();
 
@@ -117,6 +125,16 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             label="Show Theme Toggle"
             isOn={showThemeToggle}
             onToggle={onToggleThemeButton}
+          />
+          <Toggle
+            label="Show Confetti"
+            isOn={showConfetti}
+            onToggle={onToggleConfetti}
+          />
+          <Toggle
+            label="Trigger Sound"
+            isOn={enableSound}
+            onToggle={onToggleSound}
           />
         </motion.div>
       </Accordion>

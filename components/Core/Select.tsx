@@ -6,6 +6,7 @@ import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useId
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import { playSound } from '../../services/soundService';
 
 /**
  * SHADE DSL ARCHITECTURE
@@ -407,6 +408,7 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
   }, [isOpen, handleClose, instanceId]);
 
   const handleSelect = (newValue: string) => {
+    playSound('chime');
     onChange({ target: { value: newValue } as any });
     setIsOpen(false);
   };
@@ -452,7 +454,10 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
         layout="size"
         ref={triggerRef}
         style={styles.trigger}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          playSound('tick');
+          setIsOpen(!isOpen);
+        }}
         whileHover={{ boxShadow: `0 0 1px 0px ${theme.Color.Base.Content[2]}, inset 0 0 1px 0px ${theme.Color.Base.Content[2]}` }}
         whileTap={{ scale: 0.995 }}
         type="button"

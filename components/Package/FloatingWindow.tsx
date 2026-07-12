@@ -23,6 +23,8 @@ interface FloatingWindowProps {
   footer?: React.ReactNode;
   onResize?: (height: number) => void;
   layoutId?: string;
+  height?: number;
+  disableContentScroll?: boolean;
 }
 
 const FloatingWindow: React.FC<FloatingWindowProps> = ({
@@ -35,6 +37,8 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
   children,
   footer,
   layoutId,
+  height,
+  disableContentScroll = false,
 }) => {
   const { theme, themeName } = useTheme();
   const dragControls = useDragControls();
@@ -49,7 +53,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
     top: 0,
     left: '50%',
     width: theme.space['Space.Panel.Width'],
-    height: 'auto',
+    height: height ? `${height}px` : 'auto',
     maxHeight: theme.space['Space.Panel.Height'],
     backgroundColor: `${theme.Color.Base.Surface[1]}dd`,
     backdropFilter: 'blur(20px)',
@@ -83,10 +87,13 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
 
   const contentStyle: React.CSSProperties = {
     padding: theme.space['Space.L'],
-    overflowY: 'auto',
+    overflowY: disableContentScroll ? 'hidden' : 'auto',
     flex: 1,
     color: theme.Color.Base.Content[1],
     position: 'relative',
+    display: disableContentScroll ? 'flex' : 'block',
+    flexDirection: disableContentScroll ? 'column' : undefined,
+    minHeight: disableContentScroll ? 0 : undefined,
   };
 
   const footerStyle: React.CSSProperties = {
@@ -105,7 +112,6 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
 
   return (
     <motion.div
-      layout
       layoutId={layoutId}
       style={{ ...styles, x, y, originY: 0, transformOrigin: 'top center' }}
       initial={{ opacity: 0, scale: 0.95 }}
@@ -117,12 +123,10 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
       dragMomentum={false}
       onPointerDown={() => onFocus()}
       transition={{ 
-        layout: { type: 'spring', damping: 30, stiffness: 300 },
         default: { type: 'spring', damping: 28, stiffness: 320 }
       }}
     >
-      <motion.div
-        layout="position"
+      <div
         style={headerStyle}
       >
           <div 
@@ -137,7 +141,6 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
             </span>
           </div>
           <motion.button
-            layout
             onClick={onClose}
             style={{
               width: theme.space['Space.M'], // Approximated from 14px to token
@@ -152,17 +155,15 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
             whileTap={{ scale: 0.9 }}
             aria-label="Close"
           />
-      </motion.div>
+      </div>
       
-      <motion.div
-        layout="position"
+      <div
         style={contentStyle}
       >
         {children}
-      </motion.div>
+      </div>
       {footer && (
-        <motion.div
-          layout="position"
+        <div
           style={footerStyle}
           onPointerDown={(e) => {
             e.preventDefault();
@@ -170,7 +171,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({
           }}
         >
           {footer}
-        </motion.div>
+        </div>
       )}
     </motion.div>
   );

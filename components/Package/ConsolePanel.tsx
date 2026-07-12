@@ -13,20 +13,7 @@ interface ConsolePanelProps {
 
 const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs }) => {
   const { theme } = useTheme();
-  const endRef = useRef<HTMLDivElement>(null);
   const [completedLogs, setCompletedLogs] = useState<Record<string, boolean>>({});
-
-  const isFirstRender = useRef(true);
-
-  // Auto-scroll to bottom
-  useEffect(() => {
-    if (isFirstRender.current) {
-      endRef.current?.scrollIntoView({ behavior: 'auto' });
-      isFirstRender.current = false;
-    } else {
-      endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs]);
 
   // Keep completedLogs state in sync with existing logs list
   useEffect(() => {
@@ -89,10 +76,8 @@ const ConsolePanel: React.FC<ConsolePanelProps> = ({ logs }) => {
           />
         );
       })}
-      
-      <div ref={endRef} />
     </div>
   );
 };
 
-export default ConsolePanel;
+export default React.memo(ConsolePanel);

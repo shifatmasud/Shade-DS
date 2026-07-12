@@ -7,7 +7,7 @@ import { useTheme } from '../../Theme.tsx';
 import { motion, type MotionValue, useTransform, useMotionValue, AnimatePresence } from 'framer-motion';
 import StateLayer from '../Core/StateLayer.tsx';
 import RippleLayer from '../Core/RippleLayer.tsx';
-import { AnimatedCheckIcon } from '../Core';
+import { AnimatedCheckIcon, SuccessLayer } from '../Core';
 import { playSound } from '../../services/soundService';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
@@ -61,6 +61,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   // Success State
   const [isSuccess, setIsSuccess] = useState(false);
   const [showGlow, setShowGlow] = useState(false);
+  const [successPos, setSuccessPos] = useState({ x: '50%', y: '50%' });
 
   // SAFE TIMEOUT CLEANUP: Automatically reset success state after 2 seconds to prevent memory leaks and state updates on unmounted nodes
   React.useEffect(() => {
@@ -86,7 +87,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const handlePointerEnter = (e: React.PointerEvent) => {
     if (disabled) return;
     setIsHovered(true);
-    playSound('hover');
+    if (e.pointerType !== 'touch') {
+      playSound('hover');
+    }
   };
 
   const handlePointerLeave = () => {
@@ -96,11 +99,23 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     // Return early if disabled or already showing success state
     if (disabled || isSuccess) return;
-    
-    playSound('click');
 
+    let xStr = '50%';
+    let yStr = '50%';
+    if (localRef.current && e.clientX !== 0 && e.clientY !== 0) {
+      const rect = localRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left) + 0.1 * rect.width;
+      const y = (e.clientY - rect.top) + 0.1 * rect.height;
+      xStr = `${x}px`;
+      yStr = `${y}px`;
+    }
+    setSuccessPos({ x: xStr, y: yStr });
+    
     if (enableSuccess) {
       setIsSuccess(true);
+      playSound('success');
+    } else {
+      playSound('click');
     }
 
     // Forward event
@@ -344,29 +359,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       {/* 0. SURFACE LAYER (Base Z=0) */}
       <motion.div style={{ ...layerWrapperStyle, zIndex: 0, border: getDebugBorder(colors.surface) }} />
 
-      {/* 0.1 SUCCESS STATE MASK CIRCULAR LAYER */}
-      <AnimatePresence>
-        {isSuccess && (
-          <motion.div
-            initial={{ clipPath: 'circle(0% at 50% 50%)' }}
-            animate={{ clipPath: 'circle(150% at 50% 50%)' }}
-            exit={{ clipPath: 'circle(0% at 50% 50%)' }}
-            transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-            onAnimationComplete={() => {
-              if (isSuccess) {
-                setShowGlow(true);
-              }
-            }}
-            style={{
-              ...layerWrapperStyle,
-              zIndex: 0.5, // Between base surface and state layers
-              backgroundColor: theme.Color.Success.Surface['1'],
-              borderRadius: 'inherit',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {/* 0.1 SUCCESS STATE MASK CIRCULAR LAYER - always 120% nested & clipped */}
+      <SuccessLayer
+        isSuccess={isSuccess}
+        position={successPos}
+        onComplete={() => setShowGlow(true)}
+      />
 
       {/* 0.5 FOCUS RING LAYER (Dedicated Element - NOT in 3D stack) */}
       <motion.div 
@@ -421,33 +419,53 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       <motion.div style={{ ...layerWrapperStyle, transform: zContent, border: getDebugBorder(colors.content) }} />
 
       <motion.div style={{ ...contentWrapperStyle, transform: zContent }}>
-        <AnimatePresence mode="wait">
-          {isSuccess ? (
-            <motion.div
-              key="success"
-              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
-              transition={{ duration: 0.2 }}
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'], color: theme.Color.Success.Content['1'] }}
-            >
-              <AnimatedCheckIcon size={18} color={theme.Color.Success.Content['1']} />
-              <span draggable={false}>Success!</span>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="normal"
-              initial={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
-              transition={{ duration: 0.2 }}
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'], color: 'inherit' }}
-            >
-              {icon && <i className={`ph-bold ${icon}`} draggable={false} style={{ fontSize: '1.25em' }} />}
-              <span draggable={false}>{label}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Default Content (Always in flow, determines button size) */}
+        <motion.div
+          animate={{
+            opacity: isSuccess ? 0 : 1,
+            y: isSuccess ? -8 : 0,
+            scale: isSuccess ? 0.95 : 1,
+            filter: isSuccess ? 'blur(4px)' : 'blur(0px)',
+          }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: theme.space['Space.S'],
+            color: 'inherit',
+            width: '100%',
+            pointerEvents: isSuccess ? 'none' : 'auto',
+          }}
+        >
+          {icon && <i className={`ph-bold ${icon}`} draggable={false} style={{ fontSize: '1.25em' }} />}
+          <span draggable={false}>{label}</span>
+        </motion.div>
+
+        {/* Success Content (Absolute Overlay, zero layout shift) */}
+        <motion.div
+          initial={{ opacity: 0, y: 8, scale: 0.95, filter: 'blur(4px)' }}
+          animate={{
+            opacity: isSuccess ? 1 : 0,
+            y: isSuccess ? 0 : 8,
+            scale: isSuccess ? 1 : 0.95,
+            filter: isSuccess ? 'blur(0px)' : 'blur(4px)',
+          }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: theme.space['Space.S'],
+            color: theme.Color.Success.Content['1'],
+            pointerEvents: isSuccess ? 'auto' : 'none',
+          }}
+        >
+          <AnimatedCheckIcon size={18} color={theme.Color.Success.Content['1']} />
+          <span draggable={false}>Success!</span>
+        </motion.div>
       </motion.div>
     </motion.button>
   );

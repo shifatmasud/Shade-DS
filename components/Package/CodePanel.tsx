@@ -67,4 +67,4 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
   );
 };
 
-export default CodePanel;
+export default React.memo(CodePanel);

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus } from 'phosphor-react';
 import { useTheme } from '../../Theme.tsx';
+import { playSound } from '../../services/soundService';
 
 interface AccordionProps {
   title: string;
@@ -50,9 +51,17 @@ const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = fa
     <div style={containerStyle}>
       <div 
         style={headerStyle} 
-        onClick={() => setIsOpen(!isOpen)}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onClick={() => {
+          playSound('tick');
+          setIsOpen(!isOpen);
+        }}
+        onPointerEnter={(e) => {
+          if (e.pointerType !== 'touch') {
+            playSound('whisper', 0.4);
+          }
+          setIsHovered(true);
+        }}
+        onPointerLeave={() => setIsHovered(false)}
       >
         <span style={titleStyle}>{title}</span>
         <motion.div

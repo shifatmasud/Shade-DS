@@ -6,6 +6,7 @@ import React from 'react';
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, animateView } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import { playSound } from '../../services/soundService';
 
 const ThemeToggleButton = () => {
   const { themeName, setThemeName, theme } = useTheme();
@@ -15,6 +16,13 @@ const ThemeToggleButton = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
     const x = rect ? rect.left + rect.width / 2 : window.innerWidth * 0.9;
     const y = rect ? rect.top + rect.height / 2 : window.innerHeight * 0.1;
+
+    // Play sparkle for light mode, bloom for dark mode
+    if (themeName === 'light') {
+      playSound('bloom');
+    } else {
+      playSound('sparkle');
+    }
 
     animateView(() => {
       flushSync(() => {

@@ -38,7 +38,7 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
   text,
   color,
   shimmerColor = '#ffffff',
-  typingSpeed = 0.012,
+  typingSpeed = 0.004,
   delay = 0,
   onComplete,
   repeatShimmer = true,
@@ -52,9 +52,6 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
   // Default color if none provided
   const activeColor = color || theme.Color.Base.Content[1];
 
-  // Split text into characters
-  const characters = Array.from(text);
-
   useEffect(() => {
     // Reset state when text/speed changes or if deactivated
     setIsComplete(false);
@@ -65,26 +62,45 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
     }
 
     let startTimeout: NodeJS.Timeout;
-    let typingInterval: NodeJS.Timeout;
+    let frameId: number;
+    let startTime: number | null = null;
+    const textLength = text.length;
 
     const startTyping = () => {
       // If text is empty, complete immediately
-      if (characters.length === 0) {
+      if (textLength === 0) {
         setIsComplete(true);
         return;
       }
 
-      typingInterval = setInterval(() => {
-        setDisplayedCount((prev) => {
-          const next = prev + 1;
-          if (next >= characters.length) {
-            clearInterval(typingInterval);
-            setIsComplete(true);
-            return characters.length;
-          }
-          return next;
-        });
-      }, typingSpeed * 1000);
+      // Calculate total duration in milliseconds
+      const duration = textLength * typingSpeed * 1000;
+
+      const tick = (timestamp: number) => {
+        if (!startTime) {
+          startTime = timestamp;
+        }
+        const elapsed = timestamp - startTime;
+
+        if (duration <= 0) {
+          setDisplayedCount(textLength);
+          setIsComplete(true);
+          return;
+        }
+
+        const progress = Math.min(elapsed / duration, 1);
+        const nextCount = Math.floor(progress * textLength);
+        
+        setDisplayedCount(nextCount);
+
+        if (progress < 1) {
+          frameId = requestAnimationFrame(tick);
+        } else {
+          setIsComplete(true);
+        }
+      };
+
+      frameId = requestAnimationFrame(tick);
     };
 
     if (delay > 0) {
@@ -95,7 +111,9 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
 
     return () => {
       clearTimeout(startTimeout);
-      clearInterval(typingInterval);
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
     };
   }, [text, typingSpeed, delay, active]);
 
@@ -131,17 +149,7 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
           width: '100%',
         }}
       >
-        {characters.slice(0, displayedCount).map((char, index) => (
-          <span
-            key={`${char}-${index}`}
-            style={{ 
-              display: 'inline-block', 
-              whiteSpace: 'pre' 
-            }}
-          >
-            {char}
-          </span>
-        ))}
+        {text.slice(0, displayedCount)}
 
         {/* Tactile Blinking Terminal Cursor */}
         {!isComplete && active && (
@@ -176,19 +184,19 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
             <motion.span
               initial={{ opacity: 0 }}
               animate={{ 
-                opacity: [0, 0.45, 0],
+                opacity: [0, 0.28, 0],
                 backgroundPosition: ['150% 0%', '-50% 0%']
               }}
               exit={{ opacity: 0 }}
               transition={{
                 opacity: {
-                  duration: 1.5,
+                  duration: 3.0,
                   repeat: repeatShimmer ? Infinity : 0,
                   repeatDelay: shimmerDelay,
                   ease: 'easeInOut'
                 },
                 backgroundPosition: {
-                  duration: 1.5,
+                  duration: 3.0,
                   repeat: repeatShimmer ? Infinity : 0,
                   repeatDelay: shimmerDelay,
                   ease: 'easeInOut'
@@ -202,8 +210,8 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
                 width: '100%',
                 height: '100%',
                 pointerEvents: 'none',
-                // Linear gradient sweep
-                background: `linear-gradient(90deg, transparent 0%, transparent 35%, ${shimmerColor} 50%, transparent 65%, transparent 100%)`,
+                // Linear gradient sweep with wider transparent transitions
+                backgroundImage: `linear-gradient(90deg, transparent 0%, transparent 20%, ${shimmerColor} 50%, transparent 80%, transparent 100%)`,
                 backgroundSize: '200% 100%',
                 backgroundPosition: '150% 0%',
                 WebkitBackgroundClip: 'text',
@@ -224,19 +232,19 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
             <motion.span
               initial={{ opacity: 0 }}
               animate={{ 
-                opacity: [0, 1, 0],
+                opacity: [0, 0.65, 0],
                 backgroundPosition: ['150% 0%', '-50% 0%']
               }}
               exit={{ opacity: 0 }}
               transition={{
                 opacity: {
-                  duration: 1.5,
+                  duration: 3.0,
                   repeat: repeatShimmer ? Infinity : 0,
                   repeatDelay: shimmerDelay,
                   ease: 'easeInOut'
                 },
                 backgroundPosition: {
-                  duration: 1.5,
+                  duration: 3.0,
                   repeat: repeatShimmer ? Infinity : 0,
                   repeatDelay: shimmerDelay,
                   ease: 'easeInOut'
@@ -250,8 +258,8 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
                 width: '100%',
                 height: '100%',
                 pointerEvents: 'none',
-                // Core bright shimmer gradient
-                background: `linear-gradient(90deg, transparent 0%, transparent 40%, #ffffff 50%, transparent 60%, transparent 100%)`,
+                // Core bright shimmer gradient with wider transition
+                backgroundImage: `linear-gradient(90deg, transparent 0%, transparent 30%, #ffffff 50%, transparent 70%, transparent 100%)`,
                 backgroundSize: '200% 100%',
                 backgroundPosition: '150% 0%',
                 WebkitBackgroundClip: 'text',

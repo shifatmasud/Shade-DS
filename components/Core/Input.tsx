@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import { useTheme } from '../../Theme.tsx';
+import { playSound, playTypingSound } from '../../services/soundService';
 
 interface InputProps {
   label: string;
@@ -30,7 +31,7 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
     color: theme.Color.Base.Content[1],
     ...theme.Type.Readable.Body.M,
     outline: 'none',
-    transition: `all ${theme.time['Time.2x']} ease`,
+    transition: `box-shadow ${theme.time['Time.2x']} ease`,
   };
 
   return (
@@ -49,13 +50,18 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
       <input 
         type={type} 
         value={value} 
-        onChange={onChange} 
+        onChange={(e) => {
+          onChange(e);
+          playTypingSound();
+        }} 
         style={{ ...baseInputStyle, ...style }} 
         onFocus={(e) => {
+          playSound('press');
           /* SHADE DSL REWRITE: focus shadow update. To undo: revert back to customTarget.style.borderColor */
           e.currentTarget.style.boxShadow = `0 0 1px 0px ${theme.Color.Base.Content[1]}, inset 0 0 1px 0px ${theme.Color.Base.Content[1]}`;
         }}
         onBlur={(e) => {
+          playSound('release');
           /* SHADE DSL REWRITE: blur shadow reset. To undo: revert back to customTarget.style.borderColor */
           e.currentTarget.style.boxShadow = `0 0 1px 0px ${theme.Color.Base.Surface[3]}, inset 0 0 1px 0px ${theme.Color.Base.Surface[3]}`;
         }}
@@ -63,5 +69,7 @@ const Input: React.FC<InputProps> = ({ label, value, onChange, type = 'text', st
     </div>
   );
 };
+
+let lastTickTime = 0;
 
 export default Input;

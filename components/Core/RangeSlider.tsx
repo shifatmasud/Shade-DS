@@ -7,6 +7,7 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type MotionValue, motion, useVelocity, useTransform, AnimatePresence, useSpring } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import AnimatedCounter from './AnimatedCounter.tsx';
+import { playSound } from '../../services/soundService';
 
 /**
  * 🛠️ ValueDisplay Sub-component
@@ -173,13 +174,17 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     const newValue = parseFloat(stepped.toFixed(decimals));
     
     // We only set the motion value, avoiding component-wide React virtual DOM re-renders during drag!
-    motionValue.set(newValue);
-    if (onChange) onChange(newValue);
+    if (newValue !== motionValue.get()) {
+      playSound('tick', 0.15);
+      motionValue.set(newValue);
+      if (onChange) onChange(newValue);
+    }
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
     trackRef.current?.setPointerCapture(e.pointerId);
+    playSound('press');
     updateValueFromPointer(e.clientX);
   };
 
@@ -193,6 +198,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     if (isDragging) {
       setIsDragging(false);
       trackRef.current?.releasePointerCapture(e.pointerId);
+      playSound('release');
       
       // Flush back to React state ONLY when pointer dragging is finalized
       const committedValue = motionValue.get();

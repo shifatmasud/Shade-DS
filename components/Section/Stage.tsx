@@ -458,7 +458,13 @@ const Stage: React.FC<StageProps> = ({
   const cardSelectors = { media: '.card-media', title: '.card-title', body: '.card-body', label: 'span' };
   
   const selectors = btnProps.componentType === 'card' ? cardSelectors : buttonSelectors;
-  const anatomy = useElementAnatomy(componentRef, selectors, [btnProps, showMeasurements, showTokens, view3D]);
+  const anatomyEnabled = showMeasurements || showTokens;
+  const anatomy = useElementAnatomy(
+    componentRef, 
+    selectors, 
+    anatomyEnabled, 
+    anatomyEnabled ? [btnProps, showMeasurements, showTokens, view3D] : []
+  );
 
   return (
     <div style={{ 

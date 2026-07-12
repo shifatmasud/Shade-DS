@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme';
+import { playSound } from '../../services/soundService';
 
 interface SegmentedControlItem {
   id: string;
@@ -59,7 +60,10 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
           <motion.div
             key={item.id}
             style={itemStyle}
-            onClick={() => onSelect(item.id)}
+            onClick={() => {
+              playSound('tick');
+              onSelect(item.id);
+            }}
             animate={{ color: isActive ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2] }}
           >
             <div style={{ display: 'flex', alignItems: 'center', opacity: isActive ? 1 : 0.7 }}>

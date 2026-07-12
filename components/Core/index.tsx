@@ -15,6 +15,7 @@ export { default as RippleLayer } from './RippleLayer.tsx';
 export { default as SegmentedTab } from './SegmentedTab.tsx';
 export { default as Select } from './Select.tsx';
 export { default as StateLayer } from './StateLayer.tsx';
+export { default as SuccessLayer } from './SuccessLayer.tsx';
 export { default as TextArea } from './TextArea.tsx';
 export { default as ThemeToggleButton } from './ThemeToggleButton.tsx';
 export { default as Toggle } from './Toggle.tsx';

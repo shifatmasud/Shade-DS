@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import { useTheme } from '../../Theme.tsx';
+import { playSound, playTypingSound } from '../../services/soundService';
 
 interface TextAreaProps {
   value: string;
@@ -32,13 +33,24 @@ const TextArea: React.FC<TextAreaProps> = ({ value, onChange, onFocus, onBlur, s
   return (
     <textarea
       value={value}
-      onChange={onChange}
-      onFocus={onFocus}
-      onBlur={onBlur}
+      onChange={(e) => {
+        onChange(e);
+        playTypingSound();
+      }}
+      onFocus={(e) => {
+        playSound('press');
+        if (onFocus) onFocus();
+      }}
+      onBlur={(e) => {
+        playSound('release');
+        if (onBlur) onBlur();
+      }}
       spellCheck={false}
       style={{ ...baseStyle, ...style }}
     />
   );
 };
+
+let lastTickTime = 0;
 
 export default TextArea;

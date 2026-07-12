@@ -454,4 +454,4 @@ Inside the target file:
   );
 };
 
-export default SystemSpec;
+export default React.memo(SystemSpec);

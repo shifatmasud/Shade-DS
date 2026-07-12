@@ -5,6 +5,7 @@
 import React, { useEffect } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import { playSound } from '../../services/soundService';
 
 interface ToggleProps {
   label: string;
@@ -58,7 +59,10 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
       </label>
       <motion.div 
         style={trackStyle} 
-        onClick={onToggle}
+        onClick={() => {
+          playSound('toggle');
+          onToggle();
+        }}
       >
         <AnimatePresence mode="popLayout">
           {isOn && (
