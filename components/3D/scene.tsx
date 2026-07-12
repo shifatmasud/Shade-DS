@@ -4,7 +4,7 @@
  */
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Environment, Sky } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Environment, Sky, useEnvironment } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -13,6 +13,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Info, X, Copy } from 'phosphor-react';
 import { AnimatedCheckIcon } from '../Core';
 import { ErrorBoundary } from 'react-error-boundary';
+
+// Preload the environment map preset to fetch the HDR cubemap asset early
+useEnvironment.preload({ preset: 'city' });
 
 gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
@@ -362,6 +365,15 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
   const { cubes, addCube } = usePhysicsStore();
   const [controlsEnabled, setControlsEnabled] = useState(true);
   const [fps, setFps] = useState(0);
+  const [mountEnvironment, setMountEnvironment] = useState(false);
+
+  // Defer mounting the Environment map until after the initial UI painting
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMountEnvironment(true);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   const [showDialog, setShowDialog] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -629,7 +641,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
           </Physics>
           
           {showSky && <Sky sunPosition={[1, 0.2, 1]} />}
-          <Environment preset="city" />
+          {mountEnvironment && <Environment preset="city" resolution={128} />}
         </Canvas>
       </ErrorBoundary>
       
