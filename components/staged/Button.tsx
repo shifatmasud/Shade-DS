@@ -60,6 +60,19 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   
   // Success State
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showGlow, setShowGlow] = useState(false);
+
+  // SAFE TIMEOUT CLEANUP: Automatically reset success state after 2 seconds to prevent memory leaks and state updates on unmounted nodes
+  React.useEffect(() => {
+    if (isSuccess) {
+      const timer = setTimeout(() => {
+        setIsSuccess(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowGlow(false);
+    }
+  }, [isSuccess]);
 
   // 3D Layer Transforms
   const defaultLayerSpacing = useMotionValue(0);
@@ -81,15 +94,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   };
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Return early if disabled or already showing success state
     if (disabled || isSuccess) return;
     
     playSound('click');
 
     if (enableSuccess) {
       setIsSuccess(true);
-      setTimeout(() => {
-        setIsSuccess(false);
-      }, 2000);
     }
 
     // Forward event
@@ -137,7 +148,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
 
   const getButtonShadow = (state: 'idle' | 'hover' | 'active' | 'disabled') => {
-    if (isSuccess) {
+    if (isSuccess && showGlow) {
       return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`;
     }
     const isTertiary = variant === 'tertiary';
@@ -237,6 +248,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     ...variantStyles,
     ...sizeStyles,
     boxShadow: getButtonShadow(disabled ? 'disabled' : (forcedActive ? 'active' : (effectiveHover ? 'hover' : 'idle'))),
+    // INTERACTION GUARD: Disable pointer events during the success animation to completely prevent duplicate clicks or tap gestures from locking up Framer Motion
+    pointerEvents: isSuccess ? 'none' : 'auto',
   };
 
   // State Layer Opacity
@@ -330,14 +343,19 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       {/* 0. SURFACE LAYER (Base Z=0) */}
       <motion.div style={{ ...layerWrapperStyle, zIndex: 0, border: getDebugBorder(colors.surface) }} />
 
-      {/* 0.1 SUCCESS STATE MASK SLIDE LAYER */}
+      {/* 0.1 SUCCESS STATE MASK CIRCULAR LAYER */}
       <AnimatePresence>
         {isSuccess && (
           <motion.div
-            initial={{ clipPath: 'inset(0 100% 0 0)' }}
-            animate={{ clipPath: 'inset(0 0% 0 0)' }}
-            exit={{ clipPath: 'inset(0 0 0 100%)' }}
-            transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+            initial={{ clipPath: 'circle(0% at 50% 50%)' }}
+            animate={{ clipPath: 'circle(150% at 50% 50%)' }}
+            exit={{ clipPath: 'circle(0% at 50% 50%)' }}
+            transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+            onAnimationComplete={() => {
+              if (isSuccess) {
+                setShowGlow(true);
+              }
+            }}
             style={{
               ...layerWrapperStyle,
               zIndex: 0.5, // Between base surface and state layers

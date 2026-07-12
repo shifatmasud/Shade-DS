@@ -63,6 +63,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   React.useImperativeHandle(ref, () => localRef.current!);
 
   const [isSuccess, setIsSuccess] = React.useState(false);
+  const [showGlow, setShowGlow] = React.useState(false);
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled || isSuccess) return;
@@ -76,6 +77,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     if (isSuccess) {
       const timer = setTimeout(() => setIsSuccess(false), 2000);
       return () => clearTimeout(timer);
+    } else {
+      setShowGlow(false);
     }
   }, [isSuccess]);
 
@@ -120,7 +123,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
 
   const getButtonShadow = () => {
-    if (isSuccess) {
+    if (isSuccess && showGlow) {
       return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`;
     }
     switch (variant) {
@@ -195,6 +198,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     transition: 'background-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
     boxShadow: getButtonShadow(),
     isolation: 'isolate',
+    pointerEvents: isSuccess ? 'none' : 'auto',
     ...getSizeStyles(),
     ...getVariantStyles(),
   };
@@ -251,13 +255,18 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       />
 
       {/* Success Mask Slide layer inside Core/Button */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {isSuccess && (
           <motion.div
-            initial={{ clipPath: 'inset(0 100% 0 0)' }}
-            animate={{ clipPath: 'inset(0 0% 0 0)' }}
-            exit={{ clipPath: 'inset(0 100% 0 0)' }}
-            transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+            initial={{ clipPath: 'circle(0% at 50% 50%)' }}
+            animate={{ clipPath: 'circle(150% at 50% 50%)' }}
+            exit={{ clipPath: 'circle(0% at 50% 50%)' }}
+            transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+            onAnimationComplete={() => {
+              if (isSuccess) {
+                setShowGlow(true);
+              }
+            }}
             style={{
               position: 'absolute',
               inset: 0,
@@ -274,10 +283,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         {isSuccess ? (
           <motion.div
             key="success"
-            initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
-            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+            transition={{ duration: 0.2 }}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'], width: '100%', color: theme.Color.Success.Content['1'], zIndex: 1 }}
           >
             <AnimatedCheckIcon size={18} color={theme.Color.Success.Content['1']} />
@@ -286,10 +295,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         ) : (
           <motion.div
             key={`${icon}-${label}`}
-            initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
-            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            initial={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+            transition={{ duration: 0.2 }}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'], width: '100%', zIndex: 1 }}
           >
             {icon && renderIcon(icon)}
