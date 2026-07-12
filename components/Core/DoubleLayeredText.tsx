@@ -43,6 +43,7 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
   shimmerDelay = 4,
 }) => {
   const { theme } = useTheme();
+  const [displayedCount, setDisplayedCount] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
 
   // Default color if none provided
@@ -51,35 +52,42 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
   // Split text into characters
   const characters = Array.from(text);
 
-  // Framer Motion variants for staggered typing
-  const containerVariants = {
-    initial: {},
-    animate: {
-      transition: {
-        delayChildren: delay,
-        staggerChildren: typingSpeed,
-      }
-    }
-  };
+  useEffect(() => {
+    // Reset state when text/speed changes
+    setIsComplete(false);
+    setDisplayedCount(0);
 
-  const charVariants = {
-    initial: { 
-      opacity: 0,
-    },
-    animate: { 
-      opacity: 1,
-      transition: { 
-        duration: 0.01,
-      }
-    }
-  };
+    let startTimeout: NodeJS.Timeout;
+    let typingInterval: NodeJS.Timeout;
 
-  const handleAnimationComplete = () => {
-    setIsComplete(true);
-    if (onComplete) {
-      onComplete();
+    const startTyping = () => {
+      typingInterval = setInterval(() => {
+        setDisplayedCount((prev) => {
+          const next = prev + 1;
+          if (next >= characters.length) {
+            clearInterval(typingInterval);
+            setIsComplete(true);
+            if (onComplete) {
+              onComplete();
+            }
+            return characters.length;
+          }
+          return next;
+        });
+      }, typingSpeed * 1000);
+    };
+
+    if (delay > 0) {
+      startTimeout = setTimeout(startTyping, delay * 1000);
+    } else {
+      startTyping();
     }
-  };
+
+    return () => {
+      clearTimeout(startTimeout);
+      clearInterval(typingInterval);
+    };
+  }, [text, typingSpeed, delay]);
 
   // Common typography/wrap styles to ensure identical rendering across layers
   const commonTextStyle: React.CSSProperties = {
@@ -98,11 +106,7 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
         LAYER 1: Backdrop Base Layer
         This layer types out character by character. It preserves layout space.
       */}
-      <motion.span
-        variants={containerVariants}
-        initial="initial"
-        animate="animate"
-        onAnimationComplete={handleAnimationComplete}
+      <span
         style={{
           ...commonTextStyle,
           color: activeColor,
@@ -110,17 +114,16 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
           width: '100%',
         }}
       >
-        {characters.map((char, index) => (
-          <motion.span
+        {characters.slice(0, displayedCount).map((char, index) => (
+          <span
             key={`${char}-${index}`}
-            variants={charVariants}
             style={{ 
               display: 'inline-block', 
               whiteSpace: 'pre' 
             }}
           >
             {char}
-          </motion.span>
+          </span>
         ))}
 
         {/* Tactile Blinking Terminal Cursor */}
@@ -142,7 +145,7 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
             }}
           />
         )}
-      </motion.span>
+      </span>
 
       {/* 
         LAYER 2 & 3: Shimmer & Glow Overlays
