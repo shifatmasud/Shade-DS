@@ -10,6 +10,8 @@
 import React from 'react';
 import { motion, type MotionValue, useMotionValue, useTransform } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import StateLayer from '../Core/StateLayer.tsx';
+import RippleLayer from '../Core/RippleLayer.tsx';
 
 interface CardProps {
   label: string; // Used as title
@@ -33,6 +35,9 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>((({
   style,
 }, ref) => {
   const { theme } = useTheme();
+  const localRef = React.useRef<HTMLDivElement>(null);
+
+  React.useImperativeHandle(ref, () => localRef.current!);
 
   // Simple, elegant motion value handler for blank states
   const useResolvedMotionValue = (prop: any, fallback: string): any => {
@@ -92,7 +97,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>((({
 
   return (
     <motion.div
-      ref={ref}
+      ref={localRef}
       style={{
         ...baseStyles,
         borderRadius: customRadius || '40px',
@@ -159,20 +164,20 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>((({
         </p>
       </div>
 
-      {/* Native Hover Overlay */}
+      {/* Smart Interaction Layers */}
       {!disabled && (
-        <motion.div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: 'inherit',
-            background: 'currentColor',
-            opacity: 0,
-            pointerEvents: 'none',
-          }}
-          whileHover={{ opacity: 0.04 }}
-          whileTap={{ opacity: 0.08 }}
-        />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', overflow: 'hidden', pointerEvents: 'none' }}>
+          <StateLayer 
+            color={contentColor1} 
+            opacity={theme.opacity['Opacity.Hover']}
+            parentRef={localRef}
+          />
+          <RippleLayer 
+            color={contentColor1}
+            opacity={theme.opacity['Opacity.Pressed']}
+            parentRef={localRef}
+          />
+        </div>
       )}
     </motion.div>
   );

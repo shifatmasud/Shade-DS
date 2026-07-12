@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { useTheme } from '../../Theme.tsx';
 import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
 import StateLayer from '../Core/StateLayer.tsx';
-import RippleLayer, { Ripple } from '../Core/RippleLayer.tsx';
+import RippleLayer from '../Core/RippleLayer.tsx';
 import { playSound } from '../../services/soundService';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
@@ -47,14 +47,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   forcedActive = false,
 }, ref) => {
   const { theme } = useTheme();
+  const localRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useImperativeHandle(ref, () => localRef.current!);
   
   // Interaction State
   const [isHovered, setIsHovered] = useState(false);
   const effectiveHover = forcedHover || isHovered;
   
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [ripples, setRipples] = useState<Ripple[]>([]);
 
   // 3D Layer Transforms
   const defaultLayerSpacing = useMotionValue(0);
@@ -63,59 +64,21 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const zStateLayer = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v}px)`);
   const zRippleLayer = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v * 2}px)`);
   const zContent = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v * 3}px)`);
-  
-  // Helper to calculate relative coordinates
-  const getCoords = (e: React.PointerEvent | React.MouseEvent) => {
-    const buttonEl = e.currentTarget as HTMLButtonElement;
-    const rect = buttonEl.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      width: rect.width,
-      height: rect.height,
-    };
-  };
 
   // Pointer Event Handlers
   const handlePointerEnter = (e: React.PointerEvent) => {
     if (disabled) return;
-    const { width, height } = getCoords(e);
-    setDimensions({ width, height });
     setIsHovered(true);
     playSound('hover');
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (disabled) return;
-    const { x, y } = getCoords(e);
-    setCoords({ x, y });
   };
 
   const handlePointerLeave = () => {
     setIsHovered(false);
   };
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (disabled) return;
-    const { x, y, width, height } = getCoords(e);
-    setCoords({ x, y });
-    setDimensions({ width, height });
-  };
-
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled) return;
     
-    // Trigger Ripple on valid Click/Tap only
-    const { width, height } = getCoords(e);
-    let { x, y } = getCoords(e);
-
-    // Handle Keyboard click (coordinates are 0)
-    if (e.detail === 0) {
-       x = width / 2;
-       y = height / 2;
-    }
-
-    setRipples(prev => [...prev, { id: Date.now() + Math.random(), x, y }]);
     playSound('click');
 
     // Forward event
@@ -123,7 +86,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   };
 
   const handleRippleComplete = (id: number) => {
-    setRipples(prev => prev.filter(r => r.id !== id));
+    // No-op for smart ripple
   };
 
   // Style Logic
@@ -333,16 +296,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   return (
     <motion.button
-      ref={ref}
+      ref={localRef}
       style={{
         ...styles,
         borderRadius: customRadius || theme.radius['Radius.Full'],
       }}
       onClick={handleClick}
       onPointerEnter={handlePointerEnter}
-      onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
-      onPointerDown={handlePointerDown}
       animate={getAnimateState()}
       whileTap={forcedActive ? undefined : { scale: 0.95, y: 2, boxShadow: getButtonShadow('active') }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
@@ -380,13 +341,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         <div style={{ width: '100%', height: '100%', overflow: 'hidden', borderRadius: 'inherit', border: getDebugBorder(colors.state) }}>
             <StateLayer 
                 color={resolvedColor} 
-                isActive={effectiveHover} 
                 opacity={stateLayerOpacity}
-                x={coords.x} 
-                y={coords.y} 
-                width={dimensions.width} 
-                height={dimensions.height}
                 forced={forcedHover}
+                parentRef={localRef}
             />
         </div>
       </motion.div>
@@ -396,11 +353,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         <div style={{ width: '100%', height: '100%', overflow: 'hidden', borderRadius: 'inherit', border: getDebugBorder(colors.ripple) }}>
             <RippleLayer
                 color={resolvedColor}
-                ripples={ripples}
-                onRippleComplete={handleRippleComplete}
-                width={dimensions.width} 
-                height={dimensions.height}
+                opacity={theme.opacity['Opacity.Pressed']}
                 forced={forcedActive}
+                parentRef={localRef}
             />
         </div>
       </motion.div>

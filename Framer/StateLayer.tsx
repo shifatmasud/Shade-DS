@@ -19,8 +19,9 @@ export default function StateLayer(props: {
   color: string;
   opacity: number;
   transition: any;
+  forced?: boolean;
 }) {
-  const { color, opacity, transition } = props;
+  const { color, opacity, transition, forced = false } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [layers, setLayers] = useState<LayerInstance[]>([]);
@@ -67,6 +68,27 @@ export default function StateLayer(props: {
       });
     };
 
+    const handleTouchMove = (e: TouchEvent) => {
+      // Prevent scrolling when scrubbing the state layer
+      if (e.cancelable) e.preventDefault();
+      const rect = target.getBoundingClientRect();
+      const touch = e.touches[0];
+      if (touch) {
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        // Hit testing for touch scrubbing parity
+        const isInside = x >= 0 && x <= rect.width && y >= 0 && y <= rect.height;
+        
+        if (isInside) {
+          setIsActive(true);
+          setMousePos({ x, y });
+        } else {
+          setIsActive(false);
+        }
+      }
+    };
+
     const handleDown = (e: PointerEvent) => {
       const rect = target.getBoundingClientRect();
       startTransition(() => {
@@ -81,12 +103,14 @@ export default function StateLayer(props: {
     target.addEventListener('pointerenter', handleEnter as any);
     target.addEventListener('pointerleave', handleLeave);
     target.addEventListener('pointermove', handleMove);
+    target.addEventListener('touchmove', handleTouchMove as any, { passive: false });
     target.addEventListener('pointerdown', handleDown as any);
 
     return () => {
       target.removeEventListener('pointerenter', handleEnter as any);
       target.removeEventListener('pointerleave', handleLeave);
       target.removeEventListener('pointermove', handleMove);
+      target.removeEventListener('touchmove', handleTouchMove as any);
       target.removeEventListener('pointerdown', handleDown as any);
     };
   }, []);
@@ -123,6 +147,7 @@ export default function StateLayer(props: {
     borderRadius: 'inherit',
     backgroundColor: 'transparent',
     pointerEvents: 'none', // Transparent to pointer events to avoid blocking children/siblings
+    touchAction: 'none', // Prevent default touch actions like scrolling
   };
 
   const baseStyles: React.CSSProperties = {
@@ -134,6 +159,32 @@ export default function StateLayer(props: {
     zIndex: 0,
     opacity: opacity,
   };
+
+  if (forced) {
+    return (
+      <div style={containerStyle}>
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: opacity, scale: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 300,
+              damping: 30,
+              mass: 1
+            }}
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundColor: color,
+                pointerEvents: 'none',
+            }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -181,6 +232,7 @@ export default function StateLayer(props: {
 StateLayer.defaultProps = {
   color: "#000000",
   opacity: 0.1,
+  forced: false,
   transition: {
     duration: 1.05,
     ease: 'easeInOut'
@@ -200,6 +252,11 @@ addPropertyControls(StateLayer, {
     min: 0,
     max: 1,
     step: 0.01,
+  },
+  forced: {
+    type: ControlType.Boolean,
+    title: "Forced",
+    defaultValue: false,
   },
   transition: {
     type: ControlType.Transition,

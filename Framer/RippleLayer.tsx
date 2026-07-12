@@ -18,8 +18,9 @@ export default function RippleLayer(props: {
   color: string;
   opacity: number;
   transition: any;
+  forced?: boolean;
 }) {
-  const { color, opacity, transition } = props;
+  const { color, opacity, transition, forced = false } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [ripples, setRipples] = useState<Ripple[]>([]);
@@ -88,6 +89,28 @@ export default function RippleLayer(props: {
     pointerEvents: 'none', // Transparent to pointer events to avoid blocking children/siblings
   };
 
+  if (forced) {
+    return (
+        <div style={containerStyle}>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: opacity, scale: 1 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30
+                }}
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: color,
+                    pointerEvents: 'none'
+                }}
+            />
+        </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
@@ -143,6 +166,7 @@ export default function RippleLayer(props: {
 RippleLayer.defaultProps = {
   color: "#000000",
   opacity: 0.15,
+  forced: false,
   transition: {
     type: 'spring',
     stiffness: 40,
@@ -163,6 +187,11 @@ addPropertyControls(RippleLayer, {
     min: 0,
     max: 1,
     step: 0.01,
+  },
+  forced: {
+    type: ControlType.Boolean,
+    title: "Forced",
+    defaultValue: false,
   },
   transition: {
     type: ControlType.Transition,

@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../Theme.tsx';
 import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
 import StateLayer from '../Core/StateLayer.tsx';
-import RippleLayer, { Ripple } from '../Core/RippleLayer.tsx';
+import RippleLayer from '../Core/RippleLayer.tsx';
 
 interface CardProps {
   label: string; // Used as title
@@ -38,12 +38,14 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
   forcedFocus = false,
 }, ref) => {
   const { theme } = useTheme();
+  const localRef = React.useRef<HTMLDivElement>(null);
+
+  React.useImperativeHandle(ref, () => localRef.current!);
+
   const [isHovered, setIsHovered] = useState(false);
   const effectiveHover = forcedHover || isHovered;
 
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [ripples, setRipples] = useState<Ripple[]>([]);
 
   const defaultLayerSpacing = useMotionValue(0);
   const effectiveLayerSpacing = layerSpacing || defaultLayerSpacing;
@@ -86,43 +88,17 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
 
   const handlePointerEnter = (e: React.PointerEvent) => {
     if (disabled) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    setDimensions({ width: rect.width, height: rect.height });
     setIsHovered(true);
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (disabled) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    setCoords({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-  
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    setCoords({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    setDimensions({ width: rect.width, height: rect.height });
-  };
-  
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (disabled) return;
     
-    const rect = e.currentTarget.getBoundingClientRect();
-    let x = e.clientX - rect.left;
-    let y = e.clientY - rect.top;
-
-    if (e.detail === 0) { // Keyboard click
-       x = dimensions.width / 2;
-       y = dimensions.height / 2;
-    }
-
-    setRipples(prev => [...prev, { id: Date.now() + Math.random(), x, y }]);
-
     if (onClick) onClick(e);
   };
 
   const handleRippleComplete = (id: number) => {
-    setRipples(prev => prev.filter(r => r.id !== id));
+    // No-op for smart ripple
   };
 
   // Determine Semantic Colors
@@ -200,15 +176,13 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
 
   return (
     <motion.div
-      ref={ref}
+      ref={localRef}
       style={{
         ...styles,
         borderRadius: customRadius || '40px',
       }}
       onPointerEnter={handlePointerEnter}
-      onPointerMove={handlePointerMove}
       onPointerLeave={() => setIsHovered(false)}
-      onPointerDown={handlePointerDown}
       onClick={handleClick}
       animate={{
         y: effectiveHover ? -12 : 0,
@@ -245,25 +219,18 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
       <motion.div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', transform: zStateLayer, overflow: 'hidden', pointerEvents: 'none', border: getDebugBorder(colors.state) }}>
         <StateLayer 
             color={contentColor1} 
-            isActive={effectiveHover} 
-            x={coords.x} 
-            y={coords.y} 
-            width={dimensions.width} 
-            height={dimensions.height}
             forced={forcedHover}
             opacity={theme.opacity['Opacity.Hover']}
+            parentRef={localRef}
         />
       </motion.div>
       
       <motion.div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', transform: zRippleLayer, overflow: 'hidden', pointerEvents: 'none', border: getDebugBorder(colors.ripple) }}>
         <RippleLayer
             color={contentColor1}
-            ripples={ripples}
-            onRippleComplete={handleRippleComplete}
-            width={dimensions.width} 
-            height={dimensions.height}
             forced={forcedActive}
             opacity={theme.opacity['Opacity.Pressed']}
+            parentRef={localRef}
         />
       </motion.div>
 

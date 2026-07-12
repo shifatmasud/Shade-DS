@@ -10,6 +10,8 @@
 import React from 'react';
 import { motion, type MotionValue, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
+import StateLayer from './StateLayer.tsx';
+import RippleLayer from './RippleLayer.tsx';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
 export type ButtonSize = 'S' | 'M' | 'L';
@@ -40,6 +42,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   style,
 }, ref) => {
   const { theme } = useTheme();
+  const localRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useImperativeHandle(ref, () => localRef.current!);
 
   // Simple, elegant motion value handler for blank states
   const useResolvedMotionValue = (prop: any, fallback: string): any => {
@@ -147,7 +152,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   return (
     <motion.button
-      ref={ref}
+      ref={localRef}
       style={{
         ...baseStyles,
         borderRadius: customRadius || theme.radius['Radius.Full'],
@@ -199,19 +204,20 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         </motion.div>
       </AnimatePresence>
       
-      {/* Native Hover Overlay */}
+      {/* Smart Interaction Layers */}
       {!disabled && (
-        <motion.div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'currentColor',
-            opacity: 0,
-            pointerEvents: 'none',
-          }}
-          whileHover={{ opacity: 0.08 }}
-          whileTap={{ opacity: 0.12 }}
-        />
+        <>
+          <StateLayer 
+            color={resolvedColor} 
+            opacity={theme.opacity['Opacity.Hover']}
+            parentRef={localRef}
+          />
+          <RippleLayer 
+            color={resolvedColor}
+            opacity={theme.opacity['Opacity.Pressed']}
+            parentRef={localRef}
+          />
+        </>
       )}
     </motion.button>
   );

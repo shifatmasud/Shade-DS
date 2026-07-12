@@ -33,7 +33,7 @@ export function ClipPathGhost(props) {
         if (originalStylesRef.current === null) {
             originalStylesRef.current = {
                 clipPath: target.style.clipPath,
-                webkitClipPath: target.style.webkitClipPath,
+                webkitClipPath: (target.style as any).webkitClipPath,
                 position: target.style.position,
             }
         }
@@ -41,7 +41,7 @@ export function ClipPathGhost(props) {
         if (hasEffect) {
             // ✅ apply clipping fix
             target.style.clipPath = "inset(0)"
-            target.style.webkitClipPath = "inset(0)"
+            (target.style as any).webkitClipPath = "inset(0)"
 
             // ensure positioning context (safe guard)
             if (getComputedStyle(target).position === "static") {

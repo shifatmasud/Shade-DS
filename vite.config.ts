@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       optimizeDeps: {
-        exclude: ['@dimforge/rapier3d-compat', 'tone']
+        exclude: ['@dimforge/rapier3d-compat']
       },
       resolve: {
         alias: {

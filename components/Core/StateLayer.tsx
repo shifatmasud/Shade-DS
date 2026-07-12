@@ -3,18 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, MotionValue } from 'framer-motion';
-
-interface StateLayerProps {
-  color: string | MotionValue<string>;
-  isActive: boolean;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  opacity?: number;
-  forced?: boolean;
-}
+import { motion, AnimatePresence, type MotionValue } from 'framer-motion';
 
 interface LayerInstance {
   id: number;
@@ -23,80 +12,190 @@ interface LayerInstance {
   frozenY?: number;
 }
 
+export interface StateLayerProps {
+  color: string | MotionValue<string>;
+  opacity?: number;
+  transition?: any;
+  forced?: boolean;
+  parentRef?: React.RefObject<any>;
+}
+
 /**
- * 🔮 STATE LAYER (Interactive Soul of the UI)
+ * 🔮 SMART STATE LAYER (Self-Aware Interactive Soul)
  * 
  * An interactive soul that provides organic feedback relative to touch/cursor position.
- * Replaces the previous implementation with a physics-based animation
- * that grows/shrinks from the cursor position.
- * 
- * Update: Supports concurrent state layers. New interactions create new layers
- * without destroying exiting ones, allowing for smooth re-entry trails.
+ * Binds automatically to its parent element or a provided parentRef.
  */
-const StateLayer: React.FC<StateLayerProps> = ({ 
-  color, 
-  isActive, 
-  x, 
-  y, 
-  width, 
-  height,
+export default function StateLayer({
+  color,
   opacity = 0.1,
-  forced = false
-}) => {
-  // Secret #1: Calculate the diameter needed to cover the button from any point
-  const maxDiameter = Math.hypot(width, height) * 2;
-  
+  transition = { duration: 1.05, ease: 'easeInOut' },
+  forced = false,
+  parentRef
+}: StateLayerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [layers, setLayers] = useState<LayerInstance[]>([]);
+  const [isActive, setIsActive] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const prevActive = useRef(isActive);
 
+  // Update dimensions on mount and resize
   useEffect(() => {
-    if (forced) return; // Managed separately
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setDimensions({
+          width: containerRef.current.offsetWidth,
+          height: containerRef.current.offsetHeight,
+        });
+      }
+    };
 
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  // Use parent element listeners to avoid blocking pointer events
+  useEffect(() => {
+    let target = parentRef ? parentRef.current : (containerRef.current?.parentElement as HTMLElement | null);
+    if (!target && !parentRef) {
+      // Find nearest interactive ancestor if parentRef is not provided and immediate parent is none
+      let current = containerRef.current?.parentElement as HTMLElement | null;
+      while (current) {
+        try {
+          const style = window.getComputedStyle(current);
+          if (style.pointerEvents !== 'none') {
+            target = current;
+            break;
+          }
+        } catch (e) {
+          break;
+        }
+        current = current.parentElement;
+      }
+    }
+    if (!target) return;
+
+    const handleEnter = (e: PointerEvent) => {
+      const rect = target.getBoundingClientRect();
+      setDimensions({ width: rect.width, height: rect.height });
+      setIsActive(true);
+    };
+
+    const handleLeave = () => setIsActive(false);
+
+    const handleMove = (e: PointerEvent) => {
+      const rect = target.getBoundingClientRect();
+      setMousePos({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // Prevent scrolling when scrubbing the state layer
+      if (e.cancelable) e.preventDefault();
+      const rect = target.getBoundingClientRect();
+      const touch = e.touches[0];
+      if (touch) {
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        // Hit testing for touch scrubbing parity
+        const isInside = x >= 0 && x <= rect.width && y >= 0 && y <= rect.height;
+        
+        if (isInside) {
+          setIsActive(true);
+          setMousePos({ x, y });
+        } else {
+          setIsActive(false);
+        }
+      }
+    };
+
+    const handleDown = (e: PointerEvent) => {
+      const rect = target.getBoundingClientRect();
+      setDimensions({ width: rect.width, height: rect.height });
+      setMousePos({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    };
+
+    target.addEventListener('pointerenter', handleEnter as any);
+    target.addEventListener('pointerleave', handleLeave);
+    target.addEventListener('pointermove', handleMove);
+    target.addEventListener('touchmove', handleTouchMove as any, { passive: false });
+    target.addEventListener('pointerdown', handleDown as any);
+
+    return () => {
+      target.removeEventListener('pointerenter', handleEnter as any);
+      target.removeEventListener('pointerleave', handleLeave);
+      target.removeEventListener('pointermove', handleMove);
+      target.removeEventListener('touchmove', handleTouchMove as any);
+      target.removeEventListener('pointerdown', handleDown as any);
+    };
+  }, [parentRef, parentRef?.current]);
+
+  const maxDiameter = Math.hypot(dimensions.width, dimensions.height) * 2;
+
+  useEffect(() => {
     if (isActive && !prevActive.current) {
       // Enter: Spawn new layer
       setLayers(prev => [...prev, { id: Date.now() + Math.random(), isActive: true }]);
     } else if (!isActive && prevActive.current) {
       // Leave: Freeze and decay active layers
-      setLayers(prev => prev.map(l => l.isActive ? { ...l, isActive: false, frozenX: x, frozenY: y } : l));
+      setLayers(prev => prev.map(l => l.isActive ? { ...l, isActive: false, frozenX: mousePos.x, frozenY: mousePos.y } : l));
     }
     prevActive.current = isActive;
-  }, [isActive, x, y, forced]);
+  }, [isActive, mousePos.x, mousePos.y]);
 
   const removeLayer = (id: number) => {
     setLayers(prev => prev.filter(l => l.id !== id));
   };
 
-  const baseStyles: any = {
+  const containerStyle: React.CSSProperties = {
     position: 'absolute',
-    backgroundColor: color,
-    borderRadius: '50%',
-    transform: 'translate(-50%, -50%)',
-    pointerEvents: 'none', // Secret #2: Pass clicks through to the button
-    zIndex: 0,
-    opacity: opacity,
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+    borderRadius: 'inherit',
+    backgroundColor: 'transparent',
+    pointerEvents: 'none',
+    touchAction: 'none',
   };
 
-  const containerStyle: React.CSSProperties = { 
-    position: 'absolute', 
-    top: 0, 
-    left: 0, 
-    width: '100%', 
-    height: '100%', 
-    overflow: 'hidden', 
-    borderRadius: 'inherit', 
-    pointerEvents: 'none' 
+  const baseStyles: React.CSSProperties = {
+    position: 'absolute',
+    backgroundColor: color as any,
+    borderRadius: '50%',
+    transform: 'translate(-50%, -50%)',
+    pointerEvents: 'none',
+    zIndex: 0,
+    opacity: opacity,
   };
 
   if (forced) {
     return (
       <div style={containerStyle}>
         <motion.div 
-            initial={{ opacity: opacity }}
-            animate={{ opacity: opacity }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: opacity, scale: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 300,
+              damping: 30,
+              mass: 1
+            }}
             style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
                 width: '100%',
                 height: '100%',
-                backgroundColor: color,
+                backgroundColor: color as any,
                 pointerEvents: 'none',
             }}
         />
@@ -105,46 +204,38 @@ const StateLayer: React.FC<StateLayerProps> = ({
   }
 
   return (
-    <div style={containerStyle}>
+    <div
+      ref={containerRef}
+      style={containerStyle}
+    >
       <AnimatePresence>
-        {layers.map(layer => {
-             // Use live props for active layers, frozen values for decaying layers
-             const currentX = layer.isActive ? x : layer.frozenX;
-             const currentY = layer.isActive ? y : layer.frozenY;
+      {layers.map(layer => {
+        const currentX = layer.isActive ? mousePos.x : layer.frozenX;
+        const currentY = layer.isActive ? mousePos.y : layer.frozenY;
 
-             return (
-                <motion.div
-                    key={layer.id}
-                    style={{
-                        ...baseStyles,
-                        left: currentX,
-                        top: currentY,
-                    }}
-                    initial={{ width: 0, height: 0, opacity: opacity }}
-                    animate={{
-                        width: layer.isActive ? maxDiameter : 0,
-                        height: layer.isActive ? maxDiameter : 0,
-                        opacity: opacity,
-                    }}
-                    exit={{ width: 0, height: 0, opacity: opacity }}
-                    /* 
-                     * SHADE DSL STATE LAYER TRANSITION CORRECTION:
-                     * - Changed transition ease to 'easeInOut' for smoother interactive organic flow.
-                     * - To undo: revert ease back to [0.2, 0, 0, 1].
-                     */
-                    transition={{
-                        duration: 1.05,
-                        ease: 'easeInOut'
-                    }}
-                    onAnimationComplete={() => {
-                        if (!layer.isActive) removeLayer(layer.id);
-                    }}
-                />
-             );
-        })}
+        return (
+          <motion.div
+            key={layer.id}
+            style={{
+              ...baseStyles,
+              left: currentX,
+              top: currentY,
+            }}
+            initial={{ width: 0, height: 0, opacity: opacity }}
+            animate={{
+              width: layer.isActive ? maxDiameter : 0,
+              height: layer.isActive ? maxDiameter : 0,
+              opacity: opacity,
+            }}
+            exit={{ width: 0, height: 0, opacity: opacity }}
+            transition={transition}
+            onAnimationComplete={() => {
+              if (!layer.isActive) removeLayer(layer.id);
+            }}
+          />
+        );
+      })}
       </AnimatePresence>
     </div>
   );
-};
-
-export default StateLayer;
+}
