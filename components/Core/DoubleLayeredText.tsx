@@ -71,9 +71,6 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
       // If text is empty, complete immediately
       if (characters.length === 0) {
         setIsComplete(true);
-        if (onComplete) {
-          onComplete();
-        }
         return;
       }
 
@@ -83,9 +80,6 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
           if (next >= characters.length) {
             clearInterval(typingInterval);
             setIsComplete(true);
-            if (onComplete) {
-              onComplete();
-            }
             return characters.length;
           }
           return next;
@@ -104,6 +98,13 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
       clearInterval(typingInterval);
     };
   }, [text, typingSpeed, delay, active]);
+
+  // Dedicated useEffect to trigger onComplete on parent in a safe phase
+  useEffect(() => {
+    if (isComplete && onComplete) {
+      onComplete();
+    }
+  }, [isComplete, onComplete]);
 
   // Common typography/wrap styles to ensure identical rendering across layers
   const commonTextStyle: React.CSSProperties = {
