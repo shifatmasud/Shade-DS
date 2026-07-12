@@ -81,7 +81,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   };
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (disabled) return;
+    if (disabled || isSuccess) return;
     
     playSound('click');
 
