@@ -104,7 +104,7 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
 
   // Subdivided Box Geometry for high-resolution smooth vertex deformations
   const geometry = useMemo(() => {
-    return new THREE.BoxGeometry(size, size, size, 16, 16, 16);
+    return new THREE.BoxGeometry(size, size, size, 8, 8, 8);
   }, [size]);
 
   // Cache uniforms in reference to persist between compiling scopes
@@ -200,13 +200,12 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
   const customMaterial = useMemo(() => {
     const mat = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(color),
-      roughness: 0.03,
+      roughness: 0.08,
       metalness: 0.0,
       transmission: transmission,
       ior: 1.35, // Index of refraction for jelly/gelatin
       thickness: size * 1.5,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.03,
+      clearcoat: 0.0,
       transparent: true,
       opacity: 0.95,
       depthWrite: true,

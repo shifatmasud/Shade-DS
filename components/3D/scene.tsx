@@ -13,6 +13,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Info, X, Copy } from 'phosphor-react';
 import { AnimatedCheckIcon } from '../Core';
 import { ErrorBoundary } from 'react-error-boundary';
+import { EffectComposer, SMAA } from '@react-three/postprocessing';
+import { SMAAPreset } from 'postprocessing';
 
 // Preload the environment map preset to fetch the HDR cubemap asset early
 useEnvironment.preload({ preset: 'city' });
@@ -360,20 +362,36 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
 
 import { useTheme } from '../../Theme';
 
+// Progressive Environment Loader: waits for initial frames and idle state before mounting Environment
+const ProgressiveEnvironment: React.FC = () => {
+  const [shouldMount, setShouldMount] = useState(false);
+  const frameCountRef = useRef(0);
+
+  useFrame(() => {
+    if (frameCountRef.current < 2) {
+      frameCountRef.current++;
+      if (frameCountRef.current === 2) {
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => {
+            setShouldMount(true);
+          }, { timeout: 1000 });
+        } else {
+          setTimeout(() => {
+            setShouldMount(true);
+          }, 200);
+        }
+      }
+    }
+  });
+
+  return shouldMount ? <Environment preset="city" resolution={128} /> : null;
+};
+
 const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
   const { theme } = useTheme();
   const { cubes, addCube } = usePhysicsStore();
   const [controlsEnabled, setControlsEnabled] = useState(true);
   const [fps, setFps] = useState(0);
-  const [mountEnvironment, setMountEnvironment] = useState(false);
-
-  // Defer mounting the Environment map until after the initial UI painting
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMountEnvironment(true);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
 
   const [showDialog, setShowDialog] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -606,9 +624,9 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
       <ErrorBoundary fallback={<div style={{ color: 'white', padding: '20px' }}>3D Scene Error. Please check console.</div>}>
         <Canvas 
           shadows={{ type: THREE.PCFShadowMap }} 
-          dpr={[1, 2]}
+          dpr={[1, 1.5]}
           gl={{ 
-            antialias: true,
+            antialias: false,
             powerPreference: 'high-performance',
             alpha: true
           }}
@@ -622,7 +640,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
           />
           
           <ambientLight intensity={0.5} />
-          <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+          <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={512} shadow-mapSize-height={512} />
           
           <Physics gravity={[0, -9.81, 0]}>
             <RotatingBox 
@@ -641,7 +659,11 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
           </Physics>
           
           {showSky && <Sky sunPosition={[1, 0.2, 1]} />}
-          {mountEnvironment && <Environment preset="city" resolution={128} />}
+          <ProgressiveEnvironment />
+
+          <EffectComposer>
+            <SMAA preset={SMAAPreset.HIGH} />
+          </EffectComposer>
         </Canvas>
       </ErrorBoundary>
       
