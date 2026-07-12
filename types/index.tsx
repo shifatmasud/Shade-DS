@@ -47,6 +47,7 @@ export interface MetaComponentProps {
     forcedHover: boolean;
     forcedFocus: boolean;
     forcedActive: boolean;
+    enableSuccess?: boolean;
 }
 
 export type MetaButtonProps = MetaComponentProps; // Alias for backward compatibility

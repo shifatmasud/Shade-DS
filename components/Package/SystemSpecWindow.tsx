@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import { Copy, Info, Play, Shield, Cpu, Palette, FileText } from 'phosphor-react';
-import { AnimatedCheckIcon } from '../Core';
+import { AnimatedCheckIcon, Button } from '../Core';
 
 const SYSTEM_SPEC_MARKDOWN = `# System Spec
 
@@ -95,10 +95,49 @@ const SystemSpecWindow = () => {
   const { theme } = useTheme();
   const [copied, setCopied] = useState(false);
 
+  const fallbackCopy = (text: string): boolean => {
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.top = '0';
+      textArea.style.left = '0';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return successful;
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      return false;
+    }
+  };
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(SYSTEM_SPEC_MARKDOWN);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const text = SYSTEM_SPEC_MARKDOWN;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        })
+        .catch((err) => {
+          console.warn('Clipboard write failed, trying fallback:', err);
+          const success = fallbackCopy(text);
+          if (success) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }
+        });
+    } else {
+      const success = fallbackCopy(text);
+      if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    }
   };
 
   const sectionStyle: React.CSSProperties = {
@@ -174,30 +213,16 @@ const SystemSpecWindow = () => {
           <Shield size={20} weight="fill" color={theme.Color.Focus.Content[1]} />
           <span style={{ fontFamily: 'Bebas Neue', fontSize: theme.Type.Readable.Title.L.fontSize }}>System Protocol v1.0</span>
         </div>
-        <button 
+        <Button 
           onClick={handleCopy}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.space['Space.XS'],
-            padding: `${theme.space['Space.XS']} ${theme.space['Space.M']}`,
-            borderRadius: theme.radius['Radius.S'],
-            /* 
-             * SHADE DSL REWRITE: Replaced 1px solid border with getBorder1px box shadow glow.
-             * To undo: replace the spread below with border: `${theme.border['Border.Width.Main']} solid ${theme.Color.Base.Surface[3]}`
-             */
-            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
-            backgroundColor: theme.Color.Base.Surface[2],
-            color: theme.Color.Base.Content[1],
-            cursor: 'pointer',
-            fontSize: theme.Type.Readable.Label.M.fontSize,
-            fontFamily: 'Inter',
-            transition: 'all 0.2s ease',
-          }}
+          variant="secondary"
+          size="S"
+          enableSuccess={true}
+          icon={<Copy size={14} />}
+          style={{ width: 'auto' }}
         >
-          {copied ? <AnimatedCheckIcon size={14} color={theme.Color.Success.Content[1]} /> : <Copy size={14} />}
-          {copied ? 'Copied!' : 'Copy Markdown'}
-        </button>
+          Copy as Markdown
+        </Button>
       </div>
 
       {/* Core Rules */}

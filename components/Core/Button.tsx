@@ -8,25 +8,32 @@
  * To undo: replace its entire contents with /components/staged/Button.tsx.
  */
 import React from 'react';
-import { motion, type MotionValue, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
+import { motion, type MotionValue, useMotionValue, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import StateLayer from './StateLayer.tsx';
 import RippleLayer from './RippleLayer.tsx';
+import { AnimatedCheckIcon } from './AnimatedCheckIcon.tsx';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
 export type ButtonSize = 'S' | 'M' | 'L';
 
-interface ButtonProps {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  label: string;
-  icon?: string;
+  label?: string;
+  icon?: React.ReactNode;
   customFill?: string | MotionValue<string>;
   customColor?: string | MotionValue<string>;
   customRadius?: string | MotionValue<string>;
   disabled?: boolean;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   style?: React.CSSProperties;
+  enableSuccess?: boolean;
+  // Allow custom motion values
+  animate?: any;
+  whileHover?: any;
+  whileTap?: any;
+  transition?: any;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
@@ -40,11 +47,37 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   disabled = false,
   onClick,
   style,
+  children,
+  type = 'button',
+  enableSuccess = false,
+  // standard motion attributes can be default or customized
+  animate,
+  whileHover,
+  whileTap,
+  transition,
+  ...rest
 }, ref) => {
   const { theme } = useTheme();
   const localRef = React.useRef<HTMLButtonElement>(null);
 
   React.useImperativeHandle(ref, () => localRef.current!);
+
+  const [isSuccess, setIsSuccess] = React.useState(false);
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled || isSuccess) return;
+    if (enableSuccess) {
+      setIsSuccess(true);
+    }
+    if (onClick) onClick(e);
+  };
+
+  React.useEffect(() => {
+    if (isSuccess) {
+      const timer = setTimeout(() => setIsSuccess(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess]);
 
   // Simple, elegant motion value handler for blank states
   const useResolvedMotionValue = (prop: any, fallback: string): any => {
@@ -71,20 +104,37 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   };
 
   const fallbackBg = variant === 'primary' 
-    ? theme.Color.Accent.Surface[1] 
+    ? theme.Color.Accent.Surface['1'] 
     : (variant === 'destructive' 
-       ? theme.Color.Error.Surface[1] 
-       : (variant === 'secondary' ? theme.Color.Base.Surface[2] : 'transparent'));
+       ? theme.Color.Error.Surface['1'] 
+       : (variant === 'secondary' ? theme.Color.Base.Surface['2'] : 'transparent'));
 
   const fallbackColor = variant === 'primary' 
-    ? theme.Color.Accent.Content[1] 
+    ? theme.Color.Accent.Content['1'] 
     : (variant === 'destructive' 
-       ? theme.Color.Error.Content[1] 
-       : theme.Color.Base.Content[1]);
+       ? theme.Color.Error.Content['1'] 
+       : theme.Color.Base.Content['1']);
 
   const isOutlineOrTertiary = variant === 'outline' || variant === 'tertiary';
   const resolvedFill = useResolvedMotionValue(isOutlineOrTertiary ? 'transparent' : customFill, fallbackBg);
   const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
+
+  const getButtonShadow = () => {
+    if (isSuccess) {
+      return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`;
+    }
+    switch (variant) {
+      case 'primary':
+        return theme.effects['Effect.Shadow.Drop.1'];
+      case 'destructive':
+        return `0 0 1px 0px ${theme.Color.Error.Content['1']}, inset 0 0 1px 0px ${theme.Color.Error.Content['1']}, ${theme.effects['Effect.Shadow.Drop.1']}`;
+      case 'outline':
+      case 'secondary':
+      case 'tertiary':
+      default:
+        return 'none';
+    }
+  };
 
   const getVariantStyles = () => {
     switch (variant) {
@@ -93,7 +143,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           background: resolvedFill,
           color: resolvedColor,
           border: 'none',
-          boxShadow: theme.effects['Effect.Shadow.Drop.1'],
         };
       case 'secondary':
         return {
@@ -105,14 +154,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         return {
           background: resolvedFill,
           color: resolvedColor,
-          ...theme.border.getBorder1px(theme.Color.Base.Content[3]),
+          ...theme.border.getBorder1px(theme.Color.Base.Content['3']),
         };
       case 'destructive':
         return {
           background: resolvedFill,
           color: resolvedColor,
           border: 'none',
-          boxShadow: `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}, ${theme.effects['Effect.Shadow.Drop.1']}`,
         };
       case 'tertiary':
       default:
@@ -120,7 +168,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           background: resolvedFill,
           color: resolvedColor,
           border: 'none',
-          boxShadow: 'none',
         };
     }
   };
@@ -136,7 +183,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   const baseStyles: React.CSSProperties = {
     position: 'relative',
-    display: 'flex',
+    display: 'inline-flex',
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
@@ -146,8 +193,25 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     overflow: 'hidden',
     userSelect: 'none',
     transition: 'background-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
+    boxShadow: getButtonShadow(),
+    isolation: 'isolate',
     ...getSizeStyles(),
     ...getVariantStyles(),
+  };
+
+  const renderIcon = (iconProp: React.ReactNode) => {
+    if (!iconProp) return null;
+    if (typeof iconProp === 'string') {
+      let iconClass = iconProp;
+      if (!iconClass.startsWith('ph-')) {
+        iconClass = `ph-${iconClass.toLowerCase()}`;
+      }
+      if (!iconClass.includes('ph-bold')) {
+        iconClass = `ph-bold ${iconClass}`;
+      }
+      return <i className={iconClass} style={{ fontSize: '1.20em' }} />;
+    }
+    return iconProp;
   };
 
   return (
@@ -160,10 +224,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         background: 'transparent', // We'll use a layered background for the mask slide
       }}
       disabled={disabled}
-      whileHover={disabled ? undefined : { scale: 1.02, y: -1 }}
-      whileTap={disabled ? undefined : { scale: 0.98, y: 0 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      onClick={onClick}
+      type={type}
+      whileHover={disabled ? undefined : (whileHover || { scale: 1.02, y: -1 })}
+      whileTap={disabled ? undefined : (whileTap || { scale: 0.98, y: 0 })}
+      animate={animate}
+      transition={transition || { type: 'spring', stiffness: 400, damping: 30 }}
+      onClick={handleClick}
+      {...(rest as any)}
     >
       {/* Background Layers for Mask Slide */}
       <motion.div
@@ -174,49 +241,80 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           zIndex: -2,
         }}
       />
-      <AnimatePresence mode="popLayout">
-        <motion.div
-          key={variant}
-          initial={{ clipPath: 'inset(0 100% 0 0)' }}
-          animate={{ clipPath: 'inset(0 0% 0 0)' }}
-          exit={{ clipPath: 'inset(0 0 0 100%)' }}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: resolvedFill,
-            zIndex: -1,
-          }}
-        />
+      <motion.div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: resolvedFill,
+          zIndex: -1,
+        }}
+      />
+
+      {/* Success Mask Slide layer inside Core/Button */}
+      <AnimatePresence mode="wait">
+        {isSuccess && (
+          <motion.div
+            initial={{ clipPath: 'inset(0 100% 0 0)' }}
+            animate={{ clipPath: 'inset(0 0% 0 0)' }}
+            exit={{ clipPath: 'inset(0 100% 0 0)' }}
+            transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 0.5,
+              backgroundColor: theme.Color.Success.Surface['1'],
+              borderRadius: 'inherit',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
-        <motion.div
-          key={`${icon}-${label}`}
-          initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
-          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-          style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}
-        >
-          {icon && <i className={`ph-bold ${icon}`} style={{ fontSize: '1.20em' }} />}
-          <span>{label}</span>
-        </motion.div>
+        {isSuccess ? (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'], width: '100%', color: theme.Color.Success.Content['1'], zIndex: 1 }}
+          >
+            <AnimatedCheckIcon size={18} color={theme.Color.Success.Content['1']} />
+            <span>Success!</span>
+          </motion.div>
+        ) : (
+          <motion.div
+            key={`${icon}-${label}`}
+            initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'], width: '100%', zIndex: 1 }}
+          >
+            {icon && renderIcon(icon)}
+            {children || (label && <span>{label}</span>)}
+          </motion.div>
+        )}
       </AnimatePresence>
       
       {/* Smart Interaction Layers */}
       {!disabled && (
         <>
-          <StateLayer 
-            color={resolvedColor} 
-            opacity={theme.opacity['Opacity.Hover']}
-            parentRef={localRef}
-          />
-          <RippleLayer 
-            color={resolvedColor}
-            opacity={theme.opacity['Opacity.Pressed']}
-            parentRef={localRef}
-          />
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 0 }}>
+            <StateLayer 
+              color={resolvedColor} 
+              opacity={theme.opacity['Opacity.Hover']}
+              parentRef={localRef}
+            />
+          </div>
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 0 }}>
+            <RippleLayer 
+              color={resolvedColor}
+              opacity={theme.opacity['Opacity.Pressed']}
+              parentRef={localRef}
+            />
+          </div>
         </>
       )}
     </motion.button>

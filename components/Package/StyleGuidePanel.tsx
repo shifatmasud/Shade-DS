@@ -146,15 +146,34 @@ const StyleGuidePanel: React.FC = () => {
       </Section>
 
       <Section title="Space">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.space['Space.S'] }}>
-          {Object.entries(theme.space).map(([name, value]) => (
-            <TokenRow 
-              key={name}
-              label={name}
-              value={value as string}
-              preview={<div style={{ width: value as string, height: theme.space['Space.S'], backgroundColor: theme.Color.Accent.Surface[1], borderRadius: theme.radius['Radius.S'] }} />}
-            />
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.space['Space.S'] }}>
+          {Object.entries(theme.space).map(([name, value]) => {
+            const parsedVal = parseInt(value as string) || 0;
+            const visualWidth = Math.min(parsedVal, 120);
+            return (
+              <TokenRow 
+                key={name}
+                label={name}
+                value={value as string}
+                preview={
+                  <div style={{ 
+                    width: '120px', 
+                    display: 'flex', 
+                    justifyContent: 'flex-end', 
+                    alignItems: 'center' 
+                  }}>
+                    <div style={{ 
+                      width: `${visualWidth}px`, 
+                      height: theme.space['Space.S'], 
+                      backgroundColor: theme.Color.Accent.Surface[1], 
+                      borderRadius: theme.radius['Radius.S'],
+                      maxWidth: '100%'
+                    }} />
+                  </div>
+                }
+              />
+            );
+          })}
         </div>
       </Section>
 

@@ -236,7 +236,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </Accordion>
 
       <Accordion title="State">
-        <motion.div layout="position" style={{ width: '100%' }}>
+        <motion.div layout="position" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'], width: '100%' }}>
           <Select<any> 
               label="Interaction State"
               value={currentInteraction}
@@ -248,6 +248,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                   { value: 'active', label: 'Click' },
                   { value: 'disabled', label: 'Disabled' },
               ]}
+          />
+          <Toggle
+            label="Enable Success State"
+            isOn={!!btnProps.enableSuccess}
+            onToggle={() => onPropChange('enableSuccess', !btnProps.enableSuccess)}
           />
         </motion.div>
       </Accordion>

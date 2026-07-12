@@ -48,6 +48,7 @@ const Home = () => {
     forcedHover: false,
     forcedFocus: false,
     forcedActive: false,
+    enableSuccess: false,
   });
   
   // -- View / Inspection State --

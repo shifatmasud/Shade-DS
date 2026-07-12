@@ -4,9 +4,10 @@
  */
 import React, { useState } from 'react';
 import { useTheme } from '../../Theme.tsx';
-import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
+import { motion, type MotionValue, useTransform, useMotionValue, AnimatePresence } from 'framer-motion';
 import StateLayer from '../Core/StateLayer.tsx';
 import RippleLayer from '../Core/RippleLayer.tsx';
+import { AnimatedCheckIcon } from '../Core';
 import { playSound } from '../../services/soundService';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
@@ -28,6 +29,7 @@ interface ButtonProps {
   forcedHover?: boolean;
   forcedFocus?: boolean;
   forcedActive?: boolean;
+  enableSuccess?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
@@ -45,6 +47,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   forcedHover = false,
   forcedFocus = false,
   forcedActive = false,
+  enableSuccess = false,
 }, ref) => {
   const { theme } = useTheme();
   const localRef = React.useRef<HTMLButtonElement>(null);
@@ -55,7 +58,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const [isHovered, setIsHovered] = useState(false);
   const effectiveHover = forcedHover || isHovered;
   
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  // Success State
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // 3D Layer Transforms
   const defaultLayerSpacing = useMotionValue(0);
@@ -81,12 +85,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     
     playSound('click');
 
+    if (enableSuccess) {
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+      }, 2000);
+    }
+
     // Forward event
     if (onClick) onClick();
-  };
-
-  const handleRippleComplete = (id: number) => {
-    // No-op for smart ripple
   };
 
   // Style Logic
@@ -114,30 +121,33 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   };
 
   const fallbackBg = variant === 'primary' 
-    ? theme.Color.Accent.Surface[1] 
+    ? theme.Color.Accent.Surface['1'] 
     : (variant === 'destructive' 
-       ? theme.Color.Error.Surface[1] 
-       : (variant === 'secondary' ? theme.Color.Base.Surface[2] : 'transparent'));
+       ? theme.Color.Error.Surface['1'] 
+       : (variant === 'secondary' ? theme.Color.Base.Surface['2'] : 'transparent'));
 
   const fallbackColor = variant === 'primary' 
-    ? theme.Color.Accent.Content[1] 
+    ? theme.Color.Accent.Content['1'] 
     : (variant === 'destructive' 
-       ? theme.Color.Error.Content[1] 
-       : theme.Color.Base.Content[1]);
+       ? theme.Color.Error.Content['1'] 
+       : theme.Color.Base.Content['1']);
 
   const isOutlineOrTertiary = variant === 'outline' || variant === 'tertiary';
   const resolvedFill = useResolvedMotionValue(isOutlineOrTertiary ? 'transparent' : customFill, fallbackBg);
   const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
 
   const getButtonShadow = (state: 'idle' | 'hover' | 'active' | 'disabled') => {
+    if (isSuccess) {
+      return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`;
+    }
     const isTertiary = variant === 'tertiary';
     if (isTertiary) return 'none';
 
     // 1. Define the base border shadow layer for variants that use it
     const borderShadow = variant === 'outline'
-      ? `0 0 1px 0px ${theme.Color.Base.Content[3]}, inset 0 0 1px 0px ${theme.Color.Base.Content[3]}`
+      ? `0 0 1px 0px ${theme.Color.Base.Content['3']}, inset 0 0 1px 0px ${theme.Color.Base.Content['3']}`
       : (variant === 'destructive'
-         ? `0 0 1px 0px ${theme.Color.Error.Content[1]}, inset 0 0 1px 0px ${theme.Color.Error.Content[1]}`
+         ? `0 0 1px 0px ${theme.Color.Error.Content['1']}, inset 0 0 1px 0px ${theme.Color.Error.Content['1']}`
          : '');
 
     // 2. Define the drop shadow layer based on state
@@ -249,23 +259,32 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     zIndex: 1,
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: theme.space['Space.S'],
     pointerEvents: 'none',
     userSelect: 'none',
+    width: '100%',
   };
 
   // 3D Debug Colors
   const colors = {
-      surface: theme.Color.Error.Content[1],
-      state: theme.Color.Active.Content[1],
-      ripple: theme.Color.Focus.Content[1],
-      content: theme.Color.Success.Content[1],
+      surface: theme.Color.Error.Content['1'],
+      state: theme.Color.Active.Content['1'],
+      ripple: theme.Color.Focus.Content['1'],
+      content: theme.Color.Success.Content['1'],
   };
 
   const getDebugBorder = (color: string) => view3D ? `1px solid ${color}` : 'none';
 
   // Calculate Animate Props for Premium Feel
   const getAnimateState = () => {
+    if (isSuccess) {
+      return {
+        y: 0,
+        scale: 1,
+        boxShadow: `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`,
+      };
+    }
     if (disabled) return { y: 0, scale: 1, boxShadow: getButtonShadow('disabled') };
     
     // Active (Pressed)
@@ -311,6 +330,25 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       {/* 0. SURFACE LAYER (Base Z=0) */}
       <motion.div style={{ ...layerWrapperStyle, zIndex: 0, border: getDebugBorder(colors.surface) }} />
 
+      {/* 0.1 SUCCESS STATE MASK SLIDE LAYER */}
+      <AnimatePresence>
+        {isSuccess && (
+          <motion.div
+            initial={{ clipPath: 'inset(0 100% 0 0)' }}
+            animate={{ clipPath: 'inset(0 0% 0 0)' }}
+            exit={{ clipPath: 'inset(0 0 0 100%)' }}
+            transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+            style={{
+              ...layerWrapperStyle,
+              zIndex: 0.5, // Between base surface and state layers
+              backgroundColor: theme.Color.Success.Surface['1'],
+              borderRadius: 'inherit',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* 0.5 FOCUS RING LAYER (Dedicated Element - NOT in 3D stack) */}
       <motion.div 
         style={{ 
@@ -330,9 +368,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
              right: `calc(-1 * ${theme.space['Space.XS']})`, 
              bottom: `calc(-1 * ${theme.space['Space.XS']})`, 
              borderRadius: 'inherit',
-             ...theme.border.getOutline2px(theme.Color.Focus.Content[1]),
+             ...theme.border.getOutline2px(theme.Color.Focus.Content['1']),
              pointerEvents: 'none',
-             boxShadow: forcedFocus ? `0 0 12px ${theme.Color.Focus.Surface[1]}` : 'none',
+             boxShadow: forcedFocus ? `0 0 12px ${theme.Color.Focus.Surface['1']}` : 'none',
          }} />
       </motion.div>
 
@@ -364,8 +402,33 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       <motion.div style={{ ...layerWrapperStyle, transform: zContent, border: getDebugBorder(colors.content) }} />
 
       <motion.div style={{ ...contentWrapperStyle, transform: zContent }}>
-        {icon && <i className={`ph-bold ${icon}`} draggable={false} style={{ fontSize: '1.25em' }} />}
-        <span draggable={false}>{label}</span>
+        <AnimatePresence mode="wait">
+          {isSuccess ? (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+              transition={{ duration: 0.2 }}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'], color: theme.Color.Success.Content['1'] }}
+            >
+              <AnimatedCheckIcon size={18} color={theme.Color.Success.Content['1']} />
+              <span draggable={false}>Success!</span>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="normal"
+              initial={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+              transition={{ duration: 0.2 }}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: theme.space['Space.S'], color: 'inherit' }}
+            >
+              {icon && <i className={`ph-bold ${icon}`} draggable={false} style={{ fontSize: '1.25em' }} />}
+              <span draggable={false}>{label}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.button>
   );

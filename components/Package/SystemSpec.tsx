@@ -19,7 +19,7 @@ import {
   Layout,
   Stack
 } from 'phosphor-react';
-import { AnimatedCheckIcon } from '../Core';
+import { AnimatedCheckIcon, Button } from '../Core';
 
 const SystemSpec = () => {
   const { theme } = useTheme();
@@ -442,28 +442,16 @@ Inside the target file:
 
       {/* Footer Actions */}
       <div style={{ padding: theme.space['Space.XL'], display: 'flex', justifyContent: 'center' }}>
-        <motion.button
+        <Button
           onClick={handleCopy}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.space['Space.S'],
-            padding: `${theme.space['Space.M']} ${theme.space['Space.XL']}`,
-            borderRadius: theme.radius['Radius.M'],
-            border: 'none',
-            backgroundColor: theme.Color.Base.Content[1],
-            color: theme.Color.Base.Surface[1],
-            ...theme.Type.Readable.Title.L,
-            cursor: 'pointer',
-            boxShadow: theme.effects['Effect.Shadow.Drop.2'],
-            transition: 'background-color 0.2s'
-          }}
+          variant="primary"
+          size="M"
+          enableSuccess={true}
+          icon={<Copy size={18} />}
+          style={{ width: 'auto', minWidth: '220px' }}
         >
-          {copied ? <AnimatedCheckIcon size={20} color={theme.Color.Base.Surface[1]} /> : <Copy size={20} weight="bold" />}
-          {copied ? 'COPIED!' : 'COPY AS MARKDOWN'}
-        </motion.button>
+          COPY AS MARKDOWN
+        </Button>
       </div>
     </div>
   );
