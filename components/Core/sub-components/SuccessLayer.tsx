@@ -1,7 +1,8 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../../Theme.tsx';
 import { AnimatedCheckIcon } from './AnimatedCheckIcon.tsx';
+import { useHost } from '../../../hooks/useHost.ts';
 
 export interface SuccessLayerProps {
   /** Trigger for the success animation */
@@ -18,6 +19,8 @@ export interface SuccessLayerProps {
   onComplete?: () => void;
   /** Layer z-index. Defaults to 0 to stay behind content */
   zIndex?: number;
+  /** Binding mode: 'parent' or 'sibling' */
+  mode?: 'parent' | 'sibling';
 }
 
 /**
@@ -35,23 +38,24 @@ export default function SuccessLayer({
   size = 'M',
   onComplete,
   zIndex = 0, 
+  mode = 'parent',
 }: SuccessLayerProps) {
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
+  const target = useHost(containerRef, mode);
   const resolvedColor = color || theme.Color.Success.Surface['1'];
   const [parentStyle, setParentStyle] = useState<React.CSSProperties>({});
   const [lastPos, setLastPos] = useState({ x: '50%', y: '50%' });
 
   // Self-aware binding and live mouse tracking
   useLayoutEffect(() => {
-    if (!containerRef.current?.parentElement) return;
+    if (!target) return;
     
-    const parent = containerRef.current.parentElement;
-    const computed = window.getComputedStyle(parent);
+    const computed = window.getComputedStyle(target);
     
     // Ensure parent can contain absolute layers
     if (computed.position === 'static') {
-      parent.style.position = 'relative';
+      target.style.position = 'relative';
     }
     
     // Mirror border radius
@@ -60,7 +64,7 @@ export default function SuccessLayer({
     });
 
     const updatePos = (e: MouseEvent | TouchEvent | PointerEvent) => {
-      const rect = parent.getBoundingClientRect();
+      const rect = target.getBoundingClientRect();
       let clientX, clientY;
 
       if ('touches' in e && e.touches.length > 0) {
@@ -78,16 +82,16 @@ export default function SuccessLayer({
     };
 
     // Track movement to know where to expand from
-    parent.addEventListener('mousemove', updatePos);
-    parent.addEventListener('touchstart', updatePos, { passive: true });
-    parent.addEventListener('mousedown', updatePos);
+    target.addEventListener('mousemove', updatePos);
+    target.addEventListener('touchstart', updatePos, { passive: true });
+    target.addEventListener('mousedown', updatePos);
 
     return () => {
-      parent.removeEventListener('mousemove', updatePos);
-      parent.removeEventListener('touchstart', updatePos);
-      parent.removeEventListener('mousedown', updatePos);
+      target.removeEventListener('mousemove', updatePos);
+      target.removeEventListener('touchstart', updatePos);
+      target.removeEventListener('mousedown', updatePos);
     };
-  }, []);
+  }, [target]);
 
   // Use manual position if provided, otherwise last tracked pos
   const resolvedPosition = position || lastPos;

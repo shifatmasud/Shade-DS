@@ -39,23 +39,29 @@ Most parasites require the same infrastructure. Use these patterns inside your c
  * Shared Infrastructure for Parasitic Binding
  */
 
-export const useHost = (ref: React.RefObject<HTMLElement>) => {
+export const useHost = (ref: React.RefObject<HTMLElement>, mode: 'parent' | 'sibling' = 'parent') => {
   const [host, setHost] = useState<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
     if (!ref.current) return;
     
-    // Standard Parent
-    let target = ref.current.parentElement;
+    let target: HTMLElement | null = null;
     
-    // Framer Detection: If parent is a Framer wrapper, move to grandparent
-    // Framer wrappers often have 'data-framer-component-type' or are just div/span wrappers
-    if (target && (target.hasAttribute('data-framer-component-type') || target.hasAttribute('data-framer-generated'))) {
-       target = target.parentElement;
+    if (mode === 'parent') {
+      target = ref.current.parentElement;
+      
+      // Framer Detection: If parent is a Framer wrapper, move to grandparent
+      // Framer wrappers often have 'data-framer-component-type' or are just div/span wrappers
+      if (target && (target.hasAttribute('data-framer-component-type') || target.hasAttribute('data-framer-generated'))) {
+         target = target.parentElement;
+      }
+    } else {
+      // Sibling Mode: Binds to the immediate previous sibling
+      target = ref.current.previousElementSibling as HTMLElement | null;
     }
     
     setHost(target);
-  }, []);
+  }, [mode]);
 
   return host;
 };

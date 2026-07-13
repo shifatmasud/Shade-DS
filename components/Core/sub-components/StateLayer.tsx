@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, type MotionValue } from 'framer-motion';
+import { useHost } from '../../../hooks/useHost.ts';
 
 interface LayerInstance {
   id: number;
@@ -18,6 +19,7 @@ export interface StateLayerProps {
   transition?: any;
   forced?: boolean;
   parentRef?: React.RefObject<any>;
+  mode?: 'parent' | 'sibling';
 }
 
 /**
@@ -31,9 +33,11 @@ export default function StateLayer({
   opacity = 0.1,
   transition = { duration: 1.05, ease: 'easeInOut' },
   forced = false,
-  parentRef
+  parentRef,
+  mode = 'parent'
 }: StateLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const target = useHost(containerRef, mode);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [layers, setLayers] = useState<LayerInstance[]>([]);
   const [isActive, setIsActive] = useState(false);
@@ -58,31 +62,15 @@ export default function StateLayer({
 
   // Use parent element listeners to avoid blocking pointer events
   useEffect(() => {
-    let target = parentRef ? parentRef.current : (containerRef.current?.parentElement as HTMLElement | null);
-    if (!target && !parentRef) {
-      // Find nearest interactive ancestor if parentRef is not provided and immediate parent is none
-      let current = containerRef.current?.parentElement as HTMLElement | null;
-      while (current) {
-        try {
-          const style = window.getComputedStyle(current);
-          if (style.pointerEvents !== 'none') {
-            target = current;
-            break;
-          }
-        } catch (e) {
-          break;
-        }
-        current = current.parentElement;
-      }
-    }
-    if (!target) return;
+    const activeTarget = parentRef?.current || target;
+    if (!activeTarget) return;
 
     const handleEnter = (e: PointerEvent) => {
-      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+      if (activeTarget.getAttribute('data-success') === 'true' || activeTarget.getAttribute('disabled') !== null) {
         setIsActive(false);
         return;
       }
-      const rect = target.getBoundingClientRect();
+      const rect = activeTarget.getBoundingClientRect();
       setDimensions({ width: rect.width, height: rect.height });
       setIsActive(true);
     };
@@ -90,11 +78,11 @@ export default function StateLayer({
     const handleLeave = () => setIsActive(false);
 
     const handleMove = (e: PointerEvent) => {
-      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+      if (activeTarget.getAttribute('data-success') === 'true' || activeTarget.getAttribute('disabled') !== null) {
         setIsActive(false);
         return;
       }
-      const rect = target.getBoundingClientRect();
+      const rect = activeTarget.getBoundingClientRect();
       setMousePos({
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
@@ -102,13 +90,13 @@ export default function StateLayer({
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+      if (activeTarget.getAttribute('data-success') === 'true' || activeTarget.getAttribute('disabled') !== null) {
         setIsActive(false);
         return;
       }
       // Prevent scrolling when scrubbing the state layer
       if (e.cancelable) e.preventDefault();
-      const rect = target.getBoundingClientRect();
+      const rect = activeTarget.getBoundingClientRect();
       const touch = e.touches[0];
       if (touch) {
         const x = touch.clientX - rect.left;
@@ -127,11 +115,11 @@ export default function StateLayer({
     };
 
     const handleDown = (e: PointerEvent) => {
-      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+      if (activeTarget.getAttribute('data-success') === 'true' || activeTarget.getAttribute('disabled') !== null) {
         setIsActive(false);
         return;
       }
-      const rect = target.getBoundingClientRect();
+      const rect = activeTarget.getBoundingClientRect();
       setDimensions({ width: rect.width, height: rect.height });
       setMousePos({
         x: e.clientX - rect.left,
@@ -139,20 +127,20 @@ export default function StateLayer({
       });
     };
 
-    target.addEventListener('pointerenter', handleEnter as any);
-    target.addEventListener('pointerleave', handleLeave);
-    target.addEventListener('pointermove', handleMove);
-    target.addEventListener('touchmove', handleTouchMove as any, { passive: false });
-    target.addEventListener('pointerdown', handleDown as any);
+    activeTarget.addEventListener('pointerenter', handleEnter as any);
+    activeTarget.addEventListener('pointerleave', handleLeave);
+    activeTarget.addEventListener('pointermove', handleMove);
+    activeTarget.addEventListener('touchmove', handleTouchMove as any, { passive: false });
+    activeTarget.addEventListener('pointerdown', handleDown as any);
 
     return () => {
-      target.removeEventListener('pointerenter', handleEnter as any);
-      target.removeEventListener('pointerleave', handleLeave);
-      target.removeEventListener('pointermove', handleMove);
-      target.removeEventListener('touchmove', handleTouchMove as any);
-      target.removeEventListener('pointerdown', handleDown as any);
+      activeTarget.removeEventListener('pointerenter', handleEnter as any);
+      activeTarget.removeEventListener('pointerleave', handleLeave);
+      activeTarget.removeEventListener('pointermove', handleMove);
+      activeTarget.removeEventListener('touchmove', handleTouchMove as any);
+      activeTarget.removeEventListener('pointerdown', handleDown as any);
     };
-  }, [parentRef, parentRef?.current]);
+  }, [parentRef, parentRef?.current, target]);
 
   const maxDiameter = Math.hypot(dimensions.width, dimensions.height) * 2;
 

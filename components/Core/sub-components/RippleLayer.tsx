@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, type MotionValue } from 'framer-motion';
+import { useHost } from '../../../hooks/useHost.ts';
 
 export interface Ripple {
   id: number;
@@ -17,6 +18,7 @@ export interface RippleLayerProps {
   transition?: any;
   forced?: boolean;
   parentRef?: React.RefObject<any>;
+  mode?: 'parent' | 'sibling';
 }
 
 /**
@@ -29,9 +31,11 @@ export default function RippleLayer({
   opacity = 0.15,
   transition = { type: 'spring', stiffness: 40, damping: 20 },
   forced = false,
-  parentRef
+  parentRef,
+  mode = 'parent'
 }: RippleLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const target = useHost(containerRef, mode);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [ripples, setRipples] = useState<Ripple[]>([]);
 
@@ -55,32 +59,16 @@ export default function RippleLayer({
 
   // Use parent element listeners to avoid blocking pointer events
   useEffect(() => {
-    let target = parentRef ? parentRef.current : (containerRef.current?.parentElement as HTMLElement | null);
-    if (!target && !parentRef) {
-      // Find nearest interactive ancestor if parentRef is not provided and immediate parent is none
-      let current = containerRef.current?.parentElement as HTMLElement | null;
-      while (current) {
-        try {
-          const style = window.getComputedStyle(current);
-          if (style.pointerEvents !== 'none') {
-            target = current;
-            break;
-          }
-        } catch (e) {
-          break;
-        }
-        current = current.parentElement;
-      }
-    }
-    if (!target) return;
+    const activeTarget = parentRef?.current || target;
+    if (!activeTarget) return;
 
     const handleClick = (e: MouseEvent) => {
       // Guard: Do not trigger ripple when parent is showing success or is disabled
-      if (target.getAttribute('data-success') === 'true' || target.getAttribute('disabled') !== null) {
+      if (activeTarget.getAttribute('data-success') === 'true' || activeTarget.getAttribute('disabled') !== null) {
         return;
       }
 
-      const rect = target.getBoundingClientRect();
+      const rect = activeTarget.getBoundingClientRect();
       let x, y;
       
       // Handle Keyboard click (coordinates are 0)
@@ -96,11 +84,11 @@ export default function RippleLayer({
       setRipples(prev => [...prev, { id: Date.now() + Math.random(), x, y }]);
     };
 
-    target.addEventListener('click', handleClick);
+    activeTarget.addEventListener('click', handleClick);
     return () => {
-      target.removeEventListener('click', handleClick);
+      activeTarget.removeEventListener('click', handleClick);
     };
-  }, [parentRef, parentRef?.current]);
+  }, [parentRef, parentRef?.current, target]);
 
   const removeRipple = (id: number) => {
     setRipples(prev => prev.filter(r => r.id !== id));
