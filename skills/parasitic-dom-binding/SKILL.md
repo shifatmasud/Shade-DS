@@ -1,16 +1,35 @@
 # Parasitic DOM Binding Skill
 
-This skill defines the architectural pattern for "Parasitic Self-Aware" components that bind directly to DOM elements to augment behavior or rendering without explicit prop-drilling or complex state orchestration from the host component.
+This skill defines the architectural pattern for "Parasitic Self-Aware" components that bind directly to DOM elements (parent or sibling) to augment behavior or rendering without explicit prop-drilling or complex state orchestration from the host component.
 
 ## Core Philosophy
-Parasitic components are "dropped into" a DOM tree and "latch onto" a target. They observe the target, listen to its events, or mirror its geometry to provide enhanced visual effects with minimal integration friction.
+Parasitic components are "dropped into" a DOM tree and "latch onto" a target (usually their parent or first sibling). They observe the target, listen to its events, or mirror its geometry to provide enhanced visual effects (Ripples, State Overlays, Success Masks, Typewriter effects) with minimal integration friction.
 
-## Key Principles (v2)
-1. **Zero-Config Drops**: The component should require minimal to no props to function.
-2. **Grandparent Discovery (Framer)**: Framer often wraps children in an intermediate DOM element. Parasites must detect this and bind to the **Grandparent** to ensure correct overlay alignment and event capture.
-3. **Immaculate Cleanup**: Every parasite MUST restore anything it changes. This includes removing listeners, disconnecting observers, restoring original styles, and cancelling animations on unmount.
-4. **Layout Vigilance**: Use `ResizeObserver` (and `MutationObserver` if necessary) to keep overlays synced with the host's geometry.
-5. **Mutation Restraint**: Avoid mutating the host's styles (e.g., `parent.style.position = "relative"`) unless absolutely necessary. Prefer warning in development or using a host wrapper helper.
+## Key Principles
+1. **Zero-Config Drops**: The component should require minimal to no props to function in its default state.
+2. **DOM Discovery**: Use `useLayoutEffect` and `ref.current.parentElement` or `ref.current.previousElementSibling` to find the target.
+3. **Geometry Mirroring**: Often uses `position: absolute; inset: 0; border-radius: inherit; pointer-events: none;` to perfectly overlay the target.
+4. **Event Hijacking/Augmentation**: Attaches native event listeners directly to the target DOM node to trigger internal animations (e.g., Ripple on `mousedown`).
+5. **State Autonomy**: Manages its own animation state independently of the React component tree of the host.
+
+## Invisible Component Pattern
+Parasitic components should ideally not impact the layout. Use an invisible container to bind to the DOM without rendering any visible UI directly:
+
+```tsx
+<div
+    ref={containerRef}
+    style={{
+        width: 0,
+        height: 0,
+        position: "absolute",
+        top: 0,
+        left: 0,
+        pointerEvents: "none",
+        opacity: 0,
+        zIndex: -1,
+    }}
+/>
+```
 
 ## Shared Utilities (The Harness)
 Most parasites require the same infrastructure. Use these patterns inside your components:
@@ -96,46 +115,55 @@ export const useHostStyles = (host: HTMLElement | null, styles: Partial<CSSStyle
 };
 ```
 
-## Implementation Pattern (Framer-Ready)
+## Implementation Pattern (Parent Binding)
 ```tsx
-const RippleLayer = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  const host = useHost(ref);
-  const rect = useHostRect(host);
+const ParasiticLayer = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const target = useHost(containerRef);
 
-  // Auto-Cleanup Events
-  useHostEvents(host, {
-    mousedown: (e) => triggerRipple(e),
-    touchstart: (e) => triggerRipple(e)
+  useLayoutEffect(() => {
+    if (target) {
+      // Ensure parent has position for absolute children
+      const computedStyle = window.getComputedStyle(target);
+      if (computedStyle.position === 'static') {
+        target.style.position = 'relative';
+      }
+    }
+  }, [target]);
+
+  useHostEvents(target, {
+    mousedown: () => { /* trigger logic */ }
   });
 
-  if (!host || !rect) return <div ref={ref} />;
+  return <div ref={containerRef} style={{ width: 0, height: 0, position: 'absolute', top: 0, left: 0, pointerEvents: 'none', opacity: 0, zIndex: -1 }} />;
+};
+```
 
-  return (
-    <motion.div 
-      style={{ 
-        position: 'absolute', 
-        left: 0, 
-        top: 0, 
-        width: rect.width, 
-        height: rect.height,
-        pointerEvents: 'none',
-        borderRadius: window.getComputedStyle(host).borderRadius
-      }}
-    >
-      {/* Ripple Elements */}
-    </motion.div>
-  );
+## Implementation Pattern (Sibling Binding)
+Used for components that enhance text or specific elements without wrapping them in the JSX.
+```tsx
+const SiblingEnhancer = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  
+  useLayoutEffect(() => {
+    const sibling = ref.current?.previousElementSibling;
+    if (sibling instanceof HTMLElement) {
+      // Mirror styles or hide sibling to take over rendering
+      // sibling.style.visibility = 'hidden';
+    }
+  }, []);
+
+  return <div ref={ref} />;
 };
 ```
 
 ## When to Use
 - **Visual Decorations**: Ripples, success flashes, focus rings.
 - **Micro-Interactions**: Hover states, press states.
-- **Framer Overrides**: When building components that must perfectly overlay Framer-generated elements.
+- **Text Enhancements**: Typewriter effects, animated counters that "take over" a static text node.
 - **Global Constraints**: When you cannot modify the parent component's code but want to add behavior.
 
 ## Why use this?
-- **Separation of Concerns**: The host doesn't need to know about the complex decoration logic.
-- **Immaculate DOM**: Automatic cleanup ensures the page stays clean as components mount/unmount.
-- **Resilient Layout**: `ResizeObserver` ensures decorations stay perfectly aligned even during layout shifts or browser resizing.
+- **Separation of Concerns**: The parent doesn't need to know about the complex animation logic of a Ripple or a Success flash.
+- **Performance**: Direct DOM binding can sometimes bypass React re-render cycles for high-frequency interactions (like mouse tracking).
+- **Clean JSX**: Keeps the host component's return statement focused on structure, not decoration.
