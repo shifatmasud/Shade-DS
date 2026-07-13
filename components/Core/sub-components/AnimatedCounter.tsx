@@ -83,13 +83,74 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
   useFormatting = true,
   decimals = 0 
 }) => {
-  const localMV = useMotionValue(typeof value === 'number' ? value : 0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [internalValue, setInternalValue] = useState<number>(0);
+  const localMV = useMotionValue(0);
   
-  useEffect(() => {
-    if (typeof value === 'number') {
-      localMV.set(value);
+  // Parasitic Sibling Binding Logic
+  useLayoutEffect(() => {
+    const sibling = containerRef.current?.previousSibling;
+    if (!sibling) return;
+
+    let targetElement: HTMLElement | null = null;
+    let targetTextNode: Text | null = null;
+
+    if (sibling.nodeType === Node.ELEMENT_NODE) {
+      targetElement = sibling as HTMLElement;
+    } else if (sibling.nodeType === Node.TEXT_NODE) {
+      targetTextNode = sibling as Text;
     }
-  }, [value, localMV]);
+
+    const updateFromDOM = () => {
+      const text = targetElement ? targetElement.innerText : targetTextNode?.textContent || '';
+      const num = parseFloat(text.replace(/[^0-9.-]+/g, ""));
+      if (!isNaN(num)) {
+        setInternalValue(num);
+      }
+    };
+
+    // Initial sync
+    updateFromDOM();
+
+    // Hide original text to avoid double rendering
+    if (targetElement) {
+      targetElement.style.visibility = 'hidden';
+      targetElement.style.position = 'absolute';
+      targetElement.style.pointerEvents = 'none';
+    } else if (targetTextNode) {
+      // Harder to hide a raw text node without wrapping, 
+      // but we can try to empty it (though this might break parent React state)
+      // For now, assume it's an element sibling if possible.
+    }
+
+    // Observe changes to sibling text
+    const observer = new MutationObserver(updateFromDOM);
+    if (targetElement) {
+      observer.observe(targetElement, { characterData: true, childList: true, subtree: true });
+    } else if (targetTextNode) {
+      observer.observe(targetTextNode, { characterData: true });
+    }
+
+    return () => {
+      observer.disconnect();
+      if (targetElement) {
+        targetElement.style.visibility = '';
+        targetElement.style.position = '';
+        targetElement.style.pointerEvents = '';
+      }
+    };
+  }, []);
+
+  // Sync motion value with either prop value or internal parsed value
+  useEffect(() => {
+    if (value !== undefined) {
+      if (typeof value === 'number') {
+        localMV.set(value);
+      }
+    } else {
+      localMV.set(internalValue);
+    }
+  }, [value, internalValue, localMV]);
 
   const activeMotionValue = isMotionValue(value) ? value : localMV;
 
@@ -193,7 +254,7 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
   };
 
   return (
-    <div style={styles.container}>
+    <div ref={containerRef} style={styles.container}>
       {tracks.map((track) => {
         if (!track.isDigit) {
           return (

@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../../Theme.tsx';
 
@@ -35,7 +35,7 @@ interface DoubleLayeredTextProps {
  * with a soft, diffused volumetric glow, clipped directly to the text path.
  */
 const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
-  text,
+  text: propText,
   color,
   shimmerColor = '#ffffff',
   typingSpeed = 0.004,
@@ -46,9 +46,62 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
   active = true,
 }) => {
   const { theme } = useTheme();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [internalText, setInternalText] = useState('');
   const [displayedCount, setDisplayedCount] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
 
+  // Parasitic Sibling Binding Logic
+  useLayoutEffect(() => {
+    const sibling = containerRef.current?.previousSibling;
+    if (!sibling) return;
+
+    let targetElement: HTMLElement | null = null;
+    let targetTextNode: Text | null = null;
+
+    if (sibling.nodeType === Node.ELEMENT_NODE) {
+      targetElement = sibling as HTMLElement;
+    } else if (sibling.nodeType === Node.TEXT_NODE) {
+      targetTextNode = sibling as Text;
+    }
+
+    const updateFromDOM = () => {
+      const domText = targetElement ? targetElement.innerText : targetTextNode?.textContent || '';
+      if (domText && !propText) {
+        setInternalText(domText);
+      }
+    };
+
+    // Initial sync
+    updateFromDOM();
+
+    // Hide original text to avoid double rendering
+    if (targetElement) {
+      targetElement.style.visibility = 'hidden';
+      targetElement.style.position = 'absolute';
+      targetElement.style.pointerEvents = 'none';
+    }
+
+    // Observe changes to sibling text
+    const observer = new MutationObserver(updateFromDOM);
+    if (targetElement) {
+      observer.observe(targetElement, { characterData: true, childList: true, subtree: true });
+    } else if (targetTextNode) {
+      observer.observe(targetTextNode, { characterData: true });
+    }
+
+    return () => {
+      observer.disconnect();
+      if (targetElement) {
+        targetElement.style.visibility = '';
+        targetElement.style.position = '';
+        targetElement.style.pointerEvents = '';
+      }
+    };
+  }, [propText]);
+
+  const text = propText || internalText;
+  
   // Default color if none provided
   const activeColor = color || theme.Color.Base.Content[1];
 
@@ -57,7 +110,7 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
     setIsComplete(false);
     setDisplayedCount(0);
 
-    if (!active) {
+    if (!active || !text) {
       return;
     }
 
@@ -136,7 +189,7 @@ const DoubleLayeredText: React.FC<DoubleLayeredTextProps> = ({
   };
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
       {/* 
         LAYER 1: Backdrop Base Layer
         This layer types out character by character. It preserves layout space.

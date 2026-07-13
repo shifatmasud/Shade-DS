@@ -10,6 +10,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - **Framer-agent** (found in `/skills/Framer-agent/SKILL.md`): Activate when using the core programmatic workspace suite, executing CLI commands to traverse nodes, invoking background agent lookups, applying direct DSL strings, or processing sitemaps, staging, and web publication pipelines.
 - **spawn-agents** (found in `/skills/spawn-agents/SKILL.md`): Activate when orchestrating complex tasks, decomposing tasks into multiple worker agents, executing parallel codebase analysis, or generating detailed auditor reviews.
 - **modern-web-guidance** (found in `/skills/modern-web-guidance/SKILL.md`): Activate when applying modern browser APIs, performance optimizations, accessibility audits, or advanced CSS layouts.
+- **parasitic-dom-binding** (found in `/skills/parasitic-dom-binding/SKILL.md`): Activate when creating "self-aware" components that bind directly to parent or sibling DOM nodes to augment UI behavior or rendering (e.g., RippleLayer, StateLayer, SuccessLayer).
 
 ## Core Identity
 - You MUST strictly follow the behavioral guidelines defined in [/GUIDE.md](/GUIDE.md).

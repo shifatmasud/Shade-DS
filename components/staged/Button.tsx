@@ -7,7 +7,7 @@ import { useTheme } from '../../Theme.tsx';
 import { motion, type MotionValue, useTransform, useMotionValue, AnimatePresence } from 'framer-motion';
 import StateLayer from '../Core/sub-components/StateLayer.tsx';
 import RippleLayer from '../Core/sub-components/RippleLayer.tsx';
-import { AnimatedCheckIcon, SuccessLayer } from '../Core';
+import { SuccessLayer } from '../Core';
 import { playSound } from '../../services/soundService';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
@@ -30,6 +30,7 @@ interface ButtonProps {
   forcedFocus?: boolean;
   forcedActive?: boolean;
   enableSuccess?: boolean;
+  successLabel?: string;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
@@ -48,6 +49,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   forcedFocus = false,
   forcedActive = false,
   enableSuccess = false,
+  successLabel,
 }, ref) => {
   const { theme } = useTheme();
   const localRef = React.useRef<HTMLButtonElement>(null);
@@ -359,13 +361,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       {/* 0. SURFACE LAYER (Base Z=0) */}
       <motion.div style={{ ...layerWrapperStyle, zIndex: 0, border: getDebugBorder(colors.surface) }} />
 
-      {/* 0.1 SUCCESS STATE MASK CIRCULAR LAYER - always 120% nested & clipped */}
-      <SuccessLayer
-        isSuccess={isSuccess}
-        position={successPos}
-        onComplete={() => setShowGlow(true)}
-      />
-
       {/* 0.5 FOCUS RING LAYER (Dedicated Element - NOT in 3D stack) */}
       <motion.div 
         style={{ 
@@ -441,31 +436,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           {icon && <i className={`ph-bold ${icon}`} draggable={false} style={{ fontSize: '1.25em' }} />}
           <span draggable={false}>{label}</span>
         </motion.div>
+      </motion.div>
 
-        {/* Success Content (Absolute Overlay, zero layout shift) */}
-        <motion.div
-          initial={{ opacity: 0, y: 8, scale: 0.95, filter: 'blur(4px)' }}
-          animate={{
-            opacity: isSuccess ? 1 : 0,
-            y: isSuccess ? 0 : 8,
-            scale: isSuccess ? 1 : 0.95,
-            filter: isSuccess ? 'blur(0px)' : 'blur(4px)',
-          }}
-          transition={{ duration: 0.2, ease: 'easeInOut' }}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: theme.space['Space.S'],
-            color: theme.Color.Success.Content['1'],
-            pointerEvents: isSuccess ? 'auto' : 'none',
-          }}
-        >
-          <AnimatedCheckIcon size={18} color={theme.Color.Success.Content['1']} />
-          <span draggable={false}>Success!</span>
-        </motion.div>
+      {/* 4. SUCCESS STATE MASK CIRCULAR LAYER - Moved to top of stack with 3D depth */}
+      <motion.div style={{ ...layerWrapperStyle, transform: zContent, zIndex: 10 }}>
+        <SuccessLayer
+          isSuccess={isSuccess}
+          position={successPos}
+          label={successLabel}
+          size={size}
+          onComplete={() => setShowGlow(true)}
+        />
       </motion.div>
     </motion.button>
   );

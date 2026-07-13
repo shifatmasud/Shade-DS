@@ -13,7 +13,6 @@ import { useTheme } from '../../Theme.tsx';
 import StateLayer from './sub-components/StateLayer.tsx';
 import RippleLayer from './sub-components/RippleLayer.tsx';
 import SuccessLayer from './sub-components/SuccessLayer.tsx';
-import { AnimatedCheckIcon } from './sub-components/AnimatedCheckIcon.tsx';
 import { playSound } from '../../services/soundService';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
@@ -23,6 +22,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: ButtonVariant;
   size?: ButtonSize;
   label?: string;
+  successLabel?: string;
   icon?: React.ReactNode;
   customFill?: string | MotionValue<string>;
   customColor?: string | MotionValue<string>;
@@ -42,6 +42,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary',
   size = 'M',
   label,
+  successLabel,
   icon,
   customFill,
   customColor,
@@ -275,13 +276,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         }}
       />
 
-      {/* Success Mask Slide layer inside Core/Button - always 120% nested & clipped */}
-      <SuccessLayer
-        isSuccess={isSuccess}
-        position={successPos}
-        onComplete={() => setShowGlow(true)}
-      />
-
       {/* Content Container - Rendered with zero-layout-shift preservation */}
       <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {/* Default Content (Always in flow, determines button size) */}
@@ -306,35 +300,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           {icon && renderIcon(icon)}
           {children || (label && <span>{label}</span>)}
         </motion.div>
-
-        {/* Success Content (Absolute Overlay, zero layout shift) */}
-        <motion.div
-          initial={{ opacity: 0, y: 8, scale: 0.95, filter: 'blur(4px)' }}
-          animate={{
-            opacity: isSuccess ? 1 : 0,
-            y: isSuccess ? 0 : 8,
-            scale: isSuccess ? 1 : 0.95,
-            filter: isSuccess ? 'blur(0px)' : 'blur(4px)',
-          }}
-          transition={{ duration: 0.2, ease: 'easeInOut' }}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: theme.space['Space.S'],
-            width: '100%',
-            color: theme.Color.Success.Content['1'],
-            zIndex: 1,
-            pointerEvents: isSuccess ? 'auto' : 'none',
-          }}
-        >
-          <AnimatedCheckIcon size={18} color={theme.Color.Success.Content['1']} />
-          <span>Success!</span>
-        </motion.div>
       </div>
-      
+
       {/* Smart Interaction Layers */}
       {!disabled && (
         <>
@@ -354,6 +321,16 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           </div>
         </>
       )}
+
+      {/* Success Mask Slide layer inside Core/Button - Moved to top of stack */}
+      <SuccessLayer
+        isSuccess={isSuccess}
+        position={successPos}
+        label={successLabel}
+        size={size}
+        zIndex={10}
+        onComplete={() => setShowGlow(true)}
+      />
     </motion.button>
   );
 });
