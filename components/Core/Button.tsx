@@ -214,6 +214,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     opacity: disabled ? theme.opacity['Opacity.Disabled'] : 1,
     overflow: 'hidden',
     userSelect: 'none',
+    whiteSpace: 'nowrap',
     transition: 'background-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
     boxShadow: getButtonShadow(),
     isolation: 'isolate',

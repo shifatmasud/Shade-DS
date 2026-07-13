@@ -260,6 +260,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     filter: disabled ? 'grayscale(100%)' : 'none',
     overflow: 'visible',
     fontWeight: 600,
+    whiteSpace: 'nowrap',
     ...theme.Type.Readable.Label.M,
     transformStyle: 'preserve-3d',
     ...variantStyles,
