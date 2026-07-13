@@ -1,4 +1,4 @@
-# Parasitic DOM Binding Skill
+# Parasitic Layer Component Skill
 
 This skill defines the architectural pattern for "Parasitic Self-Aware" components that bind directly to DOM elements to augment behavior or rendering without explicit prop-drilling or complex state orchestration from the host component.
 
