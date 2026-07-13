@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { forwardRef } from 'react';
-import Scene3D from '../3D/scene.tsx';
+import Scene3D from './3D/scene.tsx';
 
 interface SlotProps {
   // Add any props if needed later

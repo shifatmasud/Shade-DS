@@ -12,6 +12,7 @@ Hello! You are an AI assistant helping to build this React application. Here are
 - `components/Package/`: `AIPanel`, `ApiInput`, `CodePanel`, `ConsolePanel`, `ControlPanel`, `FloatingWindow`, `SystemSpecWindow`, `UndoRedo`, `TokenBadge`, `TokenConnector`, `MeasurementTool`
 - `components/Core/`: `Accordion`, `Button`, `ColorPicker`, `Input`, `LogEntry`, `RangeSlider`, `Select`, `TextArea`, `Toggle`, `Confetti`
 - `components/Core/sub-components/`: `AnimatedCheckIcon`, `AnimatedCounter`, `DoubleLayeredText`, `RippleLayer`, `StateLayer`, `SuccessLayer`, `DockIcon`
+- `components/staged/`: `Button`, `Card`, `FillSlider`, `NameTag`, `Slot`, `3D/scene.tsx`, `3D/WiggleCube.tsx`
 - `Framer/`: `Decompiled_Architecture.tsx`, `Styler.tsx`, `createStore.ts`
 - `README.md`, `LLM.md`, `noteBook.md`, `bugReport.md`
 

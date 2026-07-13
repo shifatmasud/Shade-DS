@@ -12,7 +12,7 @@ import { useGSAP } from '@gsap/react';
 import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-three/rapier';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Info, X, Copy } from 'phosphor-react';
-import { AnimatedCheckIcon, Button } from '../Core';
+import { AnimatedCheckIcon, Button } from '../../Core';
 import { ErrorBoundary } from 'react-error-boundary';
 import { EffectComposer, SMAA } from '@react-three/postprocessing';
 import { SMAAPreset } from 'postprocessing';
@@ -21,10 +21,10 @@ import { SMAAPreset } from 'postprocessing';
 useEnvironment.preload({ preset: 'city' });
 
 gsap.registerPlugin(useGSAP);
-import { usePhysicsStore } from '../../services/physicsStore';
+import { usePhysicsStore } from '../../../services/physicsStore';
 import { JellyBox } from './WiggleCube';
-import AnimatedCounter from '../Core/sub-components/AnimatedCounter';
-import { playSound } from '../../services/soundService';
+import AnimatedCounter from '../../Core/sub-components/AnimatedCounter';
+import { playSound } from '../../../services/soundService';
 
 const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: string; position: [number, number, number]; id: string; onDragStart?: () => void; onDragEnd?: () => void }) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
@@ -373,7 +373,7 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
   );
 };
 
-import { useTheme } from '../../Theme';
+import { useTheme } from '../../../Theme';
 
 // Progressive Environment Loader: waits for initial frames and idle state before mounting Environment
 const ProgressiveEnvironment: React.FC = () => {

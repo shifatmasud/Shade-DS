@@ -152,6 +152,9 @@
     - Overrode "Dock Immunity" to update `DockIcon` import path in `Dock.tsx` as explicitly requested.
     - Updated `index.tsx` files in both `Core` and `Package` to reflect the new modular architecture.
     - Updated `LLM.md` documentation to guide future agents on the new directory structure.
+- **3D Subsystem Consolidation**:
+    - Relocated `/components/3D/` to `/components/staged/3D/` to reinforce the isolation of stage-only specialized components.
+    - Updated imports in `Slot.tsx` and the internal `scene.tsx` logic to resolve the new relative hierarchy.
 
 
 
