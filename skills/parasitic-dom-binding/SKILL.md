@@ -1,280 +1,70 @@
 # Parasitic DOM Binding Skill
 
-This skill defines the architectural pattern for "Parasitic Self-Aware" components that bind directly to DOM elements (parent or sibling) to augment behavior or rendering without explicit prop-drilling or complex state orchestration from the host component.
+This skill defines the architectural pattern for "Parasitic Self-Aware" components that bind directly to DOM elements (parent or sibling) to augment behavior or rendering without explicit prop-drilling or complex state orchestration from the host.
 
-## Core Philosophy
-Parasitic components are "dropped into" a DOM tree and "latch onto" a target (usually their parent or first sibling). They observe the target, listen to its events, or mirror its geometry to provide enhanced visual effects (Ripples, State Overlays, Success Masks, Typewriter effects) with minimal integration friction.
+## Core Philosophy & Principles
+Parasitic components are "dropped" into a DOM tree to "latch onto" a target. They observe, listen, or mirror geometry to provide enhanced visual effects (Ripples, Overlays, Success Masks) with minimal integration friction.
 
-## Key Principles
-1. **Zero-Config Drops**: The component should require minimal to no props to function in its default state.
-2. **DOM Discovery**: Use `useLayoutEffect` and `ref.current.parentElement` or `ref.current.previousElementSibling` to find the target.
-3. **Geometry Mirroring**: Often uses `position: absolute; inset: 0; border-radius: inherit; pointer-events: none;` to perfectly overlay the target.
-4. **Event Hijacking/Augmentation**: Attaches native event listeners directly to the target DOM node to trigger internal animations (e.g., Ripple on `mousedown`).
-5. **State Autonomy**: Manages its own animation state independently of the React component tree of the host.
+1. **Zero-Config Drops**: Functional out-of-the-box with minimal props.
+2. **DOM Discovery**: Use `useLayoutEffect` to find targets via `parentElement` or `previousElementSibling`.
+3. **Geometry Mirroring**: Overlay targets using `position: absolute; inset: 0; border-radius: inherit; pointer-events: none;`.
+4. **Event Augmentation**: Attach native listeners directly to the host DOM node.
+5. **State Autonomy**: Independent animation state management.
 
-## Invisible vs. UI Rendering Containers
-The container strategy depends on whether the component provides invisible logic or visible UI.
+## Container Strategies
+The strategy depends on whether the component provides invisible logic or a visible UI layer.
 
-### 1. Injector Patterns (Invisible)
-For parasitic behavior injectors that only augment the host without needing visible UI (e.g., `ForceInjector`, `StyleInjector`, `ScrollTransformInjector`), use a zero-size invisible container to avoid layout impact:
+### 1. Logic Injectors (Invisible)
+For components that only augment the host without needing visible UI (e.g., `StyleInjector`, `ScrollTransformInjector`), use a zero-size invisible container:
 
 ```tsx
 <div
     ref={containerRef}
     style={{
-        width: 0,
-        height: 0,
-        position: "absolute",
-        top: 0,
-        left: 0,
-        pointerEvents: "none",
-        opacity: 0,
-        zIndex: -1,
-        visibility: "hidden"
+        width: 0, height: 0, position: "absolute", top: 0, left: 0,
+        pointerEvents: "none", opacity: 0, zIndex: -1, visibility: "hidden"
     }}
 />
 ```
 
-### 2. UI Layer Patterns (Visible)
-For components that render visible overlays (e.g., `StateLayer`, `RippleLayer`, `SuccessLayer`), the container must be visible and typically cover the host's bounds:
+### 2. UI Layers (Visible)
+For components rendering visible overlays (e.g., `StateLayer`, `RippleLayer`, `SuccessLayer`), the container must cover the host bounds:
 
 ```tsx
 <div
     ref={containerRef}
     style={{
-        position: "absolute",
-        inset: 0,
-        pointerEvents: "none",
-        borderRadius: "inherit",
-        overflow: "hidden",
-        zIndex: 0 // Or appropriate elevation
+        position: "absolute", inset: 0, pointerEvents: "none",
+        borderRadius: "inherit", overflow: "hidden", zIndex: 0
     }}
 >
-    {/* Visual Elements Here */}
+    {/* Visual Elements */}
 </div>
 ```
 
-## Sibling Binding Patterns
-Some components bind to their `previousSibling` to replace static content with dynamic animations.
+## Binding Patterns
 
-### 1. AnimatedCounter Pattern
-Syncs with a sibling's text content, parses it as a number, and replaces the display with a high-performance spring-driven counter.
+### Parent Binding (Standard)
+The most common pattern for adding feedback layers to buttons or containers.
+- **Pattern**: Component finds `ref.current.parentElement`.
+- **Use Cases**: `RippleLayer`, `StateLayer`, `SuccessLayer`.
 
-```tsx
-const AnimatedCounter = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [internalValue, setInternalValue] = useState(0);
+### Sibling Binding (Replacement)
+Used for components that "take over" the rendering of a sibling element.
+- **Pattern**: Component finds `ref.current.previousElementSibling`, hides it, and renders a dynamic replacement.
+- **Use Cases**: `AnimatedCounter` (syncs with numeric text), `DoubleLayeredText` (shimmer/typewriter effects).
 
-  useLayoutEffect(() => {
-    const sibling = containerRef.current?.previousSibling;
-    if (!sibling || sibling.nodeType !== Node.ELEMENT_NODE) return;
+## Implementation Harness (`useHost.ts`)
+The `hooks/useHost.ts` utility provides the standard infrastructure for all parasitic components:
 
-    const target = sibling as HTMLElement;
-    const update = () => {
-      const num = parseFloat(target.innerText.replace(/[^0-9.-]+/g, ""));
-      if (!isNaN(num)) setInternalValue(num);
-    };
+- **`useHost(ref, mode)`**: Finds the target (detects Framer wrappers automatically).
+- **`useHostRect(host)`**: Returns a live `DOMRect` of the target via `ResizeObserver`.
+- **`useHostEvents(host, events)`**: Attaches native listeners (e.g., `mousedown`, `mouseenter`).
+- **`useHostStyles(host, styles)`**: Temporarily overrides or backups target styles.
 
-    update();
-    target.style.visibility = 'hidden';
-    target.style.position = 'absolute';
-
-    const observer = new MutationObserver(update);
-    observer.observe(target, { characterData: true, childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
-
-  return <div ref={containerRef}>{/* Render motion digits here */}</div>;
-};
-```
-
-### 2. DoubleLayeredText Pattern
-Intercepts static text from a sibling to perform complex multi-layered animations (typewriter + shimmer) while preserving the original layout flow via an inline-block container.
-
-```tsx
-const DoubleLayeredText = ({ text: propText }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [text, setText] = useState("");
-
-  useLayoutEffect(() => {
-    const sibling = containerRef.current?.previousSibling;
-    if (!sibling) return;
-
-    const update = () => {
-      const domText = (sibling as HTMLElement).innerText || sibling.textContent || "";
-      if (domText && !propText) setText(domText);
-    };
-
-    update();
-    (sibling as HTMLElement).style.display = 'none'; // Or visibility hidden
-    
-    const observer = new MutationObserver(update);
-    observer.observe(sibling, { characterData: true, childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [propText]);
-
-  return (
-    <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
-      {/* Layer 1: Base */}
-      {/* Layer 2: Shimmer Overlay */}
-    </div>
-  );
-};
-```
-
-## Shared Utilities (The Harness)
-Most parasites require the same infrastructure. Use these patterns inside your components:
-
-```tsx
-/**
- * Shared Infrastructure for Parasitic Binding
- */
-
-export const useHost = (ref: React.RefObject<HTMLElement>, mode: 'parent' | 'sibling' = 'parent') => {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-
-  useLayoutEffect(() => {
-    if (!ref.current) return;
-    
-    let target: HTMLElement | null = null;
-    
-    if (mode === 'parent') {
-      target = ref.current.parentElement;
-      
-      // Framer Detection: If parent is a Framer wrapper, move to grandparent
-      // Framer wrappers often have 'data-framer-component-type' or are just div/span wrappers
-      if (target && (target.hasAttribute('data-framer-component-type') || target.hasAttribute('data-framer-generated'))) {
-         target = target.parentElement;
-      }
-    } else {
-      // Sibling Mode: Binds to the immediate previous sibling
-      target = ref.current.previousElementSibling as HTMLElement | null;
-    }
-    
-    setHost(target);
-  }, [mode]);
-
-  return host;
-};
-
-export const useHostRect = (host: HTMLElement | null) => {
-  const [rect, setRect] = useState<DOMRect | null>(null);
-
-  useLayoutEffect(() => {
-    if (!host) return;
-
-    const observer = new ResizeObserver(() => {
-      setRect(host.getBoundingClientRect());
-    });
-
-    observer.observe(host);
-    setRect(host.getBoundingClientRect());
-
-    return () => observer.disconnect();
-  }, [host]);
-
-  return rect;
-};
-
-export const useHostEvents = (host: HTMLElement | null, events: Record<string, (e: any) => void>) => {
-  useEffect(() => {
-    if (!host) return;
-    
-    const entries = Object.entries(events);
-    entries.forEach(([name, handler]) => host.addEventListener(name, handler));
-    
-    return () => {
-      entries.forEach(([name, handler]) => host.removeEventListener(name, handler));
-    };
-  }, [host, events]);
-};
-
-export const useHostStyles = (host: HTMLElement | null, styles: Partial<CSSStyleDeclaration>) => {
-  useLayoutEffect(() => {
-    if (!host) return;
-    
-    const originalStyles: Record<string, string> = {};
-    const keys = Object.keys(styles) as Array<keyof CSSStyleDeclaration>;
-    
-    // Backup and Apply
-    keys.forEach(key => {
-      originalStyles[key as string] = host.style[key] as string;
-      (host.style as any)[key] = styles[key as any];
-    });
-    
-    return () => {
-      // Restore
-      keys.forEach(key => {
-        host.style[key as any] = originalStyles[key as string] as any;
-      });
-    };
-  }, [host, styles]);
-};
-```
-
-## Implementation Pattern (Parent Binding)
-```tsx
-const ParasiticLayer = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const target = useHost(containerRef);
-
-  useLayoutEffect(() => {
-    if (target) {
-      // Ensure parent has position for absolute children
-      const computedStyle = window.getComputedStyle(target);
-      if (computedStyle.position === 'static') {
-        target.style.position = 'relative';
-      }
-    }
-  }, [target]);
-
-  useHostEvents(target, {
-    mousedown: () => { /* trigger logic */ }
-  });
-
-  // UI Layer Pattern Example (Visible)
-  return (
-    <div 
-      ref={containerRef} 
-      style={{ 
-        position: 'absolute', 
-        inset: 0, 
-        pointerEvents: 'none', 
-        borderRadius: 'inherit', 
-        overflow: 'hidden' 
-      }} 
-    >
-       {/* UI Content */}
-    </div>
-  );
-};
-```
-
-## Implementation Pattern (Sibling Binding)
-Used for components that enhance text or specific elements without wrapping them in the JSX.
-```tsx
-const SiblingEnhancer = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  
-  useLayoutEffect(() => {
-    const sibling = ref.current?.previousElementSibling;
-    if (sibling instanceof HTMLElement) {
-      // Mirror styles or hide sibling to take over rendering
-      // sibling.style.visibility = 'hidden';
-    }
-  }, []);
-
-  return <div ref={ref} />;
-};
-```
-
-## When to Use
+## Applications & Benefits
 - **Visual Decorations**: Ripples, success flashes, focus rings.
-- **Micro-Interactions**: Hover states, press states.
-- **Text Enhancements**: Typewriter effects, animated counters that "take over" a static text node.
-- **Global Constraints**: When you cannot modify the parent component's code but want to add behavior.
-
-## Why use this?
-- **Separation of Concerns**: The parent doesn't need to know about the complex animation logic of a Ripple or a Success flash.
-- **Performance**: Direct DOM binding can sometimes bypass React re-render cycles for high-frequency interactions (like mouse tracking).
-- **Clean JSX**: Keeps the host component's return statement focused on structure, not decoration.
+- **Micro-Interactions**: Hover/press states, physics-driven trackers.
+- **Text Enhancements**: Taking over static text nodes for high-performance counters.
+- **Separation of Concerns**: Keeps host components clean; decoration logic is isolated.
+- **Performance**: Direct DOM binding bypasses React re-render cycles for high-frequency events.

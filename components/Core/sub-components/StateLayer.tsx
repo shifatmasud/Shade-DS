@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, type MotionValue } from 'framer-motion';
-import { useHost } from '../../../hooks/useHost.ts';
+import { useHost, useHostEvents, useHostRect } from '../../../hooks/useHost.ts';
 
 interface LayerInstance {
   id: number;
@@ -24,9 +24,6 @@ export interface StateLayerProps {
 
 /**
  * 🔮 SMART STATE LAYER (Self-Aware Interactive Soul)
- * 
- * An interactive soul that provides organic feedback relative to touch/cursor position.
- * Binds automatically to its parent element or a provided parentRef.
  */
 export default function StateLayer({
   color,
@@ -38,126 +35,52 @@ export default function StateLayer({
 }: StateLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const target = useHost(containerRef, mode);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const activeTarget = parentRef?.current || target;
+  const rect = useHostRect(activeTarget);
+  
   const [layers, setLayers] = useState<LayerInstance[]>([]);
   const [isActive, setIsActive] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const prevActive = useRef(isActive);
 
-  // Update dimensions on mount and resize
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight,
-        });
-      }
-    };
+  const maxDiameter = rect ? Math.hypot(rect.width, rect.height) * 2 : 0;
 
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
-
-  // Use parent element listeners to avoid blocking pointer events
-  useEffect(() => {
-    const activeTarget = parentRef?.current || target;
-    if (!activeTarget) return;
-
-    const handleEnter = (e: PointerEvent) => {
-      if (activeTarget.getAttribute('data-success') === 'true' || activeTarget.getAttribute('disabled') !== null) {
-        setIsActive(false);
-        return;
-      }
-      const rect = activeTarget.getBoundingClientRect();
-      setDimensions({ width: rect.width, height: rect.height });
+  useHostEvents(activeTarget, {
+    pointerenter: () => {
+      if (activeTarget?.getAttribute('data-success') === 'true' || activeTarget?.getAttribute('disabled') !== null) return;
       setIsActive(true);
-    };
-
-    const handleLeave = () => setIsActive(false);
-
-    const handleMove = (e: PointerEvent) => {
-      if (activeTarget.getAttribute('data-success') === 'true' || activeTarget.getAttribute('disabled') !== null) {
-        setIsActive(false);
-        return;
-      }
-      const rect = activeTarget.getBoundingClientRect();
-      setMousePos({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (activeTarget.getAttribute('data-success') === 'true' || activeTarget.getAttribute('disabled') !== null) {
-        setIsActive(false);
-        return;
-      }
-      // Prevent scrolling when scrubbing the state layer
+    },
+    pointerleave: () => setIsActive(false),
+    pointermove: (e: PointerEvent) => {
+      if (!rect || activeTarget?.getAttribute('data-success') === 'true' || activeTarget?.getAttribute('disabled') !== null) return;
+      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    },
+    touchmove: (e: TouchEvent) => {
+      if (!rect || activeTarget?.getAttribute('data-success') === 'true' || activeTarget?.getAttribute('disabled') !== null) return;
       if (e.cancelable) e.preventDefault();
-      const rect = activeTarget.getBoundingClientRect();
       const touch = e.touches[0];
       if (touch) {
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
-        
-        // Hit testing for touch scrubbing parity
         const isInside = x >= 0 && x <= rect.width && y >= 0 && y <= rect.height;
-        
-        if (isInside) {
-          setIsActive(true);
-          setMousePos({ x, y });
-        } else {
-          setIsActive(false);
-        }
+        setIsActive(isInside);
+        if (isInside) setMousePos({ x, y });
       }
-    };
-
-    const handleDown = (e: PointerEvent) => {
-      if (activeTarget.getAttribute('data-success') === 'true' || activeTarget.getAttribute('disabled') !== null) {
-        setIsActive(false);
-        return;
-      }
-      const rect = activeTarget.getBoundingClientRect();
-      setDimensions({ width: rect.width, height: rect.height });
-      setMousePos({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-    };
-
-    activeTarget.addEventListener('pointerenter', handleEnter as any);
-    activeTarget.addEventListener('pointerleave', handleLeave);
-    activeTarget.addEventListener('pointermove', handleMove);
-    activeTarget.addEventListener('touchmove', handleTouchMove as any, { passive: false });
-    activeTarget.addEventListener('pointerdown', handleDown as any);
-
-    return () => {
-      activeTarget.removeEventListener('pointerenter', handleEnter as any);
-      activeTarget.removeEventListener('pointerleave', handleLeave);
-      activeTarget.removeEventListener('pointermove', handleMove);
-      activeTarget.removeEventListener('touchmove', handleTouchMove as any);
-      activeTarget.removeEventListener('pointerdown', handleDown as any);
-    };
-  }, [parentRef, parentRef?.current, target]);
-
-  const maxDiameter = Math.hypot(dimensions.width, dimensions.height) * 2;
+    },
+    pointerdown: (e: PointerEvent) => {
+      if (!rect || activeTarget?.getAttribute('data-success') === 'true' || activeTarget?.getAttribute('disabled') !== null) return;
+      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    }
+  });
 
   useEffect(() => {
     if (isActive && !prevActive.current) {
-      // Enter: Spawn new layer
       setLayers(prev => [...prev, { id: Date.now() + Math.random(), isActive: true }]);
     } else if (!isActive && prevActive.current) {
-      // Leave: Freeze and decay active layers
       setLayers(prev => prev.map(l => l.isActive ? { ...l, isActive: false, frozenX: mousePos.x, frozenY: mousePos.y } : l));
     }
     prevActive.current = isActive;
   }, [isActive, mousePos.x, mousePos.y]);
-
-  const removeLayer = (id: number) => {
-    setLayers(prev => prev.filter(l => l.id !== id));
-  };
 
   const containerStyle: React.CSSProperties = {
     position: 'absolute',
@@ -166,19 +89,8 @@ export default function StateLayer({
     height: '100%',
     overflow: 'hidden',
     borderRadius: 'inherit',
-    backgroundColor: 'transparent',
     pointerEvents: 'none',
     touchAction: 'none',
-  };
-
-  const baseStyles: React.CSSProperties = {
-    position: 'absolute',
-    backgroundColor: color as any,
-    borderRadius: '50%',
-    transform: 'translate(-50%, -50%)',
-    pointerEvents: 'none',
-    zIndex: 0,
-    opacity: opacity,
   };
 
   if (forced) {
@@ -187,58 +99,40 @@ export default function StateLayer({
         <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: opacity, scale: 1 }}
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 30,
-              mass: 1
-            }}
-            style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                backgroundColor: color as any,
-                pointerEvents: 'none',
-            }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            style={{ position: 'absolute', inset: 0, backgroundColor: color as any }}
         />
       </div>
     );
   }
 
   return (
-    <div
-      ref={containerRef}
-      style={containerStyle}
-    >
+    <div ref={containerRef} style={containerStyle}>
       <AnimatePresence>
-      {layers.map(layer => {
-        const currentX = layer.isActive ? mousePos.x : layer.frozenX;
-        const currentY = layer.isActive ? mousePos.y : layer.frozenY;
+        {layers.map(layer => {
+          const currentX = layer.isActive ? mousePos.x : layer.frozenX;
+          const currentY = layer.isActive ? mousePos.y : layer.frozenY;
 
-        return (
-          <motion.div
-            key={layer.id}
-            style={{
-              ...baseStyles,
-              left: currentX,
-              top: currentY,
-            }}
-            initial={{ width: 0, height: 0, opacity: opacity }}
-            animate={{
-              width: layer.isActive ? maxDiameter : 0,
-              height: layer.isActive ? maxDiameter : 0,
-              opacity: opacity,
-            }}
-            exit={{ width: 0, height: 0, opacity: opacity }}
-            transition={transition}
-            onAnimationComplete={() => {
-              if (!layer.isActive) removeLayer(layer.id);
-            }}
-          />
-        );
-      })}
+          return (
+            <motion.div
+              key={layer.id}
+              style={{
+                position: 'absolute',
+                left: currentX,
+                top: currentY,
+                backgroundColor: color as any,
+                borderRadius: '50%',
+                transform: 'translate(-50%, -50%)',
+                opacity: opacity,
+              }}
+              initial={{ width: 0, height: 0 }}
+              animate={{ width: layer.isActive ? maxDiameter : 0, height: layer.isActive ? maxDiameter : 0 }}
+              exit={{ width: 0, height: 0 }}
+              transition={transition}
+              onAnimationComplete={() => { if (!layer.isActive) setLayers(prev => prev.filter(l => l.id !== layer.id)); }}
+            />
+          );
+        })}
       </AnimatePresence>
     </div>
   );
