@@ -18,5 +18,8 @@ Button labels are currently wrapping when the button width is constrained (e.g.,
 - This ensures that the text content will overflow or stretch the button rather than wrapping, which is the standard behavior for polished UI buttons.
 
 # TODO
-- [x] Add `whiteSpace: 'nowrap'` to `baseStyles` in `/components/Core/Button.tsx`.
-- [x] Add `whiteSpace: 'nowrap'` to `styles` in `/components/staged/Button.tsx`.
+- [x] Add `whiteSpace: 'nowrap'` to content wrapper in `/components/Core/Button.tsx`.
+- [x] Add `whiteSpace: 'nowrap'` to `contentWrapperStyle` in `/components/staged/Button.tsx`.
+- [x] Ensure `whiteSpace: 'nowrap'` is NOT on the parent button to prevent breaking siblings like `SuccessLayer`.
+- [x] Move `SuccessLayer` to the bottom of the children in `/components/staged/Button.tsx` to ensure it is on top.
+- [x] Increase `zIndex` and add `translateZ` (via `zSuccess`) to `SuccessLayer` in `/components/staged/Button.tsx` for 3D visibility parity.

@@ -84,6 +84,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const zStateLayer = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v}px)`);
   const zRippleLayer = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v * 2}px)`);
   const zContent = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v * 3}px)`);
+  const zSuccess = useTransform(effectiveLayerSpacing, (v: any) => `translateZ(${v * 4}px)`);
 
   // Pointer Event Handlers
   const handlePointerEnter = (e: React.PointerEvent) => {
@@ -260,7 +261,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     filter: disabled ? 'grayscale(100%)' : 'none',
     overflow: 'visible',
     fontWeight: 600,
-    whiteSpace: 'nowrap',
     ...theme.Type.Readable.Label.M,
     transformStyle: 'preserve-3d',
     ...variantStyles,
@@ -295,6 +295,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     pointerEvents: 'none',
     userSelect: 'none',
     width: '100%',
+    whiteSpace: 'nowrap',
   };
 
   // 3D Debug Colors
@@ -440,13 +441,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       </motion.div>
 
       {/* 4. SUCCESS STATE MASK CIRCULAR LAYER - Moved to top of stack with 3D depth */}
-      <motion.div style={{ ...layerWrapperStyle, transform: zContent, zIndex: 10 }}>
+      <motion.div style={{ ...layerWrapperStyle, transform: zSuccess, zIndex: 100 }}>
         <SuccessLayer
           isSuccess={isSuccess}
           position={successPos}
           label={successLabel}
           size={size}
           onComplete={() => setShowGlow(true)}
+          zIndex={100}
+          parentRef={localRef}
         />
       </motion.div>
     </motion.button>

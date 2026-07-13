@@ -214,7 +214,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     opacity: disabled ? theme.opacity['Opacity.Disabled'] : 1,
     overflow: 'hidden',
     userSelect: 'none',
-    whiteSpace: 'nowrap',
     transition: 'background-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
     boxShadow: getButtonShadow(),
     isolation: 'isolate',
@@ -278,7 +277,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       />
 
       {/* Content Container - Rendered with zero-layout-shift preservation */}
-      <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}>
         {/* Default Content (Always in flow, determines button size) */}
         <motion.div
           animate={{
@@ -331,6 +330,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         size={size}
         zIndex={10}
         onComplete={() => setShowGlow(true)}
+        parentRef={localRef}
       />
     </motion.button>
   );

@@ -13,6 +13,7 @@ export interface SuccessLayerProps {
   onComplete?: () => void;
   zIndex?: number;
   mode?: 'parent' | 'sibling';
+  parentRef?: React.RefObject<any>;
 }
 
 /**
@@ -27,30 +28,29 @@ export default function SuccessLayer({
   onComplete,
   zIndex = 0, 
   mode = 'parent',
+  parentRef,
 }: SuccessLayerProps) {
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const target = useHost(containerRef, mode);
+  const activeTarget = parentRef?.current || target;
   const resolvedColor = color || theme.Color.Success.Surface['1'];
   const [lastPos, setLastPos] = useState({ x: '50%', y: '50%' });
 
-  // Ensure target can contain absolute layers
-  useHostStyles(target, { position: 'relative' });
-
-  useHostEvents(target, {
+  useHostEvents(activeTarget, {
     mousemove: (e: MouseEvent) => {
-      if (!target) return;
-      const rect = target.getBoundingClientRect();
+      if (!activeTarget) return;
+      const rect = activeTarget.getBoundingClientRect();
       setLastPos({ x: `${((e.clientX - rect.left) / rect.width) * 100}%`, y: `${((e.clientY - rect.top) / rect.height) * 100}%` });
     },
     touchstart: (e: TouchEvent) => {
-      if (!target || !e.touches[0]) return;
-      const rect = target.getBoundingClientRect();
+      if (!activeTarget || !e.touches[0]) return;
+      const rect = activeTarget.getBoundingClientRect();
       setLastPos({ x: `${((e.touches[0].clientX - rect.left) / rect.width) * 100}%`, y: `${((e.touches[0].clientY - rect.top) / rect.height) * 100}%` });
     },
     mousedown: (e: MouseEvent) => {
-      if (!target) return;
-      const rect = target.getBoundingClientRect();
+      if (!activeTarget) return;
+      const rect = activeTarget.getBoundingClientRect();
       setLastPos({ x: `${((e.clientX - rect.left) / rect.width) * 100}%`, y: `${((e.clientY - rect.top) / rect.height) * 100}%` });
     }
   });
