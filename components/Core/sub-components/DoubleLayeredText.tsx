@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '../../Theme.tsx';
+import { useTheme } from '../../../Theme.tsx';
 
 interface DoubleLayeredTextProps {
   /** The text content to write and shimmer */

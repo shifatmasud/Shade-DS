@@ -42,6 +42,7 @@ You MUST adhere to the following hierarchy when organizing components:
 - **Section**: Large structural blocks (e.g., `Stage.tsx`, `Dock.tsx` [PROTECTED]). Sections are often persistent or act as primary layout containers for specific domains.
 - **Package**: Functional, reusable feature modules (e.g., `AIPanel.tsx`, `ControlPanel.tsx`). Packages group multiple core components into a cohesive unit with specific business logic.
 - **Core**: The primitive, atomic building blocks of the UI (e.g., `Button.tsx`, `Input.tsx`, `RippleLayer.tsx`). Core components are pure, highly reusable, and design-token driven.
+- **sub-components**: Specialized, internal building blocks (layers, icons, specialized primitives) used by Core or Staged components. Located in `/components/Core/sub-components/`.
 - **Staged**: Specialized versions of components used specifically for the interactive Stage/Viewport (e.g., `/components/staged/`). These components often include additional logic for 3D inspection and property overrides.
 
 ## Multi-Agent Orchestration

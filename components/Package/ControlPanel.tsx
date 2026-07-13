@@ -12,7 +12,7 @@ import RangeSlider from '../Core/RangeSlider.tsx';
 import ColorPicker from './ColorPicker.tsx';
 import Toggle from '../Core/Toggle.tsx';
 import Accordion from '../Core/Accordion.tsx';
-import ApiInput from '../Core/ApiInput.tsx';
+import ApiInput from './ApiInput.tsx';
 
 interface ControlPanelProps {
   btnProps: MetaButtonProps;

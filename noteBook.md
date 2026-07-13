@@ -141,6 +141,18 @@
     - **Follow-up:** Appended a complete Navier-Stokes Stable Fluid Simulation example mapped entirely into `@compute` and `@fragment` node contracts.
 - **IPO Optimization (Input-Process-Output Refactor)**: Refactored nodes to reside strictly inside the **Process** layer. Removed explicit "Input" and "Output" node types, letting the outer IPO structure naturally bind data structures (Uniforms, Texture buffers, Framebuffers) to the processing pipeline for cleaner, modular composition.
 
+## 2026-07-13: Core Component Refactor & Sub-Component Extraction
+- **Issue**: The `/components/Core` directory contained a mix of top-level UI primitives and internal building blocks (layers, icons, specialized counters), violating the single-responsibility and hierarchy clarity principles.
+- **Solution**: Refactor `Core` to only expose primary UI primitives. Extract internal building blocks into a dedicated `sub-components` directory. Move composite components with business logic to the `Package` layer.
+- **Implementation**:
+    - Created `/components/Core/sub-components/` for internal primitives.
+    - Relocated `AnimatedCheckIcon`, `AnimatedCounter`, `DoubleLayeredText`, `RippleLayer`, `StateLayer`, `SuccessLayer`, and `DockIcon` to the new `sub-components` folder.
+    - Relocated `ApiInput` to `/components/Package/` as it integrates multiple primitives and state management.
+    - Updated internal imports across `Button.tsx`, `LogEntry.tsx`, `RangeSlider.tsx`, and `ControlPanel.tsx`.
+    - Overrode "Dock Immunity" to update `DockIcon` import path in `Dock.tsx` as explicitly requested.
+    - Updated `index.tsx` files in both `Core` and `Package` to reflect the new modular architecture.
+    - Updated `LLM.md` documentation to guide future agents on the new directory structure.
+
 
 
 

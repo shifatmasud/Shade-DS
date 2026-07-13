@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { motion } from 'framer-motion';
-import { useTheme } from '../../Theme.tsx';
+import { useTheme } from '../../../Theme.tsx';
 
 interface DockIconProps {
   icon: string;

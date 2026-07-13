@@ -5,8 +5,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../Theme.tsx';
 import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
-import StateLayer from '../Core/StateLayer.tsx';
-import RippleLayer from '../Core/RippleLayer.tsx';
+import StateLayer from '../Core/sub-components/StateLayer.tsx';
+import RippleLayer from '../Core/sub-components/RippleLayer.tsx';
 
 interface CardProps {
   label: string; // Used as title

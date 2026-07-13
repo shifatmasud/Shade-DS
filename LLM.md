@@ -9,8 +9,9 @@ Hello! You are an AI assistant helping to build this React application. Here are
 - `components/App/App.tsx`
 - `components/Page/Home.tsx`
 - `components/Section/Dock.tsx`, `components/Section/Stage.tsx`
-- `components/Package/`: `AIPanel`, `CodePanel`, `ConsolePanel`, `ControlPanel`, `FloatingWindow`, `SystemSpecWindow`, `UndoRedo`, `TokenBadge`, `TokenConnector`, `MeasurementTool`
-- `components/Core/`: `Accordion`, `Button`, `ColorPicker`, `DockIcon`, `Input`, `LogEntry`, `RangeSlider`, `Select`, `StateLayer`, `TextArea`, `Toggle`, `Confetti`, `AnimatedCounter`, `ApiInput`
+- `components/Package/`: `AIPanel`, `ApiInput`, `CodePanel`, `ConsolePanel`, `ControlPanel`, `FloatingWindow`, `SystemSpecWindow`, `UndoRedo`, `TokenBadge`, `TokenConnector`, `MeasurementTool`
+- `components/Core/`: `Accordion`, `Button`, `ColorPicker`, `Input`, `LogEntry`, `RangeSlider`, `Select`, `TextArea`, `Toggle`, `Confetti`
+- `components/Core/sub-components/`: `AnimatedCheckIcon`, `AnimatedCounter`, `DoubleLayeredText`, `RippleLayer`, `StateLayer`, `SuccessLayer`, `DockIcon`
 - `Framer/`: `Decompiled_Architecture.tsx`, `Styler.tsx`, `createStore.ts`
 - `README.md`, `LLM.md`, `noteBook.md`, `bugReport.md`
 

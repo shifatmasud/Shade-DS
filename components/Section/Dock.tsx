@@ -12,7 +12,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import DockIcon from '../Core/DockIcon.tsx';
+import DockIcon from '../Core/sub-components/DockIcon.tsx';
 import { WindowId, WindowState } from '../../types/index.tsx';
 
 interface DockProps {

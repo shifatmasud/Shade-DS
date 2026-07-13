@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '../../Theme.tsx';
+import { useTheme } from '../../../Theme.tsx';
 
 export interface SuccessLayerProps {
   isSuccess: boolean;

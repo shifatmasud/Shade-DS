@@ -6,7 +6,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { type MotionValue, motion, useVelocity, useTransform, AnimatePresence, useSpring } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import AnimatedCounter from './AnimatedCounter.tsx';
+import AnimatedCounter from './sub-components/AnimatedCounter.tsx';
 import { playSound } from '../../services/soundService';
 
 /**

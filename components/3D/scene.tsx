@@ -23,7 +23,7 @@ useEnvironment.preload({ preset: 'city' });
 gsap.registerPlugin(useGSAP);
 import { usePhysicsStore } from '../../services/physicsStore';
 import { JellyBox } from './WiggleCube';
-import AnimatedCounter from '../Core/AnimatedCounter';
+import AnimatedCounter from '../Core/sub-components/AnimatedCounter';
 import { playSound } from '../../services/soundService';
 
 const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: string; position: [number, number, number]; id: string; onDragStart?: () => void; onDragEnd?: () => void }) => {

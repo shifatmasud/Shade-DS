@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AnimatedCheckIcon } from './AnimatedCheckIcon.tsx';
+import { AnimatedCheckIcon } from './sub-components/AnimatedCheckIcon.tsx';
 
 const copyPath = "M216,40H88a8,8,0,0,0-8,8V88H40a8,8,0,0,0-8,8v120a8,8,0,0,0,8,8H160a8,8,0,0,0,8-8V184h48a8,8,0,0,0,8-8V48A8,8,0,0,0,216,40Zm-56,168H48V104H160Zm48-48H176V96a8,8,0,0,0-8-8H96V56H208Z";
 

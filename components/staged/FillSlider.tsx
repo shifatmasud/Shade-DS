@@ -5,7 +5,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { motion, useTransform, useMotionValue, MotionValue, useSpring } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import AnimatedCounter from '../Core/AnimatedCounter.tsx';
+import AnimatedCounter from '../Core/sub-components/AnimatedCounter.tsx';
 
 interface FillSliderProps {
   label?: string;

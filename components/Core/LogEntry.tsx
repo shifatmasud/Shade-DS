@@ -5,7 +5,7 @@
 import React from 'react';
 import { useTheme } from '../../Theme.tsx';
 import { LogEntry as LogEntryType } from '../../types/index.tsx';
-import DoubleLayeredText from './DoubleLayeredText.tsx';
+import DoubleLayeredText from './sub-components/DoubleLayeredText.tsx';
 
 interface LogEntryProps {
   log: LogEntryType;

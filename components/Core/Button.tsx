@@ -10,10 +10,10 @@
 import React from 'react';
 import { motion, type MotionValue, useMotionValue, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
-import StateLayer from './StateLayer.tsx';
-import RippleLayer from './RippleLayer.tsx';
-import SuccessLayer from './SuccessLayer.tsx';
-import { AnimatedCheckIcon } from './AnimatedCheckIcon.tsx';
+import StateLayer from './sub-components/StateLayer.tsx';
+import RippleLayer from './sub-components/RippleLayer.tsx';
+import SuccessLayer from './sub-components/SuccessLayer.tsx';
+import { AnimatedCheckIcon } from './sub-components/AnimatedCheckIcon.tsx';
 import { playSound } from '../../services/soundService';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';

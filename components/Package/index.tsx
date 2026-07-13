@@ -1,4 +1,5 @@
 export { default as AIPanel } from './AIPanel.tsx';
+export { default as ApiInput } from './ApiInput.tsx';
 export { default as Card } from './Card.tsx';
 export { default as ColorPicker, FloatingColorPickerWindow } from './ColorPicker.tsx';
 export { default as CodePanel } from './CodePanel.tsx';
