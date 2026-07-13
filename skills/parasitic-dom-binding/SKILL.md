@@ -12,8 +12,11 @@ Parasitic components are "dropped into" a DOM tree and "latch onto" a target (us
 4. **Event Hijacking/Augmentation**: Attaches native event listeners directly to the target DOM node to trigger internal animations (e.g., Ripple on `mousedown`).
 5. **State Autonomy**: Manages its own animation state independently of the React component tree of the host.
 
-## Invisible Component Pattern
-Parasitic components should ideally not impact the layout. Use an invisible container to bind to the DOM without rendering any visible UI directly:
+## Invisible vs. UI Rendering Containers
+The container strategy depends on whether the component provides invisible logic or visible UI.
+
+### 1. Injector Patterns (Invisible)
+For parasitic behavior injectors that only augment the host without needing visible UI (e.g., `ForceInjector`, `StyleInjector`, `ScrollTransformInjector`), use a zero-size invisible container to avoid layout impact:
 
 ```tsx
 <div
@@ -27,8 +30,96 @@ Parasitic components should ideally not impact the layout. Use an invisible cont
         pointerEvents: "none",
         opacity: 0,
         zIndex: -1,
+        visibility: "hidden"
     }}
 />
+```
+
+### 2. UI Layer Patterns (Visible)
+For components that render visible overlays (e.g., `StateLayer`, `RippleLayer`, `SuccessLayer`), the container must be visible and typically cover the host's bounds:
+
+```tsx
+<div
+    ref={containerRef}
+    style={{
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+        borderRadius: "inherit",
+        overflow: "hidden",
+        zIndex: 0 // Or appropriate elevation
+    }}
+>
+    {/* Visual Elements Here */}
+</div>
+```
+
+## Sibling Binding Patterns
+Some components bind to their `previousSibling` to replace static content with dynamic animations.
+
+### 1. AnimatedCounter Pattern
+Syncs with a sibling's text content, parses it as a number, and replaces the display with a high-performance spring-driven counter.
+
+```tsx
+const AnimatedCounter = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [internalValue, setInternalValue] = useState(0);
+
+  useLayoutEffect(() => {
+    const sibling = containerRef.current?.previousSibling;
+    if (!sibling || sibling.nodeType !== Node.ELEMENT_NODE) return;
+
+    const target = sibling as HTMLElement;
+    const update = () => {
+      const num = parseFloat(target.innerText.replace(/[^0-9.-]+/g, ""));
+      if (!isNaN(num)) setInternalValue(num);
+    };
+
+    update();
+    target.style.visibility = 'hidden';
+    target.style.position = 'absolute';
+
+    const observer = new MutationObserver(update);
+    observer.observe(target, { characterData: true, childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return <div ref={containerRef}>{/* Render motion digits here */}</div>;
+};
+```
+
+### 2. DoubleLayeredText Pattern
+Intercepts static text from a sibling to perform complex multi-layered animations (typewriter + shimmer) while preserving the original layout flow via an inline-block container.
+
+```tsx
+const DoubleLayeredText = ({ text: propText }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [text, setText] = useState("");
+
+  useLayoutEffect(() => {
+    const sibling = containerRef.current?.previousSibling;
+    if (!sibling) return;
+
+    const update = () => {
+      const domText = (sibling as HTMLElement).innerText || sibling.textContent || "";
+      if (domText && !propText) setText(domText);
+    };
+
+    update();
+    (sibling as HTMLElement).style.display = 'none'; // Or visibility hidden
+    
+    const observer = new MutationObserver(update);
+    observer.observe(sibling, { characterData: true, childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [propText]);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
+      {/* Layer 1: Base */}
+      {/* Layer 2: Shimmer Overlay */}
+    </div>
+  );
+};
 ```
 
 ## Shared Utilities (The Harness)
@@ -141,7 +232,21 @@ const ParasiticLayer = () => {
     mousedown: () => { /* trigger logic */ }
   });
 
-  return <div ref={containerRef} style={{ width: 0, height: 0, position: 'absolute', top: 0, left: 0, pointerEvents: 'none', opacity: 0, zIndex: -1 }} />;
+  // UI Layer Pattern Example (Visible)
+  return (
+    <div 
+      ref={containerRef} 
+      style={{ 
+        position: 'absolute', 
+        inset: 0, 
+        pointerEvents: 'none', 
+        borderRadius: 'inherit', 
+        overflow: 'hidden' 
+      }} 
+    >
+       {/* UI Content */}
+    </div>
+  );
 };
 ```
 
