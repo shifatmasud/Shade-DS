@@ -57,18 +57,22 @@ Used for components that "take over" the rendering of a sibling element.
 ## Framer Canvas Specifics (Parasitic Discovery)
 In Framer, components and canvas elements (Text, SVG, Frames) are often wrapped in dynamic container divs. Standard `previousElementSibling` may fail if the target is sibling-once-removed or nested.
 
-### 1. Shared Layout Parent Strategy
-Instead of adjacent sibling lookup, climb to the nearest shared structural parent (Frame or Stack) and scan its children.
+### 1. The "Single File" Rule
+When deploying to the Framer Canvas as a Code Component:
+- **Constraint**: The component MUST be a single, self-contained file.
+- **Version**: Use React 18.2.0 compatible syntax.
+- **Dependency Immunity**: Avoid importing from internal project paths (e.g., `../../Theme`). Use standard CSS or inline styles to ensure the component is portable and doesn't break when copy-pasted into the Framer Editor.
+- **Export**: Use `export default function ComponentName()`.
+
+### 2. Shared Layout Parent Strategy
+Instead of adjacent sibling lookup, use the `shared-parent` mode in `useHost` (or manual climbing) to find the nearest structural parent (Frame or Stack) and scan its children.
 
 ```tsx
 // Discovery Strategy: Shared Parent Scan
-let sharedParent = el.parentElement;
-while (sharedParent && sharedParent.children.length <= 1 && sharedParent.tagName !== "BODY") {
-    sharedParent = sharedParent.parentElement;
-}
+const host = useHost(ref, "shared-parent"); // Climbs until it finds a multi-child container
 
-if (sharedParent) {
-    Array.from(sharedParent.children).forEach((child) => {
+if (host) {
+    Array.from(host.children).forEach((child) => {
         if (child === el || child.contains(el)) return;
         
         // Target via stable Framer attributes

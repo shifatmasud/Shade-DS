@@ -4,18 +4,29 @@ import { useState, useLayoutEffect, useEffect, type RefObject } from 'react';
  * 🔗 useHost (Parasitic DOM Binding Hook)
  * Finds and binds to a host element (parent or sibling).
  */
-export const useHost = (ref: RefObject<HTMLElement>, mode: 'parent' | 'sibling' = 'parent') => {
+export const useHost = (ref: RefObject<HTMLElement | null>, mode: 'parent' | 'sibling' | 'shared-parent' = 'parent') => {
   const [host, setHost] = useState<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
     if (!ref.current) return;
     
-    let target = mode === 'parent' 
-      ? ref.current.parentElement 
-      : ref.current.previousElementSibling as HTMLElement | null;
+    let target: HTMLElement | null = null;
+
+    if (mode === 'parent') {
+      target = ref.current.parentElement;
+    } else if (mode === 'sibling') {
+      target = ref.current.previousElementSibling as HTMLElement | null;
+    } else if (mode === 'shared-parent') {
+      // Specialized for Framer: Find the nearest structural parent that acts as a layout container
+      let candidate = ref.current.parentElement;
+      while (candidate && candidate.children.length <= 1 && candidate.tagName !== "BODY") {
+        candidate = candidate.parentElement;
+      }
+      target = candidate;
+    }
       
-    // Framer Detection: Move to grandparent if parent is a wrapper
-    if (target && (target.hasAttribute('data-framer-component-type') || target.hasAttribute('data-framer-generated'))) {
+    // Framer Detection Fallback: Move to grandparent if parent is a wrapper
+    if (mode === 'parent' && target && (target.hasAttribute('data-framer-component-type') || target.hasAttribute('data-framer-generated'))) {
        target = target.parentElement;
     }
     
