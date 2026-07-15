@@ -37,6 +37,27 @@ export const useHost = (ref: RefObject<HTMLElement | null>, mode: 'parent' | 'si
 };
 
 /**
+ * 🔍 findSiblingByType
+ * Scans a shared parent for a specific Framer component type or DOM selector.
+ */
+export const findSiblingByType = (parent: HTMLElement | null, type: string, selector?: string) => {
+  if (!parent) return null;
+  
+  const children = Array.from(parent.children);
+  for (const child of children) {
+    const componentType = child.getAttribute("data-framer-component-type");
+    if (componentType === type) {
+      return selector ? child.querySelector(selector) as HTMLElement | null : child as HTMLElement;
+    }
+    // Fallback search if type doesn't match but selector is provided
+    if (selector && child.querySelector(selector)) {
+      return child.querySelector(selector) as HTMLElement;
+    }
+  }
+  return null;
+};
+
+/**
  * 📏 useHostRect
  * Returns a live bounding rectangle of the host using ResizeObserver.
  */
