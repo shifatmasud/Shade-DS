@@ -162,6 +162,14 @@ Use `getPropertyControls()` to preserve the editing experience of wrapped compon
 
 See [references/inherit-property-controls.md](references/inherit-property-controls.md) for pattern details.
 
+### Props-Driven Animation
+
+Treat props as the single source of truth for animation.
+
+**Agent Rule**: Treat props as the single source of truth for animation. Components MUST react to prop changes and translate them into imperative animation engine calls instead of managing animation state internally. Use engine-native hooks like `useGSAP` whenever available.
+
+See [references/props-driven-animation.md](references/props-driven-animation.md) for implementation details.
+
 ## Common Patterns
 
 See [references/patterns.md](references/patterns.md) for implementations: shared state, keyboard detection, show-once logic, scroll effects, magnetic hover, animation triggers.

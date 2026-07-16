@@ -365,3 +365,35 @@ const placeholders = {
 ```
 
 Use these when setting default values via parameter destructuring (since `ControlType.ResponsiveImage` and `ControlType.File` don't support `defaultValue`).
+
+## Props-Driven Animation
+
+Treat props as the single source of truth for animation. Components react to prop changes and translate them into imperative animation engine calls.
+
+```typescript
+import { useGSAP } from "@gsap/react"
+import gsap from "gsap"
+
+export function withPropsAnimation(Component): ComponentType {
+    return (props) => {
+        const ref = useRef(null)
+
+        useGSAP(() => {
+            gsap.to(ref.current, {
+                x: props.x,
+                opacity: props.opacity,
+                duration: 0.5,
+                ease: "power2.out",
+            })
+        }, [props.x, props.opacity])
+
+        return (
+            <div ref={ref}>
+                <Component {...props} />
+            </div>
+        )
+    }
+}
+```
+
+See [references/props-driven-animation.md](props-driven-animation.md) for more details.
