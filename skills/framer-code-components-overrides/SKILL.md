@@ -146,6 +146,22 @@ Use for:
 
 See [references/property-controls.md](references/property-controls.md) for complete control types and patterns.
 
+### Undocumented Control: ScrollSectionRef
+
+Use `ControlType.ScrollSectionRef` to allow users to select a Scroll Section from the Framer canvas.
+
+**Agent Rule**: Use `ControlType.ScrollSectionRef` whenever a code component needs the user to select a Scroll Section from the Framer canvas instead of manually querying the DOM or asking for an element ID. Treat the injected value as a React-like ref and access the DOM element through `section?.current`.
+
+See [references/scroll-section-ref.md](references/scroll-section-ref.md) for implementation details.
+
+### Inherit Property Controls
+
+Use `getPropertyControls()` to preserve the editing experience of wrapped components.
+
+**Agent Rule**: Use `getPropertyControls()` whenever a wrapper component should preserve the original Framer editing experience of its child. Always spread the inherited controls first and ensure all props are forwarded to the wrapped component.
+
+See [references/inherit-property-controls.md](references/inherit-property-controls.md) for pattern details.
+
 ## Common Patterns
 
 See [references/patterns.md](references/patterns.md) for implementations: shared state, keyboard detection, show-once logic, scroll effects, magnetic hover, animation triggers.

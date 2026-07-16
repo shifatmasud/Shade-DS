@@ -313,3 +313,26 @@ progressOptions: {
 ```
 
 Note: In nested objects, `hidden` receives the parent object, not root props.
+
+## Undocumented / Internal Controls
+
+### ScrollSectionRef
+Allows referencing a Scroll Section selected by the designer.
+```typescript
+section: {
+    // @ts-ignore
+    type: ControlType.ScrollSectionRef,
+    title: "Section",
+}
+```
+See [references/scroll-section-ref.md](scroll-section-ref.md) for usage patterns.
+
+### getPropertyControls (Inheritance)
+Inherit controls from a wrapped component.
+```typescript
+addPropertyControls(Wrapper, {
+    ...getPropertyControls(WrappedComponent),
+    newControl: { type: ControlType.Boolean, title: "New" }
+})
+```
+See [references/inherit-property-controls.md](inherit-property-controls.md) for more.
