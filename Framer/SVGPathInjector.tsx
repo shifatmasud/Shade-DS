@@ -19,6 +19,7 @@ export default function SVGPathInjector(props: any) {
         trigger = "mount",
         drawProgress = 1,
         scrollsectionref,
+        viewport = "bottom",
         color = "",
         strokeWidth = 0,
         transition = {
@@ -240,6 +241,11 @@ export default function SVGPathInjector(props: any) {
         const element = (scrollsectionref && scrollsectionref.current) ? scrollsectionref.current : containerRef.current
         if (!element) return
 
+        // Define trigger point relative to viewport
+        let rootMargin = "0% 0% 0% 0%"
+        if (viewport === "center") rootMargin = "-50% 0% -50% 0%"
+        if (viewport === "top") rootMargin = "-100% 0% 0% 0%"
+
         let hasTriggered = false
         const observer = new IntersectionObserver(
             (entries) => {
@@ -252,14 +258,17 @@ export default function SVGPathInjector(props: any) {
                     }
                 })
             },
-            { threshold: 0.1 }
+            { 
+                threshold: 0.1,
+                rootMargin: rootMargin
+            }
         )
 
         observer.observe(element)
         return () => {
             observer.disconnect()
         }
-    }, [trigger, found, scrollsectionref, transition])
+    }, [trigger, found, scrollsectionref, transition, viewport])
 
     return (
         <div
@@ -324,6 +333,19 @@ addPropertyControls(SVGPathInjector, {
         title: "Scroll Section",
         hidden(props) {
             return props.trigger !== "scroll" && props.trigger !== "scroll-trigger"
+        }
+    },
+    viewport: {
+        type: ControlType.Enum,
+        title: "Viewport",
+        displaySegmentedControl: true,
+        options: ["top", "center", "bottom"],
+        optionTitles: ["Top", "Center", "Bottom"],
+        // @ts-ignore
+        optionIcons: ["align-top", "align-middle", "align-bottom"],
+        defaultValue: "bottom",
+        hidden(props) {
+            return props.trigger !== "scroll-trigger"
         }
     },
     color: {
