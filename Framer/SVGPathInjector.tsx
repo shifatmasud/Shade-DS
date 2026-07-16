@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react"
-import { motionValue, animate, svgEffect } from "framer-motion"
+import { motionValue, animate, svgEffect, useScroll } from "framer-motion"
+import { addPropertyControls, ControlType } from "framer"
 
 /**
  * 🎨 SVGPathInjector (svgEffect Edition)
@@ -8,29 +9,52 @@ import { motionValue, animate, svgEffect } from "framer-motion"
  * to animate sibling SVG paths with precision.
  * 
  * Pattern: Injector (Zero-UI, purely behavioral)
+ * 
+ * @framerDisableUnlink
+ * @framerIntrinsicWidth 160
+ * @framerIntrinsicHeight 60
  */
 export default function SVGPathInjector(props: any) {
-    const { 
-        duration = 1.5, 
-        delay = 0, 
-        trigger = "mount", // "mount", "hover"
+    const {
+        trigger = "mount",
+        drawProgress = 1,
+        scrollsectionref,
         color = "",
         strokeWidth = 0,
-        ease = "easeInOut"
+        transition = {
+            type: "tween",
+            duration: 1.5,
+            delay: 0,
+            ease: "easeInOut",
+        },
     } = props
 
     const containerRef = useRef<HTMLDivElement>(null)
-    const [found, setFound] = useState(false)
+    const [targets, setTargets] = useState<any[]>([])
     const [isHovered, setIsHovered] = useState(false)
     const activeEffect = useRef<(() => void) | null>(null)
-    const progress = useRef(motionValue(0))
 
+    // Motion values for animatable states
+    const progressVal = useRef(motionValue(0))
+    const strokeWidthVal = useRef(motionValue(strokeWidth))
+    const colorVal = useRef(motionValue(color || "currentColor"))
+
+    const found = targets.length > 0
+
+    // Hook up scroll tracking of the section or container
+    const targetRef = (scrollsectionref && scrollsectionref.current) ? scrollsectionref : containerRef
+    const { scrollYProgress } = useScroll({
+        target: targetRef,
+        offset: ["start end", "end start"]
+    })
+
+    // Sibling SVG discovery loop
     useEffect(() => {
         const el = containerRef.current
         if (!el) return
 
         const discover = () => {
-            // 1. Find the shared layout parent
+            // Find the shared layout parent
             let sharedParent = el.parentElement
             while (sharedParent && sharedParent.children.length <= 1 && sharedParent.tagName !== "BODY") {
                 sharedParent = sharedParent.parentElement
@@ -47,7 +71,7 @@ export default function SVGPathInjector(props: any) {
             })
 
             if (foundSvg) {
-                // 2. Resolve <use> tags to actual paths for animation
+                // Resolve <use> tags to actual paths for animation
                 const useTags = foundSvg.querySelectorAll("use")
                 useTags.forEach((use) => {
                     const href = use.getAttribute("href") || use.getAttribute("xlink:href")
@@ -68,39 +92,19 @@ export default function SVGPathInjector(props: any) {
                     }
                 })
 
-                // 3. Target all drawable elements (including nested ones)
+                // Target all drawable elements (including nested ones)
                 const drawableSelectors = "path, polyline, polygon, line, circle, ellipse, rect"
-                const targets = foundSvg.querySelectorAll(drawableSelectors)
+                const foundTargets = foundSvg.querySelectorAll(drawableSelectors)
                 
-                if (targets.length > 0) {
-                    setFound(true)
-
-                    // 4. Cleanup old effect
-                    if (activeEffect.current) activeEffect.current()
-
-                    // 5. Apply baseline styles (color/width)
-                    targets.forEach((p: any) => {
-                        if (color) p.style.stroke = color
-                        if (strokeWidth > 0) p.style.strokeWidth = `${strokeWidth}px`
-                        if (!p.style.stroke && !p.getAttribute("stroke")) p.style.stroke = "currentColor"
-                        if (p.getAttribute("fill") === null) p.setAttribute("fill", "transparent")
+                if (foundTargets.length > 0) {
+                    const targetsArray = Array.from(foundTargets)
+                    // Only update state if targets list changes to prevent infinite render loops
+                    setTargets((prev) => {
+                        if (prev.length === targetsArray.length && prev.every((val, index) => val === targetsArray[index])) {
+                            return prev
+                        }
+                        return targetsArray
                     })
-
-                    // 6. Bind svgEffect for drawing animation
-                    // @ts-ignore - svgEffect might not be in all TS defs but exists in modern framer-motion
-                    activeEffect.current = svgEffect(targets as any, {
-                        pathLength: progress.current
-                    })
-
-                    if (trigger === "mount") {
-                        setTimeout(() => {
-                            animate(progress.current, 1, { 
-                                duration, 
-                                delay, 
-                                ease: ease as any 
-                            })
-                        }, 200)
-                    }
                 }
             }
         }
@@ -109,20 +113,153 @@ export default function SVGPathInjector(props: any) {
         const timer = setTimeout(discover, 1000)
         return () => {
             clearTimeout(timer)
-            if (activeEffect.current) activeEffect.current()
         }
-    }, [duration, ease, delay, color, strokeWidth, trigger])
+    }, [])
 
-    // Hover Trigger Logic
+    // Apply baseline styles and bind motion value updates dynamically
+    useEffect(() => {
+        if (targets.length === 0) return
+
+        // Set initial values
+        targets.forEach((p: any) => {
+            const initialColor = colorVal.current.get()
+            const initialWidth = strokeWidthVal.current.get()
+            if (initialColor) p.style.stroke = initialColor
+            if (initialWidth > 0) p.style.strokeWidth = `${initialWidth}px`
+            if (!p.style.stroke && !p.getAttribute("stroke")) p.style.stroke = "currentColor"
+            if (p.getAttribute("fill") === null) p.setAttribute("fill", "transparent")
+        })
+
+        // Bind progress with svgEffect
+        // @ts-ignore
+        activeEffect.current = svgEffect(targets, {
+            pathLength: progressVal.current
+        })
+
+        // Listen to changes in stroke width and color and update elements
+        const unsubWidth = strokeWidthVal.current.on("change", (latest) => {
+            targets.forEach((p: any) => {
+                p.style.strokeWidth = `${latest}px`
+            })
+        })
+
+        const unsubColor = colorVal.current.on("change", (latest) => {
+            targets.forEach((p: any) => {
+                p.style.stroke = latest
+            })
+        })
+
+        return () => {
+            unsubWidth()
+            unsubColor()
+            if (activeEffect.current) {
+                activeEffect.current()
+                activeEffect.current = null
+            }
+        }
+    }, [targets])
+
+    // Trigger Transition Animations: strokeWidth & color
+    useEffect(() => {
+        const targetWidth = strokeWidth > 0 ? strokeWidth : 0
+        animate(strokeWidthVal.current, targetWidth, {
+            ...transition
+        })
+    }, [strokeWidth, transition])
+
+    useEffect(() => {
+        const targetColor = color || "currentColor"
+        animate(colorVal.current, targetColor, {
+            ...transition
+        })
+    }, [color, transition])
+
+    // Reset progress when switching triggers to allow clean previews
+    useEffect(() => {
+        if (trigger === "mount" || trigger === "hover" || trigger === "scroll-trigger") {
+            progressVal.current.set(0)
+        } else if (trigger === "prop") {
+            progressVal.current.set(drawProgress)
+        }
+    }, [trigger])
+
+    // Orchestrate Drawing Progress animations per trigger
+    // 1. Mount trigger
+    useEffect(() => {
+        if (trigger === "mount" && found) {
+            animate(progressVal.current, 1, {
+                ...transition
+            })
+        }
+    }, [trigger, found, transition])
+
+    // 2. Hover trigger
     useEffect(() => {
         if (trigger !== "hover" || !found) return
-        
+
         if (isHovered) {
-            animate(progress.current, 1, { duration, ease: ease as any })
+            animate(progressVal.current, 1, {
+                ...transition
+            })
         } else {
-            animate(progress.current, 0, { duration, ease: ease as any })
+            animate(progressVal.current, 0, {
+                ...transition
+            })
         }
-    }, [isHovered, trigger, found, duration, ease])
+    }, [isHovered, trigger, found, transition])
+
+    // 3. Prop trigger
+    useEffect(() => {
+        if (trigger === "prop" && found) {
+            animate(progressVal.current, drawProgress, {
+                ...transition
+            })
+        }
+    }, [drawProgress, trigger, found, transition])
+
+    // 4. Scroll-linked trigger
+    useEffect(() => {
+        if (trigger !== "scroll" || !found) return
+
+        const unsubscribe = scrollYProgress.on("change", (latest) => {
+            animate(progressVal.current, latest, {
+                type: "spring",
+                stiffness: 100,
+                damping: 30,
+                restDelta: 0.001
+            })
+        })
+
+        return () => unsubscribe()
+    }, [trigger, found, scrollYProgress])
+
+    // 5. Scroll-triggered (IntersectionObserver)
+    useEffect(() => {
+        if (trigger !== "scroll-trigger" || !found) return
+
+        const element = (scrollsectionref && scrollsectionref.current) ? scrollsectionref.current : containerRef.current
+        if (!element) return
+
+        let hasTriggered = false
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting && !hasTriggered) {
+                        hasTriggered = true
+                        animate(progressVal.current, 1, {
+                            ...transition
+                        })
+                    }
+                })
+            },
+            { threshold: 0.1 }
+        )
+
+        observer.observe(element)
+        return () => {
+            observer.disconnect()
+        }
+    }, [trigger, found, scrollsectionref, transition])
 
     return (
         <div
@@ -136,9 +273,9 @@ export default function SVGPathInjector(props: any) {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                background: found ? "rgba(52, 199, 89, 0.1)" : "rgba(255, 59, 48, 0.1)",
+                background: found ? "rgba(52, 199, 89, 0.06)" : "rgba(255, 59, 48, 0.06)",
                 borderRadius: 8,
-                border: `1px dashed ${found ? "#34C759" : "#FF3B30"}`,
+                border: `1px dashed ${found ? "rgba(52, 199, 89, 0.3)" : "rgba(255, 59, 48, 0.3)"}`,
                 overflow: "hidden",
                 pointerEvents: "auto",
                 gap: 4
@@ -154,32 +291,61 @@ export default function SVGPathInjector(props: any) {
                 background: found ? "#34C759" : "#FF3B30" 
             }} />
             {found && (
-                <div style={{ fontSize: 8, opacity: 0.6, fontStyle: "italic" }}>
-                    {trigger === "mount" ? "svgEffect: Auto" : "svgEffect: Hover"}
+                <div style={{ fontSize: 8, opacity: 0.6, fontStyle: "italic", textTransform: "capitalize" }}>
+                    Trigger: {trigger === "scroll-trigger" ? "Scroll Trigger" : trigger}
                 </div>
             )}
         </div>
     )
 }
 
-// @ts-ignore
-if (window.Framer) {
-    // @ts-ignore
-    SVGPathInjector.propertyControls = {
-        trigger: {
-            type: "enum",
-            options: ["mount", "hover"],
-            optionTitles: ["On Mount", "On Hover"],
-            defaultValue: "mount",
-        },
-        duration: { type: "number", min: 0.1, max: 10, step: 0.1, defaultValue: 1.5 },
-        delay: { type: "number", min: 0, max: 5, step: 0.1, defaultValue: 0 },
-        color: { type: "color", title: "Override Color" },
-        strokeWidth: { type: "number", min: 0, max: 20, defaultValue: 0, title: "Stroke Width" },
-        ease: {
-            type: "enum",
-            options: ["linear", "easeIn", "easeOut", "easeInOut"],
-            defaultValue: "easeInOut",
+addPropertyControls(SVGPathInjector, {
+    trigger: {
+        type: ControlType.Enum,
+        title: "Trigger",
+        options: ["mount", "hover", "scroll", "scroll-trigger", "prop"],
+        optionTitles: ["On Mount", "On Hover", "Scroll Linked", "Scroll Triggered", "From Prop"],
+        defaultValue: "mount",
+    },
+    drawProgress: {
+        type: ControlType.Number,
+        title: "Draw Progress",
+        min: 0,
+        max: 1,
+        step: 0.01,
+        defaultValue: 1,
+        hidden(props) {
+            return props.trigger !== "prop"
         }
-    }
-}
+    },
+    scrollsectionref: {
+        // @ts-ignore
+        type: ControlType.ScrollSectionRef,
+        title: "Scroll Section",
+        hidden(props) {
+            return props.trigger !== "scroll" && props.trigger !== "scroll-trigger"
+        }
+    },
+    color: {
+        type: ControlType.Color,
+        title: "Stroke Color",
+        defaultValue: "",
+    },
+    strokeWidth: {
+        type: ControlType.Number,
+        title: "Stroke Width",
+        min: 0,
+        max: 20,
+        defaultValue: 0,
+    },
+    transition: {
+        type: ControlType.Transition,
+        title: "Transition",
+        defaultValue: {
+            type: "tween",
+            duration: 1.5,
+            delay: 0,
+            ease: "easeInOut",
+        },
+    },
+})

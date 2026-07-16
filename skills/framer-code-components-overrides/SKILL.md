@@ -150,7 +150,7 @@ See [references/property-controls.md](references/property-controls.md) for compl
 
 Use `ControlType.ScrollSectionRef` to allow users to select a Scroll Section from the Framer canvas.
 
-**Agent Rule**: Use `ControlType.ScrollSectionRef` whenever a code component needs the user to select a Scroll Section from the Framer canvas instead of manually querying the DOM or asking for an element ID. Treat the injected value as a React-like ref and access the DOM element through `section?.current`.
+**Agent Rule**: Use `ControlType.ScrollSectionRef` whenever a code component needs the user to select a Scroll Section from the Framer canvas instead of manually querying the DOM or asking for an element ID. Treat the injected value as a React-like ref and access the DOM element through `section?.current`. Whenever `ScrollSectionRef` is used, you MUST also include a `viewport` enum control (top, center, bottom) to allow the designer to specify the trigger point relative to the viewport.
 
 See [references/scroll-section-ref.md](references/scroll-section-ref.md) for implementation details.
 

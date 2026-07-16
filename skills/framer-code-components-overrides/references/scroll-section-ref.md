@@ -16,6 +16,21 @@ addPropertyControls(Component, {
         type: ControlType.ScrollSectionRef,
         title: "Section",
     },
+    viewport: {
+        type: ControlType.Enum,
+        title: "Viewport",
+        displaySegmentedControl: true,
+
+        options: ["top", "center", "bottom"],
+        optionTitles: [
+            "Top (Viewport Top)",
+            "Center (Viewport Center)",
+            "Bottom (Viewport Bottom)",
+        ],
+        //@ts-ignore
+        optionIcons: ["align-top", "align-middle", "align-bottom"],
+        defaultValue: "bottom",
+    },
 })
 
 ---
@@ -78,4 +93,6 @@ interface ScrollSectionRef {
 
 Agent Rule
 
-Use "ControlType.ScrollSectionRef" whenever a code component needs the user to select a Scroll Section from the Framer canvas instead of manually querying the DOM or asking for an element ID. Treat the injected value as a React-like ref and access the DOM element through "section?.current".
+Use "ControlType.ScrollSectionRef" whenever a code component needs the user to select a Scroll Section from the Framer canvas instead of manually querying the DOM or asking for an element ID. Treat the injected value as a React-like ref and access the DOM element through "section?.current". 
+
+**Crucial**: Whenever `ScrollSectionRef` is used, you MUST also include a `viewport` enum control (top, center, bottom) to allow the designer to specify the trigger point relative to the viewport.

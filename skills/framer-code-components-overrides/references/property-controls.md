@@ -323,6 +323,13 @@ section: {
     // @ts-ignore
     type: ControlType.ScrollSectionRef,
     title: "Section",
+},
+viewport: {
+    type: ControlType.Enum,
+    title: "Viewport",
+    displaySegmentedControl: true,
+    options: ["top", "center", "bottom"],
+    defaultValue: "bottom",
 }
 ```
 See [references/scroll-section-ref.md](scroll-section-ref.md) for usage patterns.
