@@ -59,6 +59,8 @@ interface AnimatedCounterProps {
   value: number | MotionValue<number>;
   useFormatting?: boolean;
   decimals?: number;
+  decimalSeparator?: string;
+  thousandsSeparator?: string;
 }
 
 const isMotionValue = (val: any): val is MotionValue<number> => {
@@ -73,7 +75,7 @@ function getTracks(valueStr: string) {
     // This ensures units (rightmost) stay as units, tens as tens, etc.
     // across structural changes like 9 -> 10.
     const posFromRight = chars.length - 1 - idx;
-    const key = isDigit ? `digit-${posFromRight}` : `char-${idx}`;
+    const key = isDigit ? `digit-${posFromRight}` : `char-${posFromRight}`;
     return { key, char, isDigit };
   });
 }
@@ -81,7 +83,9 @@ function getTracks(valueStr: string) {
 const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ 
   value, 
   useFormatting = true,
-  decimals = 0 
+  decimals = 0,
+  decimalSeparator = ".",
+  thousandsSeparator = ","
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [internalValue, setInternalValue] = useState<number>(0);
@@ -156,14 +160,20 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
 
   // Helper to format value string based on decimals
   const formatValue = (val: number) => {
-    // toFixed is significantly faster than toLocaleString for high-frequency updates
-    if (useFormatting && decimals > 0) {
-      return val.toLocaleString(undefined, {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      });
+    // 1. Get raw string from toFixed
+    let [intPart, decPart] = val.toFixed(decimals).split('.')
+    
+    // 2. Add thousands separator to the integer part
+    if (useFormatting && thousandsSeparator) {
+        intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSeparator)
     }
-    return val.toFixed(decimals);
+    
+    // 3. Combine
+    if (decimals > 0) {
+        return `${intPart}${decimalSeparator}${decPart}`
+    }
+    
+    return intPart
   };
 
   // Initialize tracks with the current value

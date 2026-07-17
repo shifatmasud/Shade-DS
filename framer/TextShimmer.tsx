@@ -69,6 +69,8 @@ export default function TextShimmer(props: any) {
                 const fSize = foundP.style.getPropertyValue("--framer-font-size") || computed.fontSize
                 const rawLHeight = foundP.style.getPropertyValue("--framer-line-height") || computed.lineHeight
                 const tAlign = foundP.style.getPropertyValue("--framer-text-alignment") || computed.textAlign
+                const fFamily = foundP.style.getPropertyValue("--framer-font-family") || computed.fontFamily
+                const lSpacing = foundP.style.getPropertyValue("--framer-letter-spacing") || computed.letterSpacing
 
                 let lHeight = rawLHeight
                 if (!isNaN(parseFloat(rawLHeight)) && !rawLHeight.includes("px") && !rawLHeight.includes("%")) {
@@ -80,18 +82,22 @@ export default function TextShimmer(props: any) {
                     lineHeight: lHeight,
                     textAlign: tAlign as any,
                     fontWeight: computed.fontWeight,
-                    letterSpacing: computed.letterSpacing,
-                    fontFamily: computed.fontFamily,
+                    letterSpacing: lSpacing,
+                    fontFamily: fFamily,
                     color: color || computed.color,
                     textTransform: computed.textTransform,
                     fontStyle: computed.fontStyle,
                     textDecoration: computed.textDecoration,
                     direction: computed.direction,
                     whiteSpace: computed.whiteSpace,
+                    wordSpacing: computed.wordSpacing,
+                    fontVariantNumeric: computed.fontVariantNumeric,
+                    fontStretch: computed.fontStretch,
                 })
 
-                foundContainer.style.opacity = "0"
-                foundContainer.style.pointerEvents = "none"
+                // 🎭 Mask original text node instead of the container
+                foundP.style.opacity = "0"
+                foundP.style.pointerEvents = "none"
                 
                 if (!observer) {
                     observer = new MutationObserver(() => {
@@ -118,9 +124,9 @@ export default function TextShimmer(props: any) {
 
         return () => {
             if (observer) observer.disconnect()
-            if (target && target.parentElement) {
-                target.parentElement.style.opacity = ""
-                target.parentElement.style.pointerEvents = ""
+            if (target) {
+                target.style.opacity = ""
+                target.style.pointerEvents = ""
             }
         }
     }, [target, color, trigger])
@@ -203,6 +209,9 @@ export default function TextShimmer(props: any) {
         fontStyle: extractedStyles.fontStyle || "normal",
         textDecoration: extractedStyles.textDecoration || "none",
         direction: extractedStyles.direction || 'inherit',
+        wordSpacing: extractedStyles.wordSpacing || 'inherit',
+        fontVariantNumeric: extractedStyles.fontVariantNumeric || 'inherit',
+        fontStretch: extractedStyles.fontStretch || 'inherit',
         display: "flex",
         alignItems: "center",
         justifyContent: extractedStyles.textAlign === "center" ? "center" : extractedStyles.textAlign === "right" ? "flex-end" : "flex-start",

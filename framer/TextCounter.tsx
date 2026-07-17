@@ -14,13 +14,31 @@ import { addPropertyControls, ControlType } from "framer"
 
 // --- DIGIT COMPONENT ---
 const DIGIT_HEIGHT = '1em'
-const Digit = React.memo(({ mv }: { mv: MotionValue<number> }) => {
-    const yTranslate = useTransform(mv, (v) => `${v}em`)
+const Digit = React.memo(({ mv, posFromRight }: { mv: MotionValue<number>, posFromRight: number }) => {
+    const isEven = posFromRight % 2 === 0
+    // Create a series for an "infinite" feel by tripling the set
+    // For Even: 0, 1, ..., 9. For Odd: 9, 8, ..., 0.
+    const singleSet = isEven ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] : [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+    const digits = [...singleSet, ...singleSet, ...singleSet]
+    
+    const yTranslate = useTransform(mv, (v) => {
+        // v is the accumulated integer target.
+        // We wrap to 0-9 to find the offset within a single set.
+        let val = v % 10
+        if (val < 0) val += 10
+        
+        // We always use the middle set (indices 10-19) for smooth wrapping.
+        // For Even (0..9): index 10 is 0, index 11 is 1... -> offset = -(10 + val)
+        // For Odd (9..0): index 19 is 0, index 18 is 1... -> offset = -(10 + (9 - val))
+        const offset = isEven ? -(10 + val) : -(10 + (9 - val))
+        return `${offset}em`
+    })
+
     return (
         <div style={{ height: DIGIT_HEIGHT, overflow: 'hidden' }}>
             <motion.div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', y: yTranslate }}>
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
-                    <span key={i} style={{ height: DIGIT_HEIGHT, display: 'block' }}>{i}</span>
+                {digits.map((num, i) => (
+                    <span key={i} style={{ height: DIGIT_HEIGHT, display: 'block' }}>{num}</span>
                 ))}
             </motion.div>
         </div>
@@ -33,8 +51,11 @@ export default function TextCounter(props: any) {
         trigger = "mount",
         countTarget = 100,
         stagger = 0.05,
+        reelGap = 0,
         color = "",
-        transition = { type: "spring", stiffness: 100, damping: 30 },
+        decimalSeparator = ".",
+        thousandsSeparator = ",",
+        transition = { type: "spring", stiffness: 260, damping: 30 },
         scrollsectionref,
         scrollOffsetStart = "start end",
         scrollOffsetEnd = "end start",
@@ -43,6 +64,8 @@ export default function TextCounter(props: any) {
     const containerRef = useRef<HTMLDivElement>(null)
     const [target, setTarget] = useState<HTMLElement | null>(null)
     const [rawText, setRawText] = useState("")
+    const [paddingLength, setPaddingLength] = useState(0)
+    const [decimalCount, setDecimalCount] = useState(0)
     
     // Counter State
     const [tracks, setTracks] = useState<{ key: string, char: string, isDigit: boolean }[]>([])
@@ -82,6 +105,13 @@ export default function TextCounter(props: any) {
                 setTarget(foundP)
                 const text = foundP.innerText || foundP.textContent || ""
                 setRawText(text)
+
+                const [intPart, decPart] = text.split(decimalSeparator)
+                const intDigits = intPart ? (intPart.match(/\d/g)?.length || 0) : 0
+                const decDigits = decPart ? (decPart.match(/\d/g)?.length || 0) : 0
+                
+                setPaddingLength(intDigits)
+                setDecimalCount(decDigits)
                 
                 const computed = window.getComputedStyle(foundP)
                 const containerComputed = window.getComputedStyle(foundContainer)
@@ -89,6 +119,8 @@ export default function TextCounter(props: any) {
                 const fSize = foundP.style.getPropertyValue("--framer-font-size") || computed.fontSize
                 const rawLHeight = foundP.style.getPropertyValue("--framer-line-height") || computed.lineHeight
                 const tAlign = foundP.style.getPropertyValue("--framer-text-alignment") || computed.textAlign
+                const fFamily = foundP.style.getPropertyValue("--framer-font-family") || computed.fontFamily
+                const lSpacing = foundP.style.getPropertyValue("--framer-letter-spacing") || computed.letterSpacing
 
                 let lHeight = rawLHeight
                 if (!isNaN(parseFloat(rawLHeight)) && !rawLHeight.includes("px") && !rawLHeight.includes("%")) {
@@ -100,18 +132,22 @@ export default function TextCounter(props: any) {
                     lineHeight: lHeight,
                     textAlign: tAlign as any,
                     fontWeight: computed.fontWeight,
-                    letterSpacing: computed.letterSpacing,
-                    fontFamily: computed.fontFamily,
+                    letterSpacing: lSpacing,
+                    fontFamily: fFamily,
                     color: color || computed.color,
                     textTransform: computed.textTransform,
                     fontStyle: computed.fontStyle,
                     textDecoration: computed.textDecoration,
                     direction: computed.direction,
                     whiteSpace: computed.whiteSpace,
+                    wordSpacing: computed.wordSpacing,
+                    fontVariantNumeric: computed.fontVariantNumeric,
+                    fontStretch: computed.fontStretch,
                 })
 
-                foundContainer.style.opacity = "0"
-                foundContainer.style.pointerEvents = "none"
+                // 🎭 Mask original text node instead of the container
+                foundP.style.opacity = "0"
+                foundP.style.pointerEvents = "none"
                 
                 if (!observer) {
                     observer = new MutationObserver(() => {
@@ -122,7 +158,11 @@ export default function TextCounter(props: any) {
                 }
 
                 if (countTarget === 0) {
-                    const parsedValue = parseFloat(text.replace(/[^0-9.]/g, ""))
+                    // Create a regex to keep only digits and the decimal separator
+                    const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const cleanRegex = new RegExp(`[^0-9${escapeRegExp(decimalSeparator)}]`, 'g');
+                    const cleanedText = text.replace(cleanRegex, "").replace(decimalSeparator, ".");
+                    const parsedValue = parseFloat(cleanedText)
                     if (!isNaN(parsedValue)) {
                         countMV.set(0) 
                     }
@@ -145,9 +185,9 @@ export default function TextCounter(props: any) {
 
         return () => {
             if (observer) observer.disconnect()
-            if (target && target.parentElement) {
-                target.parentElement.style.opacity = ""
-                target.parentElement.style.pointerEvents = ""
+            if (target) {
+                target.style.opacity = ""
+                target.style.pointerEvents = ""
             }
         }
     }, [target, color, countTarget, trigger])
@@ -164,14 +204,33 @@ export default function TextCounter(props: any) {
             return chars.map((char, idx) => {
                 const isDigit = !isNaN(parseInt(char, 10))
                 const posFromRight = chars.length - 1 - idx
-                const key = isDigit ? `digit-${posFromRight}` : `char-${idx}`
+                const key = isDigit ? `digit-${posFromRight}` : `char-${posFromRight}`
                 return { key, char, isDigit }
             })
         }
 
         const formatValue = (val: number) => {
-            const rounded = Math.floor(val)
-            return rounded.toLocaleString()
+            // 1. Get raw string from toFixed
+            let [intPart, decPart] = val.toFixed(decimalCount).split('.')
+            
+            // 2. Pad integer part if needed (ignoring current separators)
+            const intDigitsOnly = intPart.replace(/[^0-9]/g, '')
+            if (paddingLength > intDigitsOnly.length) {
+                intPart = intPart.padStart(paddingLength, '0')
+            }
+            
+            // 3. Add thousands separator
+            if (thousandsSeparator) {
+                // Apply thousands separator to integer part
+                intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSeparator)
+            }
+            
+            // 4. Combine
+            if (decimalCount > 0) {
+                return `${intPart}${decimalSeparator}${decPart}`
+            }
+            
+            return intPart
         }
 
         const updateDigitAnimations = (currentTracks: typeof tracks) => {
@@ -179,10 +238,21 @@ export default function TextCounter(props: any) {
                 if (t.isDigit) {
                     const num = parseInt(t.char, 10)
                     const mv = digitMVs.current[t.key]
-                    const targetValue = -num
-                    if (mv && targetValues.current[t.key] !== targetValue) {
-                        targetValues.current[t.key] = targetValue
-                        animate(mv, targetValue, {
+                    if (!mv) return
+
+                    const currentTarget = targetValues.current[t.key] || 0
+                    const currentTargetDigit = ((Math.round(currentTarget) % 10) + 10) % 10
+                    
+                    if (num !== currentTargetDigit) {
+                        let diff = num - currentTargetDigit
+                        // 🔄 Infinite Scroll Logic: Shortest path wrapping
+                        if (diff > 5) diff -= 10
+                        if (diff < -5) diff += 10
+                        
+                        const nextTarget = currentTarget + diff
+                        targetValues.current[t.key] = nextTarget
+                        
+                        animate(mv, nextTarget, {
                             ...transition,
                             delay: (currentTracks.length - 1 - i) * stagger
                         })
@@ -217,21 +287,30 @@ export default function TextCounter(props: any) {
         const unsub = countMV.on("change", handleValueChange)
         handleValueChange(countMV.get())
         return () => unsub()
-    }, [rawText, transition, countMV, stagger])
+    }, [rawText, transition, countMV, stagger, paddingLength, decimalCount])
 
     useLayoutEffect(() => {
         tracks.forEach((t, i) => {
             if (t.isDigit) {
                 const num = parseInt(t.char, 10)
                 const mv = digitMVs.current[t.key]
-                const targetValue = -num
                 if (mv) {
-                    targetValues.current[t.key] = targetValue
-                    animate(mv, targetValue, transition)
+                    const currentTarget = targetValues.current[t.key] || 0
+                    const currentTargetDigit = ((Math.round(currentTarget) % 10) + 10) % 10
+                    
+                    if (num !== currentTargetDigit) {
+                        let diff = num - currentTargetDigit
+                        if (diff > 5) diff -= 10
+                        if (diff < -5) diff += 10
+                        const nextTarget = currentTarget + diff
+                        
+                        targetValues.current[t.key] = nextTarget
+                        animate(mv, nextTarget, transition)
+                    }
                 }
             }
         })
-    }, [tracks])
+    }, [tracks, transition])
 
     // --- TRIGGER ORCHESTRATION ---
     const targetRef = (scrollsectionref && scrollsectionref.current) ? scrollsectionref : containerRef
@@ -245,7 +324,10 @@ export default function TextCounter(props: any) {
         
         let targetValue = countTarget
         if (countTarget === 0 && rawText) {
-            const parsed = parseFloat(rawText.replace(/[^0-9.]/g, ""))
+            const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const cleanRegex = new RegExp(`[^0-9${escapeRegExp(decimalSeparator)}]`, 'g');
+            const cleanedText = rawText.replace(cleanRegex, "").replace(decimalSeparator, ".");
+            const parsed = parseFloat(cleanedText)
             if (!isNaN(parsed)) targetValue = parsed
         }
 
@@ -272,6 +354,9 @@ export default function TextCounter(props: any) {
         fontStyle: extractedStyles.fontStyle || "normal",
         textDecoration: extractedStyles.textDecoration || "none",
         direction: extractedStyles.direction || 'inherit',
+        wordSpacing: extractedStyles.wordSpacing || 'inherit',
+        fontVariantNumeric: extractedStyles.fontVariantNumeric || 'tabular-nums',
+        fontStretch: extractedStyles.fontStretch || 'inherit',
         display: "flex",
         alignItems: "center",
         justifyContent: extractedStyles.textAlign === "center" ? "center" : extractedStyles.textAlign === "right" ? "flex-end" : "flex-start",
@@ -302,9 +387,17 @@ export default function TextCounter(props: any) {
                     }}
                 >
                     <div style={commonTextStyle}>
-                        <div style={{ display: "flex", gap: "0.02em", fontVariantNumeric: 'tabular-nums' }}>
-                            {tracks.map((track) => (
-                                track.isDigit ? <Digit key={track.key} mv={digitMVs.current[track.key]} /> : <span key={track.key}>{track.char}</span>
+                        <div style={{ display: "flex", fontVariantNumeric: 'tabular-nums' }}>
+                            {tracks.map((track, i) => (
+                                <span 
+                                    key={track.key} 
+                                    style={{ 
+                                        display: 'inline-flex', 
+                                        marginLeft: i > 0 ? `${reelGap}px` : 0 
+                                    }}
+                                >
+                                    {track.isDigit ? <Digit mv={digitMVs.current[track.key]} posFromRight={parseInt(track.key.split('-')[1], 10)} /> : track.char}
+                                </span>
                             ))}
                         </div>
                     </div>
@@ -314,6 +407,7 @@ export default function TextCounter(props: any) {
         </div>
     )
 }
+
 
 addPropertyControls(TextCounter, {
     trigger: {
@@ -336,6 +430,24 @@ addPropertyControls(TextCounter, {
         step: 0.01,
         defaultValue: 0.05,
     },
+    reelGap: {
+        type: ControlType.Number,
+        title: "Reel Gap",
+        min: -100,
+        max: 100,
+        step: 1,
+        defaultValue: 0,
+    },
+    thousandsSeparator: {
+        type: ControlType.String,
+        title: "Thousands Sep",
+        defaultValue: ",",
+    },
+    decimalSeparator: {
+        type: ControlType.String,
+        title: "Decimal Sep",
+        defaultValue: ".",
+    },
     color: {
         type: ControlType.Color,
         title: "Text Color",
@@ -344,7 +456,7 @@ addPropertyControls(TextCounter, {
     transition: {
         type: ControlType.Transition,
         title: "Transition",
-        defaultValue: { type: "spring", stiffness: 100, damping: 30 },
+        defaultValue: { type: "spring", stiffness: 260, damping: 30 },
     },
     scrollsectionref: {
         // @ts-ignore
