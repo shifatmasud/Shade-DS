@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from "react"
+import { createPortal } from "react-dom"
 import { motion, useScroll, AnimatePresence } from "framer-motion"
 import { addPropertyControls, ControlType } from "framer"
 
@@ -216,57 +217,68 @@ export default function TextShimmer(props: any) {
                 position: "absolute",
                 inset: 0,
                 pointerEvents: "none",
-                borderRadius: "inherit",
-                overflow: "hidden",
                 zIndex: 0,
+                opacity: 0, // Ensure the anchor component itself is invisible
             }}
         >
-            {found && (
-                <div style={commonTextStyle}>
-                    <div style={{ position: 'relative', width: 'fit-content' }}>
-                        <span>
-                            {rawText.slice(0, displayedCount)}
-                            {!isComplete && (
-                                <motion.span
-                                    animate={{ opacity: [1, 0, 1] }}
-                                    transition={{ duration: 0.8, repeat: Infinity }}
-                                    style={{ display: 'inline-block', width: '2px', height: '1em', background: color || "currentColor", marginLeft: 2, verticalAlign: 'middle' }}
-                                />
-                            )}
-                        </span>
-                        <AnimatePresence>
-                            {isComplete && (
-                                <>
+            {found && target.parentElement && createPortal(
+                <div
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        pointerEvents: "none",
+                        borderRadius: "inherit",
+                        overflow: "hidden",
+                        zIndex: 10, // Ensure overlay is on top of hidden original
+                    }}
+                >
+                    <div style={commonTextStyle}>
+                        <div style={{ position: 'relative', width: 'fit-content' }}>
+                            <span>
+                                {rawText.slice(0, displayedCount)}
+                                {!isComplete && (
                                     <motion.span
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: [0, 0.3, 0], backgroundPosition: ['200% 0%', '-100% 0%'] }}
-                                        transition={{ duration: 3, repeat: Infinity, repeatDelay: shimmerDelay }}
-                                        style={{
-                                            position: 'absolute', inset: 0, pointerEvents: 'none',
-                                            backgroundImage: `linear-gradient(90deg, transparent 0%, ${shimmerColor} 50%, transparent 100%)`,
-                                            backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                                            filter: 'blur(4px)', mixBlendMode: 'screen'
-                                        }}
-                                    >
-                                        {rawText}
-                                    </motion.span>
-                                    <motion.span
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: [0, 0.8, 0], backgroundPosition: ['200% 0%', '-100% 0%'] }}
-                                        transition={{ duration: 3, repeat: Infinity, repeatDelay: shimmerDelay }}
-                                        style={{
-                                            position: 'absolute', inset: 0, pointerEvents: 'none',
-                                            backgroundImage: `linear-gradient(90deg, transparent 30%, #ffffff 50%, transparent 70%)`,
-                                            backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
-                                        }}
-                                    >
-                                        {rawText}
-                                    </motion.span>
-                                </>
-                            )}
-                        </AnimatePresence>
+                                        animate={{ opacity: [1, 0, 1] }}
+                                        transition={{ duration: 0.8, repeat: Infinity }}
+                                        style={{ display: 'inline-block', width: '2px', height: '1em', background: color || "currentColor", marginLeft: 2, verticalAlign: 'middle' }}
+                                    />
+                                )}
+                            </span>
+                            <AnimatePresence>
+                                {isComplete && (
+                                    <>
+                                        <motion.span
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: [0, 0.3, 0], backgroundPosition: ['200% 0%', '-100% 0%'] }}
+                                            transition={{ duration: 3, repeat: Infinity, repeatDelay: shimmerDelay }}
+                                            style={{
+                                                position: 'absolute', inset: 0, pointerEvents: 'none',
+                                                backgroundImage: `linear-gradient(90deg, transparent 0%, ${shimmerColor} 50%, transparent 100%)`,
+                                                backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                                                filter: 'blur(4px)', mixBlendMode: 'screen'
+                                            }}
+                                        >
+                                            {rawText}
+                                        </motion.span>
+                                        <motion.span
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: [0, 0.8, 0], backgroundPosition: ['200% 0%', '-100% 0%'] }}
+                                            transition={{ duration: 3, repeat: Infinity, repeatDelay: shimmerDelay }}
+                                            style={{
+                                                position: 'absolute', inset: 0, pointerEvents: 'none',
+                                                backgroundImage: `linear-gradient(90deg, transparent 30%, #ffffff 50%, transparent 70%)`,
+                                                backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
+                                            }}
+                                        >
+                                            {rawText}
+                                        </motion.span>
+                                    </>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
-                </div>
+                </div>,
+                target.parentElement
             )}
         </div>
     )

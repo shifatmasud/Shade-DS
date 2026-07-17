@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from "react"
+import { createPortal } from "react-dom"
 import { motion, motionValue, animate, useScroll, useMotionValue, MotionValue, useTransform } from "framer-motion"
 import { addPropertyControls, ControlType } from "framer"
 
@@ -285,19 +286,30 @@ export default function TextCounter(props: any) {
                 position: "absolute",
                 inset: 0,
                 pointerEvents: "none",
-                borderRadius: "inherit",
-                overflow: "hidden",
                 zIndex: 0,
+                opacity: 0, // Ensure the anchor component itself is invisible
             }}
         >
-            {found && (
-                <div style={commonTextStyle}>
-                    <div style={{ display: "flex", gap: "0.02em", fontVariantNumeric: 'tabular-nums' }}>
-                        {tracks.map((track) => (
-                            track.isDigit ? <Digit key={track.key} mv={digitMVs.current[track.key]} /> : <span key={track.key}>{track.char}</span>
-                        ))}
+            {found && target.parentElement && createPortal(
+                <div
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        pointerEvents: "none",
+                        borderRadius: "inherit",
+                        overflow: "hidden",
+                        zIndex: 10, // Ensure overlay is on top of hidden original
+                    }}
+                >
+                    <div style={commonTextStyle}>
+                        <div style={{ display: "flex", gap: "0.02em", fontVariantNumeric: 'tabular-nums' }}>
+                            {tracks.map((track) => (
+                                track.isDigit ? <Digit key={track.key} mv={digitMVs.current[track.key]} /> : <span key={track.key}>{track.char}</span>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                </div>,
+                target.parentElement
             )}
         </div>
     )
