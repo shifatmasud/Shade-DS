@@ -19,7 +19,6 @@ export default function SVGPathInjector(props: any) {
         trigger = "mount",
         drawProgress = 1,
         scrollsectionref,
-        viewport = "bottom",
         color = "",
         strokeWidth = 0,
         transition = {
@@ -32,7 +31,6 @@ export default function SVGPathInjector(props: any) {
 
     const containerRef = useRef<HTMLDivElement>(null)
     const [targets, setTargets] = useState<any[]>([])
-    const [isHovered, setIsHovered] = useState(false)
     const activeEffect = useRef<(() => void) | null>(null)
 
     // Motion values for animatable states
@@ -177,7 +175,7 @@ export default function SVGPathInjector(props: any) {
 
     // Reset progress when switching triggers to allow clean previews
     useEffect(() => {
-        if (trigger === "mount" || trigger === "hover" || trigger === "scroll-trigger") {
+        if (trigger === "mount") {
             progressVal.current.set(0)
         } else if (trigger === "prop") {
             progressVal.current.set(drawProgress)
@@ -193,21 +191,6 @@ export default function SVGPathInjector(props: any) {
             })
         }
     }, [trigger, found, transition])
-
-    // 2. Hover trigger
-    useEffect(() => {
-        if (trigger !== "hover" || !found) return
-
-        if (isHovered) {
-            animate(progressVal.current, 1, {
-                ...transition
-            })
-        } else {
-            animate(progressVal.current, 0, {
-                ...transition
-            })
-        }
-    }, [isHovered, trigger, found, transition])
 
     // 3. Prop trigger
     useEffect(() => {
@@ -234,47 +217,9 @@ export default function SVGPathInjector(props: any) {
         return () => unsubscribe()
     }, [trigger, found, scrollYProgress])
 
-    // 5. Scroll-triggered (IntersectionObserver)
-    useEffect(() => {
-        if (trigger !== "scroll-trigger" || !found) return
-
-        const element = (scrollsectionref && scrollsectionref.current) ? scrollsectionref.current : containerRef.current
-        if (!element) return
-
-        // Define trigger point relative to viewport
-        let rootMargin = "0% 0% 0% 0%"
-        if (viewport === "center") rootMargin = "-50% 0% -50% 0%"
-        if (viewport === "top") rootMargin = "-100% 0% 0% 0%"
-
-        let hasTriggered = false
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting && !hasTriggered) {
-                        hasTriggered = true
-                        animate(progressVal.current, 1, {
-                            ...transition
-                        })
-                    }
-                })
-            },
-            { 
-                threshold: 0.1,
-                rootMargin: rootMargin
-            }
-        )
-
-        observer.observe(element)
-        return () => {
-            observer.disconnect()
-        }
-    }, [trigger, found, scrollsectionref, transition, viewport])
-
     return (
         <div
             ref={containerRef}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
             style={{
                 width: "100%",
                 height: "100%",
@@ -301,7 +246,7 @@ export default function SVGPathInjector(props: any) {
             }} />
             {found && (
                 <div style={{ fontSize: 8, opacity: 0.6, fontStyle: "italic", textTransform: "capitalize" }}>
-                    Trigger: {trigger === "scroll-trigger" ? "Scroll Trigger" : trigger}
+                    Trigger: {trigger}
                 </div>
             )}
         </div>
@@ -312,8 +257,8 @@ addPropertyControls(SVGPathInjector, {
     trigger: {
         type: ControlType.Enum,
         title: "Trigger",
-        options: ["mount", "hover", "scroll", "scroll-trigger", "prop"],
-        optionTitles: ["On Mount", "On Hover", "Scroll Linked", "Scroll Triggered", "From Prop"],
+        options: ["mount", "scroll", "prop"],
+        optionTitles: ["On Mount", "Scroll Linked", "From Prop"],
         defaultValue: "mount",
     },
     drawProgress: {
@@ -332,20 +277,7 @@ addPropertyControls(SVGPathInjector, {
         type: ControlType.ScrollSectionRef,
         title: "Scroll Section",
         hidden(props) {
-            return props.trigger !== "scroll" && props.trigger !== "scroll-trigger"
-        }
-    },
-    viewport: {
-        type: ControlType.Enum,
-        title: "Viewport",
-        displaySegmentedControl: true,
-        options: ["top", "center", "bottom"],
-        optionTitles: ["Top", "Center", "Bottom"],
-        // @ts-ignore
-        optionIcons: ["align-top", "align-middle", "align-bottom"],
-        defaultValue: "bottom",
-        hidden(props) {
-            return props.trigger !== "scroll-trigger"
+            return props.trigger !== "scroll"
         }
     },
     color: {
