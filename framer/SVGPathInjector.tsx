@@ -19,6 +19,8 @@ export default function SVGPathInjector(props: any) {
         trigger = "mount",
         drawProgress = 1,
         scrollsectionref,
+        scrollOffsetStart = "start end",
+        scrollOffsetEnd = "end start",
         color = "",
         strokeWidth = 0,
         transition = {
@@ -44,7 +46,7 @@ export default function SVGPathInjector(props: any) {
     const targetRef = (scrollsectionref && scrollsectionref.current) ? scrollsectionref : containerRef
     const { scrollYProgress } = useScroll({
         target: targetRef,
-        offset: ["start end", "end start"]
+        offset: [scrollOffsetStart as any, scrollOffsetEnd as any]
     })
 
     // Sibling SVG discovery loop
@@ -276,6 +278,24 @@ addPropertyControls(SVGPathInjector, {
         // @ts-ignore
         type: ControlType.ScrollSectionRef,
         title: "Scroll Section",
+        hidden(props) {
+            return props.trigger !== "scroll"
+        }
+    },
+    scrollOffsetStart: {
+        type: ControlType.String,
+        title: "Scroll Start",
+        defaultValue: "start end",
+        placeholder: "e.g. start end",
+        hidden(props) {
+            return props.trigger !== "scroll"
+        }
+    },
+    scrollOffsetEnd: {
+        type: ControlType.String,
+        title: "Scroll End",
+        defaultValue: "end start",
+        placeholder: "e.g. end start",
         hidden(props) {
             return props.trigger !== "scroll"
         }
