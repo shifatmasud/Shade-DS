@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from "react"
 import { createPortal } from "react-dom"
-import { motion, motionValue, animate, useScroll, useMotionValue, MotionValue, useTransform } from "framer-motion"
+import { motion, motionValue, animate, useScroll, useMotionValue, MotionValue, useTransform, stagger as staggerMotion } from "framer-motion"
 import { addPropertyControls, ControlType } from "framer"
 
 /**
@@ -14,23 +14,22 @@ import { addPropertyControls, ControlType } from "framer"
 
 // --- DIGIT COMPONENT ---
 const DIGIT_HEIGHT = '1em'
-const Digit = React.memo(({ mv, posFromRight }: { mv: MotionValue<number>, posFromRight: number }) => {
-    const isEven = posFromRight % 2 === 0
+const Digit = React.memo(({ mv, power, isEven }: { mv: MotionValue<number>, power: number, isEven: boolean }) => {
     // Create a series for an "infinite" feel by tripling the set
     // For Even: 0, 1, ..., 9. For Odd: 9, 8, ..., 0.
     const singleSet = isEven ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] : [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
     const digits = [...singleSet, ...singleSet, ...singleSet]
     
     const yTranslate = useTransform(mv, (v) => {
-        // v is the accumulated integer target.
-        // We wrap to 0-9 to find the offset within a single set.
-        let val = v % 10
-        if (val < 0) val += 10
+        // Odometer Logic: Each digit track calculates its value as a direct mapping of the total number
+        const val = v / Math.pow(10, power)
+        let wrapped = val % 10
+        if (wrapped < 0) wrapped += 10
         
         // We always use the middle set (indices 10-19) for smooth wrapping.
-        // For Even (0..9): index 10 is 0, index 11 is 1... -> offset = -(10 + val)
-        // For Odd (9..0): index 19 is 0, index 18 is 1... -> offset = -(10 + (9 - val))
-        const offset = isEven ? -(10 + val) : -(10 + (9 - val))
+        // For Even (0..9): index 10 is 0, index 11 is 1... -> offset = -(10 + wrapped)
+        // For Odd (9..0): index 19 is 0, index 18 is 1... -> offset = -(10 + (9 - wrapped))
+        const offset = isEven ? -(10 + wrapped) : -(10 + (9 - wrapped))
         return `${offset}em`
     })
 
@@ -51,6 +50,7 @@ export default function TextCounter(props: any) {
         trigger = "mount",
         countTarget = 100,
         stagger = 0.05,
+        staggerDirection = "first",
         reelGap = 0,
         color = "",
         decimalSeparator = ".",
@@ -59,6 +59,7 @@ export default function TextCounter(props: any) {
         scrollsectionref,
         scrollOffsetStart = "start end",
         scrollOffsetEnd = "end start",
+        padTo = 0,
     } = props
 
     const containerRef = useRef<HTMLDivElement>(null)
@@ -68,9 +69,8 @@ export default function TextCounter(props: any) {
     const [decimalCount, setDecimalCount] = useState(0)
     
     // Counter State
-    const [tracks, setTracks] = useState<{ key: string, char: string, isDigit: boolean }[]>([])
+    const [tracks, setTracks] = useState<{ key: string, char: string, isDigit: boolean, power?: number, isEven?: boolean }[]>([])
     const digitMVs = useRef<Record<string, MotionValue<number>>>({})
-    const targetValues = useRef<Record<string, number>>({})
     const countMV = useMotionValue(0)
 
     const found = !!target
@@ -194,72 +194,81 @@ export default function TextCounter(props: any) {
 
     const [extractedStyles, setExtractedStyles] = useState<any>({})
 
+    // --- UTILS ---
+    const getTracks = (valueStr: string) => {
+        const chars = valueStr.split('')
+        const decimalIdx = chars.indexOf(decimalSeparator)
+        const refIdx = decimalIdx === -1 ? chars.length : decimalIdx
+        
+        const powers: (number | null)[] = new Array(chars.length).fill(null)
+        
+        // Count power of 10 for each digit
+        let p = 0
+        for (let i = refIdx - 1; i >= 0; i--) {
+            if (!isNaN(parseInt(chars[i], 10))) {
+                powers[i] = p
+                p++
+            }
+        }
+        
+        p = -1
+        for (let i = refIdx + 1; i < chars.length; i++) {
+            if (!isNaN(parseInt(chars[i], 10))) {
+                powers[i] = p
+                p--
+            }
+        }
+
+        return chars.map((char, idx) => {
+            const isDigit = powers[idx] !== null
+            const power = powers[idx] ?? 0
+            const isEven = isDigit ? Math.abs(power) % 2 === 0 : false
+            const key = isDigit ? `digit-${power}` : `char-${idx}`
+            return { key, char, isDigit, power, isEven }
+        })
+    }
+
+    const formatValue = (val: number) => {
+        let [intPart, decPart] = val.toFixed(decimalCount).split('.')
+        const intDigitsOnly = intPart.replace(/[^0-9]/g, '')
+        const targetPadding = Math.max(paddingLength, padTo)
+        if (targetPadding > intDigitsOnly.length) {
+            intPart = intPart.padStart(targetPadding, '0')
+        }
+        if (thousandsSeparator) {
+            intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSeparator)
+        }
+        if (decimalCount > 0) {
+            return `${intPart}${decimalSeparator}${decPart}`
+        }
+        return intPart
+    }
+
     // --- COUNTER LOGIC ---
     const tracksRef = useRef(tracks)
+
+    const updateDigitAnimations = (currentTracks: typeof tracks, targetValue: number, isStaggered = false) => {
+        const staggerDelay = staggerMotion(stagger, { from: staggerDirection })
+        
+        currentTracks.forEach((t, i) => {
+            if (t.isDigit) {
+                const mv = digitMVs.current[t.key]
+                if (!mv) return
+                
+                if (!isStaggered) {
+                    mv.set(targetValue)
+                } else {
+                    animate(mv, targetValue, {
+                        ...transition,
+                        delay: staggerDelay(i, currentTracks.length)
+                    })
+                }
+            }
+        })
+    }
+
     useEffect(() => {
         if (!rawText) return
-
-        const getTracks = (valueStr: string) => {
-            const chars = valueStr.split('')
-            return chars.map((char, idx) => {
-                const isDigit = !isNaN(parseInt(char, 10))
-                const posFromRight = chars.length - 1 - idx
-                const key = isDigit ? `digit-${posFromRight}` : `char-${posFromRight}`
-                return { key, char, isDigit }
-            })
-        }
-
-        const formatValue = (val: number) => {
-            // 1. Get raw string from toFixed
-            let [intPart, decPart] = val.toFixed(decimalCount).split('.')
-            
-            // 2. Pad integer part if needed (ignoring current separators)
-            const intDigitsOnly = intPart.replace(/[^0-9]/g, '')
-            if (paddingLength > intDigitsOnly.length) {
-                intPart = intPart.padStart(paddingLength, '0')
-            }
-            
-            // 3. Add thousands separator
-            if (thousandsSeparator) {
-                // Apply thousands separator to integer part
-                intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSeparator)
-            }
-            
-            // 4. Combine
-            if (decimalCount > 0) {
-                return `${intPart}${decimalSeparator}${decPart}`
-            }
-            
-            return intPart
-        }
-
-        const updateDigitAnimations = (currentTracks: typeof tracks) => {
-            currentTracks.forEach((t, i) => {
-                if (t.isDigit) {
-                    const num = parseInt(t.char, 10)
-                    const mv = digitMVs.current[t.key]
-                    if (!mv) return
-
-                    const currentTarget = targetValues.current[t.key] || 0
-                    const currentTargetDigit = ((Math.round(currentTarget) % 10) + 10) % 10
-                    
-                    if (num !== currentTargetDigit) {
-                        let diff = num - currentTargetDigit
-                        // 🔄 Infinite Scroll Logic: Shortest path wrapping
-                        if (diff > 5) diff -= 10
-                        if (diff < -5) diff += 10
-                        
-                        const nextTarget = currentTarget + diff
-                        targetValues.current[t.key] = nextTarget
-                        
-                        animate(mv, nextTarget, {
-                            ...transition,
-                            delay: (currentTracks.length - 1 - i) * stagger
-                        })
-                    }
-                }
-            })
-        }
 
         const handleValueChange = (val: number) => {
             const valStr = formatValue(val)
@@ -267,8 +276,7 @@ export default function TextCounter(props: any) {
             
             newTracks.forEach(t => {
                 if (t.isDigit && !digitMVs.current[t.key]) {
-                    digitMVs.current[t.key] = motionValue(0)
-                    targetValues.current[t.key] = 0
+                    digitMVs.current[t.key] = motionValue(val)
                 }
             })
 
@@ -279,38 +287,36 @@ export default function TextCounter(props: any) {
             if (hasStructureChanged) {
                 tracksRef.current = newTracks
                 setTracks(newTracks)
-            } else {
-                updateDigitAnimations(newTracks)
+            } else if (trigger === "scroll") {
+                updateDigitAnimations(newTracks, val, false)
             }
         }
 
         const unsub = countMV.on("change", handleValueChange)
         handleValueChange(countMV.get())
         return () => unsub()
-    }, [rawText, transition, countMV, stagger, paddingLength, decimalCount])
+    }, [rawText, countMV, trigger, decimalCount, paddingLength, padTo, thousandsSeparator, decimalSeparator])
 
-    useLayoutEffect(() => {
-        tracks.forEach((t, i) => {
-            if (t.isDigit) {
-                const num = parseInt(t.char, 10)
-                const mv = digitMVs.current[t.key]
-                if (mv) {
-                    const currentTarget = targetValues.current[t.key] || 0
-                    const currentTargetDigit = ((Math.round(currentTarget) % 10) + 10) % 10
-                    
-                    if (num !== currentTargetDigit) {
-                        let diff = num - currentTargetDigit
-                        if (diff > 5) diff -= 10
-                        if (diff < -5) diff += 10
-                        const nextTarget = currentTarget + diff
-                        
-                        targetValues.current[t.key] = nextTarget
-                        animate(mv, nextTarget, transition)
-                    }
-                }
+    // Trigger animation to targetValue
+    useEffect(() => {
+        if (trigger !== "scroll") {
+            let targetValue = countTarget
+            if (countTarget === 0 && rawText) {
+                const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const cleanRegex = new RegExp(`[^0-9${escapeRegExp(decimalSeparator)}]`, 'g');
+                const cleanedText = rawText.replace(cleanRegex, "").replace(decimalSeparator, ".");
+                const parsed = parseFloat(cleanedText)
+                if (!isNaN(parsed)) targetValue = parsed
             }
-        })
-    }, [tracks, transition])
+            
+            // Sync the central countMV
+            animate(countMV, targetValue, transition)
+            
+            // Stagger the individual digit tracks
+            updateDigitAnimations(tracks, targetValue, true)
+        }
+    }, [trigger, countTarget, rawText, transition, decimalSeparator, tracks])
+
 
     // --- TRIGGER ORCHESTRATION ---
     const targetRef = (scrollsectionref && scrollsectionref.current) ? scrollsectionref : containerRef
@@ -320,7 +326,7 @@ export default function TextCounter(props: any) {
     })
 
     useEffect(() => {
-        if (!found) return
+        if (!found || trigger !== "scroll") return
         
         let targetValue = countTarget
         if (countTarget === 0 && rawText) {
@@ -331,15 +337,11 @@ export default function TextCounter(props: any) {
             if (!isNaN(parsed)) targetValue = parsed
         }
 
-        if (trigger === "mount" || trigger === "prop") {
-            animate(countMV, targetValue, transition)
-        } else if (trigger === "scroll") {
-            const unsub = scrollYProgress.on("change", (latest) => {
-                countMV.set(latest * targetValue)
-            })
-            return () => unsub()
-        }
-    }, [trigger, found, countTarget, transition, scrollYProgress, rawText, countMV])
+        const unsub = scrollYProgress.on("change", (latest) => {
+            countMV.set(latest * targetValue)
+        })
+        return () => unsub()
+    }, [trigger, found, countTarget, transition, scrollYProgress, rawText, countMV, decimalCount, paddingLength, padTo, thousandsSeparator, decimalSeparator])
 
     const commonTextStyle: React.CSSProperties = {
         fontSize: extractedStyles.fontSize || 'inherit',
@@ -388,7 +390,7 @@ export default function TextCounter(props: any) {
                 >
                     <div style={commonTextStyle}>
                         <div style={{ display: "flex", fontVariantNumeric: 'tabular-nums' }}>
-                            {tracks.map((track, i) => (
+                                {tracks.map((track, i) => (
                                 <span 
                                     key={track.key} 
                                     style={{ 
@@ -396,7 +398,7 @@ export default function TextCounter(props: any) {
                                         marginLeft: i > 0 ? `${reelGap}px` : 0 
                                     }}
                                 >
-                                    {track.isDigit ? <Digit mv={digitMVs.current[track.key]} posFromRight={parseInt(track.key.split('-')[1], 10)} /> : track.char}
+                                    {track.isDigit ? <Digit mv={digitMVs.current[track.key]} power={track.power!} isEven={track.isEven!} /> : track.char}
                                 </span>
                             ))}
                         </div>
@@ -421,6 +423,7 @@ addPropertyControls(TextCounter, {
         type: ControlType.Number,
         title: "Count To",
         defaultValue: 100,
+        step: 0.01,
     },
     stagger: {
         type: ControlType.Number,
@@ -429,6 +432,13 @@ addPropertyControls(TextCounter, {
         max: 0.5,
         step: 0.01,
         defaultValue: 0.05,
+    },
+    staggerDirection: {
+        type: ControlType.Enum,
+        title: "Stagger Dir",
+        options: ["first", "last", "center"],
+        optionTitles: ["Left to Right", "Right to Left", "Center Out"],
+        defaultValue: "first",
     },
     reelGap: {
         type: ControlType.Number,
@@ -442,6 +452,15 @@ addPropertyControls(TextCounter, {
         type: ControlType.String,
         title: "Thousands Sep",
         defaultValue: ",",
+    },
+    padTo: {
+        type: ControlType.Number,
+        title: "Padding (padTo)",
+        min: 0,
+        max: 20,
+        step: 1,
+        defaultValue: 0,
+        description: "Force a specific number of digits (e.g. 4 makes 10 into 0010)",
     },
     decimalSeparator: {
         type: ControlType.String,
