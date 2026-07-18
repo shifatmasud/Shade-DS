@@ -1,165 +1,50 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from "react"
 import { createPortal } from "react-dom"
-import { motion, motionValue, animate, useScroll, useMotionValue, MotionValue, useTransform, stagger as staggerMotion } from "framer-motion"
+import { motion, motionValue, animate, useScroll, useMotionValue, MotionValue, useTransform } from "framer-motion"
 import { addPropertyControls, ControlType } from "framer"
 
 /**
  * 📝 TextCounter
  * 
  * A self-contained Framer Code Component that discovers sibling text nodes
- * and injects an ultra-smooth, zero-jitter numeric counter animation.
+ * and injects a high-performance numeric counter animation.
  * 
  * Pattern: Injector (Zero-UI, purely behavioral)
  */
 
-// --- UTILS ---
-const parseLineHeightToPx = (lHeightStr: string, fontSizeStr: string): number => {
-    const fSize = parseFloat(fontSizeStr) || 16
-    if (!lHeightStr) return fSize * 1.2
-    if (lHeightStr === "normal") return fSize * 1.2
-    
-    const parsed = parseFloat(lHeightStr)
-    if (isNaN(parsed)) return fSize * 1.2
-    
-    if (lHeightStr.includes("px")) return parsed
-    if (lHeightStr.includes("rem")) return parsed * 16
-    if (lHeightStr.includes("em")) return parsed * fSize
-    if (lHeightStr.includes("%")) return (parsed / 100) * fSize
-    
-    return parsed * fSize
-}
-
 // --- DIGIT COMPONENT ---
-const Digit = React.memo(({ mv, power, isEven, lineHeightPx }: { mv: MotionValue<number>, power: number, isEven: boolean, lineHeightPx: number }) => {
+const DIGIT_HEIGHT = '1em'
+const Digit = React.memo(({ mv, posFromRight }: { mv: MotionValue<number>, posFromRight: number }) => {
+    const isEven = posFromRight % 2 === 0
     // Create a series for an "infinite" feel by tripling the set
     // For Even: 0, 1, ..., 9. For Odd: 9, 8, ..., 0.
     const singleSet = isEven ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] : [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
     const digits = [...singleSet, ...singleSet, ...singleSet]
     
     const yTranslate = useTransform(mv, (v) => {
-        // Odometer Logic: Each digit track calculates its value as a direct mapping of the total number
-        const val = v / Math.pow(10, power)
-        let wrapped = val % 10
-        if (wrapped < 0) wrapped += 10
+        // v is the accumulated integer target.
+        // We wrap to 0-9 to find the offset within a single set.
+        let val = v % 10
+        if (val < 0) val += 10
         
         // We always use the middle set (indices 10-19) for smooth wrapping.
-        // For Even (0..9): index 10 is 0, index 11 is 1... -> offset = -(10 + wrapped)
-        // For Odd (9..0): index 19 is 0, index 18 is 1... -> offset = -(10 + (9 - wrapped))
-        const offset = isEven ? -(10 + wrapped) : -(10 + (9 - wrapped))
-        return `${offset * lineHeightPx}px`
+        // For Even (0..9): index 10 is 0, index 11 is 1... -> offset = -(10 + val)
+        // For Odd (9..0): index 19 is 0, index 18 is 1... -> offset = -(10 + (9 - val))
+        const offset = isEven ? -(10 + val) : -(10 + (9 - val))
+        return `${offset}em`
     })
 
     return (
-        <div style={{ height: lineHeightPx, overflow: 'hidden', width: '1ch' }}>
-            <motion.div 
-                style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    y: yTranslate,
-                    willChange: "transform",
-                    transformStyle: "preserve-3d",
-                    backfaceVisibility: "hidden"
-                }}
-            >
+        <div style={{ height: DIGIT_HEIGHT, overflow: 'hidden' }}>
+            <motion.div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', y: yTranslate }}>
                 {digits.map((num, i) => (
-                    <span 
-                        key={i} 
-                        style={{ 
-                            height: lineHeightPx, 
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: "1ch"
-                        }}
-                    >
-                        {num}
-                    </span>
+                    <span key={i} style={{ height: DIGIT_HEIGHT, display: 'block' }}>{num}</span>
                 ))}
             </motion.div>
         </div>
     )
 })
 Digit.displayName = 'Digit'
-
-// --- TRACK WRAPPER COMPONENT ---
-const TrackWrapper = ({ 
-    track, 
-    index, 
-    countMV, 
-    digitMVs, 
-    lineHeightPx, 
-    reelGap, 
-    padTo, 
-    paddingLength 
-}: { 
-    track: any, 
-    index: number, 
-    countMV: MotionValue<number>, 
-    digitMVs: Record<string, MotionValue<number>>, 
-    lineHeightPx: number, 
-    reelGap: number, 
-    padTo: number, 
-    paddingLength: number 
-}) => {
-    const targetMV = (track.isDigit && digitMVs[track.key]) ? digitMVs[track.key] : countMV
-    
-    const checkVisible = (v: number) => {
-        const power = track.isDigit ? track.power : track.associatedPower
-        if (power === null || power < 0) return true
-        
-        const intVal = Math.floor(Math.abs(v))
-        const numDigits = intVal === 0 ? 1 : Math.floor(Math.log10(intVal)) + 1
-        const requiredPadding = Math.max(numDigits, padTo, paddingLength)
-        
-        return power < requiredPadding
-    }
-
-    const [visible, setVisible] = useState(() => checkVisible(targetMV.get()))
-
-    useEffect(() => {
-        const unsub = targetMV.on("change", (v) => {
-            const nextVisible = checkVisible(v)
-            if (nextVisible !== visible) {
-                setVisible(nextVisible)
-            }
-        })
-        return () => unsub()
-    }, [targetMV, visible, padTo, paddingLength])
-
-    const targetWidth = track.isDigit ? "1ch" : (track.char === "," ? "0.3ch" : "0.5ch")
-    const leftGap = index > 0 ? reelGap : 0
-
-    const style: React.CSSProperties = {
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: visible ? 1 : 0,
-        transform: visible ? "scale(1)" : "scale(0.8)",
-        width: visible ? targetWidth : "0ch",
-        marginLeft: visible ? `${leftGap}px` : "0px",
-        overflow: "hidden",
-        whiteSpace: "nowrap",
-        height: lineHeightPx,
-        transition: "width 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), margin 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
-        willChange: "transform, opacity",
-    }
-
-    return (
-        <span style={style}>
-            {track.isDigit ? (
-                <Digit 
-                    mv={digitMVs[track.key]} 
-                    power={track.power!} 
-                    isEven={track.isEven!} 
-                    lineHeightPx={lineHeightPx} 
-                />
-            ) : (
-                track.char
-            )}
-        </span>
-    )
-}
 
 export default function TextCounter(props: any) {
     const {
@@ -169,13 +54,10 @@ export default function TextCounter(props: any) {
         staggerDirection = "first",
         reelGap = 0,
         color = "",
-        decimalSeparator = ".",
-        thousandsSeparator = ",",
         transition = { type: "spring", stiffness: 260, damping: 30 },
         scrollsectionref,
         scrollOffsetStart = "start end",
         scrollOffsetEnd = "end start",
-        padTo = 0,
     } = props
 
     const containerRef = useRef<HTMLDivElement>(null)
@@ -185,142 +67,12 @@ export default function TextCounter(props: any) {
     const [decimalCount, setDecimalCount] = useState(0)
     
     // Counter State
-    const [tracks, setTracks] = useState<{ key: string, char: string, isDigit: boolean, power?: number, isEven?: boolean, associatedPower?: number | null }[]>([])
+    const [tracks, setTracks] = useState<{ key: string, char: string, isDigit: boolean }[]>([])
     const digitMVs = useRef<Record<string, MotionValue<number>>>({})
+    const targetValues = useRef<Record<string, number>>({})
     const countMV = useMotionValue(0)
 
     const found = !!target
-
-    // --- UTILS ---
-    const getTracks = (valueStr: string) => {
-        const chars = valueStr.split('')
-        const decimalIdx = chars.indexOf(decimalSeparator)
-        const refIdx = decimalIdx === -1 ? chars.length : decimalIdx
-        
-        const powers: (number | null)[] = new Array(chars.length).fill(null)
-        
-        // Count power of 10 for each digit
-        let p = 0
-        for (let i = refIdx - 1; i >= 0; i--) {
-            if (!isNaN(parseInt(chars[i], 10))) {
-                powers[i] = p
-                p++
-            }
-        }
-        
-        p = -1
-        for (let i = refIdx + 1; i < chars.length; i++) {
-            if (!isNaN(parseInt(chars[i], 10))) {
-                powers[i] = p
-                p--
-            }
-        }
-
-        return chars.map((char, idx) => {
-            const isDigit = powers[idx] !== null
-            const power = powers[idx] ?? 0
-            const isEven = isDigit ? Math.abs(power) % 2 === 0 : false
-            const key = isDigit ? `digit-${power}` : `char-${idx}`
-            
-            // Find associated power for non-digits
-            let associatedPower = null
-            if (!isDigit) {
-                for (let i = idx - 1; i >= 0; i--) {
-                    if (powers[i] !== null) {
-                        associatedPower = powers[i]
-                        break
-                    }
-                }
-            }
-            
-            return { key, char, isDigit, power, isEven, associatedPower }
-        })
-    }
-
-    const formatValue = (val: number) => {
-        let [intPart, decPart] = val.toFixed(decimalCount).split('.')
-        const intDigitsOnly = intPart.replace(/[^0-9]/g, '')
-        const targetPadding = Math.max(paddingLength, padTo)
-        if (targetPadding > intDigitsOnly.length) {
-            intPart = intPart.padStart(targetPadding, '0')
-        }
-        if (thousandsSeparator) {
-            intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSeparator)
-        }
-        if (decimalCount > 0) {
-            return `${intPart}${decimalSeparator}${decPart}`
-        }
-        return intPart
-    }
-
-    // Resolve target value
-    const getResolvedTarget = () => {
-        let targetValue = countTarget
-        if (countTarget === 0 && rawText) {
-            const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const cleanRegex = new RegExp(`[^0-9${escapeRegExp(decimalSeparator)}]`, 'g');
-            const cleanedText = rawText.replace(cleanRegex, "").replace(decimalSeparator, ".");
-            const parsed = parseFloat(cleanedText)
-            if (!isNaN(parsed)) targetValue = parsed
-        }
-        return targetValue
-    }
-
-    // Update static track representation based on resolved targets or property changes
-    useEffect(() => {
-        if (!rawText) return
-        const resolved = getResolvedTarget()
-        const refVal = Math.max(Math.abs(resolved), Math.abs(countMV.get()), 1)
-        const refStr = formatValue(refVal)
-        const newTracks = getTracks(refStr)
-        setTracks(newTracks)
-    }, [rawText, countTarget, decimalCount, paddingLength, padTo, thousandsSeparator, decimalSeparator])
-
-    // Ensure motion values exist for all tracks
-    tracks.forEach((track) => {
-        if (track.isDigit && !digitMVs.current[track.key]) {
-            digitMVs.current[track.key] = motionValue(countMV.get())
-        }
-    })
-
-    // High performance synchronization of digitMVs on central countMV change (for scroll triggers)
-    useEffect(() => {
-        const handleSync = (val: number) => {
-            tracks.forEach((t) => {
-                if (t.isDigit) {
-                    const mv = digitMVs.current[t.key]
-                    if (mv) {
-                        mv.set(val)
-                    }
-                }
-            })
-        }
-        if (trigger === "scroll") {
-            const unsub = countMV.on("change", handleSync)
-            return () => unsub()
-        }
-    }, [tracks, trigger])
-
-    // Helper to run individual digit track staggered animations
-    const updateDigitAnimations = (currentTracks: typeof tracks, targetValue: number, isStaggered = false) => {
-        const staggerDelay = staggerMotion(stagger, { from: staggerDirection })
-        
-        currentTracks.forEach((t, i) => {
-            if (t.isDigit) {
-                const mv = digitMVs.current[t.key]
-                if (!mv) return
-                
-                if (!isStaggered) {
-                    mv.set(targetValue)
-                } else {
-                    animate(mv, targetValue, {
-                        ...transition,
-                        delay: staggerDelay(i, currentTracks.length)
-                    })
-                }
-            }
-        })
-    }
 
     // 🕵️ Discovery & Text Extraction
     useLayoutEffect(() => {
@@ -353,7 +105,7 @@ export default function TextCounter(props: any) {
                 const text = foundP.innerText || foundP.textContent || ""
                 setRawText(text)
 
-                const [intPart, decPart] = text.split(decimalSeparator)
+                const [intPart, decPart] = text.split('.')
                 const intDigits = intPart ? (intPart.match(/\d/g)?.length || 0) : 0
                 const decDigits = decPart ? (decPart.match(/\d/g)?.length || 0) : 0
                 
@@ -361,6 +113,7 @@ export default function TextCounter(props: any) {
                 setDecimalCount(decDigits)
                 
                 const computed = window.getComputedStyle(foundP)
+                const containerComputed = window.getComputedStyle(foundContainer)
                 
                 const fSize = foundP.style.getPropertyValue("--framer-font-size") || computed.fontSize
                 const rawLHeight = foundP.style.getPropertyValue("--framer-line-height") || computed.lineHeight
@@ -404,11 +157,7 @@ export default function TextCounter(props: any) {
                 }
 
                 if (countTarget === 0) {
-                    // Create a regex to keep only digits and the decimal separator
-                    const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const cleanRegex = new RegExp(`[^0-9${escapeRegExp(decimalSeparator)}]`, 'g');
-                    const cleanedText = text.replace(cleanRegex, "").replace(decimalSeparator, ".");
-                    const parsedValue = parseFloat(cleanedText)
+                    const parsedValue = parseFloat(text.replace(/[^0-9.]/g, ""))
                     if (!isNaN(parsedValue)) {
                         countMV.set(0) 
                     }
@@ -438,27 +187,129 @@ export default function TextCounter(props: any) {
         }
     }, [target, color, countTarget, trigger])
 
-    const [extractedStyles, setExtractedStyles] = useState<any>({
-        fontSize: "16px",
-        lineHeight: "20px",
-        textAlign: "left",
-    })
+    const [extractedStyles, setExtractedStyles] = useState<any>({})
 
-    const lineHeightPx = parseLineHeightToPx(extractedStyles.lineHeight, extractedStyles.fontSize)
-
-    // Trigger animation to targetValue
+    // --- COUNTER LOGIC ---
+    const tracksRef = useRef(tracks)
     useEffect(() => {
-        if (trigger !== "scroll") {
-            const targetValue = getResolvedTarget()
-            
-            // Sync the central countMV
-            animate(countMV, targetValue, transition)
-            
-            // Stagger the individual digit tracks
-            updateDigitAnimations(tracks, targetValue, true)
-        }
-    }, [trigger, countTarget, rawText, transition, decimalSeparator, tracks])
+        if (!rawText) return
 
+        const getTracks = (valueStr: string) => {
+            const chars = valueStr.split('')
+            return chars.map((char, idx) => {
+                const isDigit = !isNaN(parseInt(char, 10))
+                const posFromRight = chars.length - 1 - idx
+                const key = isDigit ? `digit-${posFromRight}` : `char-${idx}`
+                return { key, char, isDigit }
+            })
+        }
+
+        const formatValue = (val: number) => {
+            const valStr = val.toLocaleString(undefined, {
+                minimumFractionDigits: decimalCount,
+                maximumFractionDigits: decimalCount,
+            })
+            
+            const [intPart, decPart] = valStr.split('.')
+            // Remove commas for padding check
+            const intDigitsOnly = intPart.replace(/[^0-9]/g, '')
+            
+            if (paddingLength > intDigitsOnly.length && !intPart.includes(',')) {
+                const paddedInt = intPart.padStart(paddingLength, '0')
+                return decPart !== undefined ? `${paddedInt}.${decPart}` : paddedInt
+            }
+            
+            return valStr
+        }
+
+        const updateDigitAnimations = (currentTracks: typeof tracks) => {
+            currentTracks.forEach((t, i) => {
+                if (t.isDigit) {
+                    const num = parseInt(t.char, 10)
+                    const mv = digitMVs.current[t.key]
+                    if (!mv) return
+
+                    const currentTarget = targetValues.current[t.key] || 0
+                    const currentTargetDigit = ((Math.round(currentTarget) % 10) + 10) % 10
+                    
+                    if (num !== currentTargetDigit) {
+                        let diff = num - currentTargetDigit
+                        // 🔄 Infinite Scroll Logic: Shortest path wrapping
+                        if (diff > 5) diff -= 10
+                        if (diff < -5) diff += 10
+                        
+                        const nextTarget = currentTarget + diff
+                        targetValues.current[t.key] = nextTarget
+                        
+                        const delay = (() => {
+                            if (staggerDirection === "first") return i * stagger
+                            if (staggerDirection === "last") return (currentTracks.length - 1 - i) * stagger
+                            if (staggerDirection === "center") {
+                                const mid = (currentTracks.length - 1) / 2
+                                return Math.abs(i - mid) * stagger
+                            }
+                            return 0
+                        })()
+
+                        animate(mv, nextTarget, {
+                            ...transition,
+                            delay: delay
+                        })
+                    }
+                }
+            })
+        }
+
+        const handleValueChange = (val: number) => {
+            const valStr = formatValue(val)
+            const newTracks = getTracks(valStr)
+            
+            newTracks.forEach(t => {
+                if (t.isDigit && !digitMVs.current[t.key]) {
+                    digitMVs.current[t.key] = motionValue(0)
+                    targetValues.current[t.key] = 0
+                }
+            })
+
+            const hasStructureChanged = 
+                newTracks.length !== tracksRef.current.length ||
+                newTracks.some((t, idx) => t.key !== tracksRef.current[idx]?.key)
+
+            if (hasStructureChanged) {
+                tracksRef.current = newTracks
+                setTracks(newTracks)
+            } else {
+                updateDigitAnimations(newTracks)
+            }
+        }
+
+        const unsub = countMV.on("change", handleValueChange)
+        handleValueChange(countMV.get())
+        return () => unsub()
+    }, [rawText, transition, countMV, stagger, staggerDirection, paddingLength, decimalCount])
+
+    useLayoutEffect(() => {
+        tracks.forEach((t, i) => {
+            if (t.isDigit) {
+                const num = parseInt(t.char, 10)
+                const mv = digitMVs.current[t.key]
+                if (mv) {
+                    const currentTarget = targetValues.current[t.key] || 0
+                    const currentTargetDigit = ((Math.round(currentTarget) % 10) + 10) % 10
+                    
+                    if (num !== currentTargetDigit) {
+                        let diff = num - currentTargetDigit
+                        if (diff > 5) diff -= 10
+                        if (diff < -5) diff += 10
+                        const nextTarget = currentTarget + diff
+                        
+                        targetValues.current[t.key] = nextTarget
+                        animate(mv, nextTarget, transition)
+                    }
+                }
+            }
+        })
+    }, [tracks, transition])
 
     // --- TRIGGER ORCHESTRATION ---
     const targetRef = (scrollsectionref && scrollsectionref.current) ? scrollsectionref : containerRef
@@ -468,20 +319,28 @@ export default function TextCounter(props: any) {
     })
 
     useEffect(() => {
-        if (!found || trigger !== "scroll") return
+        if (!found) return
         
-        const targetValue = getResolvedTarget()
+        let targetValue = countTarget
+        if (countTarget === 0 && rawText) {
+            const parsed = parseFloat(rawText.replace(/[^0-9.]/g, ""))
+            if (!isNaN(parsed)) targetValue = parsed
+        }
 
-        const unsub = scrollYProgress.on("change", (latest) => {
-            countMV.set(latest * targetValue)
-        })
-        return () => unsub()
-    }, [trigger, found, countTarget, transition, scrollYProgress, rawText, countMV, decimalCount, paddingLength, padTo, thousandsSeparator, decimalSeparator])
+        if (trigger === "mount" || trigger === "prop") {
+            animate(countMV, targetValue, transition)
+        } else if (trigger === "scroll") {
+            const unsub = scrollYProgress.on("change", (latest) => {
+                countMV.set(latest * targetValue)
+            })
+            return () => unsub()
+        }
+    }, [trigger, found, countTarget, transition, scrollYProgress, rawText, countMV])
 
     const commonTextStyle: React.CSSProperties = {
         fontSize: extractedStyles.fontSize || 'inherit',
         fontWeight: extractedStyles.fontWeight || 'inherit',
-        lineHeight: `${lineHeightPx}px`,
+        lineHeight: extractedStyles.lineHeight || 'inherit',
         letterSpacing: extractedStyles.letterSpacing || 'inherit',
         textAlign: extractedStyles.textAlign || 'inherit',
         whiteSpace: extractedStyles.whiteSpace || 'nowrap',
@@ -524,19 +383,17 @@ export default function TextCounter(props: any) {
                     }}
                 >
                     <div style={commonTextStyle}>
-                        <div style={{ display: "flex", fontVariantNumeric: 'tabular-nums', height: `${lineHeightPx}px`, alignItems: "center" }}>
+                        <div style={{ display: "flex", fontVariantNumeric: 'tabular-nums' }}>
                             {tracks.map((track, i) => (
-                                <TrackWrapper
-                                    key={track.key}
-                                    track={track}
-                                    index={i}
-                                    countMV={countMV}
-                                    digitMVs={digitMVs.current}
-                                    lineHeightPx={lineHeightPx}
-                                    reelGap={reelGap}
-                                    padTo={padTo}
-                                    paddingLength={paddingLength}
-                                />
+                                <span 
+                                    key={track.key} 
+                                    style={{ 
+                                        display: 'inline-flex', 
+                                        marginLeft: i > 0 ? `${reelGap}px` : 0 
+                                    }}
+                                >
+                                    {track.isDigit ? <Digit mv={digitMVs.current[track.key]} posFromRight={parseInt(track.key.split('-')[1], 10)} /> : track.char}
+                                </span>
                             ))}
                         </div>
                     </div>
@@ -546,6 +403,7 @@ export default function TextCounter(props: any) {
         </div>
     )
 }
+
 
 addPropertyControls(TextCounter, {
     trigger: {
@@ -559,7 +417,6 @@ addPropertyControls(TextCounter, {
         type: ControlType.Number,
         title: "Count To",
         defaultValue: 100,
-        step: 0.01,
     },
     stagger: {
         type: ControlType.Number,
@@ -583,25 +440,6 @@ addPropertyControls(TextCounter, {
         max: 100,
         step: 1,
         defaultValue: 0,
-    },
-    thousandsSeparator: {
-        type: ControlType.String,
-        title: "Thousands Sep",
-        defaultValue: ",",
-    },
-    padTo: {
-        type: ControlType.Number,
-        title: "Padding (padTo)",
-        min: 0,
-        max: 20,
-        step: 1,
-        defaultValue: 0,
-        description: "Force a specific number of digits (e.g. 4 makes 10 into 0010)",
-    },
-    decimalSeparator: {
-        type: ControlType.String,
-        title: "Decimal Sep",
-        defaultValue: ".",
     },
     color: {
         type: ControlType.Color,
