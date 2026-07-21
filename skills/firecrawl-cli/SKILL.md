@@ -20,6 +20,19 @@ Run this command to install the CLI, build skills, and workflow tools:
 npx -y firecrawl-cli@latest init --all --browser
 ```
 
+## Web Interaction & Scrape Workflows
+
+1. **Scrape a URL**:
+   ```bash
+   firecrawl scrape https://amazon.com
+   ```
+
+2. **Interact with the page**:
+   ```bash
+   firecrawl interact exec --prompt "Search for 'mechanical keyboard'"
+   firecrawl interact exec --prompt "Click the first result"
+   ```
+
 ## API Key Management
 
 To use the Firecrawl CLI, it requires a `FIRECRAWL_API_KEY`.
