@@ -202,7 +202,7 @@ const SystemSpecWindow = () => {
         </div>
         <Button 
           onClick={handleCopy}
-          variant="secondary"
+          variant="primary"
           size="S"
           enableSuccess={true}
           icon={<Copy size={14} />}
@@ -356,7 +356,7 @@ const SystemSpecWindow = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.space['Space.M'] }}>
           <div>
             <div style={badgeStyle}>Typography</div>
-            <div style={{ fontFamily: 'Bebas Neue', fontSize: theme.Type.Readable.Title.L.fontSize }}>BEBAS NEUE</div>
+            <div style={{ ...theme.Type.Expressive.Headline.S }}>BEBAS NEUE</div>
             <div style={{ fontFamily: 'Inter', fontSize: theme.Type.Readable.Label.M.fontSize }}>Inter Body</div>
             <div style={{ fontFamily: 'JetBrains Mono', fontSize: theme.Type.Readable.Label.S.fontSize }}>JetBrains Mono Data</div>
             <div style={{ fontFamily: 'Cause', fontSize: theme.Type.Readable.Label.M.fontSize, fontStyle: 'italic' }}>"Cause Quotes"</div>

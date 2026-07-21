@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../../Theme.tsx';
 import { AnimatedCheckIcon } from './AnimatedCheckIcon.tsx';
@@ -34,50 +34,61 @@ export default function SuccessLayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const target = useHost(containerRef, mode);
   const activeTarget = parentRef?.current || target;
-  const hostRect = useHostRect(activeTarget);
   const resolvedColor = color || theme.Color.Success.Surface['1'];
-  const [lastPos, setLastPos] = useState({ x: '50%', y: '50%' });
+  const livePos = useRef({ x: '50%', y: '50%' });
+  const [instances, setInstances] = useState<Array<{ id: number; x: string; y: string }>>([]);
+
+  const updateLivePos = (clientX: number, clientY: number) => {
+    if (!activeTarget) return;
+    const rect = activeTarget.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    
+    livePos.current = { 
+      x: `${((clientX - rect.left) / rect.width) * 100}%`, 
+      y: `${((clientY - rect.top) / rect.height) * 100}%` 
+    };
+  };
+
+  const addInstance = () => {
+    const id = Date.now() + Math.random();
+    const newInstance = { id, ...livePos.current };
+    setInstances(prev => [...prev, newInstance]);
+    
+    // Success state duration is usually 2s, we shrink a bit before that
+    setTimeout(() => {
+      setInstances(prev => prev.filter(inst => inst.id !== id));
+    }, 1200); 
+  };
 
   useHostEvents(activeTarget, {
-    pointermove: (e: PointerEvent) => {
-      if (!hostRect) return;
-      setLastPos({ 
-        x: `${((e.clientX - hostRect.left) / hostRect.width) * 100}%`, 
-        y: `${((e.clientY - hostRect.top) / hostRect.height) * 100}%` 
-      });
-    },
-    pointerenter: (e: PointerEvent) => {
-      if (!hostRect) return;
-      setLastPos({ 
-        x: `${((e.clientX - hostRect.left) / hostRect.width) * 100}%`, 
-        y: `${((e.clientY - hostRect.top) / hostRect.height) * 100}%` 
-      });
+    pointermove: (e: PointerEvent) => updateLivePos(e.clientX, e.clientY),
+    pointerenter: (e: PointerEvent) => updateLivePos(e.clientX, e.clientY),
+    pointerdown: (e: PointerEvent) => updateLivePos(e.clientX, e.clientY),
+    mousedown: (e: MouseEvent) => updateLivePos(e.clientX, e.clientY),
+    touchstart: (e: TouchEvent) => {
+      if (e.touches[0]) updateLivePos(e.touches[0].clientX, e.touches[0].clientY);
     },
     touchmove: (e: TouchEvent) => {
-      if (!hostRect || !e.touches[0]) return;
-      setLastPos({ 
-        x: `${((e.touches[0].clientX - hostRect.left) / hostRect.width) * 100}%`, 
-        y: `${((e.touches[0].clientY - hostRect.top) / hostRect.height) * 100}%` 
-      });
+      if (e.touches[0]) updateLivePos(e.touches[0].clientX, e.touches[0].clientY);
     },
-    // Keep mousedown/touchstart for initial click origin if pointermove hasn't fired
-    mousedown: (e: MouseEvent) => {
-      if (!hostRect) return;
-      setLastPos({ 
-        x: `${((e.clientX - hostRect.left) / hostRect.width) * 100}%`, 
-        y: `${((e.clientY - hostRect.top) / hostRect.height) * 100}%` 
-      });
-    },
-    touchstart: (e: TouchEvent) => {
-      if (!hostRect || !e.touches[0]) return;
-      setLastPos({ 
-        x: `${((e.touches[0].clientX - hostRect.left) / hostRect.width) * 100}%`, 
-        y: `${((e.touches[0].clientY - hostRect.top) / hostRect.height) * 100}%` 
-      });
+    click: () => {
+      if (activeTarget?.getAttribute('data-success') === 'true' || isSuccess) {
+        addInstance();
+        onComplete?.();
+      }
     }
   });
 
-  const resolvedPosition = position || lastPos;
+  // Handle the first trigger if it didn't come from a click (e.g. programmatically)
+  const lastIsSuccess = useRef(false);
+  useEffect(() => {
+    if (isSuccess && !lastIsSuccess.current) {
+      addInstance();
+    } else if (!isSuccess && lastIsSuccess.current) {
+      setInstances([]);
+    }
+    lastIsSuccess.current = isSuccess;
+  }, [isSuccess]);
 
   return (
     <div
@@ -93,13 +104,13 @@ export default function SuccessLayer({
       data-success-layer
     >
       <AnimatePresence>
-        {isSuccess && (
+        {instances.map((instance) => (
           <motion.div
-            initial={{ clipPath: `circle(0% at ${resolvedPosition.x} ${resolvedPosition.y})` }}
-            animate={{ clipPath: `circle(150% at ${resolvedPosition.x} ${resolvedPosition.y})` }}
-            exit={{ clipPath: `circle(0% at ${resolvedPosition.x} ${resolvedPosition.y})` }}
+            key={instance.id}
+            initial={{ clipPath: `circle(0% at ${instance.x} ${instance.y})` }}
+            animate={{ clipPath: `circle(150% at ${instance.x} ${instance.y})` }}
+            exit={{ clipPath: `circle(0% at ${instance.x} ${instance.y})` }}
             transition={{ type: 'spring', stiffness: 80, damping: 24, mass: 1 }}
-            onAnimationComplete={() => isSuccess && onComplete?.()}
             style={{
               position: 'absolute',
               inset: 0,
@@ -109,10 +120,7 @@ export default function SuccessLayer({
               justifyContent: 'center',
             }}
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.3 }}
+            <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -126,9 +134,9 @@ export default function SuccessLayer({
             >
               <AnimatedCheckIcon size={size === 'S' ? 14 : (size === 'L' ? 22 : 18)} color={theme.Color.Success.Content['1']} />
               <span>{label}</span>
-            </motion.div>
+            </div>
           </motion.div>
-        )}
+        ))}
       </AnimatePresence>
     </div>
   );

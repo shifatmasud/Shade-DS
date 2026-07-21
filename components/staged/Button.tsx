@@ -64,16 +64,16 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
   const [isSuccess, setIsSuccess] = useState(false);
   const [showGlow, setShowGlow] = useState(false);
 
-  // SAFE TIMEOUT CLEANUP: Automatically reset success state after 2 seconds to prevent memory leaks and state updates on unmounted nodes
+  const successTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // SAFE TIMEOUT CLEANUP: Automatically reset success state after 2 seconds
   React.useEffect(() => {
-    if (isSuccess) {
-      const timer = setTimeout(() => {
-        setIsSuccess(false);
-      }, 2000);
-      return () => clearTimeout(timer);
-    } else {
+    if (!isSuccess) {
       setShowGlow(false);
     }
+    return () => {
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+    };
   }, [isSuccess]);
 
   // 3D Layer Transforms
@@ -99,13 +99,16 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
   };
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Return early if disabled or already showing success state
-    if (disabled || isSuccess) return;
+    if (disabled) return;
 
     if (enableSuccess) {
       setIsSuccess(true);
       playSound('success');
+      
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = setTimeout(() => setIsSuccess(false), 2000);
     } else {
+      if (isSuccess) return;
       playSound('click');
     }
 
@@ -405,14 +408,7 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
 
       <motion.div style={{ ...contentWrapperStyle, transform: zContent }}>
         {/* Default Content (Always in flow, determines button size) */}
-        <motion.div
-          animate={{
-            opacity: isSuccess ? 0 : 1,
-            y: isSuccess ? -8 : 0,
-            scale: isSuccess ? 0.95 : 1,
-            filter: isSuccess ? 'blur(4px)' : 'blur(0px)',
-          }}
-          transition={{ duration: 0.2, ease: 'easeInOut' }}
+        <div
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -420,12 +416,12 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
             gap: theme.space['Space.S'],
             color: 'inherit',
             width: '100%',
-            pointerEvents: isSuccess ? 'none' : 'auto',
+            pointerEvents: 'auto',
           }}
         >
           {icon && <i className={`ph-bold ${icon}`} draggable={false} style={{ fontSize: '1.25em' }} />}
           <span draggable={false}>{label}</span>
-        </motion.div>
+        </div>
       </motion.div>
 
       {/* 4. SUCCESS STATE MASK CIRCULAR LAYER - Moved to top of stack with 3D depth */}

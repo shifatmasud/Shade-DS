@@ -67,26 +67,33 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [showGlow, setShowGlow] = React.useState(false);
+  const successTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (disabled || isSuccess) return;
-
+    if (disabled) return;
+    
+    // If not in success mode, or if we want to allow multiple success ripples
     if (enableSuccess) {
       setIsSuccess(true);
       playSound('success');
+      
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = setTimeout(() => setIsSuccess(false), 2000);
     } else {
+      if (isSuccess) return; 
       playSound('tick');
     }
+    
     if (onClick) onClick(e);
   };
 
   React.useEffect(() => {
-    if (isSuccess) {
-      const timer = setTimeout(() => setIsSuccess(false), 2000);
-      return () => clearTimeout(timer);
-    } else {
+    if (!isSuccess) {
       setShowGlow(false);
     }
+    return () => {
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+    };
   }, [isSuccess]);
 
   // Simple, elegant motion value handler for blank states
@@ -267,14 +274,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       {/* Content Container - Rendered with zero-layout-shift preservation */}
       <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}>
         {/* Default Content (Always in flow, determines button size) */}
-        <motion.div
-          animate={{
-            opacity: isSuccess ? 0 : 1,
-            y: isSuccess ? -8 : 0,
-            scale: isSuccess ? 0.95 : 1,
-            filter: isSuccess ? 'blur(4px)' : 'blur(0px)',
-          }}
-          transition={{ duration: 0.2, ease: 'easeInOut' }}
+        <div
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -282,12 +282,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
             gap: theme.space['Space.S'],
             width: '100%',
             zIndex: 1,
-            pointerEvents: isSuccess ? 'none' : 'auto',
+            pointerEvents: 'auto',
           }}
         >
           {icon && renderIcon(icon)}
           {children || (label && <span>{label}</span>)}
-        </motion.div>
+        </div>
       </div>
 
       {/* Smart Interaction Layers */}
