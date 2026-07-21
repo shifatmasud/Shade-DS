@@ -15,10 +15,10 @@ interface CodePanelProps {
   onCopyCode: () => void;
   onFocus: () => void;
   onBlur: () => void;
-  btnProps: MetaButtonProps;
+  stagedProps: MetaButtonProps;
 }
 
-const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCode, onFocus, onBlur, btnProps }) => {
+const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCode, onFocus, onBlur, stagedProps }) => {
   const { theme } = useTheme();
   const [isCopied, setIsCopied] = useState(false);
 
@@ -60,7 +60,7 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
       <div style={{ marginTop: theme.space['Space.L'] }}>
         <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'] }}>REACT USAGE</p>
         <pre style={{ ...theme.Type.Expressive.Data, fontSize: theme.Type.Readable.Label.S.fontSize, color: theme.Color.Base.Content[2], backgroundColor: 'transparent', padding: 0, margin: 0, whiteSpace: 'pre-wrap' }}>
-          {`<Button\n  label="${btnProps.label}"\n  variant="${btnProps.variant}"\n  size="${btnProps.size}"\n  icon="${btnProps.icon}"\n  customRadius="${btnProps.customRadius}"\n/>`}
+          {`<StagedButton\n  label="${stagedProps.label}"\n  variant="${stagedProps.variant}"\n  size="${stagedProps.size}"\n  icon="${stagedProps.icon}"\n  customRadius="${stagedProps.customRadius}"\n/>`}
         </pre>
       </div>
     </>

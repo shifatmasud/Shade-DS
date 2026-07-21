@@ -10,7 +10,7 @@ import { useTheme } from '../../Theme.tsx';
  * - Redirected Button and Card imports of the main 3D/Blueprint inspectable staging area to point to /components/staged/.
  * - To undo: replace "../staged/Button.tsx" -> "../Core/Button.tsx" and "../staged/Card.tsx" -> "../Package/Card.tsx".
  */
-import Button from '../staged/Button.tsx';
+import StagedButton from '../staged/Button.tsx';
 import Card from '../staged/Card.tsx';
 import FillSlider from '../staged/FillSlider.tsx';
 import NameTag from '../staged/NameTag.tsx';
@@ -101,7 +101,7 @@ type StageComponentProps = Omit<MetaButtonProps, 'customRadius' | 'customFill' |
 }
 
 interface StageProps {
-  btnProps: StageComponentProps;
+  stagedProps: StageComponentProps;
   onButtonClick: () => void;
   showMeasurements: boolean;
   showTokens: boolean;
@@ -452,7 +452,7 @@ const LayerStackHUD = ({ layerSpacing, isCard }: { layerSpacing: MotionValue<num
 };
 
 const Stage: React.FC<StageProps> = ({ 
-    btnProps, 
+    stagedProps, 
     onButtonClick, 
     showMeasurements, 
     showTokens,
@@ -462,19 +462,19 @@ const Stage: React.FC<StageProps> = ({
     layerSpacing 
 }) => {
   const { theme } = useTheme();
-  const [stagedCode, setStagedCode] = useState(btnProps.customCode || '');
-  const isDirty = btnProps.customCode !== stagedCode;
+  const [stagedCode, setStagedCode] = useState(stagedProps.customCode || '');
+  const isDirty = stagedProps.customCode !== stagedCode;
 
   const handleRunCode = () => {
-    setStagedCode(btnProps.customCode || '');
+    setStagedCode(stagedProps.customCode || '');
   };
 
   // Sync staged code if it was empty and now has content (first generation)
   useEffect(() => {
-    if (!stagedCode && btnProps.customCode) {
-      setStagedCode(btnProps.customCode);
+    if (!stagedCode && stagedProps.customCode) {
+      setStagedCode(stagedProps.customCode);
     }
-  }, [btnProps.customCode, stagedCode]);
+  }, [stagedProps.customCode, stagedCode]);
 
   const componentRef = useRef<any>(null);
   const containerRotateZ = useTransform(viewRotateZ, v => -v);
@@ -482,13 +482,13 @@ const Stage: React.FC<StageProps> = ({
   const buttonSelectors = { icon: 'i', text: 'span' };
   const cardSelectors = { media: '.card-media', title: '.card-title', body: '.card-body', label: 'span' };
   
-  const selectors = btnProps.componentType === 'card' ? cardSelectors : buttonSelectors;
+  const selectors = stagedProps.componentType === 'card' ? cardSelectors : buttonSelectors;
   const anatomyEnabled = showMeasurements || showTokens;
   const anatomy = useElementAnatomy(
     componentRef, 
     selectors, 
     anatomyEnabled, 
-    anatomyEnabled ? [btnProps, showMeasurements, showTokens, view3D] : []
+    anatomyEnabled ? [stagedProps, showMeasurements, showTokens, view3D] : []
   );
 
   return (
@@ -497,7 +497,7 @@ const Stage: React.FC<StageProps> = ({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        padding: btnProps.componentType === 'slot' ? '0px' : '80px',
+        padding: stagedProps.componentType === 'slot' ? '0px' : '80px',
         perspective: '1000px',
         width: '100%',
         height: '100%',
@@ -505,9 +505,9 @@ const Stage: React.FC<StageProps> = ({
         <motion.div 
             style={{ 
                 position: 'relative', 
-                display: btnProps.componentType === 'slot' ? 'block' : 'inline-block',
-                width: btnProps.componentType === 'slot' ? '100%' : 'auto',
-                height: btnProps.componentType === 'slot' ? '100%' : 'auto',
+                display: stagedProps.componentType === 'slot' ? 'block' : 'inline-block',
+                width: stagedProps.componentType === 'slot' ? '100%' : 'auto',
+                height: stagedProps.componentType === 'slot' ? '100%' : 'auto',
                 transformStyle: 'preserve-3d',
                 rotateX: view3D ? viewRotateX : 0,
                 rotateZ: view3D ? containerRotateZ : 0,
@@ -515,36 +515,36 @@ const Stage: React.FC<StageProps> = ({
             }}
             transition={{ type: 'spring', damping: 20, stiffness: 100 }}
         >
-            {btnProps.componentType === 'button' ? (
-                <Button 
+            {stagedProps.componentType === 'button' ? (
+                <StagedButton 
                     ref={componentRef} 
-                    {...btnProps} 
+                    {...stagedProps} 
                     onClick={onButtonClick} 
                     layerSpacing={layerSpacing}
                     view3D={view3D}
                 />
-            ) : btnProps.componentType === 'card' ? (
+            ) : stagedProps.componentType === 'card' ? (
                 <Card 
                     ref={componentRef}
-                    {...btnProps}
+                    {...stagedProps}
                     onClick={onButtonClick}
                     layerSpacing={layerSpacing}
                     view3D={view3D}
                 />
-            ) : btnProps.componentType === 'nametag' ? (
+            ) : stagedProps.componentType === 'nametag' ? (
                 <NameTag />
-            ) : btnProps.componentType === 'slider' ? (
+            ) : stagedProps.componentType === 'slider' ? (
                 <div style={{ width: '400px' }}>
                     <FillSlider 
-                        label={btnProps.label} 
+                        label={stagedProps.label} 
                         onChange={(v) => console.log('Slider changed:', v)}
                     />
                 </div>
-            ) : btnProps.componentType === 'slot' ? (
+            ) : stagedProps.componentType === 'slot' ? (
                 <Slot ref={componentRef} />
             ) : (
                 <div ref={componentRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
-                  {!stagedCode && !btnProps.customCode ? (
+                  {!stagedCode && !stagedProps.customCode ? (
                     <CustomPlaceholder />
                   ) : (
                     <>
@@ -569,7 +569,7 @@ const Stage: React.FC<StageProps> = ({
                               zIndex: 10,
                             }}
                           >
-                            <Button 
+                            <Core.Button 
                               label="Run Code" 
                               variant="primary" 
                               size="S" 
@@ -585,11 +585,11 @@ const Stage: React.FC<StageProps> = ({
                 </div>
             )}
             {showMeasurements && anatomy && <BlueprintOverlay anatomy={anatomy} />}
-            {showTokens && anatomy && <TokenOverlay anatomy={anatomy} btnProps={btnProps} />}
+            {showTokens && anatomy && <TokenOverlay anatomy={anatomy} btnProps={stagedProps} />}
         </motion.div>
 
         <AnimatePresence>
-            {view3D && <LayerStackHUD layerSpacing={layerSpacing} isCard={btnProps.componentType === 'card'} />}
+            {view3D && <LayerStackHUD layerSpacing={layerSpacing} isCard={stagedProps.componentType === 'card'} />}
         </AnimatePresence>
     </div>
   );

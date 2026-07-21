@@ -15,7 +15,7 @@ import Accordion from '../Core/Accordion.tsx';
 import ApiInput from './ApiInput.tsx';
 
 interface ControlPanelProps {
-  btnProps: MetaButtonProps;
+  stagedProps: MetaButtonProps;
   onPropChange: (keyOrObj: string | Partial<MetaButtonProps>, value?: any) => void;
   radiusMotionValue: MotionValue<number>;
   onRadiusCommit: (value: number) => void;
@@ -48,7 +48,7 @@ interface ControlPanelProps {
 }
 
 const ControlPanel: React.FC<ControlPanelProps> = ({ 
-  btnProps, 
+  stagedProps, 
   onPropChange, 
   radiusMotionValue, 
   onRadiusCommit, 
@@ -81,10 +81,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const { theme, themeName, setThemeName } = useTheme();
 
   // Helper to determine current interaction state
-  const currentInteraction = btnProps.disabled ? 'disabled' 
-    : btnProps.forcedActive ? 'active'
-    : btnProps.forcedFocus ? 'focus'
-    : btnProps.forcedHover ? 'hover'
+  const currentInteraction = stagedProps.disabled ? 'disabled' 
+    : stagedProps.forcedActive ? 'active'
+    : stagedProps.forcedFocus ? 'focus'
+    : stagedProps.forcedHover ? 'hover'
     : 'default';
 
   const handleInteractionChange = (e: any) => {
@@ -104,8 +104,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     onPropChange(updates);
   };
 
-  const isButton = btnProps.componentType === 'button';
-  const isTertiary = isButton && btnProps.variant === 'tertiary';
+  const isButton = stagedProps.componentType === 'button';
+  const isTertiary = isButton && stagedProps.variant === 'tertiary';
 
   return (
     <>
@@ -143,7 +143,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         <motion.div layout="position" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
           <Select<any>
             label="Component Type"
-            value={btnProps.componentType}
+            value={stagedProps.componentType}
             onChange={(e) => onPropChange({ 
                 componentType: e.target.value,
                 /* 
@@ -166,7 +166,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
           <Input
             label={isButton ? "Label" : "Title"}
-            value={btnProps.label}
+            value={stagedProps.label}
             onChange={(e) => onPropChange('label', e.target.value)}
           />
 
@@ -175,7 +175,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               <div style={{ flex: 1 }}>
                 <Select<any>
                   label="Variant"
-                  value={btnProps.variant}
+                  value={stagedProps.variant}
                   onChange={(e) => onPropChange('variant', e.target.value)}
                   options={[
                     { value: 'primary', label: 'Primary' },
@@ -189,7 +189,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               <div style={{ flex: 1 }}>
                 <Select<any>
                   label="Size"
-                  value={btnProps.size}
+                  value={stagedProps.size}
                   onChange={(e) => onPropChange('size', e.target.value)}
                   options={[
                     { value: 'S', label: 'Small (S)' },
@@ -204,7 +204,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           {isButton && (
             <Select<any>
               label="Icon (Phosphor)"
-              value={btnProps.icon || ''}
+              value={stagedProps.icon || ''}
               onChange={(e) => onPropChange('icon', e.target.value)}
               variant="icon-grid"
               options={[
@@ -240,13 +240,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             {!isTertiary && (
               <ColorPicker
                 label="Fill Color"
-                value={btnProps.customFill || (btnProps.variant === 'primary' ? (themeName === 'dark' ? '#ffffff' : '#111111') : (btnProps.componentType === 'card' ? theme.Color.Base.Surface[1] : 'transparent'))}
+                value={stagedProps.customFill || (stagedProps.variant === 'primary' ? (themeName === 'dark' ? '#ffffff' : '#111111') : (stagedProps.componentType === 'card' ? theme.Color.Base.Surface[1] : 'transparent'))}
                 onChange={(e) => onPropChange('customFill', e.target.value)}
               />
             )}
             <ColorPicker
               label="Text Color"
-              value={btnProps.customColor || (btnProps.variant === 'primary' ? (themeName === 'dark' ? '#000000' : '#ffffff') : (themeName === 'dark' ? '#ffffff' : '#111111'))}
+              value={stagedProps.customColor || (stagedProps.variant === 'primary' ? (themeName === 'dark' ? '#000000' : '#ffffff') : (themeName === 'dark' ? '#ffffff' : '#111111'))}
               onChange={(e) => onPropChange('customColor', e.target.value)}
             />
           </motion.div>
@@ -269,8 +269,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           />
           <Toggle
             label="Enable Success State"
-            isOn={!!btnProps.enableSuccess}
-            onToggle={() => onPropChange('enableSuccess', !btnProps.enableSuccess)}
+            isOn={!!stagedProps.enableSuccess}
+            onToggle={() => onPropChange('enableSuccess', !stagedProps.enableSuccess)}
           />
         </motion.div>
       </Accordion>

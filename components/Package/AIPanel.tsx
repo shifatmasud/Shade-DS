@@ -40,12 +40,12 @@ interface Message {
 }
 
 interface AIPanelProps {
-  appState: MetaButtonProps;
+  stagedProps: MetaButtonProps;
   onUpdateState: (updates: Partial<MetaButtonProps>) => void;
   apiKey: string;
 }
 
-const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) => {
+const AIPanel: React.FC<AIPanelProps> = ({ stagedProps, onUpdateState, apiKey }) => {
   const { theme } = useTheme();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
@@ -129,7 +129,7 @@ const AIPanel: React.FC<AIPanelProps> = ({ appState, onUpdateState, apiKey }) =>
       const response = await generateContentWithRetry(ai, {
         model: "gemini-3-flash-preview",
         contents: [
-          { role: 'user', parts: [{ text: `Current App State (Internal Code): ${JSON.stringify(appState, null, 2)}` }] },
+          { role: 'user', parts: [{ text: `Current App State (Internal Code): ${JSON.stringify(stagedProps, null, 2)}` }] },
           { role: 'user', parts: [{ text: userMessage }] }
         ],
         config: {

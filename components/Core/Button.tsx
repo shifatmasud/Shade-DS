@@ -67,21 +67,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [showGlow, setShowGlow] = React.useState(false);
-  const [successPos, setSuccessPos] = React.useState({ x: '50%', y: '50%' });
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled || isSuccess) return;
-
-    let xStr = '50%';
-    let yStr = '50%';
-    if (localRef.current && e.clientX !== 0 && e.clientY !== 0) {
-      const rect = localRef.current.getBoundingClientRect();
-      const x = (e.clientX - rect.left) + 0.1 * rect.width;
-      const y = (e.clientY - rect.top) + 0.1 * rect.height;
-      xStr = `${x}px`;
-      yStr = `${y}px`;
-    }
-    setSuccessPos({ x: xStr, y: yStr });
 
     if (enableSuccess) {
       setIsSuccess(true);
@@ -325,7 +313,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       {/* Success Mask Slide layer inside Core/Button - Moved to top of stack */}
       <SuccessLayer
         isSuccess={isSuccess}
-        position={successPos}
         label={successLabel}
         size={size}
         zIndex={10}

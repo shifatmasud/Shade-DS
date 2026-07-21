@@ -13,7 +13,7 @@ import { playSound } from '../../services/soundService';
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'destructive';
 export type ButtonSize = 'S' | 'M' | 'L';
 
-interface ButtonProps {
+interface StagedButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   label: string;
@@ -33,7 +33,7 @@ interface ButtonProps {
   successLabel?: string;
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
+const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
   variant = 'primary',
   size = 'L',
   label,
@@ -63,7 +63,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   // Success State
   const [isSuccess, setIsSuccess] = useState(false);
   const [showGlow, setShowGlow] = useState(false);
-  const [successPos, setSuccessPos] = useState({ x: '50%', y: '50%' });
 
   // SAFE TIMEOUT CLEANUP: Automatically reset success state after 2 seconds to prevent memory leaks and state updates on unmounted nodes
   React.useEffect(() => {
@@ -103,17 +102,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     // Return early if disabled or already showing success state
     if (disabled || isSuccess) return;
 
-    let xStr = '50%';
-    let yStr = '50%';
-    if (localRef.current && e.clientX !== 0 && e.clientY !== 0) {
-      const rect = localRef.current.getBoundingClientRect();
-      const x = (e.clientX - rect.left) + 0.1 * rect.width;
-      const y = (e.clientY - rect.top) + 0.1 * rect.height;
-      xStr = `${x}px`;
-      yStr = `${y}px`;
-    }
-    setSuccessPos({ x: xStr, y: yStr });
-    
     if (enableSuccess) {
       setIsSuccess(true);
       playSound('success');
@@ -444,7 +432,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       <motion.div style={{ ...layerWrapperStyle, transform: zSuccess, zIndex: 100 }}>
         <SuccessLayer
           isSuccess={isSuccess}
-          position={successPos}
           label={successLabel}
           size={size}
           onComplete={() => setShowGlow(true)}
@@ -456,4 +443,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   );
 });
 
-export default Button;
+export default StagedButton;

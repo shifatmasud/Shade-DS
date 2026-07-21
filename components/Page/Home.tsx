@@ -47,7 +47,7 @@ const Home = () => {
   }, []);
   
   // -- App State --
-  const [btnProps, setBtnProps] = useState<MetaButtonProps>({
+  const [stagedProps, setStagedProps] = useState<MetaButtonProps>({
     componentType: 'button',
     label: 'Do Magic',
     variant: 'primary',
@@ -110,25 +110,25 @@ const Home = () => {
   // -- Real-time MotionValue for live UI updates --
   // We use useMemo to ensure these MotionValues are truly stable even if Home re-renders
   // Note: useMotionValue is a hook, so we should keep it at top level, but let's ensure initial values are stable
-  const radiusMotionValue = useMotionValue(parseInt(btnProps.customRadius) || 0);
+  const radiusMotionValue = useMotionValue(parseInt(stagedProps.customRadius) || 0);
   const radiusStringMotionValue = useTransform(radiusMotionValue, (v) => `${Math.round(v)}px`);
 
   // Real-time MotionValues for live color updates without parent React re-renders
-  const fillColorMotionValue = useMotionValue(btnProps.customFill || '');
-  const textColorMotionValue = useMotionValue(btnProps.customColor || '');
+  const fillColorMotionValue = useMotionValue(stagedProps.customFill || '');
+  const textColorMotionValue = useMotionValue(stagedProps.customColor || '');
 
   // Sync MotionValues when state is changed by other means (e.g., undo/redo)
   useEffect(() => {
-    radiusMotionValue.set(parseInt(btnProps.customRadius) || 0);
-  }, [btnProps.customRadius, radiusMotionValue]);
+    radiusMotionValue.set(parseInt(stagedProps.customRadius) || 0);
+  }, [stagedProps.customRadius, radiusMotionValue]);
 
   useEffect(() => {
-    fillColorMotionValue.set(btnProps.customFill || '');
-  }, [btnProps.customFill, fillColorMotionValue]);
+    fillColorMotionValue.set(stagedProps.customFill || '');
+  }, [stagedProps.customFill, fillColorMotionValue]);
 
   useEffect(() => {
-    textColorMotionValue.set(btnProps.customColor || '');
-  }, [btnProps.customColor, textColorMotionValue]);
+    textColorMotionValue.set(stagedProps.customColor || '');
+  }, [stagedProps.customColor, textColorMotionValue]);
   
   // Auto-expand layers when entering 3D mode
   useEffect(() => {
@@ -239,9 +239,9 @@ const Home = () => {
   
   useEffect(() => {
     if (!isCodeFocused && !typingSessionRef.current) {
-      setCodeText(JSON.stringify(btnProps, null, 2));
+      setCodeText(JSON.stringify(stagedProps, null, 2));
     }
-  }, [btnProps, isCodeFocused]);
+  }, [stagedProps, isCodeFocused]);
 
   // -- Actions --
 
@@ -290,20 +290,20 @@ const Home = () => {
     };
   }, []);
 
-  const updateBtnProps = (newProps: MetaButtonProps, saveHistory: boolean = true) => {
+  const updateStagedProps = (newProps: MetaButtonProps, saveHistory: boolean = true) => {
     if (saveHistory) {
-      setHistory(prev => [...prev, btnProps]);
+      setHistory(prev => [...prev, stagedProps]);
       setFuture([]);
     }
-    setBtnProps(newProps);
+    setStagedProps(newProps);
   };
 
   const handleUndo = () => {
     if (history.length === 0) return;
     const previous = history[history.length - 1];
     const newHistory = history.slice(0, -1);
-    setFuture(prev => [btnProps, ...prev]);
-    setBtnProps(previous);
+    setFuture(prev => [stagedProps, ...prev]);
+    setStagedProps(previous);
     setHistory(newHistory);
     logEvent('Undo performed');
   };
@@ -312,8 +312,8 @@ const Home = () => {
     if (future.length === 0) return;
     const next = future[0];
     const newFuture = future.slice(1);
-    setHistory(prev => [...prev, btnProps]);
-    setBtnProps(next);
+    setHistory(prev => [...prev, stagedProps]);
+    setStagedProps(next);
     setFuture(newFuture);
     logEvent('Redo performed');
   };
@@ -343,7 +343,7 @@ const Home = () => {
   };
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(JSON.stringify(btnProps, null, 2));
+    navigator.clipboard.writeText(JSON.stringify(stagedProps, null, 2));
     logEvent('JSON copied to clipboard');
   };
   
@@ -356,11 +356,11 @@ const Home = () => {
         }
 
         if (!typingSessionRef.current) {
-          typingSessionRef.current = { beforeProps: { ...btnProps }, key };
+          typingSessionRef.current = { beforeProps: { ...stagedProps }, key };
         }
 
-        const nextProps = { ...btnProps, [key]: value };
-        updateBtnProps(nextProps, false); // Update state instantly for live UI feedback, but do NOT save history yet
+        const nextProps = { ...stagedProps, [key]: value };
+        updateStagedProps(nextProps, false); // Update state instantly for live UI feedback, but do NOT save history yet
 
         typingTimeoutRef.current = setTimeout(() => {
           if (typingSessionRef.current) {
@@ -384,7 +384,7 @@ const Home = () => {
             typingSessionRef.current = null;
           }
         }
-        updateBtnProps({ ...btnProps, [key]: value }, true);
+        updateStagedProps({ ...stagedProps, [key]: value }, true);
         logEvent(`Prop updated: ${key} = ${value}`);
       }
     } else {
@@ -397,7 +397,7 @@ const Home = () => {
           typingSessionRef.current = null;
         }
       }
-      updateBtnProps({ ...btnProps, ...keyOrObj }, true);
+      updateStagedProps({ ...stagedProps, ...keyOrObj }, true);
       logEvent(`State updated: ${Object.keys(keyOrObj).join(', ')}`);
     }
   };
@@ -415,9 +415,9 @@ const Home = () => {
         clearTimeout(typingTimeoutRef.current);
       }
       if (!typingSessionRef.current) {
-        typingSessionRef.current = { beforeProps: { ...btnProps }, key: 'customCode' };
+        typingSessionRef.current = { beforeProps: { ...stagedProps }, key: 'customCode' };
       }
-      updateBtnProps(parsed, false);
+      updateStagedProps(parsed, false);
 
       typingTimeoutRef.current = setTimeout(() => {
         if (typingSessionRef.current) {
@@ -497,8 +497,8 @@ const Home = () => {
       <Confetti trigger={confettiTrigger} />
 
       <Stage
-        btnProps={{
-          ...btnProps,
+        stagedProps={{
+          ...stagedProps,
           customRadius: radiusStringMotionValue,
           customFill: fillColorMotionValue,
           customColor: textColorMotionValue,
@@ -525,7 +525,7 @@ const Home = () => {
               footer={undoRedoComponent}
             >
               <ControlPanel
-                  btnProps={btnProps}
+                  stagedProps={stagedProps}
                   onPropChange={handlePropChange}
                   radiusMotionValue={radiusMotionValue}
                   onRadiusCommit={handleRadiusCommit}
@@ -574,7 +574,7 @@ const Home = () => {
                 onCopyCode={handleCopyCode}
                 onFocus={() => setIsCodeFocused(true)}
                 onBlur={() => setIsCodeFocused(false)}
-                btnProps={btnProps}
+                stagedProps={stagedProps}
               />
             </FloatingWindow>
           )}
@@ -628,7 +628,7 @@ const Home = () => {
               onFocus={() => bringToFront('ai')}
             >
               <AIPanel 
-                appState={btnProps} 
+                stagedProps={stagedProps} 
                 onUpdateState={(updates) => handlePropChange({ ...updates, componentType: 'custom' })}
                 apiKey={geminiApiKey}
               />
@@ -650,7 +650,7 @@ const Home = () => {
             >
               <TabbedPanel 
                 panels={[
-                  { id: 'control', title: 'Control', icon: <Sliders size={16} />, content: <ControlPanel btnProps={btnProps} onPropChange={handlePropChange} radiusMotionValue={radiusMotionValue} onRadiusCommit={handleRadiusCommit} showMeasurements={showMeasurements} onToggleMeasurements={handleToggleMeasurements} showTokens={showTokens} onToggleTokens={handleToggleTokens} 
+                  { id: 'control', title: 'Control', icon: <Sliders size={16} />, content: <ControlPanel stagedProps={stagedProps} onPropChange={handlePropChange} radiusMotionValue={radiusMotionValue} onRadiusCommit={handleRadiusCommit} showMeasurements={showMeasurements} onToggleMeasurements={handleToggleMeasurements} showTokens={showTokens} onToggleTokens={handleToggleTokens} 
                     showStyles={windows.styles.isOpen}
                     onToggleStyles={() => toggleWindow('styles')}
                     showSystemSpec={windows.systemSpec.isOpen}
@@ -666,7 +666,7 @@ const Home = () => {
                     onToggleConfetti={handleToggleConfetti}
                     enableSound={enableSound}
                     onToggleSound={handleToggleSound} /> },
-                  { id: 'code', title: 'Code I/O', icon: <Code size={16} />, content: <CodePanel codeText={codeText} onCodeChange={handleCodeChange} onCopyCode={handleCopyCode} onFocus={() => setIsCodeFocused(true)} onBlur={() => setIsCodeFocused(false)} btnProps={btnProps} /> },
+                  { id: 'code', title: 'Code I/O', icon: <Code size={16} />, content: <CodePanel codeText={codeText} onCodeChange={handleCodeChange} onCopyCode={handleCopyCode} onFocus={() => setIsCodeFocused(true)} onBlur={() => setIsCodeFocused(false)} stagedProps={stagedProps} /> },
                   { id: 'console', title: 'Console', icon: <Terminal size={16} />, content: <ConsolePanel logs={logs} /> },
                 ]}
               />
@@ -682,9 +682,9 @@ const Home = () => {
           // Compute live value based on ID
           let liveValue = '';
           if (id === 'fillColor') {
-            liveValue = btnProps.customFill || (btnProps.variant === 'primary' ? (themeName === 'dark' ? '#ffffff' : '#111111') : (btnProps.componentType === 'card' ? theme.Color.Base.Surface[1] : 'transparent'));
+            liveValue = stagedProps.customFill || (stagedProps.variant === 'primary' ? (themeName === 'dark' ? '#ffffff' : '#111111') : (stagedProps.componentType === 'card' ? theme.Color.Base.Surface[1] : 'transparent'));
           } else if (id === 'textColor') {
-            liveValue = btnProps.customColor || (btnProps.variant === 'primary' ? (themeName === 'dark' ? '#000000' : '#ffffff') : (themeName === 'dark' ? '#ffffff' : '#111111'));
+            liveValue = stagedProps.customColor || (stagedProps.variant === 'primary' ? (themeName === 'dark' ? '#000000' : '#ffffff') : (themeName === 'dark' ? '#ffffff' : '#111111'));
           }
 
           const handlePickerChange = (hex: string) => {
@@ -697,10 +697,10 @@ const Home = () => {
 
           const handlePickerCommit = (hex: string) => {
             if (id === 'fillColor') {
-              updateBtnProps({ ...btnProps, customFill: hex }, true);
+              updateStagedProps({ ...stagedProps, customFill: hex }, true);
               logEvent(`Fill Color committed: ${hex}`);
             } else if (id === 'textColor') {
-              updateBtnProps({ ...btnProps, customColor: hex }, true);
+              updateStagedProps({ ...stagedProps, customColor: hex }, true);
               logEvent(`Text Color committed: ${hex}`);
             }
           };

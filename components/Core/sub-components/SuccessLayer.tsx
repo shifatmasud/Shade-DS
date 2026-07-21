@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../../Theme.tsx';
 import { AnimatedCheckIcon } from './AnimatedCheckIcon.tsx';
-import { useHost, useHostEvents, useHostStyles } from '../../../hooks/useHost.ts';
+import { useHost, useHostEvents, useHostStyles, useHostRect } from '../../../hooks/useHost.ts';
 
 export interface SuccessLayerProps {
   isSuccess: boolean;
@@ -34,24 +34,46 @@ export default function SuccessLayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const target = useHost(containerRef, mode);
   const activeTarget = parentRef?.current || target;
+  const hostRect = useHostRect(activeTarget);
   const resolvedColor = color || theme.Color.Success.Surface['1'];
   const [lastPos, setLastPos] = useState({ x: '50%', y: '50%' });
 
   useHostEvents(activeTarget, {
-    mousemove: (e: MouseEvent) => {
-      if (!activeTarget) return;
-      const rect = activeTarget.getBoundingClientRect();
-      setLastPos({ x: `${((e.clientX - rect.left) / rect.width) * 100}%`, y: `${((e.clientY - rect.top) / rect.height) * 100}%` });
+    pointermove: (e: PointerEvent) => {
+      if (!hostRect) return;
+      setLastPos({ 
+        x: `${((e.clientX - hostRect.left) / hostRect.width) * 100}%`, 
+        y: `${((e.clientY - hostRect.top) / hostRect.height) * 100}%` 
+      });
+    },
+    pointerenter: (e: PointerEvent) => {
+      if (!hostRect) return;
+      setLastPos({ 
+        x: `${((e.clientX - hostRect.left) / hostRect.width) * 100}%`, 
+        y: `${((e.clientY - hostRect.top) / hostRect.height) * 100}%` 
+      });
+    },
+    touchmove: (e: TouchEvent) => {
+      if (!hostRect || !e.touches[0]) return;
+      setLastPos({ 
+        x: `${((e.touches[0].clientX - hostRect.left) / hostRect.width) * 100}%`, 
+        y: `${((e.touches[0].clientY - hostRect.top) / hostRect.height) * 100}%` 
+      });
+    },
+    // Keep mousedown/touchstart for initial click origin if pointermove hasn't fired
+    mousedown: (e: MouseEvent) => {
+      if (!hostRect) return;
+      setLastPos({ 
+        x: `${((e.clientX - hostRect.left) / hostRect.width) * 100}%`, 
+        y: `${((e.clientY - hostRect.top) / hostRect.height) * 100}%` 
+      });
     },
     touchstart: (e: TouchEvent) => {
-      if (!activeTarget || !e.touches[0]) return;
-      const rect = activeTarget.getBoundingClientRect();
-      setLastPos({ x: `${((e.touches[0].clientX - rect.left) / rect.width) * 100}%`, y: `${((e.touches[0].clientY - rect.top) / rect.height) * 100}%` });
-    },
-    mousedown: (e: MouseEvent) => {
-      if (!activeTarget) return;
-      const rect = activeTarget.getBoundingClientRect();
-      setLastPos({ x: `${((e.clientX - rect.left) / rect.width) * 100}%`, y: `${((e.clientY - rect.top) / rect.height) * 100}%` });
+      if (!hostRect || !e.touches[0]) return;
+      setLastPos({ 
+        x: `${((e.touches[0].clientX - hostRect.left) / hostRect.width) * 100}%`, 
+        y: `${((e.touches[0].clientY - hostRect.top) / hostRect.height) * 100}%` 
+      });
     }
   });
 
@@ -80,10 +102,7 @@ export default function SuccessLayer({
             onAnimationComplete={() => isSuccess && onComplete?.()}
             style={{
               position: 'absolute',
-              top: '-10%',
-              left: '-10%',
-              width: '120%',
-              height: '120%',
+              inset: 0,
               backgroundColor: resolvedColor,
               display: 'flex',
               alignItems: 'center',
