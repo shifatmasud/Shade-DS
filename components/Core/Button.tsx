@@ -293,14 +293,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       {/* Smart Interaction Layers */}
       {!disabled && (
         <>
-          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 0 }}>
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 2 }}>
             <StateLayer 
               color={resolvedColor} 
               opacity={theme.opacity['Opacity.Hover']}
               parentRef={localRef}
             />
           </div>
-          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 0 }}>
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 2 }}>
             <RippleLayer 
               color={resolvedColor}
               opacity={theme.opacity['Opacity.Pressed']}
