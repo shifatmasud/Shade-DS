@@ -31,10 +31,9 @@ The top-level declaration of a component.
 - **animation**: Staging and execution of visual motion.
 
 ### RENDER
-- **view**: Structural UI layout.
-- **scene**: 3D spatial layout (R3F).
+- **Semantic HTML JSX tags**: Structural UI layout and low-level DOM nodes.
+- **R3F JSX tags**: 3D spatial layout (R3F) and Meshes.
 - **style**: Visual attribute declarations.
-- **element**: Low-level DOM nodes or Meshes.
 - **material**: Visual surface definitions for 3D.
 
 ---
@@ -51,11 +50,10 @@ The top-level declaration of a component.
 | `onClick`, `onPointerDown` | **EVENT** |
 | `useEffect`, `useFrame`, `useGSAP` | **EFFECT** |
 | Framer Motion / GSAP triggers | **ANIMATION** |
-| HTML / UI Components | **VIEW** |
-| Canvas / R3F Tree | **SCENE** |
+| HTML / UI Components, `div`, `text` | **SEMANTIC HTML JSX TAGS** |
+| Canvas / R3F Tree, `mesh` | **R3F JSX TAGS** |
 | JS Style Objects | **STYLE** |
 | `meshStandardMaterial` etc. | **MATERIAL** |
-| `div`, `mesh`, `text` | **ELEMENT** |
 
 ---
 
@@ -72,11 +70,11 @@ The top-level declaration of a component.
 **Example Tree**:
 ```
 Card
-└─ VIEW.container
-   ├─ ELEMENT.media
-   └─ VIEW.body
-      ├─ ELEMENT.title
-      └─ VIEW.footer
+└─ SEMANTIC_HTML.container
+   ├─ SEMANTIC_HTML.media
+   └─ SEMANTIC_HTML.body
+      ├─ SEMANTIC_HTML.title
+      └─ SEMANTIC_HTML.footer
          └─ BUTTON.action
 ```
 
