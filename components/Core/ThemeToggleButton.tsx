@@ -17,8 +17,8 @@ const ThemeToggleButton = () => {
 
   const toggleTheme = (e: React.MouseEvent<HTMLButtonElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = rect.width / 2;
-    const y = rect.height / 2;
+    const x = ((rect.left + rect.width / 2) / window.innerWidth) * 100;
+    const y = ((rect.top + rect.height / 2) / window.innerHeight) * 100;
 
     // Play sparkle for light mode, bloom for dark mode
     if (themeName === 'light') {
@@ -32,7 +32,7 @@ const ThemeToggleButton = () => {
         setThemeName(prev => (prev === 'light' ? 'dark' : 'light'));
       });
     }).new({ 
-      clipPath: [`circle(0% at ${x}px ${y}px)`, `circle(150% at ${x}px ${y}px)`],
+      clipPath: [`circle(0% at ${x}% ${y}%)`, `circle(150% at ${x}% ${y}%)`],
     }, { duration: 1.2, ease: "easeInOut" });
   };
   
