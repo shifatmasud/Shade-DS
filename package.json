@@ -17,6 +17,7 @@
     "@dimforge/rapier3d-compat": "^0.19.3",
     "@google/genai": "^2.10.0",
     "@gsap/react": "^2.1.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@react-three/postprocessing": "^3.0.4",
