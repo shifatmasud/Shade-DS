@@ -27,10 +27,41 @@ npx -y firecrawl-cli@latest init --all --browser
    firecrawl scrape https://amazon.com
    ```
 
+### Scrape Options
+
+| Option | Description |
+| :--- | :--- |
+| `-f, --format <formats>` | Output format(s), comma-separated |
+| `-H, --html` | Shortcut for `--format html` |
+| `-S, --summary` | Shortcut for `--format summary` |
+| `--only-main-content` | Extract only main content (removes navs, footers, etc.) |
+| `--wait-for <ms>` | Wait time before scraping (for JS-rendered content) |
+| `--screenshot` | Take a screenshot |
+| `--full-page-screenshot` | Take a full page screenshot |
+| `--include-tags <tags>` | Only include specific HTML tags |
+| `--exclude-tags <tags>` | Exclude specific HTML tags |
+| `--max-age <milliseconds>` | Maximum age of cached content in milliseconds |
+| `--lockdown` | Enable lockdown mode for the scrape |
+| `--redact-pii` | Redact personally identifiable information from output |
+| `--schema <json>` | JSON schema for structured extraction |
+| `--schema-file <path>` | Path to JSON schema file for structured extraction |
+| `--actions <json>` | JSON actions array to run during scrape |
+| `--actions-file <path>` | Path to JSON actions file |
+| `--proxy <proxy>` | Proxy mode for scraping (for example, auto, basic) |
+| `-o, --output <path>` | Save output to file |
+| `--json` | Output as JSON format |
+| `--pretty` | Pretty print JSON output |
+| `--timing` | Show request timing info |
+
 2. **Interact with the page**:
    ```bash
    firecrawl interact exec --prompt "Search for 'mechanical keyboard'"
    firecrawl interact exec --prompt "Click the first result"
+   ```
+
+3. **Close the interactive session (browser close)**:
+   ```bash
+   firecrawl interact stop
    ```
 
 ## API Key Management
