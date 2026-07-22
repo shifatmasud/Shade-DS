@@ -70,12 +70,12 @@ The top-level declaration of a component.
 **Example Tree**:
 ```
 Card
-└─ SEMANTIC_HTML.container
-   ├─ SEMANTIC_HTML.media
-   └─ SEMANTIC_HTML.body
-      ├─ SEMANTIC_HTML.title
-      └─ SEMANTIC_HTML.footer
-         └─ BUTTON.action
+└─ div.container
+   ├─ img.media
+   └─ div.body
+      ├─ h3.title
+      └─ footer.footer
+         └─ button.action
 ```
 
 ### DSL → Code (Generation Mode)
