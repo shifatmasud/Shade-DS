@@ -12,6 +12,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - **modern-web-guidance** (found in `/skills/modern-web-guidance/SKILL.md`): Activate when applying modern browser APIs, performance optimizations, accessibility audits, or advanced CSS layouts.
 - **parasitic-dom-binding** (found in `/skills/parasitic-dom-binding/SKILL.md`): Activate when creating "self-aware" components that bind directly to parent or sibling DOM nodes to augment UI behavior or rendering (e.g., RippleLayer, StateLayer, SuccessLayer).
 - **agent-debugging** (found in `/skills/agent-debugging/SKILL.md`): Activate when encountering bugs, errors, failing tests, regressions, or unexpected behavior to apply scientific debugging principles.
+- **3d-light-design** (found in `/skills/3d-light-design/SKILL.md`): Activate when designing or modifying 3D scene lighting, shadows, reflections, and ambient illumination.
 
 ## Core Identity
 - You MUST strictly follow the behavioral guidelines defined in [/GUIDE.md](/GUIDE.md).
