@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { flushSync } from 'react-dom';
-import { motion, AnimatePresence, animateView } from 'framer-motion';
+import { motion, AnimatePresence, animateView, useMotionValue } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import { playSound } from '../../services/soundService';
 
@@ -12,10 +12,59 @@ const ThemeToggleButton = () => {
   const { themeName, setThemeName, theme } = useTheme();
   const buttonRef = React.useRef<HTMLButtonElement>(null);
 
+  // High-performance MotionValues for zero-rerender absolute position tracking
+  const absoluteX = useMotionValue(0);
+  const absoluteY = useMotionValue(0);
+
+  // High-performance MotionValues for local drag offsets, ensuring exactly 0 offset on mount
+  const dragX = useMotionValue(0);
+  const dragY = useMotionValue(0);
+
+  // Initialize and track absolute center coordinates of the button
+  React.useEffect(() => {
+    const buttonEl = buttonRef.current;
+    if (!buttonEl) return;
+
+    const updateAbsolutePosition = () => {
+      const rect = buttonEl.getBoundingClientRect();
+      absoluteX.set(rect.left + rect.width / 2);
+      absoluteY.set(rect.top + rect.height / 2);
+    };
+
+    // Set initial position
+    updateAbsolutePosition();
+
+    // Attach listeners to window/viewport for live position tracking during drags
+    const handlePointerMove = () => {
+      updateAbsolutePosition();
+    };
+
+    const handlePointerDown = () => {
+      window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+    };
+
+    buttonEl.addEventListener('pointerdown', handlePointerDown, { passive: true });
+    window.addEventListener('pointerup', handlePointerUp, { passive: true });
+    window.addEventListener('resize', updateAbsolutePosition, { passive: true });
+    window.addEventListener('scroll', updateAbsolutePosition, { capture: true, passive: true });
+
+    return () => {
+      buttonEl.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('resize', updateAbsolutePosition);
+      window.removeEventListener('scroll', updateAbsolutePosition, { capture: true });
+    };
+  }, [absoluteX, absoluteY]);
+
   const toggleTheme = () => {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    const x = rect ? rect.left + rect.width / 2 : window.innerWidth * 0.9;
-    const y = rect ? rect.top + rect.height / 2 : window.innerHeight * 0.1;
+    // Get live position coordinates directly from motion values without layout thrashing
+    const x = absoluteX.get();
+    const y = absoluteY.get();
 
     // Play sparkle for light mode, bloom for dark mode
     if (themeName === 'light') {
@@ -70,7 +119,11 @@ const ThemeToggleButton = () => {
   return (
     <motion.button
       ref={buttonRef}
-      style={styles.button}
+      style={{
+        ...styles.button,
+        x: dragX,
+        y: dragY,
+      }}
       onClick={toggleTheme}
       aria-label={`Switch to ${themeName === 'light' ? 'dark' : 'light'} mode`}
       whileHover={{ scale: 1.1, boxShadow: theme.effects['Effect.Shadow.Drop.2'] }}
