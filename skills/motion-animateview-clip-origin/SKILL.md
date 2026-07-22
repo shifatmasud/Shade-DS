@@ -1,118 +1,270 @@
 ---
 name: motion-animateview-clip-origin
-description: Guide for debugging and fixing clip-path coordinate offsets in Framer Motion's animateView transitions.
+description: >
+  Debug and fix Framer Motion animateView clip-path transition origin offsets.
+  Handles viewport coordinate systems, DOM measurements, pointer events, and
+  fallback overlay strategies.
 ---
 
-# Motion animateView Clip Origin Debugging Skill
+# Motion animateView Clip Origin Skill
 
-## Problem Pattern
+## Objective
 
-When using Framer Motion's `animateView().new()` with CSS `clipPath` (e.g., `circle(0% at ${x}px ${y}px)`), the reveal animation may start from an incorrect origin (like the top-left of the screen or offset from the click/trigger location).
+Ensure radial clip-path transitions originate from the true trigger location.
 
-### Root Causes
-1. **Viewport Coordinate Space vs. Document Space**: `animateView().new()` animates snapshot-based View Transition pseudo-elements. The snapshot overlay exists in the viewport coordinate space.
-2. **Absolute/Fixed Positioning Conflict**: Passing local element-relative or scroll-uncompensated coordinates to a viewport-fixed animation layer causes major offsets.
-3. **Scroll Offsets**: Adding `window.scrollX` or `window.scrollY` inappropriately when the target is viewport-fixed, or failing to add them when the target is document-bound.
+Common symptoms:
+
+- Reveal starts from top-left corner
+- Reveal is shifted from button position
+- Works on desktop but breaks on scroll/mobile
+- Offset changes after resizing or zooming
 
 ---
 
-## Debugging and Resolution Strategy
+# Core Principle
 
-### Step 1: Use clientX / clientY for Direct Clicks
-If the transition is triggered by a pointer event (click, touch, mouse down), prefer using the pointer's viewport coordinates directly without adding any scroll offsets:
+`animateView().new()` operates on View Transition snapshots.
 
-```tsx
-const toggleTheme = (e: React.MouseEvent<HTMLButtonElement>) => {
-  const x = e.clientX;
-  const y = e.clientY;
+The snapshot layer is:
 
-  animateView(() => {
-    flushSync(() => {
-      setThemeState();
-    });
-  }).new({
-    clipPath: [
-      `circle(0% at ${x}px ${y}px)`,
-      `circle(150% at ${x}px ${y}px)`
-    ],
-  }, {
-    duration: 1.2,
-    ease: "easeInOut"
-  });
-};
+Viewport Coordinate Space
+
+Therefore transition origins must also be:
+
+Viewport Coordinate Space
+
+Never mix:
+
+Viewport pixels | Document pixels | Component-local pixels
+
+---
+
+# Coordinate Decision Tree
+
+## Case 1 — Direct Pointer Interaction
+
+Use when transition starts from:
+
+- click
+- pointerdown
+- touch event
+
+Preferred source:
+
+```ts
+event.clientX
+event.clientY
+```
+
+Because these are already viewport coordinates.
+
+Example:
+
+```ts
+const x = event.clientX;
+const y = event.clientY;
+```
+
+Do NOT:
+
+```ts
+x += window.scrollX;
+y += window.scrollY;
 ```
 
 ---
 
-### Step 2: Convert to Viewport Percentages (Highly Robust)
-If pixel coordinates result in offsets due to high-DPI scaling, browser zooms, nested layout bounds, or iframe containment, normalize the center of the triggering element to viewport-relative percentages. This is the most bulletproof way to animate coordinate-based clip paths on full-screen View Transition overlays:
+## Case 2 — Trigger Element Position
 
-```tsx
-const toggleTheme = (e: React.MouseEvent<HTMLButtonElement>) => {
-  const rect = e.currentTarget.getBoundingClientRect();
-  
-  // Normalize viewport coordinate to exact percentage
-  const x = ((rect.left + rect.width / 2) / window.innerWidth) * 100;
-  const y = ((rect.top + rect.height / 2) / window.innerHeight) * 100;
+Use when transition originates from a button/icon without pointer coordinates.
 
-  animateView(() => {
-    flushSync(() => {
-      setThemeState();
-    });
-  }).new({
-    clipPath: [
-      `circle(0% at ${x}% ${y}%)`,
-      `circle(150% at ${x}% ${y}%)`
-    ],
-  }, {
-    duration: 1.2,
-    ease: "easeInOut"
-  });
-};
+Measure:
+
+```ts
+const rect = element.getBoundingClientRect();
+
+const centerX = rect.left + rect.width / 2;
+const centerY = rect.top + rect.height / 2;
 ```
+
+Convert to viewport percentages:
+
+```ts
+const x = (centerX / window.innerWidth) * 100;
+const y = (centerY / window.innerHeight) * 100;
+```
+
+Use:
+
+```ts
+circle(0% at ${x}% ${y}%)
+```
+
+↓
+
+```ts
+circle(150% at ${x}% ${y}%)
+```
+
+Why percentages?
+
+They survive:
+
+- responsive resizing
+- browser zoom
+- viewport scaling
+- dynamic layouts
 
 ---
 
-### Step 3: Handle Scroll Compensation (When Document-Bound)
-If the Transition or target element layout is bound to the document's scrolling flow instead of the static viewport:
+## Case 3 — Document-Based Animation
 
-```tsx
-const rect = e.currentTarget.getBoundingClientRect();
+Only use scroll offsets when the animation surface itself follows document coordinates.
+
+Example:
+
+```ts
 const x = rect.left + rect.width / 2 + window.scrollX;
 const y = rect.top + rect.height / 2 + window.scrollY;
 ```
 
+Warning:
+
+Do not use this with:
+
+- fixed overlays
+- View Transition snapshots
+- viewport-sized transition layers
+
 ---
 
-### Step 4: Recommended Fallback (Custom Motion Overlay)
-If standard `animateView` does not respect the dynamic clip-path origins or breaks in specific mobile browsers, fall back to a high-performance, custom-positioned `<motion.div>` element acting as an overlay:
+# Debug Procedure
 
-```tsx
-// 1. Maintain local trigger coordinate state
-// 2. Render a fixed layout overlay
-<motion.div
-  initial={{ scale: 0 }}
-  animate={{ scale: calculatedDiagonal }}
-  style={{
-    position: "fixed",
-    left: x,
-    top: y,
-    transform: "translate(-50%, -50%)",
-    width: "100px",
-    height: "100px",
-    borderRadius: "50%",
-    backgroundColor: targetThemeColor,
-    pointerEvents: "none",
-    zIndex: 9999
-  }}
-/>
+## Step 1 — Identify coordinate space
+
+Ask:
+
+Where does the animated element live?
+
+Options:
+
+- **fixed viewport layer**: use client coordinates
+- **DOM element overlay**: use rect coordinates
+- **document canvas**: use scroll compensated coordinates
+
+---
+
+## Step 2 — Log coordinates
+
+Before animation:
+
+```ts
+console.table({
+  rect,
+  viewportWidth: window.innerWidth,
+  viewportHeight: window.innerHeight,
+  x,
+  y
+});
+```
+
+Expected:
+
+- x/y should match visual button location
+- origin should not be negative
+- origin should not exceed viewport bounds
+
+---
+
+## Step 3 — Clamp Values
+
+```ts
+const clamp = (v: number) => Math.min(Math.max(v, 0), 100);
+```
+
+Apply:
+
+```ts
+const x = clamp(normalizedX);
+const y = clamp(normalizedY);
 ```
 
 ---
 
-## Architectural Rules
+# Fallback Strategy
 
-- **Rule 1**: Never hardcode coordinate offsets when adjusting animations.
-- **Rule 2**: View Transition snapshots are viewport-based. Align coordinates with the viewport unless specifically building document-flow wrappers.
-- **Rule 3**: If percentage-based conversion does not align perfectly, switch immediately to a lightweight `<motion.div>` circle overlay to preserve perfect visual precision.
-- **Rule 4**: Ensure immediate visual interaction feedback on both desktop cursors and touch devices.
+If `animateView` ignores dynamic clip-path origins:
+
+Use a custom viewport-fixed overlay.
+
+Architecture:
+
+```
+Trigger
+   ↓
+Calculate center
+   ↓
+Render fixed circle
+   ↓
+Scale outward
+   ↓
+Remove
+```
+
+Example:
+
+```tsx
+<motion.div
+  style={{
+    position: "fixed",
+    left: x,
+    top: y,
+    translateX: "-50%",
+    translateY: "-50%"
+  }}
+/>
+```
+
+This gives absolute visual control.
+
+---
+
+# Anti Patterns
+
+### Wrong
+```ts
+rect.left + window.scrollX
+```
+when using viewport snapshots.
+
+Reason: viewport + document = wrong coordinate system.
+
+---
+
+### Wrong
+```ts
+circle(150% at 50% 50%)
+```
+when origin should follow a button.
+
+---
+
+### Wrong
+Measuring after state update. Always measure before:
+```ts
+flushSync()
+```
+
+---
+
+# Final Rule
+
+For Framer Motion View Transitions:
+
+Priority order:
+1. **Pointer event** → `clientX`/`clientY`
+2. **Element trigger** → `getBoundingClientRect()` → viewport %
+3. **Document canvas** → scroll compensated pixels
+4. **If unreliable** → custom fixed overlay
+
+Always animate inside the coordinate space you measured from.
