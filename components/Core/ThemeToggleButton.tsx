@@ -10,61 +10,15 @@ import { playSound } from '../../services/soundService';
 
 const ThemeToggleButton = () => {
   const { themeName, setThemeName, theme } = useTheme();
-  const buttonRef = React.useRef<HTMLButtonElement>(null);
 
-  // High-performance MotionValues for zero-rerender absolute position tracking
-  const absoluteX = useMotionValue(0);
-  const absoluteY = useMotionValue(0);
-
-  // High-performance MotionValues for local drag offsets, ensuring exactly 0 offset on mount
+  // High-performance MotionValue for local drag offsets, ensuring exactly 0 offset on mount
   const dragX = useMotionValue(0);
   const dragY = useMotionValue(0);
 
-  // Initialize and track absolute center coordinates of the button
-  React.useEffect(() => {
-    const buttonEl = buttonRef.current;
-    if (!buttonEl) return;
-
-    const updateAbsolutePosition = () => {
-      const rect = buttonEl.getBoundingClientRect();
-      absoluteX.set(rect.left + rect.width / 2);
-      absoluteY.set(rect.top + rect.height / 2);
-    };
-
-    // Set initial position
-    updateAbsolutePosition();
-
-    // Attach listeners to window/viewport for live position tracking during drags
-    const handlePointerMove = () => {
-      updateAbsolutePosition();
-    };
-
-    const handlePointerDown = () => {
-      window.addEventListener('pointermove', handlePointerMove, { passive: true });
-    };
-
-    const handlePointerUp = () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-    };
-
-    buttonEl.addEventListener('pointerdown', handlePointerDown, { passive: true });
-    window.addEventListener('pointerup', handlePointerUp, { passive: true });
-    window.addEventListener('resize', updateAbsolutePosition, { passive: true });
-    window.addEventListener('scroll', updateAbsolutePosition, { capture: true, passive: true });
-
-    return () => {
-      buttonEl.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('resize', updateAbsolutePosition);
-      window.removeEventListener('scroll', updateAbsolutePosition, { capture: true });
-    };
-  }, [absoluteX, absoluteY]);
-
-  const toggleTheme = () => {
-    // Get live position coordinates directly from motion values without layout thrashing
-    const x = absoluteX.get();
-    const y = absoluteY.get();
+  const toggleTheme = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.width / 2;
+    const y = rect.height / 2;
 
     // Play sparkle for light mode, bloom for dark mode
     if (themeName === 'light') {
@@ -118,7 +72,6 @@ const ThemeToggleButton = () => {
 
   return (
     <motion.button
-      ref={buttonRef}
       style={{
         ...styles.button,
         x: dragX,
