@@ -38,11 +38,12 @@ export default function SuccessLayer({
   const activeTarget = parentRef?.current || target;
   const rect = useHostRect(activeTarget);
   const resolvedColor = color || theme.Color.Success.Surface['1'];
-  const livePos = useRef({ x: '50%', y: '50%' });
-  const [instances, setInstances] = useState<Array<{ id: number; x: string; y: string }>>([]);
+  const livePos = useRef<{ x: number; y: number }>({ x: 50, y: 50 });
+  const [instances, setInstances] = useState<Array<{ id: number; x: number; y: number }>>([]);
 
-  // Calculate a safe radius that covers the entire button diagonal
-  const safeRadius = rect ? Math.hypot(rect.width, rect.height) : 500;
+  // Calculate a safe radius that covers the entire button diagonal with a safety multiplier (2.0x)
+  // matching the exact same math as the StateLayer's circle diameter boundary coverage
+  const safeRadius = rect ? Math.hypot(rect.width, rect.height) * 2 : 500;
 
   const updateLivePos = (clientX: number, clientY: number) => {
     if (!activeTarget) return;
@@ -50,42 +51,57 @@ export default function SuccessLayer({
     if (r.width === 0 || r.height === 0) return;
     
     livePos.current = { 
-      x: `${((clientX - r.left) / r.width) * 100}%`, 
-      y: `${((clientY - r.top) / r.height) * 100}%` 
+      x: ((clientX - r.left) / r.width) * 100, 
+      y: ((clientY - r.top) / r.height) * 100 
     };
   };
 
-  const addInstance = () => {
+  const addInstance = React.useCallback(() => {
     const id = Date.now() + Math.random();
-    const newInstance = { id, ...livePos.current };
+    const newInstance = { id, x: livePos.current.x, y: livePos.current.y };
     setInstances(prev => [...prev, newInstance]);
     
     // Success state duration is usually 2s, we shrink a bit before that
     setTimeout(() => {
       setInstances(prev => prev.filter(inst => inst.id !== id));
     }, 1200); 
-  };
+  }, []);
 
   // Memoize event handlers to prevent constant listener re-binding and ensure stable closures
   const handlers = React.useMemo(() => ({
-    pointermove: (e: PointerEvent) => updateLivePos(e.clientX, e.clientY),
-    pointerenter: (e: PointerEvent) => updateLivePos(e.clientX, e.clientY),
-    pointerdown: (e: PointerEvent) => updateLivePos(e.clientX, e.clientY),
-    mousedown: (e: MouseEvent) => updateLivePos(e.clientX, e.clientY),
+    pointermove: (e: PointerEvent) => {
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
+      updateLivePos(e.clientX, e.clientY);
+    },
+    pointerenter: (e: PointerEvent) => {
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
+      updateLivePos(e.clientX, e.clientY);
+    },
+    pointerdown: (e: PointerEvent) => {
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
+      updateLivePos(e.clientX, e.clientY);
+    },
+    mousedown: (e: MouseEvent) => {
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
+      updateLivePos(e.clientX, e.clientY);
+    },
     touchstart: (e: TouchEvent) => {
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
       if (e.touches[0]) updateLivePos(e.touches[0].clientX, e.touches[0].clientY);
     },
     touchmove: (e: TouchEvent) => {
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
       if (e.touches[0]) updateLivePos(e.touches[0].clientX, e.touches[0].clientY);
     },
     click: () => {
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
       // Subsequent ripples: only add if already in success state
       if (isSuccess) {
         addInstance();
         onComplete?.();
       }
     }
-  }), [isSuccess, addInstance, onComplete]);
+  }), [isSuccess, addInstance, onComplete, activeTarget]);
 
   useHostEvents(activeTarget, handlers);
 
@@ -109,6 +125,8 @@ export default function SuccessLayer({
       style={{
         position: 'absolute',
         inset: 0,
+        width: '100%',
+        height: '100%',
         overflow: 'hidden',
         pointerEvents: 'none',
         zIndex,
@@ -120,13 +138,15 @@ export default function SuccessLayer({
         {instances.map((instance) => (
           <motion.div
             key={instance.id}
-            initial={{ clipPath: `circle(0px at ${instance.x} ${instance.y})` }}
-            animate={{ clipPath: `circle(${safeRadius}px at ${instance.x} ${instance.y})` }}
-            exit={{ clipPath: `circle(0px at ${instance.x} ${instance.y})` }}
+            initial={{ clipPath: `circle(0px at ${instance.x}% ${instance.y}%)` }}
+            animate={{ clipPath: `circle(${safeRadius}px at ${instance.x}% ${instance.y}%)` }}
+            exit={{ clipPath: `circle(0px at ${instance.x}% ${instance.y}%)` }}
             transition={{ type: 'spring', stiffness: 80, damping: 24, mass: 1 }}
             style={{
               position: 'absolute',
               inset: -1, // Overfill by 1px to prevent micro-gaps at button edges
+              width: 'calc(100% + 2px)',
+              height: 'calc(100% + 2px)',
               backgroundColor: resolvedColor,
               display: 'flex',
               alignItems: 'center',
