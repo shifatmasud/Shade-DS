@@ -175,283 +175,302 @@ Inside the target file:
   };
 
   return (
-    <div style={{ backgroundColor: theme.Color.Base.Surface[1], height: '100%', overflowY: 'auto' }}>
-      {/* Hero Header */}
-      <div style={{ 
-        padding: theme.space['Space.XL'], 
-        textAlign: 'center',
-        background: `linear-gradient(180deg, ${theme.Color.Base.Surface[2]} 0%, ${theme.Color.Base.Surface[1]} 100%)`,
-        borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`,
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        > 
-          <h1 style={{ ...theme.Type.Expressive.Display.L, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.S'] }}>
-            SYSTEM SPEC
-          </h1>
-          <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[3], maxWidth: theme.space['Space.Panel.Width'] || '400px', margin: '0 auto' }}>
-            The fundamental laws governing the creation of this digital artifact.
-          </p>
-        </motion.div>
+    <div style={{ 
+      backgroundColor: theme.Color.Base.Surface[1], 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      overflow: 'hidden' 
+    }}>
+      {/* Hero Header (Fixed) */}
+      <header style={{ flexShrink: 0 }}>
+        <div style={{ 
+          padding: theme.space['Space.XL'], 
+          textAlign: 'center',
+          background: `linear-gradient(180deg, ${theme.Color.Base.Surface[2]} 0%, ${theme.Color.Base.Surface[1]} 100%)`,
+          borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`,
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          > 
+            <h1 style={{ ...theme.Type.Expressive.Display.L, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.S'] }}>
+              SYSTEM SPEC
+            </h1>
+            <p style={{ ...theme.Type.Readable.Body.M, color: theme.Color.Base.Content[3], maxWidth: theme.space['Space.Panel.Width'] || '400px', margin: '0 auto' }}>
+              The fundamental laws governing the creation of this digital artifact.
+            </p>
+          </motion.div>
 
-        {/* Abstract SVG Animation */}
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.1 }}>
-          <svg width="100%" height="100%" viewBox="0 0 400 200">
-            <motion.circle
-              cx="200"
-              cy="100"
-              r="80"
-              fill="none"
-              stroke={theme.Color.Base.Content[1]}
-              strokeWidth="1px"
-              animate={{ 
-                r: [80, 100, 80],
-                opacity: [0.5, 1, 0.5]
-              }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.path
-              d="M 100 100 Q 200 0 300 100"
-              fill="none"
-              stroke={theme.Color.Base.Content[1]}
-              strokeWidth={theme.border['Border.Width.Hairline'] || '0.5px'}
-              animate={{ d: ["M 100 100 Q 200 0 300 100", "M 100 100 Q 200 200 300 100", "M 100 100 Q 200 0 300 100"] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </svg>
+          {/* Abstract SVG Animation */}
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.1 }}>
+            <svg width="100%" height="100%" viewBox="0 0 400 200">
+              <motion.circle
+                cx="200"
+                cy="100"
+                r="80"
+                fill="none"
+                stroke={theme.Color.Base.Content[1]}
+                strokeWidth="1px"
+                animate={{ 
+                  r: [80, 100, 80],
+                  opacity: [0.5, 1, 0.5]
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.path
+                d="M 100 100 Q 200 0 300 100"
+                fill="none"
+                stroke={theme.Color.Base.Content[1]}
+                strokeWidth={theme.border['Border.Width.Hairline'] || '0.5px'}
+                animate={{ d: ["M 100 100 Q 200 0 300 100", "M 100 100 Q 200 200 300 100", "M 100 100 Q 200 0 300 100"] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </svg>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Core Rules */}
-      <section style={sectionStyle}>
-        <div style={headerStyle}>
-          <AnimatedCheckIcon size={20} />
-          CORE RULES
-        </div>
-        <ul style={listStyle}>
-          {[
-            "Hide complexity until desired.",
-            "Write Compact Helpful copy (max 3 lines, 40–80 chars per line, EL5 mode).",
-            "One primary focus at a time.",
-            "Design Adaptive always (adapt to any device).",
-            "Prioritize Stability > Performance > Usability > Aesthetic."
-          ].map((rule, i) => (
-            <motion.li 
-              key={i} 
-              style={itemStyle}
-              initial={{ opacity: 0, x: -10 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
-            >
-              <span style={{ color: theme.Color.Base.Content[1], fontWeight: 600 }}>{i + 1}.</span>
-              {rule}
-            </motion.li>
-          ))}
-        </ul>
-      </section>
+      {/* Main Content (Scrollable) */}
+      <main style={{ flex: 1, overflowY: 'auto' }}>
+        {/* Core Rules */}
+        <section style={sectionStyle}>
+          <div style={headerStyle}>
+            <AnimatedCheckIcon size={20} />
+            CORE RULES
+          </div>
+          <ul style={listStyle}>
+            {[
+              "Hide complexity until desired.",
+              "Write Compact Helpful copy (max 3 lines, 40–80 chars per line, EL5 mode).",
+              "One primary focus at a time.",
+              "Design Adaptive always (adapt to any device).",
+              "Prioritize Stability > Performance > Usability > Aesthetic."
+            ].map((rule, i) => (
+              <motion.li 
+                key={i} 
+                style={itemStyle}
+                initial={{ opacity: 0, x: -10 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <span style={{ color: theme.Color.Base.Content[1], fontWeight: 600 }}>{i + 1}.</span>
+                {rule}
+              </motion.li>
+            ))}
+          </ul>
+        </section>
 
-      {/* Execution Rules */}
-      <section style={sectionStyle}>
-        <div style={headerStyle}>
-          <Play size={20} weight="bold" />
-          EXECUTION RULES
-        </div>
-        <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, opacity: 0.7 }}>Before any task, generate:</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: theme.space['Space.S'] }}>
-          {[
-            { label: 'Summary', icon: <FileText size={24} /> },
-            { label: 'Architecture', icon: <Stack size={24} /> },
-            { label: 'Action List', icon: <Target size={24} /> }
-          ].map((item, i) => (
-            <motion.div 
-              key={i}
-              style={{ 
-                backgroundColor: theme.Color.Base.Surface[2], 
-                padding: theme.space['Space.M'], 
-                borderRadius: theme.radius['Radius.M'],
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: theme.space['Space.S'],
-                textAlign: 'center'
-              }}
-              whileHover={{ scale: 1.05, backgroundColor: theme.Color.Base.Surface[3] }}
-            >
-              <div style={{ color: theme.Color.Base.Content[1] }}>{item.icon}</div>
-              <div style={{ ...theme.Type.Readable.Label.M }}>{item.label}</div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Engineering Rules */}
-      <section style={sectionStyle}>
-        <div style={headerStyle}>
-          <Wrench size={20} weight="bold" />
-          ENGINEERING RULES
-        </div>
-        <ul style={listStyle}>
-          {[
-            { text: "No Tailwind. Use JS style object.", icon: <Lightning size={16} /> },
-            { text: "Always apply typography via object spread (...theme.Type).", icon: <TextT size={16} /> },
-            { text: "No CSS keyframes. Use Framer Motion.", icon: <Cube size={16} /> },
-            { text: "GSAP only for Three.js & external timelines.", icon: <Play size={16} /> },
-            { text: "Mobile gestures replace hover.", icon: <DeviceMobile size={16} /> },
-            { text: "No native OS UI components.", icon: <Layout size={16} /> },
-            { text: "Modular Components folder structure.", icon: <Stack size={16} /> },
-            { text: "Always strictly follow and use design tokens from Theme.tsx.", icon: <Palette size={16} /> },
-            { text: "Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer", icon: <Lightning size={16} /> }
-          ].map((rule, i) => (
-            <motion.li 
-              key={i} 
-              style={itemStyle}
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <div style={{ color: theme.Color.Base.Content[3], marginTop: '2px' }}>{rule.icon}</div>
-              {rule.text}
-            </motion.li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Design Rules */}
-      <section style={sectionStyle}>
-        <div style={headerStyle}>
-          <Palette size={20} weight="bold" />
-          DESIGN RULES
-        </div>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
-          {/* Typography */}
-          <div>
-            <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              <TextT size={16} /> Typography
-            </div>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(2, 1fr)', 
-              gap: theme.space['Space.S'],
-              marginTop: theme.space['Space.2XS'] 
-            }}>
-              {[
-                { role: 'Hero', font: 'Bebas Neue', style: { ...theme.Type.Expressive.Headline.S } },
-                { role: 'Body', font: 'Inter', style: { ...theme.Type.Readable.Body.M } },
-                { role: 'Data', font: 'JetBrains Mono', style: { ...theme.Type.Expressive.Data } },
-                { role: 'Quotes', font: 'Cause', style: { ...theme.Type.Expressive.Quote, fontStyle: 'italic' } },
-              ].map((item, i) => (
-                <div key={i} style={{ 
-                  backgroundColor: theme.Color.Base.Surface[2],
-                  padding: theme.space['Space.M'],
+        {/* Execution Rules */}
+        <section style={sectionStyle}>
+          <div style={headerStyle}>
+            <Play size={20} weight="bold" />
+            EXECUTION RULES
+          </div>
+          <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, opacity: 0.7 }}>Before any task, generate:</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: theme.space['Space.S'] }}>
+            {[
+              { label: 'Summary', icon: <FileText size={24} /> },
+              { label: 'Architecture', icon: <Stack size={24} /> },
+              { label: 'Action List', icon: <Target size={24} /> }
+            ].map((item, i) => (
+              <motion.div 
+                key={i}
+                style={{ 
+                  backgroundColor: theme.Color.Base.Surface[2], 
+                  padding: theme.space['Space.M'], 
                   borderRadius: theme.radius['Radius.M'],
-                  ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: theme.space['Space.2XS']
-                }}>
-                  <div style={{ ...itemStyle, ...theme.Type.Readable.Label.S, opacity: 0.5, textTransform: 'uppercase' }}>{item.role}</div>
-                  <div style={{ ...itemStyle, ...item.style, color: theme.Color.Base.Content[1] }}>{item.font}</div>
+                  alignItems: 'center',
+                  gap: theme.space['Space.S'],
+                  textAlign: 'center'
+                }}
+                whileHover={{ scale: 1.05, backgroundColor: theme.Color.Base.Surface[3] }}
+              >
+                <div style={{ color: theme.Color.Base.Content[1] }}>{item.icon}</div>
+                <div style={{ ...theme.Type.Readable.Label.M }}>{item.label}</div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* Engineering Rules */}
+        <section style={sectionStyle}>
+          <div style={headerStyle}>
+            <Wrench size={20} weight="bold" />
+            ENGINEERING RULES
+          </div>
+          <ul style={listStyle}>
+            {[
+              { text: "No Tailwind. Use JS style object.", icon: <Lightning size={16} /> },
+              { text: "Always apply typography via object spread (...theme.Type).", icon: <TextT size={16} /> },
+              { text: "No CSS keyframes. Use Framer Motion.", icon: <Cube size={16} /> },
+              { text: "GSAP only for Three.js & external timelines.", icon: <Play size={16} /> },
+              { text: "Mobile gestures replace hover.", icon: <DeviceMobile size={16} /> },
+              { text: "No native OS UI components.", icon: <Layout size={16} /> },
+              { text: "Modular Components folder structure.", icon: <Stack size={16} /> },
+              { text: "Always strictly follow and use design tokens from Theme.tsx.", icon: <Palette size={16} /> },
+              { text: "Reactive Architecture: [Realtime API] & Events → FSM → Event Bus → Store → Observer → Renderer", icon: <Lightning size={16} /> }
+            ].map((rule, i) => (
+              <motion.li 
+                key={i} 
+                style={itemStyle}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <div style={{ color: theme.Color.Base.Content[3], marginTop: '2px' }}>{rule.icon}</div>
+                {rule.text}
+              </motion.li>
+            ))}
+          </ul>
+        </section>
+
+        {/* Design Rules */}
+        <section style={sectionStyle}>
+          <div style={headerStyle}>
+            <Palette size={20} weight="bold" />
+            DESIGN RULES
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.L'] }}>
+            {/* Typography */}
+            <div>
+              <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                <TextT size={16} /> Typography
+              </div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(2, 1fr)', 
+                gap: theme.space['Space.S'],
+                marginTop: theme.space['Space.2XS'] 
+              }}>
+                {[
+                  { role: 'Hero', font: 'Bebas Neue', style: { ...theme.Type.Expressive.Headline.S } },
+                  { role: 'Body', font: 'Inter', style: { ...theme.Type.Readable.Body.M } },
+                  { role: 'Data', font: 'JetBrains Mono', style: { ...theme.Type.Expressive.Data } },
+                  { role: 'Quotes', font: 'Cause', style: { ...theme.Type.Expressive.Quote, fontStyle: 'italic' } },
+                ].map((item, i) => (
+                  <div key={i} style={{ 
+                    backgroundColor: theme.Color.Base.Surface[2],
+                    padding: theme.space['Space.M'],
+                    borderRadius: theme.radius['Radius.M'],
+                    ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: theme.space['Space.2XS']
+                  }}>
+                    <div style={{ ...itemStyle, ...theme.Type.Readable.Label.S, opacity: 0.5, textTransform: 'uppercase' }}>{item.role}</div>
+                    <div style={{ ...itemStyle, ...item.style, color: theme.Color.Base.Content[1] }}>{item.font}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tokens */}
+            <div>
+              <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                <Target size={16} /> Tokens
+              </div>
+              <code style={dataStyle}>Category.Purpose.Context.Level</code>
+              <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, marginTop: theme.space['Space.2XS'] }}>Never use literal values.</p>
+            </div>
+
+            {/* Motion */}
+            <div>
+              <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                <Lightning size={16} /> Motion
+              </div>
+              <div style={{ display: 'flex', gap: theme.space['Space.XL'] }}>
+                <div>
+                  <div style={{ ...theme.Type.Readable.Label.S, opacity: 0.5 }}>BASE</div>
+                  <div style={{ ...theme.Type.Readable.Body.L }}>100ms</div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Tokens */}
-          <div>
-            <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              <Target size={16} /> Tokens
-            </div>
-            <code style={dataStyle}>Category.Purpose.Context.Level</code>
-            <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, marginTop: theme.space['Space.2XS'] }}>Never use literal values.</p>
-          </div>
-
-          {/* Motion */}
-          <div>
-            <div style={{ ...itemStyle, fontWeight: 600, marginBottom: theme.space['Space.S'], ...theme.Type.Readable.Label.M, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              <Lightning size={16} /> Motion
-            </div>
-            <div style={{ display: 'flex', gap: theme.space['Space.XL'] }}>
-              <div>
-                <div style={{ ...theme.Type.Readable.Label.S, opacity: 0.5 }}>BASE</div>
-                <div style={{ ...theme.Type.Readable.Body.L }}>100ms</div>
-              </div>
-              <div>
-                <div style={{ ...theme.Type.Readable.Label.S, opacity: 0.5 }}>DEFAULT</div>
-                <div style={{ ...theme.Type.Readable.Body.L }}>300ms</div>
+                <div>
+                  <div style={{ ...theme.Type.Readable.Label.S, opacity: 0.5 }}>DEFAULT</div>
+                  <div style={{ ...theme.Type.Readable.Body.L }}>300ms</div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Documentation Rules */}
-      <section style={sectionStyle}>
-        <div style={headerStyle}>
-          <FileText size={20} weight="bold" />
-          DOCUMENTATION RULES
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.S'] }}>
-          {['README.md', 'noteBook.md', 'bugReport.md'].map((file, i) => (
-            <div key={i} style={{ ...itemStyle, alignItems: 'center' }}>
-              <div style={{ width: theme.space['Space.S'], height: theme.space['Space.S'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[1] }} />
-              {file}
-            </div>
-          ))}
-        </div>
-        <div style={quoteStyle}>
-          "Never overwrite previous entries."
-        </div>
-      </section>
+        {/* Documentation Rules */}
+        <section style={sectionStyle}>
+          <div style={headerStyle}>
+            <FileText size={20} weight="bold" />
+            DOCUMENTATION RULES
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.S'] }}>
+            {['README.md', 'noteBook.md', 'bugReport.md'].map((file, i) => (
+              <div key={i} style={{ ...itemStyle, alignItems: 'center' }}>
+                <div style={{ width: theme.space['Space.S'], height: theme.space['Space.S'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[1] }} />
+                {file}
+              </div>
+            ))}
+          </div>
+          <div style={quoteStyle}>
+            "Never overwrite previous entries."
+          </div>
+        </section>
 
-      {/* Safety Rules */}
-      <section style={sectionStyle}>
-        <div style={headerStyle}>
-          <AnimatedCheckIcon size={20} />
-          SAFETY RULES
-        </div>
-        <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, opacity: 0.7 }}>When change, write, update code (inside target file):</p>
-        <ul style={listStyle}>
-          {[
-            "Track errors.",
-            "Add tiny comments.",
-            "Explain what changed.",
-            "Keep code clean.",
-            "Touch only needed code."
-          ].map((rule, i) => (
-            <motion.li 
-              key={i} 
-              style={itemStyle}
-              initial={{ opacity: 0, x: 10 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <div style={{ color: theme.Color.Base.Content[1], fontWeight: 600 }}>{i + 1}.</div>
-              {rule}
-            </motion.li>
-          ))}
-        </ul>
-      </section>
+        {/* Safety Rules */}
+        <section style={sectionStyle}>
+          <div style={headerStyle}>
+            <AnimatedCheckIcon size={20} />
+            SAFETY RULES
+          </div>
+          <p style={{ ...itemStyle, ...theme.Type.Readable.Body.S, opacity: 0.7 }}>When change, write, update code (inside target file):</p>
+          <ul style={listStyle}>
+            {[
+              "Track errors.",
+              "Add tiny comments.",
+              "Explain what changed.",
+              "Keep code clean.",
+              "Touch only needed code."
+            ].map((rule, i) => (
+              <motion.li 
+                key={i} 
+                style={itemStyle}
+                initial={{ opacity: 0, x: 10 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <div style={{ color: theme.Color.Base.Content[1], fontWeight: 600 }}>{i + 1}.</div>
+                {rule}
+              </motion.li>
+            ))}
+          </ul>
+        </section>
+      </main>
 
-      {/* Footer Actions */}
-      <motion.div style={{ padding: theme.space['Space.XL'], display: 'flex', justifyContent: 'center' }}>
+      {/* Footer Actions (Fixed) */}
+      <footer style={{ 
+        flexShrink: 0,
+        padding: theme.space['Space.XL'], 
+        paddingBottom: `calc(${theme.space['Space.XL']} + 12px)`, // Clearance for resize handle
+        display: 'flex', 
+        justifyContent: 'center',
+        borderTop: `1px solid ${theme.Color.Base.Surface[3]}`,
+        background: theme.Color.Base.Surface[1],
+        zIndex: 1
+      }}>
         <Button
-                  onClick={handleCopy}
-                  variant="primary"
-                  size="M"
-                  enableSuccess={true}
-                  icon={<Copy size={18} />}
-                  style={{ marginTop: theme.space['Space.M'] }}
-                >
-                   COPY AS MARKDOWN
-       </Button>
-       
-    
-      </motion.div>
+          onClick={handleCopy}
+          variant="primary"
+          size="M"
+          enableSuccess={true}
+          successLabel="COPIED TO CLIPBOARD"
+          icon={<Copy size={18} />}
+          style={{ maxWidth: 320 }}
+        >
+          COPY AS MARKDOWN
+        </Button>
+      </footer>
     </div>
   );
 };

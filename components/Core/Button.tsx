@@ -137,19 +137,23 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
 
   const getButtonShadow = () => {
+    // Standardize to 2 layers to prevent transition "snapping"
+    const emptyShadow = '0 0 0 rgba(0,0,0,0)';
+    
     if (isSuccess && showGlow) {
       return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`;
     }
+
     switch (variant) {
       case 'primary':
-        return theme.effects['Effect.Shadow.Drop.1'];
+        return `${theme.effects['Effect.Shadow.Drop.1']}, ${emptyShadow}`;
       case 'destructive':
-        return `0 0 1px 0px ${theme.Color.Error.Content['1']}, inset 0 0 1px 0px ${theme.Color.Error.Content['1']}, ${theme.effects['Effect.Shadow.Drop.1']}`;
+        return `0 0 1px 0px ${theme.Color.Error.Content['1']}, ${theme.effects['Effect.Shadow.Drop.1']}`;
       case 'outline':
       case 'secondary':
       case 'tertiary':
       default:
-        return 'none';
+        return `${emptyShadow}, ${emptyShadow}`;
     }
   };
 
@@ -209,7 +213,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     opacity: disabled ? theme.opacity['Opacity.Disabled'] : 1,
     overflow: 'hidden',
     userSelect: 'none',
-    transition: 'background-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
     boxShadow: getButtonShadow(),
     isolation: 'isolate',
     // GESTURE LOCKUP FIX: Keep pointerEvents as 'auto' during success to allow the browser and Framer Motion to receive pointerup/mouseup events, preventing UI freeze.
@@ -246,7 +249,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       type={type}
       whileHover={disabled ? undefined : (whileHover || { scale: 1.02, y: -1 })}
       whileTap={disabled ? undefined : (whileTap || { scale: 0.98, y: 0 })}
-      animate={animate}
+      animate={{
+        boxShadow: getButtonShadow(),
+        ...(animate || {})
+      }}
       transition={transition || { type: 'spring', stiffness: 400, damping: 30 }}
       onClick={handleClick}
       onPointerEnter={(e) => { if (!disabled && e.pointerType !== 'touch') playSound('whisper', 0.5); }}

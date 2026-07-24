@@ -26,8 +26,13 @@ export const useHost = (ref: RefObject<HTMLElement | null>, mode: 'parent' | 'si
     }
       
     // Framer Detection Fallback: Move to grandparent if parent is a wrapper
-    if (mode === 'parent' && target && (target.hasAttribute('data-framer-component-type') || target.hasAttribute('data-framer-generated'))) {
-       target = target.parentElement;
+    if (mode === 'parent' && target) {
+      const isFramerWrapper = target.hasAttribute('data-framer-component-type') || target.hasAttribute('data-framer-generated');
+      const isTransparent = window.getComputedStyle(target).pointerEvents === 'none';
+      
+      if (isFramerWrapper || isTransparent) {
+        target = target.parentElement;
+      }
     }
     
     setHost(target);

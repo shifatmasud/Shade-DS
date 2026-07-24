@@ -96,6 +96,10 @@ Ensure all animations adhere to the core principle of physical predictability:
 - Rule: Instant transitions or simple opacity-only transitions are strictly forbidden for content swaps.
 - Animate surface color change with mask slide.
 
+## Interpolation & Tooling Rules
+- **Shadow Interpolation**: You MUST maintain a constant number of shadow layers across all animation states to ensure smooth interpolation. Use transparent placeholders (`0 0 0 rgba(0,0,0,0)`) for "empty" layers instead of removing them to prevent browser "snapping".
+- **No CSS Transitions**: You are strictly forbidden from using the CSS `transition` property. All property interpolations must be handled via Framer Motion's `animate` prop to guarantee reliable multi-layer value transition.
+
 ## Safety Rules
 ### File-Level Safety Protocols
 When modifying, writing, or updating code, you MUST follow these standards within the target file:
