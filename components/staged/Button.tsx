@@ -68,13 +68,10 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
 
   // SAFE TIMEOUT CLEANUP: Automatically reset success state after 2 seconds
   React.useEffect(() => {
-    if (!isSuccess) {
-      setShowGlow(false);
-    }
     return () => {
       if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
     };
-  }, [isSuccess]);
+  }, []);
 
   // 3D Layer Transforms
   const defaultLayerSpacing = useMotionValue(0);
@@ -159,7 +156,8 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
   const getButtonShadow = (state: 'idle' | 'hover' | 'active' | 'disabled') => {
     const empty = '0 0 0 rgba(0,0,0,0)';
     
-    if (isSuccess && showGlow) {
+    // Maintain glow as long as showGlow is true OR isSuccess is true
+    if (isSuccess || showGlow) {
       return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}, ${empty}, ${empty}`;
     }
 
@@ -189,7 +187,7 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
       drop = `${theme.effects['Effect.Shadow.Drop.1']}, ${empty}`;
     }
 
-    return `${b1}, ${b2}, ${drop}`;
+    return `${b1}, ${b2}, ${drop}, ${empty}`;
   };
 
   const getVariantStyles = () => {
@@ -311,11 +309,12 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
     const shadowActive = getButtonShadow('active');
     const shadowDisabled = getButtonShadow('disabled');
 
-    if (isSuccess) {
+    // Success or transition state
+    if (isSuccess || showGlow) {
       return {
         y: 0,
         scale: 1,
-        boxShadow: getButtonShadow('idle'), // SuccessLayer handles success visual, but we keep shadow layers consistent
+        boxShadow: shadowIdle, 
       };
     }
     if (disabled) return { y: 0, scale: 1, boxShadow: shadowDisabled };
@@ -345,6 +344,8 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
         boxShadow: shadowIdle
     };
   };
+
+  const handleSuccessComplete = React.useCallback(() => setShowGlow(true), []);
 
   return (
     <motion.button
@@ -440,7 +441,8 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
           isSuccess={isSuccess}
           label={successLabel}
           size={size}
-          onComplete={() => setShowGlow(true)}
+          onComplete={handleSuccessComplete}
+          onExitComplete={() => setShowGlow(false)}
           zIndex={100}
           parentRef={localRef}
         />

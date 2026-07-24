@@ -88,13 +88,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   };
 
   React.useEffect(() => {
-    if (!isSuccess) {
-      setShowGlow(false);
-    }
     return () => {
       if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
     };
-  }, [isSuccess]);
+  }, []);
 
   // Simple, elegant motion value handler for blank states
   const useResolvedMotionValue = (prop: any, fallback: string): any => {
@@ -140,7 +137,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     // Standardize to 2 layers to prevent transition "snapping"
     const emptyShadow = '0 0 0 rgba(0,0,0,0)';
     
-    if (isSuccess && showGlow) {
+    // Maintain glow as long as showGlow is true OR isSuccess is true
+    if (isSuccess || showGlow) {
       return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`;
     }
 
@@ -236,6 +234,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     return iconProp;
   };
 
+  const handleSuccessComplete = React.useCallback(() => setShowGlow(true), []);
+
   return (
     <motion.button
       ref={localRef}
@@ -322,7 +322,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         label={successLabel}
         size={size}
         zIndex={10}
-        onComplete={() => setShowGlow(true)}
+        onComplete={handleSuccessComplete}
+        onExitComplete={() => setShowGlow(false)}
         parentRef={localRef}
       />
     </motion.button>

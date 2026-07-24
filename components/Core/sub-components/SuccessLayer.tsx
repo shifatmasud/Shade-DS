@@ -11,6 +11,7 @@ export interface SuccessLayerProps {
   label?: string;
   size?: 'S' | 'M' | 'L';
   onComplete?: () => void;
+  onExitComplete?: () => void;
   zIndex?: number;
   mode?: 'parent' | 'sibling';
   parentRef?: React.RefObject<any>;
@@ -26,6 +27,7 @@ export default function SuccessLayer({
   label = 'Success!',
   size = 'M',
   onComplete,
+  onExitComplete,
   zIndex = 0, 
   mode = 'parent',
   parentRef,
@@ -60,7 +62,8 @@ export default function SuccessLayer({
     }, 1200); 
   };
 
-  useHostEvents(activeTarget, {
+  // Memoize event handlers to prevent constant listener re-binding and ensure stable closures
+  const handlers = React.useMemo(() => ({
     pointermove: (e: PointerEvent) => updateLivePos(e.clientX, e.clientY),
     pointerenter: (e: PointerEvent) => updateLivePos(e.clientX, e.clientY),
     pointerdown: (e: PointerEvent) => updateLivePos(e.clientX, e.clientY),
@@ -72,18 +75,24 @@ export default function SuccessLayer({
       if (e.touches[0]) updateLivePos(e.touches[0].clientX, e.touches[0].clientY);
     },
     click: () => {
-      if (activeTarget?.getAttribute('data-success') === 'true' || isSuccess) {
+      // Subsequent ripples: only add if already in success state
+      if (isSuccess) {
         addInstance();
         onComplete?.();
       }
     }
-  });
+  }), [isSuccess, addInstance, onComplete]);
+
+  useHostEvents(activeTarget, handlers);
 
   // Handle the first trigger if it didn't come from a click (e.g. programmatically)
   const lastIsSuccess = useRef(false);
   useEffect(() => {
     if (isSuccess && !lastIsSuccess.current) {
       addInstance();
+      // RELIABLE GLOW TRIGGER: Ensure the glow (shadow) starts as soon as success is detected.
+      // This bypasses the timing issues of native click listeners.
+      onComplete?.();
     } else if (!isSuccess && lastIsSuccess.current) {
       setInstances([]);
     }
@@ -103,7 +112,7 @@ export default function SuccessLayer({
       }}
       data-success-layer
     >
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={onExitComplete}>
         {instances.map((instance) => (
           <motion.div
             key={instance.id}
