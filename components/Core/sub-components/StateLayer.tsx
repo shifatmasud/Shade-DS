@@ -52,24 +52,27 @@ export default function StateLayer({
     },
     pointerleave: () => setIsActive(false),
     pointermove: (e: PointerEvent) => {
-      if (!rect || activeTarget?.getAttribute('disabled') !== null) return;
-      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
+      const r = activeTarget.getBoundingClientRect();
+      setMousePos({ x: e.clientX - r.left, y: e.clientY - r.top });
     },
     touchmove: (e: TouchEvent) => {
-      if (!rect || activeTarget?.getAttribute('disabled') !== null) return;
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
       if (e.cancelable) e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-        const isInside = x >= 0 && x <= rect.width && y >= 0 && y <= rect.height;
+        const r = activeTarget.getBoundingClientRect();
+        const x = touch.clientX - r.left;
+        const y = touch.clientY - r.top;
+        const isInside = x >= 0 && x <= r.width && y >= 0 && y <= r.height;
         setIsActive(isInside);
         if (isInside) setMousePos({ x, y });
       }
     },
     pointerdown: (e: PointerEvent) => {
-      if (!rect || activeTarget?.getAttribute('disabled') !== null) return;
-      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      if (!activeTarget || activeTarget.getAttribute('disabled') !== null) return;
+      const r = activeTarget.getBoundingClientRect();
+      setMousePos({ x: e.clientX - r.left, y: e.clientY - r.top });
     }
   });
 

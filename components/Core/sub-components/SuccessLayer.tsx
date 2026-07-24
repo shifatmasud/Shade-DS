@@ -36,18 +36,22 @@ export default function SuccessLayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const target = useHost(containerRef, mode);
   const activeTarget = parentRef?.current || target;
+  const rect = useHostRect(activeTarget);
   const resolvedColor = color || theme.Color.Success.Surface['1'];
   const livePos = useRef({ x: '50%', y: '50%' });
   const [instances, setInstances] = useState<Array<{ id: number; x: string; y: string }>>([]);
 
+  // Calculate a safe radius that covers the entire button diagonal
+  const safeRadius = rect ? Math.hypot(rect.width, rect.height) : 500;
+
   const updateLivePos = (clientX: number, clientY: number) => {
     if (!activeTarget) return;
-    const rect = activeTarget.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+    const r = activeTarget.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return;
     
     livePos.current = { 
-      x: `${((clientX - rect.left) / rect.width) * 100}%`, 
-      y: `${((clientY - rect.top) / rect.height) * 100}%` 
+      x: `${((clientX - r.left) / r.width) * 100}%`, 
+      y: `${((clientY - r.top) / r.height) * 100}%` 
     };
   };
 
@@ -116,13 +120,13 @@ export default function SuccessLayer({
         {instances.map((instance) => (
           <motion.div
             key={instance.id}
-            initial={{ clipPath: `circle(0% at ${instance.x} ${instance.y})` }}
-            animate={{ clipPath: `circle(150% at ${instance.x} ${instance.y})` }}
-            exit={{ clipPath: `circle(0% at ${instance.x} ${instance.y})` }}
+            initial={{ clipPath: `circle(0px at ${instance.x} ${instance.y})` }}
+            animate={{ clipPath: `circle(${safeRadius}px at ${instance.x} ${instance.y})` }}
+            exit={{ clipPath: `circle(0px at ${instance.x} ${instance.y})` }}
             transition={{ type: 'spring', stiffness: 80, damping: 24, mass: 1 }}
             style={{
               position: 'absolute',
-              inset: 0,
+              inset: -1, // Overfill by 1px to prevent micro-gaps at button edges
               backgroundColor: resolvedColor,
               display: 'flex',
               alignItems: 'center',

@@ -76,9 +76,13 @@ export const useHostRect = (host: HTMLElement | null) => {
     const observer = new ResizeObserver(update);
     
     observer.observe(host);
+    window.addEventListener('resize', update);
     update();
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+    };
   }, [host]);
 
   return rect;
