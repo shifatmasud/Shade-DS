@@ -189,7 +189,7 @@ Inside the target file:
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-        >
+        > 
           <h1 style={{ ...theme.Type.Expressive.Display.L, color: theme.Color.Base.Content[1], marginBottom: theme.space['Space.S'] }}>
             SYSTEM SPEC
           </h1>
@@ -340,7 +340,7 @@ Inside the target file:
               marginTop: theme.space['Space.2XS'] 
             }}>
               {[
-                { role: 'Hero', font: 'Bebas Neue', style: { ...theme.Type.Readable.Title.L } },
+                { role: 'Hero', font: 'Bebas Neue', style: { ...theme.Type.Expressive.Headline.S } },
                 { role: 'Body', font: 'Inter', style: { ...theme.Type.Readable.Body.M } },
                 { role: 'Data', font: 'JetBrains Mono', style: { ...theme.Type.Expressive.Data } },
                 { role: 'Quotes', font: 'Cause', style: { ...theme.Type.Expressive.Quote, fontStyle: 'italic' } },
@@ -438,18 +438,20 @@ Inside the target file:
       </section>
 
       {/* Footer Actions */}
-      <div style={{ padding: theme.space['Space.XL'], display: 'flex', justifyContent: 'center' }}>
+      <motion.div style={{ padding: theme.space['Space.XL'], display: 'flex', justifyContent: 'center' }}>
         <Button
-          onClick={handleCopy}
-          variant="primary"
-          size="M"
-          enableSuccess={true}
-          icon={<Copy size={18} />}
-          style={{ width: 'auto', minWidth: '220px' }}
-        >
-          COPY AS MARKDOWN
-        </Button>
-      </div>
+                  onClick={handleCopy}
+                  variant="primary"
+                  size="M"
+                  enableSuccess={true}
+                  icon={<Copy size={18} />}
+                  style={{ marginTop: theme.space['Space.M'] }}
+                >
+                   COPY AS MARKDOWN
+       </Button>
+       
+    
+      </motion.div>
     </div>
   );
 };
