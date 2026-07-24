@@ -104,3 +104,9 @@ When modifying, writing, or updating code, you MUST follow these standards withi
 - **Explain what changed**: Briefly summarize the modification intent within the code or commit-style log.
 - **Keep code clean**: Ensure high readability, proper indentation, and zero dead code.
 - **Touch only needed code**: Strictly limit modifications to the scope of the current task to prevent regression.
+
+### Custom Skill Creation Protocols
+When asked or needed to create custom agent skills, you MUST follow these standards:
+- **File Format**: Every agent skill must be a markdown file named `SKILL.md` (e.g., `/skills/<skill-name>/SKILL.md`).
+- **YAML Frontmatter**: The file MUST start with a valid YAML frontmatter block defining the skill's metadata (e.g., name, description).
+- **H1-Delimited Contexts**: You MUST use H1-delimited headers (`# Header`) to separate and organize different skill contexts and instructions.
