@@ -157,34 +157,39 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
   const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
 
   const getButtonShadow = (state: 'idle' | 'hover' | 'active' | 'disabled') => {
+    const empty = '0 0 0 rgba(0,0,0,0)';
+    
     if (isSuccess && showGlow) {
-      return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`;
+      return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}, ${empty}, ${empty}`;
     }
+
     const isTertiary = variant === 'tertiary';
-    if (isTertiary) return 'none';
+    if (isTertiary) return `${empty}, ${empty}, ${empty}, ${empty}`;
 
-    // 1. Define the base border shadow layer for variants that use it
-    const borderShadow = variant === 'outline'
-      ? `0 0 1px 0px ${theme.Color.Base.Content['3']}, inset 0 0 1px 0px ${theme.Color.Base.Content['3']}`
-      : (variant === 'destructive'
-         ? `0 0 1px 0px ${theme.Color.Error.Content['1']}, inset 0 0 1px 0px ${theme.Color.Error.Content['1']}`
-         : '');
+    // Layers 1 & 2: Border Shadows
+    let b1 = empty;
+    let b2 = empty;
+    if (variant === 'outline') {
+      b1 = `0 0 1px 0px ${theme.Color.Base.Content['3']}`;
+      b2 = `inset 0 0 1px 0px ${theme.Color.Base.Content['3']}`;
+    } else if (variant === 'destructive') {
+      b1 = `0 0 1px 0px ${theme.Color.Error.Content['1']}`;
+      b2 = `inset 0 0 1px 0px ${theme.Color.Error.Content['1']}`;
+    }
 
-    // 2. Define the drop shadow layer based on state
-    let dropShadow = '';
-    if (state === 'idle') {
+    // Layers 3 & 4: Drop Shadows (Theme shadows like Drop.2/3 are already 2 layers)
+    let drop = `${empty}, ${empty}`;
+    if (state === 'hover') {
+      drop = theme.effects['Effect.Shadow.Drop.3'];
+    } else if (state === 'idle') {
       if (variant === 'primary' || variant === 'destructive') {
-        dropShadow = theme.effects['Effect.Shadow.Drop.2'];
+        drop = theme.effects['Effect.Shadow.Drop.2'];
       }
-    } else if (state === 'hover') {
-      dropShadow = theme.effects['Effect.Shadow.Drop.3'];
+    } else if (state === 'active') {
+      drop = `${theme.effects['Effect.Shadow.Drop.1']}, ${empty}`;
     }
 
-    // 3. Combine them
-    if (borderShadow && dropShadow) {
-      return `${borderShadow}, ${dropShadow}`;
-    }
-    return borderShadow || dropShadow || 'none';
+    return `${b1}, ${b2}, ${drop}`;
   };
 
   const getVariantStyles = () => {
@@ -301,21 +306,26 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
 
   // Calculate Animate Props for Premium Feel
   const getAnimateState = () => {
+    const shadowIdle = getButtonShadow('idle');
+    const shadowHover = getButtonShadow('hover');
+    const shadowActive = getButtonShadow('active');
+    const shadowDisabled = getButtonShadow('disabled');
+
     if (isSuccess) {
       return {
         y: 0,
         scale: 1,
-        boxShadow: `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`,
+        boxShadow: getButtonShadow('idle'), // SuccessLayer handles success visual, but we keep shadow layers consistent
       };
     }
-    if (disabled) return { y: 0, scale: 1, boxShadow: getButtonShadow('disabled') };
+    if (disabled) return { y: 0, scale: 1, boxShadow: shadowDisabled };
     
     // Active (Pressed)
     if (forcedActive) {
         return { 
             y: 2, 
             scale: 0.95, 
-            boxShadow: getButtonShadow('active') 
+            boxShadow: shadowActive
         };
     }
     
@@ -324,7 +334,7 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
          return {
             y: -4, 
             scale: 1.05, 
-            boxShadow: getButtonShadow('hover')
+            boxShadow: shadowHover
          };
     }
     
@@ -332,7 +342,7 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
     return { 
         y: 0, 
         scale: 1, 
-        boxShadow: getButtonShadow('idle') 
+        boxShadow: shadowIdle
     };
   };
 
