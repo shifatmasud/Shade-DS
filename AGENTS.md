@@ -33,13 +33,13 @@ You MUST activate and read the matching skill immediately when a user request al
 - **Fluid Interpolation**: You MUST use the `layout` prop on `motion` components to enable automatic interpolation of style changes.
 - **Planning Gate**: Never code before performing a detailed planning step. This MUST be a single markdown file stored in the `/plans` folder using the following exact structure:
   ```markdown
-  # Tech Spec Doc
+  # Tech Spec 
 
   1. **Objective** (Problem Statement, Solution Overview, Scope, Context)
-  2. **Success Criteria** (Section-Divided Key Results, Non-Negotiables & Criteria)
-  3. **Project Requirements** (Section-Divided, Bite-Sized Todo List Style)
+  2. **Success Criteria** (Key Results, Non-Negotiables & Criteria)
+  3. **Project Requirements** (Todo List)
   4. **Architecture Decisions** (Trade-offs, Benefits & Alternatives)
-  5. **Pseudo Code** (Written in Shade or ShadeR DSL)
+  5. **Pseudo Code** (Written in Shade DSL or ShadeR DSL)
   ```
   *Note*: Only write or modify code in the codebase if the user explicitly commands you to "code".
 
