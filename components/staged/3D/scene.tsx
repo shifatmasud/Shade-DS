@@ -189,11 +189,11 @@ const Floor = () => (
       <boxGeometry args={[20, 1, 20]} />
       <meshPhysicalMaterial 
         color="#08080c" 
-        roughness={0.12} 
-        metalness={0.5}
-        clearcoat={1.0}
-        clearcoatRoughness={0.08}
-        transmission={0.2}
+        roughness={0.2} 
+        metalness={0.4}
+        clearcoat={0.0}
+        clearcoatRoughness={0.0}
+        transmission={0.1}
         thickness={0.5}
       />
     </mesh>
@@ -376,7 +376,7 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, scale = 2, onDragStart, onD
 import { useTheme } from '../../../Theme';
 
 // Progressive Environment Loader: waits for initial frames and idle state before mounting Environment
-const ProgressiveEnvironment: React.FC = () => {
+const ProgressiveEnvironment: React.FC<{ background?: boolean }> = ({ background = true }) => {
   const [shouldMount, setShouldMount] = useState(false);
   const frameCountRef = useRef(0);
 
@@ -397,7 +397,13 @@ const ProgressiveEnvironment: React.FC = () => {
     }
   });
 
-  return shouldMount ? <Environment preset="city" resolution={128} /> : null;
+  return shouldMount ? (
+    <Environment 
+      preset="city" 
+      background={background} 
+      resolution={256} 
+    />
+  ) : null;
 };
 
 interface Scene3DProps {
@@ -721,8 +727,8 @@ const Scene3D: React.FC<Scene3DProps> = ({
             <Floor />
           </Physics>
           
-          {showSky && <Sky sunPosition={[1, 0.2, 1]} />}
-          <ProgressiveEnvironment />
+          {/* Environment provides both lighting and the requested City-scape background */}
+          <ProgressiveEnvironment background={showSky} />
 
           <EffectComposer>
             <SMAA preset={SMAAPreset.HIGH} />
