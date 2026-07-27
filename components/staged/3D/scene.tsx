@@ -200,7 +200,7 @@ const Floor = () => (
   </RigidBody>
 );
 
-const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: { color?: string; speed?: number; onDragStart?: () => void; onDragEnd?: () => void }) => {
+const RotatingBox = ({ color = '#4f46e5', speed = 1, scale = 2, onDragStart, onDragEnd }: { color?: string; speed?: number; scale?: number; onDragStart?: () => void; onDragEnd?: () => void }) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const groupRef = useRef<THREE.Group>(null);
   const jellyRef = useRef<any>(null);
@@ -363,7 +363,7 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, onDragStart, onDragEnd }: {
           rigidBody={rigidBodyRef}
           pointerPos={pointerPos.current}
           color={color} 
-          size={2} 
+          size={scale} 
           isDragging={isDragging}
           localHitPoint={localHitPoint.current}
           localDragOffset={localDragOffset.current}
@@ -400,7 +400,23 @@ const ProgressiveEnvironment: React.FC = () => {
   return shouldMount ? <Environment preset="city" resolution={128} /> : null;
 };
 
-const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
+interface Scene3DProps {
+  showSky?: boolean;
+  cubeSpeed?: number;
+  cubeColor?: string;
+  cubeScale?: number;
+  ambientIntensity?: number;
+  showFps?: boolean;
+}
+
+const Scene3D: React.FC<Scene3DProps> = ({ 
+  showSky = true,
+  cubeSpeed = 1,
+  cubeColor = '#4f46e5',
+  cubeScale = 2,
+  ambientIntensity = 0.25,
+  showFps = true,
+}) => {
   const { theme } = useTheme();
   const { cubes, addCube } = usePhysicsStore();
   const [controlsEnabled, setControlsEnabled] = useState(true);
@@ -520,10 +536,10 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
   }, []);
 
   const spawnCube = () => {
-    const randomColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
+    // Use the active cubeColor prop for newly spawned cubes
     addCube({
       id: Math.random().toString(36),
-      color: randomColor,
+      color: cubeColor,
       position: [(Math.random() - 0.5) * 4, 10, (Math.random() - 0.5) * 4],
     });
     playSound('spawn', 0.85);
@@ -680,7 +696,7 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
             maxPolarAngle={Math.PI / 2.1} 
           />
           
-          <ambientLight intensity={0.25} />
+          <ambientLight intensity={ambientIntensity} />
           <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1200} castShadow shadow-mapSize-width={512} shadow-mapSize-height={512} />
           <pointLight position={[-6, 4, -6]} intensity={350} color="#00e5ff" />
           <pointLight position={[6, 3, 6]} intensity={250} color="#ff00a0" />
@@ -688,6 +704,9 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
           
           <Physics gravity={[0, -9.81, 0]}>
             <RotatingBox 
+              speed={cubeSpeed}
+              color={cubeColor}
+              scale={cubeScale}
               onDragStart={() => setControlsEnabled(false)} 
               onDragEnd={() => setControlsEnabled(true)} 
             />
@@ -711,10 +730,12 @@ const Scene3D: React.FC<{ showSky?: boolean }> = ({ showSky = true }) => {
         </Canvas>
       </ErrorBoundary>
       
-      <div style={fpsStyle}>
-        <span style={{ opacity: 0.6 }}>FPS</span>
-        <AnimatedCounter value={fps} useFormatting={false} />
-      </div>
+      {showFps && (
+        <div style={fpsStyle}>
+          <span style={{ opacity: 0.6 }}>FPS</span>
+          <AnimatedCounter value={fps} useFormatting={false} />
+        </div>
+      )}
     </div>
   );
 };

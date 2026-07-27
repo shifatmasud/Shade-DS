@@ -17,6 +17,7 @@ interface FillSliderProps {
   onChange?: (value: number) => void;
   onCommit?: (value: number) => void;
   formatValue?: (value: number) => React.ReactNode;
+  sliderShowCounter?: boolean;
 }
 
 /**
@@ -33,7 +34,8 @@ const FillSlider: React.FC<FillSliderProps> = ({
   value: externalValue,
   onChange,
   onCommit,
-  formatValue
+  formatValue,
+  sliderShowCounter = true,
 }) => {
   const { theme } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -45,6 +47,11 @@ const FillSlider: React.FC<FillSliderProps> = ({
   // 1. Setup MotionValue (internal or external)
   const internalMV = useMotionValue(defaultValue);
   const activeMV = externalValue || internalMV;
+
+  // Track outer default values
+  useEffect(() => {
+    activeMV.set(defaultValue);
+  }, [defaultValue, activeMV]);
 
   const inputRange = useMemo(() => [min, max], [min, max]);
   const outputRange = useMemo(() => [0, 100], []);
@@ -231,13 +238,15 @@ const FillSlider: React.FC<FillSliderProps> = ({
       <div style={getStyle(styles.content)}>
         <span style={getStyle(styles.label)}>{label}</span>
         
-        <div style={getStyle(styles.valueWrapper)}>
-          {formatValue ? (
-            formatValue(activeMV.get())
-          ) : (
-            <AnimatedCounter value={activeMV} useFormatting={false} decimals={decimals} />
-          )}
-        </div>
+        {sliderShowCounter && (
+          <div style={getStyle(styles.valueWrapper)}>
+            {formatValue ? (
+              formatValue(activeMV.get())
+            ) : (
+              <AnimatedCounter value={activeMV} useFormatting={false} decimals={decimals} />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

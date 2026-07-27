@@ -124,3 +124,16 @@ When asked or needed to create custom agent skills, you MUST follow these standa
 - **File Format**: Every agent skill must be a markdown file named `SKILL.md` (e.g., `/skills/<skill-name>/SKILL.md`).
 - **YAML Frontmatter**: The file MUST start with a valid YAML frontmatter block defining the skill's metadata (e.g., name, description).
 - **H1-Delimited Contexts**: You MUST use H1-delimited headers (`# Header`) to separate and organize different skill contexts and instructions.
+
+## Troubleshooting & Common Fixes
+- **R3F: Hooks can only be used within the Canvas component!**: This error usually indicates multiple instances of `@react-three/fiber` or `react` in the dependency tree, or a missing alias in `vite.config.ts`. 
+  - **Fix**: Ensure `vite.config.ts` includes explicit aliases for `react`, `react-dom`, `@react-three/fiber`, and `@react-three/drei` pointing to the root `node_modules`.
+  ```typescript
+  resolve: {
+    alias: {
+      'react': path.resolve(__dirname, 'node_modules/react'),
+      '@react-three/fiber': path.resolve(__dirname, 'node_modules/@react-three/fiber'),
+      // ... other aliases
+    }
+  }
+  ```

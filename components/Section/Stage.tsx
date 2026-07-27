@@ -532,16 +532,41 @@ const Stage: React.FC<StageProps> = ({
                     view3D={view3D}
                 />
             ) : stagedProps.componentType === 'nametag' ? (
-                <NameTag />
+                <NameTag 
+                    customRadius={stagedProps.customRadius}
+                    customFill={stagedProps.customFill}
+                    customColor={stagedProps.customColor}
+                    tagHeaderText={stagedProps.tagHeaderText}
+                    tagSubHeaderText={stagedProps.tagSubHeaderText}
+                    tagName={stagedProps.tagName || stagedProps.label}
+                    tagRole={stagedProps.tagRole}
+                    tagLevel={stagedProps.tagLevel}
+                    tagBadgeText={stagedProps.tagBadgeText}
+                    tagHeaderColor={stagedProps.tagHeaderColor}
+                    tagPunchHole={stagedProps.tagPunchHole}
+                />
             ) : stagedProps.componentType === 'slider' ? (
                 <div style={{ width: '400px' }}>
                     <FillSlider 
                         label={stagedProps.label} 
+                        min={stagedProps.sliderMin}
+                        max={stagedProps.sliderMax}
+                        step={stagedProps.sliderStep}
+                        defaultValue={stagedProps.sliderDefaultValue}
+                        sliderShowCounter={stagedProps.sliderShowCounter}
                         onChange={(v) => console.log('Slider changed:', v)}
                     />
                 </div>
             ) : stagedProps.componentType === 'slot' ? (
-                <Slot ref={componentRef} />
+                <Slot 
+                    ref={componentRef} 
+                    slotCubeSpeed={stagedProps.slotCubeSpeed}
+                    slotCubeColor={stagedProps.slotCubeColor}
+                    slotCubeScale={stagedProps.slotCubeScale}
+                    slotAmbientIntensity={stagedProps.slotAmbientIntensity}
+                    slotEnableSky={stagedProps.slotEnableSky}
+                    slotShowFps={stagedProps.slotShowFps}
+                />
             ) : (
                 <div ref={componentRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
                   {!stagedCode && !stagedProps.customCode ? (

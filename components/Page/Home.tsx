@@ -61,6 +61,38 @@ const Home = () => {
     forcedFocus: false,
     forcedActive: false,
     enableSuccess: false,
+
+    // Default Card Props
+    cardSubtitle: 'PROTOTYPE',
+    cardBodyText: 'A dynamic component demonstrating nested radius math and expressive typography. Perfect for modern, data-driven interfaces with accessible color contrast and tight vertical rhythm.',
+    showCardMedia: true,
+    cardMediaHeight: 200,
+    cardHoverTilt: true,
+
+    // Default Slider Props
+    sliderMin: 0,
+    sliderMax: 100,
+    sliderStep: 1,
+    sliderDefaultValue: 70,
+    sliderShowCounter: true,
+
+    // Default NameTag Props
+    tagName: 'DESIGN AGENT',
+    tagRole: 'Senior Design Engineer & AI Collaborator',
+    tagHeaderText: 'HELLO',
+    tagSubHeaderText: 'my name is',
+    tagLevel: 'LVL 99',
+    tagBadgeText: 'PROTOTYPER',
+    tagHeaderColor: '',
+    tagPunchHole: true,
+
+    // Default Slot Props
+    slotCubeSpeed: 1,
+    slotCubeColor: '#4f46e5',
+    slotCubeScale: 2,
+    slotAmbientIntensity: 0.25,
+    slotEnableSky: true,
+    slotShowFps: true,
   });
   
   // -- View / Inspection State --
@@ -233,13 +265,175 @@ const Home = () => {
       syncUrlToState(activeStates);
   }, [windows, showTokens, showMeasurements, view3D, uiMode]);
 
+  // -- Helper Functions for Different Component Configurations --
+  const getComponentConfigJson = (props: MetaButtonProps) => {
+    switch (props.componentType) {
+      case 'button':
+        return {
+          componentType: "button",
+          label: props.label,
+          variant: props.variant,
+          size: props.size,
+          icon: props.icon,
+          customFill: props.customFill,
+          customColor: props.customColor,
+          customRadius: props.customRadius,
+          disabled: props.disabled,
+          enableSuccess: props.enableSuccess,
+          forcedHover: props.forcedHover,
+          forcedFocus: props.forcedFocus,
+          forcedActive: props.forcedActive
+        };
+      case 'card':
+        return {
+          componentType: "card",
+          title: props.label,
+          subtitle: props.cardSubtitle,
+          bodyText: props.cardBodyText,
+          showMedia: props.showCardMedia,
+          mediaHeight: props.cardMediaHeight,
+          hoverTilt: props.cardHoverTilt,
+          customFill: props.customFill,
+          customColor: props.customColor,
+          customRadius: props.customRadius,
+          disabled: props.disabled,
+          forcedHover: props.forcedHover,
+          forcedFocus: props.forcedFocus,
+          forcedActive: props.forcedActive
+        };
+      case 'slider':
+        return {
+          componentType: "slider",
+          label: props.label,
+          min: props.sliderMin,
+          max: props.sliderMax,
+          step: props.sliderStep,
+          defaultValue: props.sliderDefaultValue,
+          showCounter: props.sliderShowCounter,
+          customFill: props.customFill,
+          customColor: props.customColor,
+          customRadius: props.customRadius
+        };
+      case 'nametag':
+        return {
+          componentType: "nametag",
+          headerText: props.tagHeaderText,
+          subHeaderText: props.tagSubHeaderText,
+          name: props.tagName,
+          role: props.tagRole,
+          level: props.tagLevel,
+          badgeText: props.tagBadgeText,
+          headerColor: props.tagHeaderColor,
+          punchHole: props.tagPunchHole
+        };
+      case 'slot':
+        return {
+          componentType: "slot",
+          cubeSpeed: props.slotCubeSpeed,
+          cubeColor: props.slotCubeColor,
+          cubeScale: props.slotCubeScale,
+          ambientIntensity: props.slotAmbientIntensity,
+          enableSky: props.slotEnableSky,
+          showFps: props.slotShowFps
+        };
+      case 'custom':
+      default:
+        return {
+          componentType: props.componentType,
+          customCode: props.customCode
+        };
+    }
+  };
+
+  const mapConfigJsonToStagedProps = (parsed: any, currentProps: MetaButtonProps): MetaButtonProps => {
+    const type = parsed.componentType || currentProps.componentType;
+    const base = { ...currentProps, componentType: type };
+    
+    switch (type) {
+      case 'button':
+        return {
+          ...base,
+          label: parsed.label !== undefined ? parsed.label : currentProps.label,
+          variant: parsed.variant !== undefined ? parsed.variant : currentProps.variant,
+          size: parsed.size !== undefined ? parsed.size : currentProps.size,
+          icon: parsed.icon !== undefined ? parsed.icon : currentProps.icon,
+          customFill: parsed.customFill !== undefined ? parsed.customFill : currentProps.customFill,
+          customColor: parsed.customColor !== undefined ? parsed.customColor : currentProps.customColor,
+          customRadius: parsed.customRadius !== undefined ? parsed.customRadius : currentProps.customRadius,
+          disabled: parsed.disabled !== undefined ? parsed.disabled : currentProps.disabled,
+          enableSuccess: parsed.enableSuccess !== undefined ? parsed.enableSuccess : currentProps.enableSuccess,
+          forcedHover: parsed.forcedHover !== undefined ? parsed.forcedHover : currentProps.forcedHover,
+          forcedFocus: parsed.forcedFocus !== undefined ? parsed.forcedFocus : currentProps.forcedFocus,
+          forcedActive: parsed.forcedActive !== undefined ? parsed.forcedActive : currentProps.forcedActive,
+        };
+      case 'card':
+        return {
+          ...base,
+          label: parsed.title !== undefined ? parsed.title : currentProps.label,
+          cardSubtitle: parsed.subtitle !== undefined ? parsed.subtitle : currentProps.cardSubtitle,
+          cardBodyText: parsed.bodyText !== undefined ? parsed.bodyText : currentProps.cardBodyText,
+          showCardMedia: parsed.showMedia !== undefined ? parsed.showMedia : currentProps.showCardMedia,
+          cardMediaHeight: parsed.mediaHeight !== undefined ? parsed.mediaHeight : currentProps.cardMediaHeight,
+          cardHoverTilt: parsed.hoverTilt !== undefined ? parsed.hoverTilt : currentProps.cardHoverTilt,
+          customFill: parsed.customFill !== undefined ? parsed.customFill : currentProps.customFill,
+          customColor: parsed.customColor !== undefined ? parsed.customColor : currentProps.customColor,
+          customRadius: parsed.customRadius !== undefined ? parsed.customRadius : currentProps.customRadius,
+          disabled: parsed.disabled !== undefined ? parsed.disabled : currentProps.disabled,
+          forcedHover: parsed.forcedHover !== undefined ? parsed.forcedHover : currentProps.forcedHover,
+          forcedFocus: parsed.forcedFocus !== undefined ? parsed.forcedFocus : currentProps.forcedFocus,
+          forcedActive: parsed.forcedActive !== undefined ? parsed.forcedActive : currentProps.forcedActive,
+        };
+      case 'slider':
+        return {
+          ...base,
+          label: parsed.label !== undefined ? parsed.label : currentProps.label,
+          sliderMin: parsed.min !== undefined ? parsed.min : currentProps.sliderMin,
+          sliderMax: parsed.max !== undefined ? parsed.max : currentProps.sliderMax,
+          sliderStep: parsed.step !== undefined ? parsed.step : currentProps.sliderStep,
+          sliderDefaultValue: parsed.defaultValue !== undefined ? parsed.defaultValue : currentProps.sliderDefaultValue,
+          sliderShowCounter: parsed.showCounter !== undefined ? parsed.showCounter : currentProps.sliderShowCounter,
+          customFill: parsed.customFill !== undefined ? parsed.customFill : currentProps.customFill,
+          customColor: parsed.customColor !== undefined ? parsed.customColor : currentProps.customColor,
+          customRadius: parsed.customRadius !== undefined ? parsed.customRadius : currentProps.customRadius
+        };
+      case 'nametag':
+        return {
+          ...base,
+          tagHeaderText: parsed.headerText !== undefined ? parsed.headerText : currentProps.tagHeaderText,
+          tagSubHeaderText: parsed.subHeaderText !== undefined ? parsed.subHeaderText : currentProps.tagSubHeaderText,
+          tagName: parsed.name !== undefined ? parsed.name : currentProps.tagName,
+          tagRole: parsed.role !== undefined ? parsed.role : currentProps.tagRole,
+          tagLevel: parsed.level !== undefined ? parsed.level : currentProps.tagLevel,
+          tagBadgeText: parsed.badgeText !== undefined ? parsed.badgeText : currentProps.tagBadgeText,
+          tagHeaderColor: parsed.headerColor !== undefined ? parsed.headerColor : currentProps.tagHeaderColor,
+          tagPunchHole: parsed.punchHole !== undefined ? parsed.punchHole : currentProps.tagPunchHole
+        };
+      case 'slot':
+        return {
+          ...base,
+          slotCubeSpeed: parsed.cubeSpeed !== undefined ? parsed.cubeSpeed : currentProps.slotCubeSpeed,
+          slotCubeColor: parsed.cubeColor !== undefined ? parsed.cubeColor : currentProps.slotCubeColor,
+          slotCubeScale: parsed.cubeScale !== undefined ? parsed.cubeScale : currentProps.slotCubeScale,
+          slotAmbientIntensity: parsed.ambientIntensity !== undefined ? parsed.ambientIntensity : currentProps.slotAmbientIntensity,
+          slotEnableSky: parsed.enableSky !== undefined ? parsed.enableSky : currentProps.slotEnableSky,
+          slotShowFps: parsed.showFps !== undefined ? parsed.showFps : currentProps.slotShowFps
+        };
+      case 'custom':
+      default:
+        return {
+          ...base,
+          customCode: parsed.customCode !== undefined ? parsed.customCode : currentProps.customCode
+        };
+    }
+  };
+
   // -- Code Editor State --
   const [codeText, setCodeText] = useState('');
   const [isCodeFocused, setIsCodeFocused] = useState(false);
   
   useEffect(() => {
     if (!isCodeFocused && !typingSessionRef.current) {
-      setCodeText(JSON.stringify(stagedProps, null, 2));
+      setCodeText(JSON.stringify(getComponentConfigJson(stagedProps), null, 2));
     }
   }, [stagedProps, isCodeFocused]);
 
@@ -343,7 +537,7 @@ const Home = () => {
   };
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(JSON.stringify(stagedProps, null, 2));
+    navigator.clipboard.writeText(JSON.stringify(getComponentConfigJson(stagedProps), null, 2));
     logEvent('JSON copied to clipboard');
   };
   
@@ -371,7 +565,7 @@ const Home = () => {
               logEvent(`Prop updated: ${key} = ${value}`);
             }
             typingSessionRef.current = null;
-            setCodeText(JSON.stringify(nextProps, null, 2));
+            setCodeText(JSON.stringify(getComponentConfigJson(nextProps), null, 2));
           }
         }, 500);
       } else {
@@ -411,18 +605,19 @@ const Home = () => {
     setCodeText(newVal);
     try {
       const parsed = JSON.parse(newVal);
+      const mappedProps = mapConfigJsonToStagedProps(parsed, stagedProps);
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
       if (!typingSessionRef.current) {
         typingSessionRef.current = { beforeProps: { ...stagedProps }, key: 'customCode' };
       }
-      updateStagedProps(parsed, false);
+      updateStagedProps(mappedProps, false);
 
       typingTimeoutRef.current = setTimeout(() => {
         if (typingSessionRef.current) {
           const before = typingSessionRef.current.beforeProps;
-          if (JSON.stringify(before) !== JSON.stringify(parsed)) {
+          if (JSON.stringify(before) !== JSON.stringify(mappedProps)) {
             setHistory(prev => [...prev, before]);
             setFuture([]);
             logEvent('Code direct modification committed');
@@ -685,6 +880,10 @@ const Home = () => {
             liveValue = stagedProps.customFill || (stagedProps.variant === 'primary' ? (themeName === 'dark' ? '#ffffff' : '#111111') : (stagedProps.componentType === 'card' ? theme.Color.Base.Surface[1] : 'transparent'));
           } else if (id === 'textColor') {
             liveValue = stagedProps.customColor || (stagedProps.variant === 'primary' ? (themeName === 'dark' ? '#000000' : '#ffffff') : (themeName === 'dark' ? '#ffffff' : '#111111'));
+          } else if (id === 'cubeColor') {
+            liveValue = stagedProps.slotCubeColor || '#4f46e5';
+          } else if (id === 'headerColor') {
+            liveValue = stagedProps.tagHeaderColor || '#ef4444';
           }
 
           const handlePickerChange = (hex: string) => {
@@ -692,6 +891,11 @@ const Home = () => {
               fillColorMotionValue.set(hex);
             } else if (id === 'textColor') {
               textColorMotionValue.set(hex);
+            } else if (id === 'cubeColor') {
+              // Direct state update for non-MotionValue props
+              updateStagedProps({ ...stagedProps, slotCubeColor: hex }, false);
+            } else if (id === 'headerColor') {
+              updateStagedProps({ ...stagedProps, tagHeaderColor: hex }, false);
             }
           };
 
@@ -702,6 +906,12 @@ const Home = () => {
             } else if (id === 'textColor') {
               updateStagedProps({ ...stagedProps, customColor: hex }, true);
               logEvent(`Text Color committed: ${hex}`);
+            } else if (id === 'cubeColor') {
+              updateStagedProps({ ...stagedProps, slotCubeColor: hex }, true);
+              logEvent(`Cube Color committed: ${hex}`);
+            } else if (id === 'headerColor') {
+              updateStagedProps({ ...stagedProps, tagHeaderColor: hex }, true);
+              logEvent(`Header Color committed: ${hex}`);
             }
           };
 

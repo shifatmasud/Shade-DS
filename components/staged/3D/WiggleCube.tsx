@@ -347,15 +347,17 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
     };
 
     return mat;
-  }, [color, size, transmission]);
+  }, [size]); // RE-COMPILATION only on size change
 
-  // Sync color and transmission props when changed
+  // Sync color, transmission, and size-derived props when changed
   useEffect(() => {
     if (customMaterial) {
       customMaterial.color.set(color);
       customMaterial.transmission = transmission;
+      customMaterial.thickness = size * 1.5;
+      customMaterial.needsUpdate = true;
     }
-  }, [color, transmission, customMaterial]);
+  }, [color, transmission, size, customMaterial]);
 
   const timer = useRef<THREE.Timer | null>(null);
 

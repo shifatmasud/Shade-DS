@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { useTheme } from '../../Theme.tsx';
-import { motion, type MotionValue, useTransform, useMotionValue, AnimatePresence } from 'framer-motion';
+import { motion, type MotionValue, useTransform, useMotionValue, AnimatePresence, useAnimate } from 'framer-motion';
 import StateLayer from '../Core/sub-components/StateLayer.tsx';
 import RippleLayer from '../Core/sub-components/RippleLayer.tsx';
 import { SuccessLayer } from '../Core';
@@ -52,9 +52,9 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
   successLabel,
 }, ref) => {
   const { theme } = useTheme();
-  const localRef = React.useRef<HTMLButtonElement>(null);
+  const [scope, animate] = useAnimate<HTMLButtonElement>();
 
-  React.useImperativeHandle(ref, () => localRef.current!);
+  React.useImperativeHandle(ref, () => scope.current!);
   
   // Interaction State
   const [isHovered, setIsHovered] = useState(false);
@@ -302,54 +302,49 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
 
   const getDebugBorder = (color: string) => view3D ? `1px solid ${color}` : 'none';
 
-  // Calculate Animate Props for Premium Feel
-  const getAnimateState = () => {
+  // Imperative Props-Driven Animation Loop
+  React.useEffect(() => {
+    if (!scope.current) return;
+
     const shadowIdle = getButtonShadow('idle');
     const shadowHover = getButtonShadow('hover');
     const shadowActive = getButtonShadow('active');
     const shadowDisabled = getButtonShadow('disabled');
 
-    // Success or transition state
+    let targetY = 0;
+    let targetScale = 1;
+    let targetShadow = shadowIdle;
+
     if (isSuccess || showGlow) {
-      return {
-        y: 0,
-        scale: 1,
-        boxShadow: shadowIdle, 
-      };
+      targetY = 0;
+      targetScale = 1;
+      targetShadow = shadowIdle;
+    } else if (disabled) {
+      targetY = 0;
+      targetScale = 1;
+      targetShadow = shadowDisabled;
+    } else if (forcedActive) {
+      targetY = 2;
+      targetScale = 0.95;
+      targetShadow = shadowActive;
+    } else if (effectiveHover) {
+      targetY = -4;
+      targetScale = 1.05;
+      targetShadow = shadowHover;
     }
-    if (disabled) return { y: 0, scale: 1, boxShadow: shadowDisabled };
-    
-    // Active (Pressed)
-    if (forcedActive) {
-        return { 
-            y: 2, 
-            scale: 0.95, 
-            boxShadow: shadowActive
-        };
-    }
-    
-    // Hover (Mouse)
-    if (effectiveHover) {
-         return {
-            y: -4, 
-            scale: 1.05, 
-            boxShadow: shadowHover
-         };
-    }
-    
-    // Idle
-    return { 
-        y: 0, 
-        scale: 1, 
-        boxShadow: shadowIdle
-    };
-  };
+
+    animate(scope.current, {
+      y: targetY,
+      scale: targetScale,
+      boxShadow: targetShadow,
+    }, { duration: 0.2, ease: 'easeOut' });
+  }, [effectiveHover, forcedActive, forcedFocus, isSuccess, showGlow, disabled, theme, variant]);
 
   const handleSuccessComplete = React.useCallback(() => setShowGlow(true), []);
 
   return (
     <motion.button
-      ref={localRef}
+      ref={scope}
       style={{
         ...styles,
         borderRadius: customRadius || theme.radius['Radius.Full'],
@@ -357,8 +352,7 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
       onClick={handleClick}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
-      animate={getAnimateState()}
-      whileTap={forcedActive ? undefined : { scale: 0.95, y: 2, boxShadow: getButtonShadow('active') }}
+      whileTap={forcedActive ? undefined : { scale: 0.95, y: 2 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
       data-success={isSuccess ? "true" : "false"}
     >
@@ -397,7 +391,7 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
                 color={resolvedColor} 
                 opacity={stateLayerOpacity}
                 forced={forcedHover}
-                parentRef={localRef}
+                parentRef={scope}
             />
         </div>
       </motion.div>
@@ -409,7 +403,7 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
                 color={resolvedColor}
                 opacity={theme.opacity['Opacity.Pressed']}
                 forced={forcedActive}
-                parentRef={localRef}
+                parentRef={scope}
             />
         </div>
       </motion.div>
@@ -444,7 +438,7 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
           onComplete={handleSuccessComplete}
           onExitComplete={() => setShowGlow(false)}
           zIndex={100}
-          parentRef={localRef}
+          parentRef={scope}
         />
       </motion.div>
     </motion.button>

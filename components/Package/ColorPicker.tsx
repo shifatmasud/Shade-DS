@@ -379,13 +379,14 @@ interface ColorPickerProps {
   onChange: (e: any) => void;
   onCommit?: (value: string) => void;
   style?: React.CSSProperties;
+  pickerId?: string; // Optional explicit ID for isolated floating instances
 }
 
-const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCommit, style }) => {
+const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange, onCommit, style, pickerId: explicitId }) => {
   const { theme } = useTheme();
   
-  // Create unique picker ID based on HSL label matching
-  const pickerId = label === "Fill Color" ? "fillColor" : "textColor";
+  // Create unique picker ID based on explicit prop or HSL label matching fallback
+  const pickerId = explicitId || (label === "Fill Color" ? "fillColor" : label === "Cube Material Color" ? "cubeColor" : label === "Header Color Override" ? "headerColor" : "textColor");
 
   const STYLES = useMemo(() => ({
     container: {

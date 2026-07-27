@@ -6,10 +6,22 @@ import React, { forwardRef } from 'react';
 import Scene3D from './3D/scene.tsx';
 
 interface SlotProps {
-  // Add any props if needed later
+  slotCubeSpeed?: number;
+  slotCubeColor?: string;
+  slotCubeScale?: number;
+  slotAmbientIntensity?: number;
+  slotEnableSky?: boolean;
+  slotShowFps?: boolean;
 }
 
-const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
+const Slot = forwardRef<HTMLDivElement, SlotProps>(({
+  slotCubeSpeed = 1,
+  slotCubeColor = '#4f46e5',
+  slotCubeScale = 2,
+  slotAmbientIntensity = 0.25,
+  slotEnableSky = true,
+  slotShowFps = true,
+}, ref) => {
   return (
     <div
       ref={ref}
@@ -21,7 +33,14 @@ const Slot = forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
         overflow: 'hidden',
       }}
     >
-      <Scene3D showSky={true} />
+      <Scene3D 
+        showSky={slotEnableSky} 
+        cubeSpeed={slotCubeSpeed}
+        cubeColor={slotCubeColor}
+        cubeScale={slotCubeScale}
+        ambientIntensity={slotAmbientIntensity}
+        showFps={slotShowFps}
+      />
     </div>
   );
 });

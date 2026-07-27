@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../Theme.tsx';
-import { motion, type MotionValue, useTransform, useMotionValue } from 'framer-motion';
+import { motion, type MotionValue, useTransform, useMotionValue, useSpring, useAnimate } from 'framer-motion';
 import StateLayer from '../Core/sub-components/StateLayer.tsx';
 import RippleLayer from '../Core/sub-components/RippleLayer.tsx';
 
@@ -21,6 +21,13 @@ interface CardProps {
   onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
   forcedActive?: boolean;
   forcedFocus?: boolean;
+  
+  // Tailored Props
+  cardSubtitle?: string;
+  cardBodyText?: string;
+  cardMediaHeight?: number;
+  showCardMedia?: boolean;
+  cardHoverTilt?: boolean;
 }
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(({
@@ -36,14 +43,27 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
   onClick,
   forcedActive = false,
   forcedFocus = false,
+  
+  // Tailored Props
+  cardSubtitle,
+  cardBodyText,
+  cardMediaHeight,
+  showCardMedia = true,
+  cardHoverTilt = true,
 }, ref) => {
   const { theme } = useTheme();
-  const localRef = React.useRef<HTMLDivElement>(null);
+  const [scope, animate] = useAnimate<HTMLDivElement>();
 
-  React.useImperativeHandle(ref, () => localRef.current!);
+  React.useImperativeHandle(ref, () => scope.current!);
 
   const [isHovered, setIsHovered] = useState(false);
   const effectiveHover = forcedHover || isHovered;
+
+  // Spring values for dynamic high-fidelity 3D tilt tracking on both mouse and touch devices
+  const tiltX = useMotionValue(0);
+  const tiltY = useMotionValue(0);
+  const tiltXSpring = useSpring(tiltX, { damping: 25, stiffness: 220 });
+  const tiltYSpring = useSpring(tiltY, { damping: 25, stiffness: 220 });
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
@@ -86,10 +106,85 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
 
   const innerRadiusMV = useTransform(outerRadiusMV, (v) => `${Math.max(0, v - paddingValue)}px`);
 
+  // Touch and Mouse Coordinate Tracking to translate screen space gestures to 3D Tilt rotations
+  const handleMove = (clientX: number, clientY: number) => {
+    if (disabled || cardHoverTilt === false) return;
+    const rect = scope.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const relativeX = (x - centerX) / centerX; // ranges from -1 to 1
+    const relativeY = (y - centerY) / centerY; // ranges from -1 to 1
+
+    const maxTiltX = 6;
+    const maxTiltY = 6;
+    
+    tiltX.set(-relativeY * maxTiltX);
+    tiltY.set(relativeX * maxTiltY);
+  };
+
   const handlePointerEnter = (e: React.PointerEvent) => {
     if (disabled) return;
     setIsHovered(true);
+    handleMove(e.clientX, e.clientY);
   };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (disabled) return;
+    handleMove(e.clientX, e.clientY);
+  };
+
+  const handlePointerLeave = () => {
+    setIsHovered(false);
+    tiltX.set(0);
+    tiltY.set(0);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (disabled) return;
+    setIsHovered(true);
+    if (e.touches[0]) {
+      handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (disabled) return;
+    if (e.touches[0]) {
+      handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsHovered(false);
+    tiltX.set(0);
+    tiltY.set(0);
+  };
+
+  // Synchronise static tilt for forced hover state
+  useEffect(() => {
+    if (forcedHover) {
+      tiltX.set(-3);
+      tiltY.set(3);
+    } else if (!isHovered) {
+      tiltX.set(0);
+      tiltY.set(0);
+    }
+  }, [forcedHover, isHovered, tiltX, tiltY]);
+
+  // Imperative Props-Driven Animation Effect
+  useEffect(() => {
+    if (!scope.current) return;
+    animate(scope.current, {
+      y: effectiveHover ? -12 : 0,
+      scale: effectiveHover ? 1.02 : 1,
+    }, { type: 'spring', damping: 20, stiffness: 200 });
+  }, [effectiveHover, scope, animate]);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (disabled) return;
@@ -176,18 +271,21 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
 
   return (
     <motion.div
-      ref={localRef}
+      ref={scope}
       style={{
         ...styles,
         borderRadius: customRadius || '40px',
+        rotateX: cardHoverTilt !== false ? tiltXSpring : 0,
+        rotateY: cardHoverTilt !== false ? tiltYSpring : 0,
       }}
       onPointerEnter={handlePointerEnter}
-      onPointerLeave={() => setIsHovered(false)}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       onClick={handleClick}
-      animate={{
-        y: effectiveHover ? -12 : 0,
-      }}
-      transition={{ type: 'spring', damping: 20, stiffness: 200 }}
     >
       {/* FOCUS RING (2D overlay, not part of 3D stack) */}
       <motion.div 
@@ -221,7 +319,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             color={contentColor1} 
             forced={forcedHover}
             opacity={theme.opacity['Opacity.Hover']}
-            parentRef={localRef}
+            parentRef={scope}
         />
       </motion.div>
       
@@ -230,48 +328,50 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             color={contentColor1}
             forced={forcedActive}
             opacity={theme.opacity['Opacity.Pressed']}
-            parentRef={localRef}
+            parentRef={scope}
         />
       </motion.div>
 
-      <motion.div 
-        className="card-media"
-        style={{ 
-            height: theme.height['Height.Half'], 
-            backgroundColor: theme.Color.Base.Surface[2], 
-            borderRadius: innerRadiusMV, 
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: zMedia,
-            position: 'relative',
-            overflow: 'hidden',
-            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
-            ... (view3D ? { border: getDebugBorder(colors.media) } : {})
-        }}
-      >
-          <div style={{ 
-               position: 'absolute', 
-               inset: 0, 
-               opacity: theme.opacity['Opacity.Subtle'], 
-               background: `repeating-linear-gradient(45deg, transparent, transparent 10px, ${theme.Color.Base.Content[3]} 10px, ${theme.Color.Base.Content[3]} 11px)` 
-          }} />
-          
-          <motion.div
-            animate={{ scale: effectiveHover ? 1.1 : 1, opacity: effectiveHover ? 0.6 : 0.4 }}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: theme.space['Space.XL'] }}
-          >
-            <i className="ph-bold ph-image" draggable={false} style={{ fontSize: theme.Type.Expressive.Display.L.fontSize, color: theme.Color.Base.Content[2] }} />
-            <span draggable={false} style={{ 
-              ...theme.Type.Readable.Label.S, 
-              color: theme.Color.Base.Content[2], 
-              textTransform: 'uppercase', 
-              letterSpacing: '0.1em' 
-            }}>
-              Media Area
-            </span>
-          </motion.div>
-      </motion.div>
+      {showCardMedia !== false && (
+        <motion.div 
+          className="card-media"
+          style={{ 
+              height: cardMediaHeight !== undefined ? `${cardMediaHeight}px` : theme.height['Height.Half'], 
+              backgroundColor: theme.Color.Base.Surface[2], 
+              borderRadius: innerRadiusMV, 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transform: zMedia,
+              position: 'relative',
+              overflow: 'hidden',
+              ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+              ... (view3D ? { border: getDebugBorder(colors.media) } : {})
+          }}
+        >
+            <div style={{ 
+                 position: 'absolute', 
+                 inset: 0, 
+                 opacity: theme.opacity['Opacity.Subtle'], 
+                 background: `repeating-linear-gradient(45deg, transparent, transparent 10px, ${theme.Color.Base.Content[3]} 10px, ${theme.Color.Base.Content[3]} 11px)` 
+            }} />
+            
+            <motion.div
+              animate={{ scale: effectiveHover ? 1.1 : 1, opacity: effectiveHover ? 0.6 : 0.4 }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: theme.space['Space.XL'] }}
+            >
+              <i className="ph-bold ph-image" draggable={false} style={{ fontSize: theme.Type.Expressive.Display.L.fontSize, color: theme.Color.Base.Content[2] }} />
+              <span draggable={false} style={{ 
+                ...theme.Type.Readable.Label.S, 
+                color: theme.Color.Base.Content[2], 
+                textTransform: 'uppercase', 
+                letterSpacing: '0.1em' 
+              }}>
+                Media Area
+              </span>
+            </motion.div>
+        </motion.div>
+      )}
 
       {/* Content Area */}
       <motion.div style={{ 
@@ -289,7 +389,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             letterSpacing: '0.1em',
             fontWeight: 700 
         }}>
-            Interactive Prototype
+            {cardSubtitle || "Interactive Prototype"}
         </span>
         
         <motion.h3 className="card-title" draggable={false} style={{ 
@@ -313,9 +413,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
             overflow: 'hidden',
             textWrap: 'pretty' as any,
         }}>
-          A dynamic component demonstrating nested radius math and expressive typography. 
-          Perfect for modern, data-driven interfaces with accessible color contrast 
-          and tight vertical rhythm.
+          {cardBodyText || "A dynamic component demonstrating nested radius math and expressive typography. Perfect for modern, data-driven interfaces with accessible color contrast and tight vertical rhythm."}
         </p>
       </motion.div>
     </motion.div>

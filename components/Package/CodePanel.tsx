@@ -30,6 +30,24 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
     }, 2000);
   };
 
+  const getReactUsageSnippet = () => {
+    switch (stagedProps.componentType) {
+      case 'button':
+        return `<StagedButton\n  label="${stagedProps.label}"\n  variant="${stagedProps.variant}"\n  size="${stagedProps.size}"\n  icon="${stagedProps.icon}"\n  customRadius="${stagedProps.customRadius}"\n/>`;
+      case 'card':
+        return `<StagedCard\n  title="${stagedProps.label}"\n  subtitle="${stagedProps.cardSubtitle || ''}"\n  bodyText="${stagedProps.cardBodyText || ''}"\n  showMedia={${stagedProps.showCardMedia !== false}}\n  mediaHeight={${stagedProps.cardMediaHeight || 200}}\n  hoverTilt={${stagedProps.cardHoverTilt !== false}}\n  customRadius="${stagedProps.customRadius}"\n/>`;
+      case 'slider':
+        return `<FillSlider\n  label="${stagedProps.label}"\n  min={${stagedProps.sliderMin !== undefined ? stagedProps.sliderMin : 0}}\n  max={${stagedProps.sliderMax !== undefined ? stagedProps.sliderMax : 100}}\n  step={${stagedProps.sliderStep !== undefined ? stagedProps.sliderStep : 1}}\n  defaultValue={${stagedProps.sliderDefaultValue !== undefined ? stagedProps.sliderDefaultValue : 70}}\n  showCounter={${stagedProps.sliderShowCounter !== false}}\n  customRadius="${stagedProps.customRadius}"\n/>`;
+      case 'nametag':
+        return `<NameTag\n  headerText="${stagedProps.tagHeaderText || 'HELLO'}"\n  subHeaderText="${stagedProps.tagSubHeaderText || 'my name is'}"\n  name="${stagedProps.tagName || 'DESIGN AGENT'}"\n  role="${stagedProps.tagRole || 'Senior Design Engineer'}"\n  level="${stagedProps.tagLevel || 'LVL 99'}"\n  badgeText="${stagedProps.tagBadgeText || 'PROTOTYPER'}"\n  punchHole={${stagedProps.tagPunchHole !== false}}\n/>`;
+      case 'slot':
+        return `<ViewportSlot\n  cubeSpeed={${stagedProps.slotCubeSpeed !== undefined ? stagedProps.slotCubeSpeed : 1}}\n  cubeColor="${stagedProps.slotCubeColor || '#4f46e5'}"\n  cubeScale={${stagedProps.slotCubeScale !== undefined ? stagedProps.slotCubeScale : 2}}\n  ambientIntensity={${stagedProps.slotAmbientIntensity !== undefined ? stagedProps.slotAmbientIntensity : 0.25}}\n  enableSky={${stagedProps.slotEnableSky !== false}}\n  showFps={${stagedProps.slotShowFps !== false}}\n/>`;
+      case 'custom':
+      default:
+        return `<CustomComponent />`;
+    }
+  };
+
   return (
     <>
       <div style={{ position: 'relative' }}>
@@ -60,7 +78,7 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
       <div style={{ marginTop: theme.space['Space.L'] }}>
         <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'] }}>REACT USAGE</p>
         <pre style={{ ...theme.Type.Expressive.Data, fontSize: theme.Type.Readable.Label.S.fontSize, color: theme.Color.Base.Content[2], backgroundColor: 'transparent', padding: 0, margin: 0, whiteSpace: 'pre-wrap' }}>
-          {`<StagedButton\n  label="${stagedProps.label}"\n  variant="${stagedProps.variant}"\n  size="${stagedProps.size}"\n  icon="${stagedProps.icon}"\n  customRadius="${stagedProps.customRadius}"\n/>`}
+          {getReactUsageSnippet()}
         </pre>
       </div>
     </>

@@ -48,6 +48,38 @@ export interface MetaComponentProps {
     forcedFocus: boolean;
     forcedActive: boolean;
     enableSuccess?: boolean;
+    
+    // Card Staged Component Props
+    cardSubtitle?: string;
+    cardBodyText?: string;
+    showCardMedia?: boolean;
+    cardMediaHeight?: number;
+    cardHoverTilt?: boolean;
+
+    // Slider Staged Component Props
+    sliderMin?: number;
+    sliderMax?: number;
+    sliderStep?: number;
+    sliderDefaultValue?: number;
+    sliderShowCounter?: boolean;
+
+    // NameTag Staged Component Props
+    tagName?: string;
+    tagRole?: string;
+    tagHeaderText?: string;
+    tagSubHeaderText?: string;
+    tagLevel?: string;
+    tagBadgeText?: string;
+    tagHeaderColor?: string;
+    tagPunchHole?: boolean;
+
+    // Slot Staged Component Props
+    slotCubeSpeed?: number;
+    slotCubeColor?: string;
+    slotCubeScale?: number;
+    slotAmbientIntensity?: number;
+    slotEnableSky?: boolean;
+    slotShowFps?: boolean;
 }
 
 export type MetaButtonProps = MetaComponentProps; // Alias for backward compatibility
