@@ -16,6 +16,31 @@ import { AnimatedCheckIcon, Button } from '../../Core';
 import { ErrorBoundary } from 'react-error-boundary';
 import { EffectComposer, SMAA } from '@react-three/postprocessing';
 import { SMAAPreset } from 'postprocessing';
+import { FluidDistortion, DISTORTION_FRAG } from './FluidDistortion';
+import { Effect } from 'postprocessing';
+
+class DistortionEffectImpl extends Effect {
+  constructor(fluidTexture: THREE.Texture) {
+    super('DistortionEffect', DISTORTION_FRAG, {
+      uniforms: new Map([['tFluid', new THREE.Uniform(fluidTexture)]])
+    });
+  }
+}
+
+const DistortionEffect = React.forwardRef(({ fluidTexture }: { fluidTexture: THREE.Texture }, ref) => {
+  const effect = useMemo(() => new DistortionEffectImpl(fluidTexture), []);
+
+  useEffect(() => {
+    if (effect && fluidTexture) {
+      const uniform = effect.uniforms.get('tFluid');
+      if (uniform) {
+        uniform.value = fluidTexture;
+      }
+    }
+  }, [effect, fluidTexture]);
+
+  return <primitive ref={ref} object={effect} />;
+});
 
 // Preload the environment map preset to fetch the HDR cubemap asset early
 useEnvironment.preload({ preset: 'city' });
@@ -730,9 +755,14 @@ const Scene3D: React.FC<Scene3DProps> = ({
           {/* Environment provides both lighting and the requested City-scape background */}
           <ProgressiveEnvironment background={showSky} />
 
-          <EffectComposer>
-            <SMAA preset={SMAAPreset.HIGH} />
-          </EffectComposer>
+          <FluidDistortion>
+            {(texture) => (
+              <EffectComposer>
+                <DistortionEffect fluidTexture={texture} />
+                <SMAA preset={SMAAPreset.HIGH} />
+              </EffectComposer>
+            )}
+          </FluidDistortion>
         </Canvas>
       </ErrorBoundary>
       

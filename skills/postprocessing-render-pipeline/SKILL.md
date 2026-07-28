@@ -198,7 +198,7 @@ export class PostProcessingPipeline {
         magFilter: THREE.LinearFilter,
         format: THREE.RGBAFormat,
         type: THREE.HalfFloatType,
-        samples: 4, // MSAA
+        samples: 0, // SMAA used in post-processing instead of MSAA for performance
       }
     );
 

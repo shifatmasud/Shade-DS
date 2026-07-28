@@ -3,8 +3,8 @@
 1. **Objective**
    - **Problem Statement**: Standard distance-field cursor splats look rigid and mechanical ("stamp-like"). True fluid feels organic, viscous, cohesive, and swirling, with smooth metaball merging when trails cross or loop.
    - **Solution Overview**: Upgrade the offscreen fluid simulation and distortion pipeline to exhibit true liquid-like behavior:
-     1. **DPR-Scaled Scene Pass**: Render the primary 3D scene to a DPR-scaled offscreen `THREE.WebGLRenderTarget` with `samples: 4` (MSAA) and synchronized `sRGBColorSpace`.
-     2. **Viscous Advection & Velocity Diffusion**: Advect velocity vectors through the previous frame texture with a diffusion kernel so trails stretch, swirl, and linger like liquid ribbons.
+     1. **DPR-Scaled Scene Pass**: Render the primary 3D scene to a DPR-scaled offscreen `THREE.WebGLRenderTarget` with `samples: 0` (SMAA used in post-pass) and synchronized `sRGBColorSpace`.
+     2. **Viscous Advection & Velocity Diffusion**: Advect velocity vectors through the previous frame texture (optimized 512x512 resolution) with a diffusion kernel so trails stretch, swirl, and linger like liquid ribbons.
      3. **Metaball Smooth Minimum ($smin$) Blending**: Splat pointer inputs into the paint target using exponential falloff and smooth minimum blending so overlapping cursor movements merge organically like liquid droplets.
      4. **Curl Noise Turbulence**: Inject procedural curl noise into the velocity advection step to create swirling eddy currents and organic turbulence.
      5. **Color Space & Localized Masking**: Synchronize sRGB color spaces across all render targets and apply a strict GLSL early-exit mask (`if (alpha <= 0.001) return;`) outside active fluid regions for maximum performance.
@@ -15,12 +15,12 @@
    - **Metaball Blending ($smin$)**: Intersecting or looping cursor paths fuse together seamlessly with smooth liquid surface tension.
    - **Curl Noise Turbulence**: Subtle swirling eddies naturally agitate the fluid trail over time.
    - **DPR Scaling & Crisp Quality**: Offscreen render target resolution scales dynamically with device pixel ratio (`width * dpr`, `height * dpr`).
-   - **Performance & Resource Hygiene**: Runs smoothly at 60 FPS using standard 8-bit RGBA render targets with zero memory leaks.
+   - **Performance & Resource Hygiene**: Runs smoothly at 60 FPS using standard 8-bit RGBA render targets (optimized at 512x512) with zero memory leaks.
 
 3. **Project Requirements**
-   - [ ] Define dynamic DPR-scaled offscreen scene capture pass (`sceneTarget`) in R3F with explicit frame loop priority (`useFrame(..., 1)`).
+   - [ ] Define dynamic DPR-scaled offscreen scene capture pass (`sceneTarget`) in R3F with explicit frame loop priority (`useFrame(..., 1)`). Set `samples: 0` to defer anti-aliasing to SMAA post-pass.
    - [ ] Align all offscreen render target texture color spaces with `renderer.outputColorSpace` (`THREE.SRGBColorSpace`).
-   - [ ] Implement Liquid Advection & Viscosity Diffusion Shader (`PAINT_SIM_FRAG`) incorporating velocity transport, exponential decay, and curl noise.
+   - [ ] Implement Liquid Advection & Viscosity Diffusion Shader (`PAINT_SIM_FRAG`) incorporating velocity transport, exponential decay, and curl noise at optimized 512x512 resolution.
    - [ ] Implement Metaball Smooth Minimum ($smin$) blending for cursor splats.
    - [ ] Implement 9-Tap Downsample & Blur Shader (`BLUR_FRAG`) for velocity diffusion iteration.
    - [ ] Implement Composite Distortion Shader (`DISTORTION_COMPOSITE_FRAG`) with chromatic aberration and strict localized early-exit masking (`if (fluid.a <= 0.001) { gl_FragColor = texture2D(tScene, vUv); return; }`).
@@ -30,6 +30,7 @@
    - **Smooth Minimum ($smin$) over Rigid SDF**: Instead of a hard radial cutoff, using polynomial or exponential smooth minimum blending allows multiple touch/mouse points to coalesce like mercury or water droplets.
    - **Velocity Advection + Curl Noise**: Advecting velocity backwards along velocity vectors (`texture2D(prev, uv - vel * dt)`) combined with curl noise generates natural fluid momentum and vortices.
    - **8-Bit RGBA Ping-Pong Targets**: Storing velocity in `rg` channels and fluid density/alpha in `b` or `a` channels allows efficient packing in standard 8-bit WebGL render targets.
+   - **SMAA preference**: Explicitly favoring SMAA over MSAA for crisp edges without the high GPU cost of multi-sampling on high-DPR displays.
 
 5. **Pseudo Code**
 
