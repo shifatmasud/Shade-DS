@@ -33,6 +33,7 @@ const COMMON_VERT = `
 const PAINT_FRAG = `
   #define MAX_TOUCHES 5
   uniform sampler2D tLowRes;
+  uniform sampler2D uNoiseTex;
   uniform vec2 uPointer[MAX_TOUCHES];
   uniform vec2 uMidPointer[MAX_TOUCHES];
   uniform vec2 uPrevPointer[MAX_TOUCHES];
@@ -48,35 +49,9 @@ const PAINT_FRAG = `
   uniform float uCurlFreq;
   varying vec2 vUv;
 
-  // 2D Simplex Noise implementation (Ashima Arts / Stefan Gustavson)
-  vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-  vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-  vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-
+  // Replaced procedural Simplex Noise math with pre-baked 32x32 noise texture lookup
   float snoise(vec2 v) {
-    const vec4 C = vec4(0.211324865405187,  // (3.0-sqrt(3.0))/6.0
-                        0.366025403784439,  // (0.5*(sqrt(3.0)-1.0))
-                        -0.577350269189626, // -1.0 + 2.0 * C.x
-                        0.024390243902439); // 1.0 / 41.0
-    vec2 i  = floor(v + dot(v, C.yy) );
-    vec2 x0 = v -   i + dot(i, C.xx) ;
-    vec2 i1;
-    i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-    vec4 x12 = x0.xyxy + C.xxzz;
-    x12.xy -= i1;
-    i = mod289(i);
-    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0) )
-      + i.x + vec3(0.0, i1.x, 1.0) );
-    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-    m = m*m ;
-    m = m*m ;
-    vec3 x = 2.0 * fract(p * C.www) - 1.0;
-    vec3 h = abs(x) - 0.5;
-    vec3 a0 = x - floor(x + 0.5);
-    vec3 g = a0 * vec3(x0.x, x12.xz) + h * vec3(x0.y, x12.yw);
-    vec3 diff = 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-    g *= diff;
-    return 130.0 * dot(m, g);
+    return texture2D(uNoiseTex, v).r * 2.0 - 1.0;
   }
 
   // Custom liquid potential function that generates marbled, ridged, stream-aligned patterns
@@ -365,19 +340,29 @@ export const DISTORTION_FRAG = `
     float boundsFactor = smoothstep(0.005, 0.35, mainDensity) * (1.0 - smoothstep(0.35, 0.9, mainDensity));
     float trailEdgeIntensity = max(slopeFactor, boundsFactor);
 
-    vec2 tapOffsets[5];
+    // 9-tap kernel offsets (3x3 grid)
+    vec2 tapOffsets[9];
     tapOffsets[0] = vec2( 0.0,  0.0);
     tapOffsets[1] = vec2(-1.0,  0.0);
     tapOffsets[2] = vec2( 1.0,  0.0);
     tapOffsets[3] = vec2( 0.0, -1.0);
     tapOffsets[4] = vec2( 0.0,  1.0);
+    tapOffsets[5] = vec2(-1.0, -1.0);
+    tapOffsets[6] = vec2( 1.0, -1.0);
+    tapOffsets[7] = vec2(-1.0,  1.0);
+    tapOffsets[8] = vec2( 1.0,  1.0);
 
-    float weights[5];
-    weights[0] = 0.36;
-    weights[1] = 0.16;
-    weights[2] = 0.16;
-    weights[3] = 0.16;
-    weights[4] = 0.16;
+    // 9-tap Gaussian kernel weights
+    float weights[9];
+    weights[0] = 0.25;
+    weights[1] = 0.125;
+    weights[2] = 0.125;
+    weights[3] = 0.125;
+    weights[4] = 0.125;
+    weights[5] = 0.0625;
+    weights[6] = 0.0625;
+    weights[7] = 0.0625;
+    weights[8] = 0.0625;
 
     float velMag = length(mainVel);
     float blurMult = max(uBlurRadius, 0.0) / 0.012;
@@ -392,7 +377,8 @@ export const DISTORTION_FRAG = `
 
     vec3 accumulatedColor = vec3(0.0);
 
-    for (int i = 0; i < 5; i++) {
+    // RGB Chromatic Dispersion Mixer pass followed by 9-tap blur pass & 9-tap blue noise jitter pass
+    for (int i = 0; i < 9; i++) {
       vec2 noiseUV = uv * 480.0 + tapOffsets[i] * 13.37;
       float jitterVal = (0.0022 + 0.0055 * trailEdgeIntensity) * jitterMult;
       vec2 jitter = (hash22(noiseUV) - 0.5) * jitterVal;
@@ -437,6 +423,55 @@ interface TouchSlot {
   activeLerp: number;
 }
 
+// Pre-calculate 32x32 noise lookup texture DataTexture
+const create32x32NoiseTexture = (): THREE.DataTexture => {
+  const size = 32;
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4;
+      const u = x / size;
+      const v = y / size;
+
+      const nx = Math.sin(u * Math.PI * 2);
+      const ny = Math.cos(v * Math.PI * 2);
+      const nx2 = Math.sin(u * Math.PI * 4 + 1.2);
+      const ny2 = Math.sin(v * Math.PI * 4 + 0.7);
+      const nx3 = Math.cos(u * Math.PI * 6 - 0.8);
+      const ny3 = Math.cos(v * Math.PI * 6 + 1.5);
+
+      const nVal = (nx * ny + nx2 * ny2 * 0.5 + nx3 * ny3 * 0.25) / 1.75;
+      const nValScaled = nVal * 0.5 + 0.5;
+
+      const gx = Math.cos(u * Math.PI * 2 + 0.5);
+      const gy = Math.sin(v * Math.PI * 2 + 1.1);
+      const gx2 = Math.sin(u * Math.PI * 4 - 0.4);
+      const gy2 = Math.cos(v * Math.PI * 4 + 0.3);
+      const gVal = (gx * gy + gx2 * gy2 * 0.5) / 1.5;
+      const gValScaled = gVal * 0.5 + 0.5;
+
+      data[idx]     = Math.floor(Math.max(0, Math.min(255, nValScaled * 255)));
+      data[idx + 1] = Math.floor(Math.max(0, Math.min(255, gValScaled * 255)));
+      data[idx + 2] = Math.floor(Math.max(0, Math.min(255, nValScaled * 255)));
+      data[idx + 3] = 255;
+    }
+  }
+
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+};
+
+// Capped fixed FBO resolutions for fluid simulation passes
+const PAINT_WIDTH = 128;
+const PAINT_HEIGHT = 128;
+const LOW_RES_WIDTH = 64;
+const LOW_RES_HEIGHT = 64;
+
 export const FluidDistortion: React.FC<FluidDistortionProps> = ({
   children,
   radius = 0.065,
@@ -448,10 +483,7 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
 }) => {
   const { size, gl } = useThree();
 
-  const paintWidth = Math.min(160, Math.max(96, Math.round(size.width / 5)));
-  const paintHeight = Math.min(160, Math.max(96, Math.round(size.height / 5)));
-  const lowResWidth = Math.min(80, Math.max(48, Math.round(paintWidth / 2)));
-  const lowResHeight = Math.min(80, Math.max(48, Math.round(paintHeight / 2)));
+  const noiseTexture = useMemo(() => create32x32NoiseTexture(), []);
 
   const fboOptions = useMemo(() => ({
     minFilter: THREE.LinearFilter,
@@ -460,10 +492,11 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     type: THREE.UnsignedByteType,
   }), []);
 
-  const paintTargetA = useFBO(paintWidth, paintHeight, fboOptions);
-  const paintTargetB = useFBO(paintWidth, paintHeight, fboOptions);
-  const lowResTargetA = useFBO(lowResWidth, lowResHeight, fboOptions);
-  const lowResTargetB = useFBO(lowResWidth, lowResHeight, fboOptions);
+  // Capped fixed FBO target allocation (128x128 for paint, 64x64 for lowRes)
+  const paintTargetA = useFBO(PAINT_WIDTH, PAINT_HEIGHT, fboOptions);
+  const paintTargetB = useFBO(PAINT_WIDTH, PAINT_HEIGHT, fboOptions);
+  const lowResTargetA = useFBO(LOW_RES_WIDTH, LOW_RES_HEIGHT, fboOptions);
+  const lowResTargetB = useFBO(LOW_RES_WIDTH, LOW_RES_HEIGHT, fboOptions);
 
   const currentPaint = useRef(paintTargetA);
   const prevPaint = useRef(paintTargetB);
@@ -492,6 +525,7 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
   const paintMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       tLowRes: { value: null },
+      uNoiseTex: { value: noiseTexture },
       uPointer: { value: uPointerArray },
       uMidPointer: { value: uMidPointerArray },
       uPrevPointer: { value: uPrevPointerArray },
@@ -508,16 +542,16 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     },
     vertexShader: COMMON_VERT,
     fragmentShader: PAINT_FRAG,
-  }), []);
+  }), [noiseTexture]);
 
   const blurMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       tPaint: { value: null },
-      uTexelSize: { value: new THREE.Vector2(1 / paintWidth, 1 / paintHeight) },
+      uTexelSize: { value: new THREE.Vector2(1 / PAINT_WIDTH, 1 / PAINT_HEIGHT) },
     },
     vertexShader: COMMON_VERT,
     fragmentShader: BLUR_FRAG,
-  }), [paintWidth, paintHeight]);
+  }), []);
 
   const paintQuad = useMemo(() => {
     return new THREE.Mesh(new THREE.PlaneGeometry(2, 2), paintMaterial);
@@ -533,8 +567,8 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
 
   useEffect(() => {
     paintMaterial.uniforms.uAspect.value = size.width / Math.max(size.height, 1);
-    blurMaterial.uniforms.uTexelSize.value.set(1 / lowResWidth, 1 / lowResHeight);
-  }, [size, paintMaterial, blurMaterial, lowResWidth, lowResHeight]);
+    blurMaterial.uniforms.uTexelSize.value.set(1 / LOW_RES_WIDTH, 1 / LOW_RES_HEIGHT);
+  }, [size, paintMaterial, blurMaterial]);
 
   useEffect(() => {
     const el = gl.domElement;
