@@ -167,7 +167,7 @@ const PAINT_FRAG = `
     float slopeMag = length(densitySlope);
     float trailEdgeFactor = smoothstep(0.01, 0.35, slopeMag);
 
-    // 3. Aspect-ratio corrected pointer Bezier distance with hydrodynamic liquid domain warping
+    // 3. Aspect-ratio corrected pointer Bezier distance
     vec2 p = vUv;
     p.x *= uAspect;
     vec2 a = uPrevPointer;
@@ -177,7 +177,24 @@ const PAINT_FRAG = `
     vec2 b = uPointer;
     b.x *= uAspect;
 
-    // Hydrodynamic domain warping: transforms straight strokes into curvy, undulating liquid ribbons
+    // Clean distance to smooth curved trajectory for active trailing area
+    float distClean = sdBezier(p, a, mid, b);
+
+    // Active fluid metaball bell-curve splat falloff
+    float radius = uRadius * mix(1.0, 1.5, uActive);
+    float rNorm = clamp(distClean / max(radius, 0.0001), 0.0, 1.0);
+    float splat = 1.0 - rNorm * rNorm;
+    splat = splat * splat; // Smooth organic liquid curve
+
+    // Fetch previous low-res density to calculate dissipation area
+    vec4 prevLowResRaw = texture2D(tLowRes, vUv);
+    float prevDensity = prevLowResRaw.b;
+
+    // Dissipation area mask: high in aging/advected wake, low in active fresh trailing area
+    float activeTrailMask = clamp(splat * mix(1.0, 1.25, uActive), 0.0, 1.0);
+    float dissipationArea = clamp(prevDensity * (1.0 - activeTrailMask * 0.9), 0.0, 1.0);
+
+    // 1. Hydrodynamic domain warping: active trailing area stays curvy & stable; dissipation area gets organic liquid warping, swirls & vortices
     float speed = length(uVelocity);
     vec2 flowDir = speed > 0.0001 ? uVelocity / speed : vec2(1.0, 0.0);
     vec2 perpDir = vec2(-flowDir.y, flowDir.x);
@@ -189,26 +206,19 @@ const PAINT_FRAG = `
     // Serpentine liquid surface wave undulation
     float waveUndulation = sin(dot(p, flowDir) * 35.0 - uTime * 6.5) * cos(dot(p, perpDir) * 22.0 + uTime * 4.2);
 
-    // Combined domain offset that curves and ripples the fluid trail boundaries
+    // Swirling rotational noise for dissipation domain warping
+    float swirlAngle = snoise(vUv * 3.2 + uTime * 0.6) * 6.28318;
+    vec2 swirlDomainVec = vec2(cos(swirlAngle), sin(swirlAngle));
+
+    // Combined domain offset: strictly concentrated in dissipation area (0 in active trail)
     float curlMult = max(uCurlStrength, 0.0) / 0.25;
-    vec2 fluidDomainOffset = (perpDir * (n1 * 0.038 + waveUndulation * 0.022) + flowDir * (n2 * 0.024)) * (1.0 + curlMult * 0.8);
-
-    // Domain-warped evaluation point
-    vec2 pWarp = p + fluidDomainOffset;
-
-    // Calculate distance to quadratic Bezier curve on domain-warped liquid space
-    float dist = sdBezier(pWarp, a, mid, b);
-
-    // Fluid metaball bell-curve splat falloff
-    float radius = uRadius * mix(1.0, 1.5, uActive);
-    float rNorm = clamp(dist / max(radius, 0.0001), 0.0, 1.0);
-    float splat = 1.0 - rNorm * rNorm;
-    splat = splat * splat; // Smooth organic liquid curve
+    vec2 fluidDomainOffset = (perpDir * (n1 * 0.045 + waveUndulation * 0.028) + flowDir * (n2 * 0.03) + swirlDomainVec * 0.035) * (1.0 + curlMult * 0.9);
+    vec2 pWarp = p + fluidDomainOffset * dissipationArea;
 
     float localSplatEdge = smoothstep(0.05, 0.5, splat) * (1.0 - smoothstep(0.5, 0.95, splat));
     float totalSlopesFactor = max(trailEdgeFactor, localSplatEdge);
 
-    // 4. Generate organic liquid-directed curl noise with stream-aligned stretching
+    // 2. Liquid-directed curl noise with stream-aligned stretching (concentrated in dissipation area)
     float flowSpeed = length(lowResVel);
     float flowStretch = clamp(flowSpeed * 5.0, 0.0, 1.5);
     
@@ -216,27 +226,32 @@ const PAINT_FRAG = `
     vec2 curl2 = liquidCurlNoise(vUv, uTime * 1.5, uCurlFreq * 2.2, 0.5 + flowStretch * 0.5);
     vec2 combinedCurl = curl1 * 0.7 + curl2 * 0.3;
 
-    // Scale Curl Noise: significantly increased on trail slopes, bounds, and under pointer
-    float baseCurlStrength = 0.04 * curlMult;
-    float edgeCurlBoost = 0.22 * totalSlopesFactor * curlMult;
-    float pointerCurlBoost = 0.35 * splat * mix(1.0, 2.2, uActive) * curlMult;
+    // Curl noise injection: 0 in active trail area; strong in dissipation area
+    float baseCurlStrength = 0.01 * curlMult;
+    float dissipationCurlBoost = 0.35 * dissipationArea * curlMult;
+    float edgeCurlBoost = 0.18 * totalSlopesFactor * dissipationArea * curlMult;
     
-    vec2 injectedCurl = combinedCurl * (baseCurlStrength + edgeCurlBoost + pointerCurlBoost);
+    vec2 injectedCurl = combinedCurl * (baseCurlStrength + dissipationCurlBoost + edgeCurlBoost);
 
-    // 5. Back-advect density and velocity along separate paths
-    vec2 advectVelUv = vUv - (lowResVel + injectedCurl) * 0.014;
-    vec2 advectDensityUv = vUv - lowResVel * 0.014;
+    // 3. Wind Force Motion in Dissipation Area (ambient liquid wind force drifting across water surface)
+    vec2 baseWindDir = normalize(vec2(0.4, 0.7) + vec2(sin(uTime * 0.3) * 0.25, cos(uTime * 0.25) * 0.2));
+    float windNoise = snoise(vUv * 2.8 + vec2(uTime * 0.35, -uTime * 0.25)) * 0.5 + 0.5;
+    vec2 windForce = baseWindDir * (0.018 + windNoise * 0.032) * dissipationArea;
+
+    // 4. Back-advect density and velocity along separate paths with wind force
+    vec2 advectVelUv = vUv - (lowResVel + injectedCurl + windForce) * 0.014;
+    vec2 advectDensityUv = vUv - (lowResVel + windForce * 0.8) * 0.014;
 
     vec4 velSample = texture2D(tLowRes, clamp(advectVelUv, 0.0, 1.0));
     vec4 densitySample = texture2D(tLowRes, clamp(advectDensityUv, 0.0, 1.0));
 
     vec2 prevVel = (velSample.rg - 0.5) * 2.0;
-    float prevDensity = densitySample.b;
+    float advectedDensity = densitySample.b * (uDissipation * 0.985);
 
     // Mouse velocity impulse
     vec2 pointerVel = uVelocity * uStrength * mix(2.5, 5.2, uActive);
 
-    // Swirl & Counter-Rotating Dipole Wake Vorticity along movement path
+    // 5. Swirl & Counter-Rotating Dipole Wake Vorticity in Dissipation Area
     vec2 segDir = b - a;
     float segLen = length(segDir);
     vec2 wakeVorticity = vec2(0.0);
@@ -247,23 +262,23 @@ const PAINT_FRAG = `
       float side = sign(dot(pa, normPerp));
 
       // Dipole wake: counter-rotating vortex pairs on opposite sides of liquid trail
-      float vortexFalloff = exp(-dist * 18.0 / max(radius, 0.001));
-      vec2 dipole = normPerp * side * vortexFalloff * segLen * 9.0 * sin(dist * 28.0 - uTime * 5.0);
+      float vortexFalloff = exp(-distClean * 18.0 / max(radius, 0.001));
+      vec2 dipole = normPerp * side * vortexFalloff * segLen * 12.0 * sin(distClean * 28.0 - uTime * 5.0);
 
       // Serpentine undulation lingering in wake
-      vec2 serpentine = normPerp * sin(dot(pa, normDir) * 38.0 - uTime * 6.0) * vortexFalloff * 0.35;
+      vec2 serpentine = normPerp * sin(dot(pa, normDir) * 38.0 - uTime * 6.0) * vortexFalloff * 0.45;
 
-      wakeVorticity = dipole + serpentine;
+      // Vortex is kept subtle in active trailing area and expands in dissipation area
+      wakeVorticity = (dipole + serpentine) * dissipationArea;
     }
 
     vec2 inputVel = (pointerVel + wakeVorticity) * splat;
 
-    // Advect and dissipate previous velocity and density
+    // Advect and dissipate previous velocity
     vec2 advectedVel = prevVel * uDissipation;
-    float advectedDensity = prevDensity * (uDissipation * 0.985);
 
-    // Combine input velocity and back-advected fluid momentum
-    vec2 mixedVel = advectedVel + inputVel * 3.2;
+    // Combine input velocity, back-advected fluid momentum, and wind force
+    vec2 mixedVel = advectedVel + inputVel * 3.2 + windForce * 1.5;
 
     // Organic micro-turbulence noise
     float noise = sin(vUv.x * 35.0 + uTime * 3.0) * cos(vUv.y * 35.0 + uTime * 3.0) * 0.0015;
