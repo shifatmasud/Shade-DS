@@ -197,7 +197,6 @@ const PhysicsCube = ({ color, position, id, onDragStart, onDragEnd }: { color: s
         colliders="cuboid" 
         restitution={0.7}
         friction={0.5}
-        ccd={true}
         canSleep={!isDragging}
         name={`cube-${id}`}
         onCollisionEnter={({ manifold, flipped }) => {
@@ -251,14 +250,10 @@ const Floor = () => (
   <RigidBody type="fixed" position={[0, -2, 0]}>
     <mesh receiveShadow>
       <boxGeometry args={[20, 1, 20]} />
-      <meshPhysicalMaterial 
+      <meshStandardMaterial 
         color="#08080c" 
         roughness={0.2} 
         metalness={0.4}
-        clearcoat={0.0}
-        clearcoatRoughness={0.0}
-        transmission={0.1}
-        thickness={0.5}
       />
     </mesh>
   </RigidBody>
@@ -385,7 +380,6 @@ const RotatingBox = ({ color = '#4f46e5', speed = 1, scale = 2, onDragStart, onD
       type="kinematicPosition" 
       position={[0, 1, 0]} 
       colliders="cuboid"
-      ccd={true}
       onCollisionEnter={({ manifold, flipped, other }) => {
         if (!manifold) return;
         const numContacts = manifold.numSolverContacts();
@@ -465,7 +459,7 @@ const ProgressiveEnvironment: React.FC<{ background?: boolean }> = ({ background
     <Environment 
       preset="city" 
       background={background} 
-      resolution={256} 
+      resolution={128} 
     />
   ) : null;
 };
@@ -832,7 +826,7 @@ const Scene3D: React.FC<Scene3DProps> = ({
       <ErrorBoundary fallback={<div style={{ color: 'white', padding: '20px' }}>3D Scene Error. Please check console.</div>}>
         <Canvas 
           shadows={{ type: THREE.PCFShadowMap }} 
-          dpr={[1, 1.5]}
+          dpr={[0.75, 1.25]}
           gl={{ 
             antialias: false,
             powerPreference: 'high-performance',
@@ -891,7 +885,7 @@ const Scene3D: React.FC<Scene3DProps> = ({
                   blurRadius={shaderParams.blurRadius}
                   jitterStrength={shaderParams.jitterStrength}
                 />
-                <SMAA preset={SMAAPreset.HIGH} />
+                <SMAA preset={SMAAPreset.MEDIUM} />
               </EffectComposer>
             )}
           </FluidDistortion>

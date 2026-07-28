@@ -38,7 +38,6 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
   transmission = 0.90
 }, ref) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const workerRef = useRef<Worker | null>(null);
 
   // Trigger collision impact via exposed ref
   useImperativeHandle(ref, () => ({
@@ -91,20 +90,13 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
           const impactStrength = Math.min(intensity * 1.5, 1.2);
           squashVelocity.current -= impactStrength * 9.0; 
         }
-
-        // Also post message to web worker to sync the simulation timeline
-        workerRef.current?.postMessage({
-          type: 'triggerImpact',
-          slotIndex,
-          intensity
-        });
       }
     }
   }));
 
-  // Subdivided Box Geometry for high-resolution smooth vertex deformations
+  // Subdivided Box Geometry for smooth vertex deformations (budgeted 5x5x5 resolution for mobile FPS)
   const geometry = useMemo(() => {
-    return new THREE.BoxGeometry(size, size, size, 8, 8, 8);
+    return new THREE.BoxGeometry(size, size, size, 5, 5, 5);
   }, [size]);
 
   // Cache uniforms in reference to persist between compiling scopes
@@ -131,70 +123,6 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
   const smoothedVelocity = useRef(new THREE.Vector3());
   const squashValue = useRef(0);
   const squashVelocity = useRef(0);
-
-  // --- WEB WORKER LIFE-CYCLE MANAGEMENT ---
-  useEffect(() => {
-    const workerCode = `
-      let impactActive = [0.0, 0.0, 0.0];
-      let impactTimes = [0.0, 0.0, 0.0];
-      let impactIntensities = [0.0, 0.0, 0.0];
-
-      self.onmessage = function(e) {
-        const data = e.data;
-        if (data.type === 'triggerImpact') {
-          const idx = data.slotIndex;
-          impactActive[idx] = 1.0;
-          impactTimes[idx] = 0.0;
-          impactIntensities[idx] = data.intensity;
-          return;
-        }
-
-        if (data.type === 'update') {
-          const dt = data.dt;
-
-          // Compute lifetimes for collision/impact slots
-          for (let i = 0; i < 3; i++) {
-            if (impactActive[i] > 0.5) {
-              impactTimes[i] += dt;
-              if (impactTimes[i] > 1.5) {
-                impactActive[i] = 0.0;
-                impactTimes[i] = 0.0;
-                impactIntensities[i] = 0.0;
-              }
-            }
-          }
-
-          // Offload calculated states back to the main thread
-          self.postMessage({
-            impactActive,
-            impactTimes,
-            impactIntensities
-          });
-        }
-      };
-    `;
-    const blob = new Blob([workerCode], { type: 'application/javascript' });
-    const workerUrl = URL.createObjectURL(blob);
-    const worker = new Worker(workerUrl);
-
-    workerRef.current = worker;
-
-    worker.onmessage = (e) => {
-      const { impactActive: impActive, impactTimes: impTimes, impactIntensities: impIntensities } = e.data;
-
-      // Synced collision timelines
-      for (let i = 0; i < 3; i++) {
-        uniformsRef.current.uImpactActive.value[i] = impActive[i];
-        uniformsRef.current.uImpactTimes.value[i] = impTimes[i];
-        uniformsRef.current.uImpactIntensities.value[i] = impIntensities[i];
-      }
-    };
-
-    return () => {
-      worker.terminate();
-      URL.revokeObjectURL(workerUrl);
-    };
-  }, [stiffness, damping, size]);
 
   // Custom modified Physical Jelly Material
   const customMaterial = useMemo(() => {
@@ -370,11 +298,20 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
 
     const dt = Math.min(delta, 0.03);
 
-    // 1. Dispatch simple update task to background Web Worker for tracking collision lifetimes
-    workerRef.current?.postMessage({
-      type: 'update',
-      dt
-    });
+    // Update collision lifetimes inline for zero-overhead timeline updates
+    const tms = uniformsRef.current.uImpactTimes.value;
+    const acts = uniformsRef.current.uImpactActive.value;
+    const ints = uniformsRef.current.uImpactIntensities.value;
+    for (let i = 0; i < 3; i++) {
+      if (acts[i] > 0.5) {
+        tms[i] += dt;
+        if (tms[i] > 1.5) {
+          acts[i] = 0.0;
+          tms[i] = 0.0;
+          ints[i] = 0.0;
+        }
+      }
+    }
 
     // 2. Physics-based velocity tracking for stretch
     if (rigidBody?.current && meshRef.current) {

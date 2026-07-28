@@ -10,7 +10,7 @@ This skill provides verified, highly effective optimization techniques for rende
 ---
 
 ## 1. Zero-Freeze Environment Mounting (Progressive Hydration)
-Loading environment maps (HDRs) at startup can freeze the UI while the GPU compiles Prefiltered Mipmapped Radiance Environment Maps (PMREM). To prevent this, use a progressive loader that waits for the initial flat DOM/UI frame cycles to stabilize, then schedules mounting using `requestIdleCallback`.
+Loading environment maps (HDRs) at startup can freeze the UI while the GPU compiles Prefiltered Mipmapped Radiance Environment Maps (PMREM). To prevent this, use a progressive loader that waits for the initial flat DOM/UI frame cycles to stabilize, then schedules mounting using `requestIdleCallback`. Lower environment resolution to `128` for mobile performance budgeting.
 
 ### Implementation Pattern
 ```tsx
@@ -49,16 +49,11 @@ const ProgressiveEnvironment: React.FC = () => {
 
 ---
 
-## 2. Low-Cost Post-Processed Anti-Aliasing (SMAA)
-By default, WebGL leverages multi-sample anti-aliasing (MSAA), which is computationally heavy on mobile devices. Replacing MSAA with a post-processing SMAA (Subpixel Morphological Anti-Aliasing) pass provides sharp lines and UI edges at a fraction of the performance cost.
-
-### Steps
-1. Install post-processing dependencies:
-   ```bash
-   npm install @react-three/postprocessing postprocessing
-   ```
-2. Disable default Canvas anti-aliasing: `<Canvas gl={{ antialias: false }}>`
-3. Wrap the scene with an `<EffectComposer>` containing `<SMAA>`:
+## 2. Low-Cost Post-Processed Anti-Aliasing & Canvas DPR Budgeting
+By default, WebGL leverages multi-sample anti-aliasing (MSAA), which is computationally heavy on mobile devices.
+- **Zero MSAA**: Set `antialias: false` on the Canvas context.
+- **Balanced SMAA**: Wrap the scene in an `<EffectComposer>` using `<SMAA preset={SMAAPreset.MEDIUM} />`.
+- **DPR Capping**: Cap device pixel ratio dynamically to `[0.75, 1.25]` to avoid fill-rate bottlenecks on high-density mobile displays.
 
 ```tsx
 import { Canvas } from '@react-three/fiber';
@@ -68,12 +63,12 @@ import { SMAAPreset } from 'postprocessing';
 export const OptimalCanvas = ({ children }) => (
   <Canvas 
     gl={{ antialias: false, powerPreference: 'high-performance' }}
-    dpr={[1, 1.5]} // Cap DPR at 1.5x on high-density screens
+    dpr={[0.75, 1.25]} // Capped DPR range prevents 4K/3X density render stalls
   >
     {children}
     
     <EffectComposer>
-      <SMAA preset={SMAAPreset.HIGH} />
+      <SMAA preset={SMAAPreset.MEDIUM} />
     </EffectComposer>
   </Canvas>
 );
@@ -81,25 +76,23 @@ export const OptimalCanvas = ({ children }) => (
 
 ---
 
-## 3. Light & Shadow Map Budgets
-High-resolution shadow maps are one of the most common causes of low frame rates. Always scale maps proportionally to the scene requirements.
-
-- **Bad**: `shadow-mapSize={[2048, 2048]}`
-- **Optimal**: `shadow-mapSize={[512, 512]}` paired with a soft filter like `PCFShadowMap`.
+## 3. Light, Shadow & Material Overhead Budgeting
+- **Shadow Maps**: Keep shadow map resolution scaled to budget (e.g. `512x512` with `PCFShadowMap`).
+- **Eliminate Unnecessary Transmission**: `transmission` in `MeshPhysicalMaterial` causes Three.js to render an extra offscreen screen-pass copy per frame. Remove transmission from background elements (like floors, walls, planes) and replace them with standard `MeshStandardMaterial`.
+- **Simplify Material Effects**: Turn off `clearcoat` (`clearcoat: 0.0`) and keep roughness stable to prevent shader re-compilation.
 
 ```tsx
-<spotLight 
-  position={[5, 10, 5]} 
-  castShadow 
-  shadow-mapSize-width={512} 
-  shadow-mapSize-height={512} 
-/>
+// Floor / Plane Optimization (Zero offscreen buffer copy overhead)
+<mesh receiveShadow>
+  <boxGeometry args={[20, 1, 20]} />
+  <meshStandardMaterial color="#08080c" roughness={0.2} metalness={0.4} />
+</mesh>
 ```
 
 ---
 
-## 4. Geometry and Material Simplification
-- **Geometry Resolution**: Keep subdivision segments to a minimum. For example, scale down standard `BoxGeometry` subdivisions from `16x16x16` to `8x8x8` unless high precision is strictly necessary for vertex shader deformations.
-- **Physical Material Costs**: Avoid compounding highly expensive parameters inside `MeshPhysicalMaterial`:
-  - Turn off `clearcoat` (`clearcoat: 0.0`) and `clearcoatRoughness` to drastically simplify specular specular reflections.
-  - Set a stable `roughness` value (e.g., `0.08` or higher) to avoid tiny micro-facet highlights that trigger render pipeline recalculations.
+## 4. Geometry Subdivision Budgeting & Physics Optimization
+- **Geometry Segment Caps**: Reduce geometry subdivisions to the minimum necessary. For example, scale down `BoxGeometry` from `8x8x8` (384 vertices) to `5x5x5` (150 vertices) for a ~60% reduction in vertex shader operations.
+- **Physics CCD (Continuous Collision Detection)**: Disable `ccd={true}` on Rapier/PhysX bodies unless high-speed anti-tunneling is strictly necessary. CCD adds CPU ray-casting overhead every physics sub-step.
+- **Eliminate Per-Frame Web Worker IPC**: Avoid sending `postMessage` to Web Workers every frame inside `useFrame` for simple timeline or animation updates. Main-thread array iteration inside `useFrame` takes < 0.01ms and completely avoids JSON serialization and thread IPC overhead.
+
