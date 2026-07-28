@@ -13,6 +13,7 @@ import ColorPicker from './ColorPicker.tsx';
 import Toggle from '../Core/Toggle.tsx';
 import Accordion from '../Core/Accordion.tsx';
 import ApiInput from './ApiInput.tsx';
+import ShaderControls from './ShaderControls.tsx';
 
 interface ControlPanelProps {
   stagedProps: MetaButtonProps;
@@ -513,6 +514,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               isOn={!!stagedProps.enableSuccess}
               onToggle={() => onPropChange('enableSuccess', !stagedProps.enableSuccess)}
             />
+          </motion.div>
+        </Accordion>
+      )}
+
+      {stagedProps.componentType === 'slot' && (
+        <Accordion title="Shader Optics & Fluid">
+          <motion.div layout="position" style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
+            <ShaderControls />
           </motion.div>
         </Accordion>
       )}

@@ -2,12 +2,13 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import TextArea from '../Core/TextArea.tsx';
 import { MetaButtonProps } from '../../types/index.tsx';
 import { AnimatedCopyIcon } from '../Core/AnimatedCopyIcon.tsx';
+import { useShaderStore, ShaderParams } from '../../services/shaderStore';
 
 interface CodePanelProps {
   codeText: string;
@@ -22,12 +23,59 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
   const { theme } = useTheme();
   const [isCopied, setIsCopied] = useState(false);
 
+  // Shader parameters direct JSON editing and syncing
+  const shaderParams = useShaderStore((state) => state.params);
+  const setParams = useShaderStore((state) => state.setParams);
+
+  const [shaderCodeText, setShaderCodeText] = useState('');
+  const [isShaderCodeFocused, setIsShaderCodeFocused] = useState(false);
+  const [isShaderCopied, setIsShaderCopied] = useState(false);
+
+  useEffect(() => {
+    if (!isShaderCodeFocused) {
+      setShaderCodeText(JSON.stringify(shaderParams, null, 2));
+    }
+  }, [shaderParams, isShaderCodeFocused]);
+
   const handleCopyClick = () => {
     onCopyCode();
     setIsCopied(true);
     setTimeout(() => {
       setIsCopied(false);
     }, 2000);
+  };
+
+  const handleCopyShaderCode = () => {
+    navigator.clipboard.writeText(JSON.stringify(shaderParams, null, 2));
+    setIsShaderCopied(true);
+    setTimeout(() => {
+      setIsShaderCopied(false);
+    }, 2000);
+  };
+
+  const handleShaderCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setShaderCodeText(val);
+    try {
+      const parsed = JSON.parse(val);
+      if (parsed && typeof parsed === 'object') {
+        const cleaned: Partial<ShaderParams> = {};
+        const validKeys: Array<keyof ShaderParams> = [
+          'radius', 'strength', 'dissipation', 'curlStrength', 'curlFreq',
+          'refractStrength', 'dispersionScale', 'blurRadius', 'jitterStrength'
+        ];
+        validKeys.forEach(key => {
+          if (typeof parsed[key] === 'number') {
+            cleaned[key] = parsed[key] as number;
+          }
+        });
+        if (Object.keys(cleaned).length > 0) {
+          setParams(cleaned);
+        }
+      }
+    } catch (err) {
+      // Ignore syntax errors while typing
+    }
   };
 
   const getReactUsageSnippet = () => {
@@ -49,39 +97,83 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
   };
 
   return (
-    <>
-      <div style={{ position: 'relative' }}>
-        <TextArea value={codeText} onChange={onCodeChange} onFocus={onFocus} onBlur={onBlur} />
-        <motion.button
-          onClick={handleCopyClick}
-          style={{
-            position: 'absolute',
-            top: theme.space['Space.S'],
-            right: theme.space['Space.S'],
-            background: theme.Color.Base.Surface[1],
-            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
-            borderRadius: theme.radius['Radius.S'],
-            padding: theme.space['Space.XS'],
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: theme.Color.Base.Content[1],
-          }}
-          whileHover={{ scale: 1.1, backgroundColor: theme.Color.Accent.Surface[1], color: theme.Color.Accent.Content[1] }}
-          whileTap={{ scale: 0.9 }}
-          aria-label={isCopied ? 'Copied!' : 'Copy JSON'}
-        >
-          <AnimatedCopyIcon isCopied={isCopied} />
-        </motion.button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'], padding: `${theme.space['Space.M']} ${theme.space['Space.M']}` }}>
+      <div>
+        <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Component Props JSON
+        </p>
+        <div style={{ position: 'relative' }}>
+          <TextArea value={codeText} onChange={onCodeChange} onFocus={onFocus} onBlur={onBlur} />
+          <motion.button
+            onClick={handleCopyClick}
+            style={{
+              position: 'absolute',
+              top: theme.space['Space.S'],
+              right: theme.space['Space.S'],
+              background: theme.Color.Base.Surface[1],
+              ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+              borderRadius: theme.radius['Radius.S'],
+              padding: theme.space['Space.XS'],
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: theme.Color.Base.Content[1],
+            }}
+            whileHover={{ scale: 1.1, backgroundColor: theme.Color.Accent.Surface[1], color: theme.Color.Accent.Content[1] }}
+            whileTap={{ scale: 0.9 }}
+            aria-label={isCopied ? 'Copied!' : 'Copy Props JSON'}
+          >
+            <AnimatedCopyIcon isCopied={isCopied} />
+          </motion.button>
+        </div>
       </div>
-      <div style={{ marginTop: theme.space['Space.L'] }}>
-        <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'] }}>REACT USAGE</p>
+
+      <div>
+        <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Shader Optics Params JSON
+        </p>
+        <div style={{ position: 'relative' }}>
+          <TextArea 
+            value={shaderCodeText} 
+            onChange={handleShaderCodeChange} 
+            onFocus={() => setIsShaderCodeFocused(true)} 
+            onBlur={() => setIsShaderCodeFocused(false)} 
+          />
+          <motion.button
+            onClick={handleCopyShaderCode}
+            style={{
+              position: 'absolute',
+              top: theme.space['Space.S'],
+              right: theme.space['Space.S'],
+              background: theme.Color.Base.Surface[1],
+              ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+              borderRadius: theme.radius['Radius.S'],
+              padding: theme.space['Space.XS'],
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: theme.Color.Base.Content[1],
+            }}
+            whileHover={{ scale: 1.1, backgroundColor: theme.Color.Accent.Surface[1], color: theme.Color.Accent.Content[1] }}
+            whileTap={{ scale: 0.9 }}
+            aria-label={isShaderCopied ? 'Copied!' : 'Copy Shader JSON'}
+          >
+            <AnimatedCopyIcon isCopied={isShaderCopied} />
+          </motion.button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: theme.space['Space.XS'], paddingBottom: theme.space['Space.L'] }}>
+        <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          React Usage
+        </p>
         <pre style={{ ...theme.Type.Expressive.Data, fontSize: theme.Type.Readable.Label.S.fontSize, color: theme.Color.Base.Content[2], backgroundColor: 'transparent', padding: 0, margin: 0, whiteSpace: 'pre-wrap' }}>
           {getReactUsageSnippet()}
         </pre>
       </div>
-    </>
+    </div>
   );
 };
 

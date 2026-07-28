@@ -11,33 +11,72 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Physics, RigidBody, CuboidCollider, RapierRigidBody } from '@react-three/rapier';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Info, X, Copy } from 'phosphor-react';
+import { Info, X, Copy, Sliders } from 'phosphor-react';
 import { AnimatedCheckIcon, Button } from '../../Core';
 import { ErrorBoundary } from 'react-error-boundary';
 import { EffectComposer, SMAA } from '@react-three/postprocessing';
 import { SMAAPreset } from 'postprocessing';
 import { FluidDistortion, DISTORTION_FRAG } from './FluidDistortion';
 import { Effect } from 'postprocessing';
+import { useShaderStore } from '../../../services/shaderStore';
+import ShaderControls from '../../Package/ShaderControls';
 
 class DistortionEffectImpl extends Effect {
-  constructor(fluidTexture: THREE.Texture) {
+  constructor(
+    fluidTexture: THREE.Texture,
+    refractStrength: number,
+    dispersionScale: number,
+    blurRadius: number,
+    jitterStrength: number
+  ) {
     super('DistortionEffect', DISTORTION_FRAG, {
-      uniforms: new Map([['tFluid', new THREE.Uniform(fluidTexture)]])
+      uniforms: new Map<string, THREE.Uniform<any>>([
+        ['tFluid', new THREE.Uniform(fluidTexture)],
+        ['uRefractStrength', new THREE.Uniform(refractStrength)],
+        ['uDispersionScale', new THREE.Uniform(dispersionScale)],
+        ['uBlurRadius', new THREE.Uniform(blurRadius)],
+        ['uJitterStrength', new THREE.Uniform(jitterStrength)],
+      ])
     });
   }
 }
 
-const DistortionEffect = React.forwardRef(({ fluidTexture }: { fluidTexture: THREE.Texture }, ref) => {
-  const effect = useMemo(() => new DistortionEffectImpl(fluidTexture), []);
+interface DistortionEffectProps {
+  fluidTexture: THREE.Texture;
+  refractStrength: number;
+  dispersionScale: number;
+  blurRadius: number;
+  jitterStrength: number;
+}
+
+const DistortionEffect = React.forwardRef(({
+  fluidTexture,
+  refractStrength,
+  dispersionScale,
+  blurRadius,
+  jitterStrength,
+}: DistortionEffectProps, ref) => {
+  const effect = useMemo(
+    () => new DistortionEffectImpl(fluidTexture, refractStrength, dispersionScale, blurRadius, jitterStrength),
+    []
+  );
 
   useEffect(() => {
-    if (effect && fluidTexture) {
-      const uniform = effect.uniforms.get('tFluid');
-      if (uniform) {
-        uniform.value = fluidTexture;
+    if (effect) {
+      if (fluidTexture) {
+        const uFluid = effect.uniforms.get('tFluid');
+        if (uFluid) uFluid.value = fluidTexture;
       }
+      const uRefract = effect.uniforms.get('uRefractStrength');
+      if (uRefract) uRefract.value = refractStrength;
+      const uDispersion = effect.uniforms.get('uDispersionScale');
+      if (uDispersion) uDispersion.value = dispersionScale;
+      const uBlur = effect.uniforms.get('uBlurRadius');
+      if (uBlur) uBlur.value = blurRadius;
+      const uJitter = effect.uniforms.get('uJitterStrength');
+      if (uJitter) uJitter.value = jitterStrength;
     }
-  }, [effect, fluidTexture]);
+  }, [effect, fluidTexture, refractStrength, dispersionScale, blurRadius, jitterStrength]);
 
   return <primitive ref={ref} object={effect} />;
 });
@@ -566,6 +605,9 @@ const Scene3D: React.FC<Scene3DProps> = ({
     return () => cancelAnimationFrame(requestId);
   }, []);
 
+  const [showShaderPanel, setShowShaderPanel] = useState(false);
+  const shaderParams = useShaderStore((state) => state.params);
+
   const spawnCube = () => {
     // Use the active cubeColor prop for newly spawned cubes
     addCube({
@@ -589,34 +631,112 @@ const Scene3D: React.FC<Scene3DProps> = ({
         </motion.button>
       </div>
 
-      {/* Info Trigger */}
-      <motion.button
-        onClick={() => setShowDialog(true)}
-        whileHover={{ scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.25)' }}
-        whileTap={{ scale: 0.95 }}
-        style={{
-          position: 'absolute',
-          top: theme.space['Space.M'],
-          right: theme.space['Space.M'],
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          color: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          zIndex: 50,
-          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
-          transition: 'border-color 0.3s ease, background-color 0.3s ease',
-        }}
-      >
-        <Info size={20} />
-      </motion.button>
+      {/* Top Right Action Buttons */}
+      <div style={{ position: 'absolute', top: theme.space['Space.M'], right: theme.space['Space.M'], display: 'flex', gap: theme.space['Space.S'], zIndex: 50 }}>
+        {/* Shader Controls Trigger */}
+        <motion.button
+          onClick={() => setShowShaderPanel((prev) => !prev)}
+          whileHover={{ scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.25)' }}
+          whileTap={{ scale: 0.95 }}
+          title="Toggle Shader Optics Sliders"
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: showShaderPanel ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.3s ease',
+          }}
+        >
+          <Sliders size={20} />
+        </motion.button>
+
+        {/* Info Trigger */}
+        <motion.button
+          onClick={() => setShowDialog(true)}
+          whileHover={{ scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.25)' }}
+          whileTap={{ scale: 0.95 }}
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+            transition: 'border-color 0.3s ease, background-color 0.3s ease',
+          }}
+        >
+          <Info size={20} />
+        </motion.button>
+      </div>
+
+      {/* Floating Shader Panel Overlay */}
+      <AnimatePresence>
+        {showShaderPanel && (
+          <motion.div
+            initial={{ opacity: 0, x: 20, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 20, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            style={{
+              position: 'absolute',
+              top: '70px',
+              right: theme.space['Space.M'],
+              width: '320px',
+              maxHeight: 'calc(100% - 90px)',
+              overflowY: 'auto',
+              backgroundColor: 'rgba(15, 15, 20, 0.85)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: theme.radius['Radius.L'],
+              padding: theme.space['Space.M'],
+              zIndex: 60,
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+              color: '#ffffff',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space['Space.M'], borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: theme.space['Space.S'] }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sliders size={18} style={{ color: theme.Color.Base.Content[2] }} />
+                <span style={{ ...theme.Type.Expressive.Headline.S, fontSize: '14px', color: '#ffffff' }}>
+                  Shader Optics Controls
+                </span>
+              </div>
+              <button
+                onClick={() => setShowShaderPanel(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px',
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <ShaderControls />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Dialog Overlay */}
       {typeof document !== 'undefined' && createPortal(
@@ -755,10 +875,22 @@ const Scene3D: React.FC<Scene3DProps> = ({
           {/* Environment provides both lighting and the requested City-scape background */}
           <ProgressiveEnvironment background={showSky} />
 
-          <FluidDistortion>
+          <FluidDistortion
+            radius={shaderParams.radius}
+            strength={shaderParams.strength}
+            dissipation={shaderParams.dissipation}
+            curlStrength={shaderParams.curlStrength}
+            curlFreq={shaderParams.curlFreq}
+          >
             {(texture) => (
               <EffectComposer>
-                <DistortionEffect fluidTexture={texture} />
+                <DistortionEffect
+                  fluidTexture={texture}
+                  refractStrength={shaderParams.refractStrength}
+                  dispersionScale={shaderParams.dispersionScale}
+                  blurRadius={shaderParams.blurRadius}
+                  jitterStrength={shaderParams.jitterStrength}
+                />
                 <SMAA preset={SMAAPreset.HIGH} />
               </EffectComposer>
             )}

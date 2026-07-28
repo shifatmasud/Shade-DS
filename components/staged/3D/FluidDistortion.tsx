@@ -13,6 +13,10 @@ export interface FluidDistortionProps {
   dissipation?: number;
   /** Blending weight between carried low-res velocity and new input (default: 0.88) */
   mixRatio?: number;
+  /** Curl noise strength (default: 0.25) */
+  curlStrength?: number;
+  /** Curl noise frequency (default: 3.5) */
+  curlFreq?: number;
 }
 
 const COMMON_VERT = `
@@ -36,6 +40,8 @@ const PAINT_FRAG = `
   uniform float uMixRatio;
   uniform float uAspect;
   uniform float uActive;
+  uniform float uCurlStrength;
+  uniform float uCurlFreq;
   varying vec2 vUv;
 
   // 2D Simplex Noise implementation (Ashima Arts / Stefan Gustavson)
@@ -69,16 +75,27 @@ const PAINT_FRAG = `
     return 130.0 * dot(m, g);
   }
 
-  // 2D Curl Noise vector field based on Simplex Noise potential
-  vec2 curlNoise(vec2 p, float time, float freq) {
-    float eps = 0.015;
+  // Custom liquid potential function that generates marbled, ridged, stream-aligned patterns
+  float liquidPotential(vec2 p, float time, float freq, float stretch) {
     vec2 coord = p * freq;
-    vec2 tOffset = vec2(time * 0.12, time * 0.08);
+    // Skew coordinates slightly based on a secondary frequency to create natural, non-uniform stretching
+    coord.x += sin(p.y * 3.0 + time * 0.2) * 0.15 * stretch;
+    coord.y += cos(p.x * 3.0 + time * 0.15) * 0.15 * stretch;
     
-    float valR = snoise(coord + tOffset + vec2(eps, 0.0));
-    float valL = snoise(coord + tOffset - vec2(eps, 0.0));
-    float valU = snoise(coord + tOffset + vec2(0.0, eps));
-    float valD = snoise(coord + tOffset - vec2(0.0, eps));
+    vec2 tOffset = vec2(time * 0.1, time * 0.06);
+    float n = snoise(coord + tOffset);
+    
+    // Marbled glass sine shaping for thin, thread-like liquid filaments
+    return sin(n * 4.0 + time * 0.3);
+  }
+
+  vec2 liquidCurlNoise(vec2 p, float time, float freq, float stretch) {
+    float eps = 0.015;
+    
+    float valR = liquidPotential(p + vec2(eps, 0.0), time, freq, stretch);
+    float valL = liquidPotential(p - vec2(eps, 0.0), time, freq, stretch);
+    float valU = liquidPotential(p + vec2(0.0, eps), time, freq, stretch);
+    float valD = liquidPotential(p - vec2(0.0, eps), time, freq, stretch);
     
     float d_dx = (valR - valL) / (2.0 * eps);
     float d_dy = (valU - valD) / (2.0 * eps);
@@ -99,12 +116,16 @@ const PAINT_FRAG = `
     vec4 lowResRaw = texture2D(tLowRes, vUv);
     vec2 lowResVel = (lowResRaw.rg - 0.5) * 2.0;
 
-    vec2 advectUv = vUv - lowResVel * 0.014;
-    vec4 prevSample = texture2D(tLowRes, clamp(advectUv, 0.0, 1.0));
-    vec2 prevVel = (prevSample.rg - 0.5) * 2.0;
-    float prevDensity = prevSample.b;
+    // 2. Spatial density gradient from low-res texture (representing trail slopes and bounds)
+    float dX = texture2D(tLowRes, vUv + vec2(0.008, 0.0)).b - texture2D(tLowRes, vUv - vec2(0.008, 0.0)).b;
+    float dY = texture2D(tLowRes, vUv + vec2(0.0, 0.008)).b - texture2D(tLowRes, vUv - vec2(0.0, 0.008)).b;
+    vec2 densitySlope = vec2(dX, dY);
+    float slopeMag = length(densitySlope);
 
-    // 2. Aspect-ratio corrected pointer segment distance (Capsule Splatting)
+    // Edge & slope amplification factors
+    float trailEdgeFactor = smoothstep(0.01, 0.35, slopeMag);
+
+    // 3. Aspect-ratio corrected pointer segment distance (Capsule Splatting)
     vec2 p = vUv;
     p.x *= uAspect;
     vec2 a = uPrevPointer;
@@ -114,11 +135,42 @@ const PAINT_FRAG = `
 
     float dist = sdSegment(p, a, b);
 
-    // 3. Fluid metaball bell-curve splat falloff
+    // Fluid metaball bell-curve splat falloff
     float radius = uRadius * mix(1.0, 1.5, uActive);
     float rNorm = clamp(dist / max(radius, 0.0001), 0.0, 1.0);
     float splat = 1.0 - rNorm * rNorm;
     splat = splat * splat; // Smooth organic liquid curve
+
+    float localSplatEdge = smoothstep(0.05, 0.5, splat) * (1.0 - smoothstep(0.5, 0.95, splat));
+    float totalSlopesFactor = max(trailEdgeFactor, localSplatEdge);
+
+    // 4. Generate organic liquid-directed curl noise with stream-aligned stretching
+    float flowSpeed = length(lowResVel);
+    float flowStretch = clamp(flowSpeed * 5.0, 0.0, 1.5);
+    
+    vec2 curl1 = liquidCurlNoise(vUv, uTime, uCurlFreq, 1.0 + flowStretch);
+    vec2 curl2 = liquidCurlNoise(vUv, uTime * 1.5, uCurlFreq * 2.2, 0.5 + flowStretch * 0.5);
+    vec2 combinedCurl = curl1 * 0.7 + curl2 * 0.3;
+
+    // Scale Curl Noise: significantly increased on trail slopes, bounds, and under pointer
+    float curlMult = max(uCurlStrength, 0.0) / 0.25;
+    float baseCurlStrength = 0.04 * curlMult;
+    float edgeCurlBoost = 0.22 * totalSlopesFactor * curlMult;
+    float pointerCurlBoost = 0.35 * splat * mix(1.0, 2.2, uActive) * curlMult;
+    
+    vec2 injectedCurl = combinedCurl * (baseCurlStrength + edgeCurlBoost + pointerCurlBoost);
+
+    // 5. Back-advect density and velocity along separate paths:
+    // - Velocity advection uses the velocity field perturbed by curl noise (internal turbulence propagation)
+    // - Density advection uses ONLY the clean velocity field (keeps visual trails perfectly smooth and continuous)
+    vec2 advectVelUv = vUv - (lowResVel + injectedCurl) * 0.014;
+    vec2 advectDensityUv = vUv - lowResVel * 0.014;
+
+    vec4 velSample = texture2D(tLowRes, clamp(advectVelUv, 0.0, 1.0));
+    vec4 densitySample = texture2D(tLowRes, clamp(advectDensityUv, 0.0, 1.0));
+
+    vec2 prevVel = (velSample.rg - 0.5) * 2.0;
+    float prevDensity = densitySample.b;
 
     // Mouse velocity impulse
     vec2 pointerVel = uVelocity * uStrength * mix(2.5, 5.2, uActive);
@@ -141,32 +193,8 @@ const PAINT_FRAG = `
     vec2 advectedVel = prevVel * uDissipation;
     float advectedDensity = prevDensity * (uDissipation * 0.98);
 
-    // Combine input velocity and back-advected fluid momentum
+    // Combine input velocity and back-advected fluid momentum (clean velocity output)
     vec2 mixedVel = advectedVel + inputVel * 2.8;
-
-    // Spatial density gradient from low-res texture (representing trail slopes and bounds)
-    float dX = texture2D(tLowRes, vUv + vec2(0.008, 0.0)).b - texture2D(tLowRes, vUv - vec2(0.008, 0.0)).b;
-    float dY = texture2D(tLowRes, vUv + vec2(0.0, 0.008)).b - texture2D(tLowRes, vUv - vec2(0.0, 0.008)).b;
-    vec2 densitySlope = vec2(dX, dY);
-    float slopeMag = length(densitySlope);
-
-    // Edge & slope amplification factors
-    float trailEdgeFactor = smoothstep(0.01, 0.35, slopeMag);
-    float localSplatEdge = smoothstep(0.05, 0.5, splat) * (1.0 - smoothstep(0.5, 0.95, splat));
-    float totalSlopesFactor = max(trailEdgeFactor, localSplatEdge);
-
-    // Generate organic 2D Curl Noise for better fluid motion path
-    vec2 curl1 = curlNoise(vUv, uTime, 3.2);
-    vec2 curl2 = curlNoise(vUv, uTime * 1.6, 7.5);
-    vec2 combinedCurl = curl1 * 0.75 + curl2 * 0.25;
-
-    // Scale Curl Noise: significantly increased on trail slopes, bounds, and under pointer
-    float baseCurlStrength = 0.04;
-    float edgeCurlBoost = 0.22 * totalSlopesFactor;
-    float pointerCurlBoost = 0.35 * splat * mix(1.0, 2.2, uActive);
-    
-    vec2 injectedCurl = combinedCurl * (baseCurlStrength + edgeCurlBoost + pointerCurlBoost);
-    mixedVel += injectedCurl;
 
     // Organic micro-turbulence noise
     float noise = sin(vUv.x * 35.0 + uTime * 3.0) * cos(vUv.y * 35.0 + uTime * 3.0) * 0.0015;
@@ -212,6 +240,10 @@ const BLUR_FRAG = `
 // Post-Processing Refraction Shader (9-Tap Gaussian Kernel + Rim Smoothstep Blur & Chromatic Dispersion)
 export const DISTORTION_FRAG = `
   uniform sampler2D tFluid;
+  uniform float uRefractStrength;
+  uniform float uDispersionScale;
+  uniform float uBlurRadius;
+  uniform float uJitterStrength;
 
   // High-frequency pseudo blue noise hash
   vec2 hash22(vec2 p) {
@@ -270,41 +302,52 @@ export const DISTORTION_FRAG = `
 
     // Distortion blur radius increases along the rims/slopes/bounds via spatial density gradient
     float velMag = length(mainVel);
-    float baseBlur = 0.0018;
-    float edgeBlurBoost = 0.015 * trailEdgeIntensity;
-    float velocityBlurBoost = velMag * 0.014;
+    float blurMult = max(uBlurRadius, 0.0) / 0.012;
+    float baseBlur = 0.0018 * blurMult;
+    float edgeBlurBoost = 0.015 * trailEdgeIntensity * blurMult;
+    float velocityBlurBoost = velMag * 0.014 * blurMult;
     float rimBlurRadius = (baseBlur + edgeBlurBoost + velocityBlurBoost) * mask;
+
+    float jitterMult = max(uJitterStrength, 0.0) / 0.005;
+    float refractMult = max(uRefractStrength, 0.0) / 0.35;
+    float dispersionMult = max(uDispersionScale, 0.0) / 0.15;
 
     vec3 accumulatedColor = vec3(0.0);
 
     for (int i = 0; i < 9; i++) {
       // 9-Tap high-frequency blue noise jitter offset, amplified on slopes and bounds
       vec2 noiseUV = uv * 480.0 + tapOffsets[i] * 13.37;
-      float jitterStrength = 0.0022 + 0.0055 * trailEdgeIntensity;
-      vec2 jitter = (hash22(noiseUV) - 0.5) * jitterStrength;
+      float jitterVal = (0.0022 + 0.0055 * trailEdgeIntensity) * jitterMult;
+      vec2 jitter = (hash22(noiseUV) - 0.5) * jitterVal;
 
-      vec2 sampleUv = clamp(uv + tapOffsets[i] * rimBlurRadius + jitter, 0.0, 1.0);
+      // Performance Optimization: Sample fluid texture smoothly. Jittering the fluid texture 
+      // lookup creates flickering boundary artifacts due to noise in low-res simulation grid.
+      vec2 sampleUv = clamp(uv + tapOffsets[i] * rimBlurRadius, 0.0, 1.0);
       vec4 tapFluid = texture2D(tFluid, sampleUv);
       vec2 tapVel = (tapFluid.rg - 0.5) * 2.0;
       float tapDensity = tapFluid.b;
 
       // Soft rim refraction displacement, significantly amplified on slopes and bounds
-      float refractStrength = 0.12 + 0.32 * trailEdgeIntensity;
-      vec2 refractOffset = tapVel * refractStrength * tapDensity * mask;
+      float refractVal = (0.12 + 0.32 * trailEdgeIntensity) * refractMult;
+      vec2 refractOffset = tapVel * refractVal * tapDensity * mask;
       float tapVelMag = length(tapVel);
 
       // Art directed chromatic dispersion (RGB shift) increased significantly on trail slopes and bounds
-      float baseDispersion = 0.04;
-      float edgeDispersionBoost = 0.11 * trailEdgeIntensity;
+      float baseDispersion = 0.04 * dispersionMult;
+      float edgeDispersionBoost = 0.11 * trailEdgeIntensity * dispersionMult;
       float shiftScale = (baseDispersion + edgeDispersionBoost) * (tapVelMag + 0.08);
 
-      vec2 offsetR = refractOffset * (1.0 + shiftScale);
-      vec2 offsetG = refractOffset;
-      vec2 offsetB = refractOffset * (1.0 - shiftScale);
+      // RCA Fix: Scale jitter by mask when sampling the background inputBuffer.
+      // Unscaled jitter near the edges of a zero-density area creates visible noisy-fringe 
+      // artifacts because of the discontinuity where the refraction mask fades out.
+      vec2 appliedJitter = jitter * mask;
+      vec2 offsetR = refractOffset * (1.0 + shiftScale) + appliedJitter;
+      vec2 offsetG = refractOffset + appliedJitter;
+      vec2 offsetB = refractOffset * (1.0 - shiftScale) + appliedJitter;
 
-      float r = texture2D(inputBuffer, clamp(uv + offsetR + jitter, 0.0, 1.0)).r;
-      float g = texture2D(inputBuffer, clamp(uv + offsetG + jitter, 0.0, 1.0)).g;
-      float b = texture2D(inputBuffer, clamp(uv + offsetB + jitter, 0.0, 1.0)).b;
+      float r = texture2D(inputBuffer, clamp(uv + offsetR, 0.0, 1.0)).r;
+      float g = texture2D(inputBuffer, clamp(uv + offsetG, 0.0, 1.0)).g;
+      float b = texture2D(inputBuffer, clamp(uv + offsetB, 0.0, 1.0)).b;
 
       accumulatedColor += vec3(r, g, b) * weights[i];
     }
@@ -319,6 +362,8 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
   strength = 4.5,
   dissipation = 0.96,
   mixRatio = 0.88,
+  curlStrength = 0.25,
+  curlFreq = 3.5,
 }) => {
   const { size, gl } = useThree();
 
@@ -359,6 +404,8 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
       uMixRatio: { value: mixRatio },
       uAspect: { value: size.width / Math.max(size.height, 1) },
       uActive: { value: 0.0 },
+      uCurlStrength: { value: curlStrength },
+      uCurlFreq: { value: curlFreq },
     },
     vertexShader: COMMON_VERT,
     fragmentShader: PAINT_FRAG,
@@ -433,6 +480,8 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     paintMaterial.uniforms.uStrength.value = strength;
     paintMaterial.uniforms.uDissipation.value = dissipation;
     paintMaterial.uniforms.uMixRatio.value = mixRatio;
+    paintMaterial.uniforms.uCurlStrength.value = curlStrength;
+    paintMaterial.uniforms.uCurlFreq.value = curlFreq;
     paintMaterial.uniforms.uActive.value = activeLerp.current;
 
     state.gl.setRenderTarget(currentPaint.current);
