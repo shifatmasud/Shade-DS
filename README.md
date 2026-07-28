@@ -43,9 +43,11 @@ This is not just another component library. It is a **structural methodology** f
 
 ## 📜 Recent Changelogs
 
+-   **`JUL 28, 2026`** · **Fluid Shader & Global Controls**: Integrated liquid fluid distortion pipeline, organic trailing logic, and a global shader control system with real-time parameter tuning.
+-   **`JUL 28, 2026`** · **3D & Mobile Optimization**: Optimized mobile 3D rendering performance and refined interactive button shader logic.
+-   **`JUL 27, 2026`** · **Staged Component Config**: Expanded staged component configuration support and optimized environment floor rendering.
+-   **`JUL 26, 2026`** · **Offscreen Fluid Simulation**: Implemented offscreen fluid simulation pipeline specifications and rendering pipeline skill integration.
 -   **`JUL 01, 2026`** · **Dock & README Immunity**: Implemented critical restraints and immunity protocols to protect core navigation logic and project identity from unauthorized AI interference.
--   **`JUN 25, 2026`** · **System Spec Window**: Engineered a floating diagnostic panel for real-time memory monitoring, GPU utilization tracking, and session diagnostics.
--   **`JUN 15, 2026`** · **Style Manager Panel**: Integrated a modular control hub for global design token overrides, allowing for real-time theme swapping and token resolution.
 
 ---
 
