@@ -58,7 +58,28 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
   
   // Interaction State
   const [isHovered, setIsHovered] = useState(false);
-  const effectiveHover = forcedHover || isHovered;
+  const [isTouchPress, setIsTouchPress] = useState(false);
+  const [isClicking, setIsClicking] = useState(false);
+  const effectiveHover = forcedHover || isHovered || isTouchPress;
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (disabled) return;
+    if (e.pointerType === 'touch') {
+      setIsTouchPress(true);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') {
+      setIsTouchPress(false);
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') {
+      setIsTouchPress(false);
+    }
+  };
   
   // Success State
   const [isSuccess, setIsSuccess] = useState(false);
@@ -97,6 +118,10 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled) return;
+
+    setIsClicking(true);
+    setIsTouchPress(false);
+    setTimeout(() => setIsClicking(false), 200);
 
     if (enableSuccess) {
       setIsSuccess(true);
@@ -323,11 +348,13 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
       targetY = 0;
       targetScale = 1;
       targetShadow = shadowDisabled;
-    } else if (forcedActive) {
+    } else if (isClicking || forcedActive) {
+      // Click always scales down!
       targetY = 2;
       targetScale = 0.95;
       targetShadow = shadowActive;
     } else if (effectiveHover) {
+      // Hover and touch press scale up
       targetY = -4;
       targetScale = 1.05;
       targetShadow = shadowHover;
@@ -338,7 +365,7 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
       scale: targetScale,
       boxShadow: targetShadow,
     }, { duration: 0.2, ease: 'easeOut' });
-  }, [effectiveHover, forcedActive, forcedFocus, isSuccess, showGlow, disabled, theme, variant]);
+  }, [effectiveHover, isClicking, forcedActive, forcedFocus, isSuccess, showGlow, disabled, theme, variant]);
 
   const handleSuccessComplete = React.useCallback(() => setShowGlow(true), []);
 
@@ -350,6 +377,9 @@ const StagedButton = React.forwardRef<HTMLButtonElement, StagedButtonProps>(({
         borderRadius: customRadius || theme.radius['Radius.Full'],
       }}
       onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
       whileTap={forcedActive ? undefined : { scale: 0.95, y: 2 }}

@@ -67,11 +67,36 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [showGlow, setShowGlow] = React.useState(false);
+  const [isTouchPress, setIsTouchPress] = React.useState(false);
+  const [isClicking, setIsClicking] = React.useState(false);
   const successTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (disabled) return;
+    if (e.pointerType === 'touch') {
+      setIsTouchPress(true);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === 'touch') {
+      setIsTouchPress(false);
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === 'touch') {
+      setIsTouchPress(false);
+    }
+  };
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled) return;
     
+    setIsClicking(true);
+    setIsTouchPress(false);
+    setTimeout(() => setIsClicking(false), 200);
+
     // If not in success mode, or if we want to allow multiple success ripples
     if (enableSuccess) {
       setIsSuccess(true);
@@ -248,13 +273,18 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       disabled={disabled}
       type={type}
       whileHover={disabled ? undefined : (whileHover || { scale: 1.02, y: -1 })}
-      whileTap={disabled ? undefined : (whileTap || { scale: 0.98, y: 0 })}
+      whileTap={disabled ? undefined : (whileTap || { scale: 0.95, y: 1 })}
       animate={{
+        scale: isClicking ? 0.95 : (isTouchPress ? 1.05 : 1),
+        y: isClicking ? 1 : (isTouchPress ? -2 : 0),
         boxShadow: getButtonShadow(),
         ...(animate || {})
       }}
       transition={transition || { type: 'spring', stiffness: 400, damping: 30 }}
       onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onPointerEnter={(e) => { if (!disabled && e.pointerType !== 'touch') playSound('whisper', 0.5); }}
       data-success={isSuccess ? "true" : "false"}
       {...(rest as any)}

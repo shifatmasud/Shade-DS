@@ -17,13 +17,13 @@ export interface ShaderParams {
 
 export const DEFAULT_SHADER_PARAMS: ShaderParams = {
   radius: 0.06,
-  strength: 8.8,
-  dissipation: 0.925,
-  curlStrength: 0.21,
+  strength: 6.1,
+  dissipation: 0.97,
+  curlStrength: 0.19,
   curlFreq: 1,
   refractStrength: 0.32,
   dispersionScale: 0.17,
-  blurRadius: 0.005,
+  blurRadius: 0.009,
   jitterStrength: 0.008,
 };
 

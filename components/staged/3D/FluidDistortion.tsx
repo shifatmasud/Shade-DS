@@ -19,6 +19,8 @@ export interface FluidDistortionProps {
   curlFreq?: number;
 }
 
+const MAX_TOUCHES = 5;
+
 const COMMON_VERT = `
   varying vec2 vUv;
   void main() {
@@ -27,20 +29,21 @@ const COMMON_VERT = `
   }
 `;
 
-// Pass 1: Paint Pass Shader (Render mouse 2D distance field + velocity impulse, back-advect and mix with carried low-res velocity)
+// Pass 1: Paint Pass Shader (Multi-touch 2D distance field + velocity impulse, back-advect and mix with carried low-res velocity)
 const PAINT_FRAG = `
+  #define MAX_TOUCHES 5
   uniform sampler2D tLowRes;
-  uniform vec2 uPointer;
-  uniform vec2 uMidPointer;
-  uniform vec2 uPrevPointer;
-  uniform vec2 uVelocity;
+  uniform vec2 uPointer[MAX_TOUCHES];
+  uniform vec2 uMidPointer[MAX_TOUCHES];
+  uniform vec2 uPrevPointer[MAX_TOUCHES];
+  uniform vec2 uVelocity[MAX_TOUCHES];
+  uniform float uActive[MAX_TOUCHES];
   uniform float uTime;
   uniform float uRadius;
   uniform float uStrength;
   uniform float uDissipation;
   uniform float uMixRatio;
   uniform float uAspect;
-  uniform float uActive;
   uniform float uCurlStrength;
   uniform float uCurlFreq;
   varying vec2 vUv;
@@ -167,36 +170,68 @@ const PAINT_FRAG = `
     float slopeMag = length(densitySlope);
     float trailEdgeFactor = smoothstep(0.01, 0.35, slopeMag);
 
-    // 3. Aspect-ratio corrected pointer Bezier distance
     vec2 p = vUv;
     p.x *= uAspect;
-    vec2 a = uPrevPointer;
-    a.x *= uAspect;
-    vec2 mid = uMidPointer;
-    mid.x *= uAspect;
-    vec2 b = uPointer;
-    b.x *= uAspect;
-
-    // Clean distance to smooth curved trajectory for active trailing area
-    float distClean = sdBezier(p, a, mid, b);
-
-    // Active fluid metaball bell-curve splat falloff
-    float radius = uRadius * mix(1.0, 1.5, uActive);
-    float rNorm = clamp(distClean / max(radius, 0.0001), 0.0, 1.0);
-    float splat = 1.0 - rNorm * rNorm;
-    splat = splat * splat; // Smooth organic liquid curve
 
     // Fetch previous low-res density to calculate dissipation area
     vec4 prevLowResRaw = texture2D(tLowRes, vUv);
     float prevDensity = prevLowResRaw.b;
 
+    // Accumulate multi-touch splats and velocity impulses
+    float splat = 0.0;
+    float maxActive = 0.0;
+    vec2 totalPointerVel = vec2(0.0);
+
+    for (int i = 0; i < MAX_TOUCHES; i++) {
+      float act = uActive[i];
+      if (act > 0.001) {
+        vec2 a = uPrevPointer[i];
+        a.x *= uAspect;
+        vec2 mid = uMidPointer[i];
+        mid.x *= uAspect;
+        vec2 b = uPointer[i];
+        b.x *= uAspect;
+
+        float distClean = sdBezier(p, a, mid, b);
+        float rad = uRadius * mix(1.0, 1.5, act);
+        float rNorm = clamp(distClean / max(rad, 0.0001), 0.0, 1.0);
+        float s_i = 1.0 - rNorm * rNorm;
+        s_i = s_i * s_i;
+
+        splat = max(splat, s_i);
+        maxActive = max(maxActive, act);
+
+        vec2 pointerVel_i = uVelocity[i] * uStrength * mix(2.5, 5.2, act);
+
+        vec2 segDir = b - a;
+        float segLen = length(segDir);
+        vec2 wakeVorticity_i = vec2(0.0);
+        if (segLen > 0.00001) {
+          vec2 normDir = segDir / segLen;
+          vec2 normPerp = vec2(-normDir.y, normDir.x);
+          vec2 pa = p - a;
+          float side = sign(dot(pa, normPerp));
+
+          float vortexFalloff = exp(-distClean * 18.0 / max(rad, 0.001));
+          vec2 dipole = normPerp * side * vortexFalloff * segLen * 12.0 * sin(distClean * 28.0 - uTime * 5.0);
+          vec2 serpentine = normPerp * sin(dot(pa, normDir) * 38.0 - uTime * 6.0) * vortexFalloff * 0.45;
+
+          wakeVorticity_i = dipole + serpentine;
+        }
+
+        totalPointerVel += (pointerVel_i + wakeVorticity_i) * s_i;
+      }
+    }
+
+    float activeVal = maxActive;
+
     // Dissipation area mask: high in aging/advected wake, low in active fresh trailing area
-    float activeTrailMask = clamp(splat * mix(1.0, 1.25, uActive), 0.0, 1.0);
+    float activeTrailMask = clamp(splat * mix(1.0, 1.25, activeVal), 0.0, 1.0);
     float dissipationArea = clamp(prevDensity * (1.0 - activeTrailMask * 0.9), 0.0, 1.0);
 
-    // 1. Hydrodynamic domain warping: active trailing area stays curvy & stable; dissipation area gets organic liquid warping, swirls & vortices
-    float speed = length(uVelocity);
-    vec2 flowDir = speed > 0.0001 ? uVelocity / speed : vec2(1.0, 0.0);
+    // 1. Hydrodynamic domain warping
+    float speed = length(totalPointerVel);
+    vec2 flowDir = speed > 0.0001 ? totalPointerVel / speed : vec2(1.0, 0.0);
     vec2 perpDir = vec2(-flowDir.y, flowDir.x);
 
     // Multi-octave liquid turbulence field
@@ -210,7 +245,7 @@ const PAINT_FRAG = `
     float swirlAngle = snoise(vUv * 3.2 + uTime * 0.6) * 6.28318;
     vec2 swirlDomainVec = vec2(cos(swirlAngle), sin(swirlAngle));
 
-    // Combined domain offset: strictly concentrated in dissipation area (0 in active trail)
+    // Combined domain offset: strictly concentrated in dissipation area
     float curlMult = max(uCurlStrength, 0.0) / 0.25;
     vec2 fluidDomainOffset = (perpDir * (n1 * 0.045 + waveUndulation * 0.028) + flowDir * (n2 * 0.03) + swirlDomainVec * 0.035) * (1.0 + curlMult * 0.9);
     vec2 pWarp = p + fluidDomainOffset * dissipationArea;
@@ -218,7 +253,7 @@ const PAINT_FRAG = `
     float localSplatEdge = smoothstep(0.05, 0.5, splat) * (1.0 - smoothstep(0.5, 0.95, splat));
     float totalSlopesFactor = max(trailEdgeFactor, localSplatEdge);
 
-    // 2. Liquid-directed curl noise with stream-aligned stretching (concentrated in dissipation area)
+    // 2. Liquid-directed curl noise with stream-aligned stretching
     float flowSpeed = length(lowResVel);
     float flowStretch = clamp(flowSpeed * 5.0, 0.0, 1.5);
     
@@ -226,14 +261,14 @@ const PAINT_FRAG = `
     vec2 curl2 = liquidCurlNoise(vUv, uTime * 1.5, uCurlFreq * 2.2, 0.5 + flowStretch * 0.5);
     vec2 combinedCurl = curl1 * 0.7 + curl2 * 0.3;
 
-    // Curl noise injection: 0 in active trail area; strong in dissipation area
+    // Curl noise injection
     float baseCurlStrength = 0.01 * curlMult;
     float dissipationCurlBoost = 0.35 * dissipationArea * curlMult;
     float edgeCurlBoost = 0.18 * totalSlopesFactor * dissipationArea * curlMult;
     
     vec2 injectedCurl = combinedCurl * (baseCurlStrength + dissipationCurlBoost + edgeCurlBoost);
 
-    // 3. Wind Force Motion in Dissipation Area (ambient liquid wind force drifting across water surface)
+    // 3. Wind Force Motion in Dissipation Area
     vec2 baseWindDir = normalize(vec2(0.4, 0.7) + vec2(sin(uTime * 0.3) * 0.25, cos(uTime * 0.25) * 0.2));
     float windNoise = snoise(vUv * 2.8 + vec2(uTime * 0.35, -uTime * 0.25)) * 0.5 + 0.5;
     vec2 windForce = baseWindDir * (0.018 + windNoise * 0.032) * dissipationArea;
@@ -248,31 +283,7 @@ const PAINT_FRAG = `
     vec2 prevVel = (velSample.rg - 0.5) * 2.0;
     float advectedDensity = densitySample.b * (uDissipation * 0.985);
 
-    // Mouse velocity impulse
-    vec2 pointerVel = uVelocity * uStrength * mix(2.5, 5.2, uActive);
-
-    // 5. Swirl & Counter-Rotating Dipole Wake Vorticity in Dissipation Area
-    vec2 segDir = b - a;
-    float segLen = length(segDir);
-    vec2 wakeVorticity = vec2(0.0);
-    if (segLen > 0.00001) {
-      vec2 normDir = segDir / segLen;
-      vec2 normPerp = vec2(-normDir.y, normDir.x);
-      vec2 pa = pWarp - a;
-      float side = sign(dot(pa, normPerp));
-
-      // Dipole wake: counter-rotating vortex pairs on opposite sides of liquid trail
-      float vortexFalloff = exp(-distClean * 18.0 / max(radius, 0.001));
-      vec2 dipole = normPerp * side * vortexFalloff * segLen * 12.0 * sin(distClean * 28.0 - uTime * 5.0);
-
-      // Serpentine undulation lingering in wake
-      vec2 serpentine = normPerp * sin(dot(pa, normDir) * 38.0 - uTime * 6.0) * vortexFalloff * 0.45;
-
-      // Vortex is kept subtle in active trailing area and expands in dissipation area
-      wakeVorticity = (dipole + serpentine) * dissipationArea;
-    }
-
-    vec2 inputVel = (pointerVel + wakeVorticity) * splat;
+    vec2 inputVel = totalPointerVel;
 
     // Advect and dissipate previous velocity
     vec2 advectedVel = prevVel * uDissipation;
@@ -291,7 +302,7 @@ const PAINT_FRAG = `
     }
 
     // Combine fluid density with liquid threshold profile
-    float newDensity = splat * mix(0.85, 1.0, uActive);
+    float newDensity = splat * mix(0.85, 1.0, activeVal);
     float finalDensity = clamp(max(advectedDensity, newDensity), 0.0, 1.0);
 
     // Output 8-bit packed velocity into RG channels, density into B channel
@@ -299,14 +310,13 @@ const PAINT_FRAG = `
   }
 `;
 
-// Pass 2: Downsample / Blur Pass Shader (Downsample paint target to lower res target ~1/8 screen)
+// Pass 2: Downsample / Blur Pass Shader
 const BLUR_FRAG = `
   uniform sampler2D tPaint;
   uniform vec2 uTexelSize;
   varying vec2 vUv;
 
   void main() {
-    // 3x3 Box blur downsample for smooth velocity carry
     vec4 c  = texture2D(tPaint, vUv) * 0.25;
     vec4 t1 = texture2D(tPaint, vUv + vec2( uTexelSize.x, 0.0)) * 0.125;
     vec4 t2 = texture2D(tPaint, vUv + vec2(-uTexelSize.x, 0.0)) * 0.125;
@@ -321,7 +331,7 @@ const BLUR_FRAG = `
   }
 `;
 
-// Post-Processing Refraction Shader (5-Tap Balanced Gaussian Kernel + Rim Smoothstep Blur & Chromatic Dispersion)
+// Post-Processing Refraction Shader
 export const DISTORTION_FRAG = `
   uniform sampler2D tFluid;
   uniform float uRefractStrength;
@@ -329,14 +339,12 @@ export const DISTORTION_FRAG = `
   uniform float uBlurRadius;
   uniform float uJitterStrength;
 
-  // High-frequency pseudo blue noise hash
   vec2 hash22(vec2 p) {
     p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
     return fract(sin(p) * 43758.5453123);
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    // 1. Instant Early-Exit: Bypass all math & loops if fluid density is zero
     vec4 fluidSample = texture2D(tFluid, uv);
     float mainDensity = fluidSample.b;
 
@@ -348,18 +356,15 @@ export const DISTORTION_FRAG = `
     float mask = smoothstep(0.0001, 0.25, mainDensity);
     vec2 mainVel = (fluidSample.rg - 0.5) * 2.0;
 
-    // Compute spatial gradient of density to target trail slopes and bounds in high-res space
     float dX = texture2D(tFluid, uv + vec2(0.003, 0.0)).b - texture2D(tFluid, uv - vec2(0.003, 0.0)).b;
     float dY = texture2D(tFluid, uv + vec2(0.0, 0.003)).b - texture2D(tFluid, uv - vec2(0.0, 0.003)).b;
     vec2 densitySlope = vec2(dX, dY);
     float slopeMag = length(densitySlope);
 
-    // Dynamic slope and bounds intensity profile for art directed scaling
     float slopeFactor = smoothstep(0.02, 0.45, slopeMag);
     float boundsFactor = smoothstep(0.005, 0.35, mainDensity) * (1.0 - smoothstep(0.35, 0.9, mainDensity));
     float trailEdgeIntensity = max(slopeFactor, boundsFactor);
 
-    // 5-Tap Balanced Cross Kernel offsets and weights (60% fewer texture fetches than 9-tap)
     vec2 tapOffsets[5];
     tapOffsets[0] = vec2( 0.0,  0.0);
     tapOffsets[1] = vec2(-1.0,  0.0);
@@ -374,7 +379,6 @@ export const DISTORTION_FRAG = `
     weights[3] = 0.16;
     weights[4] = 0.16;
 
-    // Distortion blur radius increases along the rims/slopes/bounds via spatial density gradient
     float velMag = length(mainVel);
     float blurMult = max(uBlurRadius, 0.0) / 0.012;
     float baseBlur = 0.0018 * blurMult;
@@ -389,7 +393,6 @@ export const DISTORTION_FRAG = `
     vec3 accumulatedColor = vec3(0.0);
 
     for (int i = 0; i < 5; i++) {
-      // 5-Tap noise jitter offset
       vec2 noiseUV = uv * 480.0 + tapOffsets[i] * 13.37;
       float jitterVal = (0.0022 + 0.0055 * trailEdgeIntensity) * jitterMult;
       vec2 jitter = (hash22(noiseUV) - 0.5) * jitterVal;
@@ -399,12 +402,10 @@ export const DISTORTION_FRAG = `
       vec2 tapVel = (tapFluid.rg - 0.5) * 2.0;
       float tapDensity = tapFluid.b;
 
-      // Soft rim refraction displacement
       float refractVal = (0.12 + 0.32 * trailEdgeIntensity) * refractMult;
       vec2 refractOffset = tapVel * refractVal * tapDensity * mask;
       float tapVelMag = length(tapVel);
 
-      // Chromatic dispersion (RGB shift)
       float baseDispersion = 0.04 * dispersionMult;
       float edgeDispersionBoost = 0.11 * trailEdgeIntensity * dispersionMult;
       float shiftScale = (baseDispersion + edgeDispersionBoost) * (tapVelMag + 0.08);
@@ -425,6 +426,17 @@ export const DISTORTION_FRAG = `
   }
 `;
 
+interface TouchSlot {
+  id: number;
+  pointer: THREE.Vector2;
+  midPointer: THREE.Vector2;
+  prevPointer: THREE.Vector2;
+  prev2Pointer: THREE.Vector2;
+  velocity: THREE.Vector2;
+  active: boolean;
+  activeLerp: number;
+}
+
 export const FluidDistortion: React.FC<FluidDistortionProps> = ({
   children,
   radius = 0.065,
@@ -436,7 +448,6 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
 }) => {
   const { size, gl } = useThree();
 
-  // Optimized FBO budget: Paint FBO capped at max 160x160 & Low-Res FBO capped at max 80x80
   const paintWidth = Math.min(160, Math.max(96, Math.round(size.width / 5)));
   const paintHeight = Math.min(160, Math.max(96, Math.round(size.height / 5)));
   const lowResWidth = Math.min(80, Math.max(48, Math.round(paintWidth / 2)));
@@ -446,7 +457,7 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
     format: THREE.RGBAFormat,
-    type: THREE.UnsignedByteType, // Compact 8-bit texture
+    type: THREE.UnsignedByteType,
   }), []);
 
   const paintTargetA = useFBO(paintWidth, paintHeight, fboOptions);
@@ -459,21 +470,39 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
   const currentLowRes = useRef(lowResTargetA);
   const prevLowRes = useRef(lowResTargetB);
 
-  // Shader Materials
+  const touchSlots = useRef<TouchSlot[]>(
+    Array.from({ length: MAX_TOUCHES }, () => ({
+      id: -1,
+      pointer: new THREE.Vector2(0.5, 0.5),
+      midPointer: new THREE.Vector2(0.5, 0.5),
+      prevPointer: new THREE.Vector2(0.5, 0.5),
+      prev2Pointer: new THREE.Vector2(0.5, 0.5),
+      velocity: new THREE.Vector2(0, 0),
+      active: false,
+      activeLerp: 0,
+    }))
+  );
+
+  const uPointerArray = useMemo(() => Array.from({ length: MAX_TOUCHES }, () => new THREE.Vector2(0.5, 0.5)), []);
+  const uMidPointerArray = useMemo(() => Array.from({ length: MAX_TOUCHES }, () => new THREE.Vector2(0.5, 0.5)), []);
+  const uPrevPointerArray = useMemo(() => Array.from({ length: MAX_TOUCHES }, () => new THREE.Vector2(0.5, 0.5)), []);
+  const uVelocityArray = useMemo(() => Array.from({ length: MAX_TOUCHES }, () => new THREE.Vector2(0, 0)), []);
+  const uActiveArray = useMemo(() => new Float32Array(MAX_TOUCHES), []);
+
   const paintMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       tLowRes: { value: null },
-      uPointer: { value: new THREE.Vector2(0.5, 0.5) },
-      uMidPointer: { value: new THREE.Vector2(0.5, 0.5) },
-      uPrevPointer: { value: new THREE.Vector2(0.5, 0.5) },
-      uVelocity: { value: new THREE.Vector2(0, 0) },
+      uPointer: { value: uPointerArray },
+      uMidPointer: { value: uMidPointerArray },
+      uPrevPointer: { value: uPrevPointerArray },
+      uVelocity: { value: uVelocityArray },
+      uActive: { value: uActiveArray },
       uTime: { value: 0 },
       uRadius: { value: radius },
       uStrength: { value: strength },
       uDissipation: { value: dissipation },
       uMixRatio: { value: mixRatio },
       uAspect: { value: size.width / Math.max(size.height, 1) },
-      uActive: { value: 0.0 },
       uCurlStrength: { value: curlStrength },
       uCurlFreq: { value: curlFreq },
     },
@@ -502,13 +531,6 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     return new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   }, []);
 
-  const pointer = useRef(new THREE.Vector2(0.5, 0.5));
-  const midPointer = useRef(new THREE.Vector2(0.5, 0.5));
-  const prevPointer = useRef(new THREE.Vector2(0.5, 0.5));
-  const prev2Pointer = useRef(new THREE.Vector2(0.5, 0.5));
-  const isDown = useRef(false);
-  const activeLerp = useRef(0);
-
   useEffect(() => {
     paintMaterial.uniforms.uAspect.value = size.width / Math.max(size.height, 1);
     blurMaterial.uniforms.uTexelSize.value.set(1 / lowResWidth, 1 / lowResHeight);
@@ -516,46 +538,147 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
 
   useEffect(() => {
     const el = gl.domElement;
-    const onDown = () => (isDown.current = true);
-    const onUp = () => (isDown.current = false);
-    
-    el.addEventListener('pointerdown', onDown);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('pointerleave', onUp);
-    
+
+    const normalizeCoord = (clientX: number, clientY: number) => {
+      const rect = el.getBoundingClientRect();
+      const nx = (clientX - rect.left) / rect.width;
+      const ny = 1.0 - (clientY - rect.top) / rect.height;
+      return { nx, ny };
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        const { nx, ny } = normalizeCoord(touch.clientX, touch.clientY);
+        
+        let slot = touchSlots.current.find((s) => s.id === touch.identifier);
+        if (!slot) {
+          slot = touchSlots.current.find((s) => !s.active || s.id === -1);
+        }
+        if (slot) {
+          slot.id = touch.identifier;
+          slot.pointer.set(nx, ny);
+          // CRITICAL: Reset history on new touch so click starts new trail without jump vector
+          slot.prevPointer.set(nx, ny);
+          slot.prev2Pointer.set(nx, ny);
+          slot.midPointer.set(nx, ny);
+          slot.velocity.set(0, 0);
+          slot.active = true;
+          slot.activeLerp = 1.0;
+        }
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      for (let i = 0; i < e.targetTouches.length; i++) {
+        const touch = e.targetTouches[i];
+        const { nx, ny } = normalizeCoord(touch.clientX, touch.clientY);
+        const slot = touchSlots.current.find((s) => s.id === touch.identifier);
+        if (slot) {
+          slot.pointer.set(nx, ny);
+        }
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        const slot = touchSlots.current.find((s) => s.id === touch.identifier);
+        if (slot) {
+          slot.active = false;
+          slot.id = -1;
+        }
+      }
+    };
+
+    const handlePointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') {
+        const { nx, ny } = normalizeCoord(e.clientX, e.clientY);
+        const slot = touchSlots.current[0];
+        slot.id = e.pointerId;
+        slot.pointer.set(nx, ny);
+        // CRITICAL: Reset history on new click so click starts new trail without jump vector
+        slot.prevPointer.set(nx, ny);
+        slot.prev2Pointer.set(nx, ny);
+        slot.midPointer.set(nx, ny);
+        slot.velocity.set(0, 0);
+        slot.active = true;
+        slot.activeLerp = 1.0;
+      }
+    };
+
+    const handlePointerUp = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') {
+        const slot = touchSlots.current[0];
+        slot.active = false;
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: true });
+    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+    el.addEventListener('pointerdown', handlePointerDown);
+    el.addEventListener('pointerup', handlePointerUp);
+    el.addEventListener('pointerleave', handlePointerUp);
+
     return () => {
-      el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('pointerleave', onUp);
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchcancel', handleTouchEnd);
+      el.removeEventListener('pointerdown', handlePointerDown);
+      el.removeEventListener('pointerup', handlePointerUp);
+      el.removeEventListener('pointerleave', handlePointerUp);
     };
   }, [gl]);
 
   useFrame((state) => {
-    // Track pointer in normalized screen coordinates [0..1, 0..1]
-    pointer.current.set(
-      (state.pointer.x + 1) / 2,
-      (state.pointer.y + 1) / 2
-    );
+    // If no touch active, slot 0 tracks mouse position
+    const hasActiveTouch = touchSlots.current.some((s) => s.active && s.id !== -1);
+    if (!hasActiveTouch) {
+      const slot0 = touchSlots.current[0];
+      const targetX = (state.pointer.x + 1) / 2;
+      const targetY = (state.pointer.y + 1) / 2;
 
-    // Compute quadratic Bezier control midpoint for curved trajectory
-    const delta1 = new THREE.Vector2().subVectors(pointer.current, prevPointer.current);
-    const delta2 = new THREE.Vector2().subVectors(prevPointer.current, prev2Pointer.current);
-    
-    // Smooth control midpoint B = prevPointer + curvature blend
-    const curveOffset = delta1.clone().add(delta2).multiplyScalar(0.25);
-    midPointer.current.copy(prevPointer.current).add(curveOffset);
+      const dist = slot0.pointer.distanceTo(new THREE.Vector2(targetX, targetY));
+      if (dist > 0.35) {
+        // Pointer jump detected: reset history
+        slot0.prevPointer.set(targetX, targetY);
+        slot0.prev2Pointer.set(targetX, targetY);
+      }
 
-    const velocity = delta1.clone();
-    
-    // Smooth transition for active drag state
-    activeLerp.current = THREE.MathUtils.lerp(activeLerp.current, isDown.current ? 1 : 0, 0.15);
+      slot0.pointer.set(targetX, targetY);
+      slot0.activeLerp = THREE.MathUtils.lerp(slot0.activeLerp, 0.8, 0.15);
+    }
 
-    // Pass 1: Paint Pass (mouse input + velocity impulse + carry previous low-res velocity)
+    // Process all touch slots
+    for (let i = 0; i < MAX_TOUCHES; i++) {
+      const slot = touchSlots.current[i];
+
+      if (!slot.active && hasActiveTouch) {
+        slot.activeLerp = THREE.MathUtils.lerp(slot.activeLerp, 0, 0.15);
+      }
+
+      const delta1 = new THREE.Vector2().subVectors(slot.pointer, slot.prevPointer);
+      const delta2 = new THREE.Vector2().subVectors(slot.prevPointer, slot.prev2Pointer);
+      const curveOffset = delta1.clone().add(delta2).multiplyScalar(0.25);
+
+      slot.midPointer.copy(slot.prevPointer).add(curveOffset);
+      slot.velocity.copy(delta1);
+
+      uPointerArray[i].copy(slot.pointer);
+      uMidPointerArray[i].copy(slot.midPointer);
+      uPrevPointerArray[i].copy(slot.prevPointer);
+      uVelocityArray[i].copy(slot.velocity);
+      uActiveArray[i] = slot.activeLerp;
+
+      slot.prev2Pointer.copy(slot.prevPointer);
+      slot.prevPointer.copy(slot.pointer);
+    }
+
+    // Pass 1: Paint Pass
     paintMaterial.uniforms.tLowRes.value = prevLowRes.current.texture;
-    paintMaterial.uniforms.uPointer.value.copy(pointer.current);
-    paintMaterial.uniforms.uMidPointer.value.copy(midPointer.current);
-    paintMaterial.uniforms.uPrevPointer.value.copy(prevPointer.current);
-    paintMaterial.uniforms.uVelocity.value.copy(velocity);
     paintMaterial.uniforms.uTime.value = state.clock.elapsedTime;
     paintMaterial.uniforms.uRadius.value = radius;
     paintMaterial.uniforms.uStrength.value = strength;
@@ -563,12 +686,11 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     paintMaterial.uniforms.uMixRatio.value = mixRatio;
     paintMaterial.uniforms.uCurlStrength.value = curlStrength;
     paintMaterial.uniforms.uCurlFreq.value = curlFreq;
-    paintMaterial.uniforms.uActive.value = activeLerp.current;
 
     state.gl.setRenderTarget(currentPaint.current);
     state.gl.render(paintQuad, orthographicCamera);
 
-    // Pass 2: Downsample/Blur Pass (Blur current paint result into lower res target for next frame's carry-over)
+    // Pass 2: Downsample/Blur Pass
     blurMaterial.uniforms.tPaint.value = currentPaint.current.texture;
     state.gl.setRenderTarget(currentLowRes.current);
     state.gl.render(blurQuad, orthographicCamera);
@@ -582,12 +704,7 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     const tempLowRes = currentLowRes.current;
     currentLowRes.current = prevLowRes.current;
     prevLowRes.current = tempLowRes;
-
-    prev2Pointer.current.copy(prevPointer.current);
-    prevPointer.current.copy(pointer.current);
   });
 
   return <>{children(prevPaint.current.texture)}</>;
 };
-
-
