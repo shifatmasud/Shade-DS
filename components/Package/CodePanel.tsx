@@ -129,41 +129,43 @@ const CodePanel: React.FC<CodePanelProps> = ({ codeText, onCodeChange, onCopyCod
         </div>
       </div>
 
-      <div>
-        <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          Shader Optics Params JSON
-        </p>
-        <div style={{ position: 'relative' }}>
-          <TextArea 
-            value={shaderCodeText} 
-            onChange={handleShaderCodeChange} 
-            onFocus={() => setIsShaderCodeFocused(true)} 
-            onBlur={() => setIsShaderCodeFocused(false)} 
-          />
-          <motion.button
-            onClick={handleCopyShaderCode}
-            style={{
-              position: 'absolute',
-              top: theme.space['Space.S'],
-              right: theme.space['Space.S'],
-              background: theme.Color.Base.Surface[1],
-              ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
-              borderRadius: theme.radius['Radius.S'],
-              padding: theme.space['Space.XS'],
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: theme.Color.Base.Content[1],
-            }}
-            whileHover={{ scale: 1.1, backgroundColor: theme.Color.Accent.Surface[1], color: theme.Color.Accent.Content[1] }}
-            whileTap={{ scale: 0.9 }}
-            aria-label={isShaderCopied ? 'Copied!' : 'Copy Shader JSON'}
-          >
-            <AnimatedCopyIcon isCopied={isShaderCopied} />
-          </motion.button>
+      {stagedProps.componentType === 'slot' && (
+        <div>
+          <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Shader Optics Params JSON
+          </p>
+          <div style={{ position: 'relative' }}>
+            <TextArea 
+              value={shaderCodeText} 
+              onChange={handleShaderCodeChange} 
+              onFocus={() => setIsShaderCodeFocused(true)} 
+              onBlur={() => setIsShaderCodeFocused(false)} 
+            />
+            <motion.button
+              onClick={handleCopyShaderCode}
+              style={{
+                position: 'absolute',
+                top: theme.space['Space.S'],
+                right: theme.space['Space.S'],
+                background: theme.Color.Base.Surface[1],
+                ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+                borderRadius: theme.radius['Radius.S'],
+                padding: theme.space['Space.XS'],
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: theme.Color.Base.Content[1],
+              }}
+              whileHover={{ scale: 1.1, backgroundColor: theme.Color.Accent.Surface[1], color: theme.Color.Accent.Content[1] }}
+              whileTap={{ scale: 0.9 }}
+              aria-label={isShaderCopied ? 'Copied!' : 'Copy Shader JSON'}
+            >
+              <AnimatedCopyIcon isCopied={isShaderCopied} />
+            </motion.button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div style={{ marginTop: theme.space['Space.XS'], paddingBottom: theme.space['Space.L'] }}>
         <p style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], marginBottom: theme.space['Space.S'], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
