@@ -17,6 +17,12 @@ export interface FluidDistortionProps {
   curlStrength?: number;
   /** Curl noise frequency (default: 3.5) */
   curlFreq?: number;
+  /** Temporal blend weight for density history (default: 0.3) */
+  temporalBlend?: number;
+  /** Subpixel blue noise jitter strength (default: 1.0) */
+  jitterStrength?: number;
+  /** Density history clamp threshold to prevent ghosting (default: 0.15) */
+  historyClamp?: number;
 }
 
 const MAX_TOUCHES = 5;
@@ -279,6 +285,51 @@ const BLUR_FRAG = `
   }
 `;
 
+// Pass 3: Temporal Reconstruction Pass Shader (TAA style subpixel blue noise jitter & density history accumulation)
+const TEMPORAL_RECONSTRUCT_FRAG = `
+  uniform sampler2D tCurrent;
+  uniform sampler2D tPrevious;
+  uniform sampler2D uNoiseTex;
+  uniform float uFrameIndex;
+  uniform float uTemporalBlend;
+  uniform float uJitterStrength;
+  uniform float uHistoryClamp;
+  uniform vec2 uTexelSize;
+  varying vec2 vUv;
+
+  vec2 hash22(vec2 p) {
+    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+    return fract(sin(p) * 43758.5453123);
+  }
+
+  void main() {
+    // Blue noise temporal jitter
+    vec2 noiseSeed = vUv * 240.0 + mod(uFrameIndex, 64.0);
+    vec2 jitter = (hash22(noiseSeed) - 0.5) * uJitterStrength * uTexelSize;
+
+    vec4 currentSample = texture2D(tCurrent, vUv);
+    
+    // Sample previous frame using jittered UV offset
+    vec2 prevUv = clamp(vUv + jitter, 0.0, 1.0);
+    vec4 prevSample = texture2D(tPrevious, prevUv);
+
+    // Velocity: use current frame only (no temporal smoothing for instantaneous response)
+    vec2 currentVel = currentSample.rg;
+
+    // Density: apply temporal accumulation with history rejection & difference clamp
+    float currentDensity = currentSample.b;
+    float prevDensity = prevSample.b;
+
+    float diff = abs(currentDensity - prevDensity);
+    float weightReduction = smoothstep(uHistoryClamp * 0.5, uHistoryClamp * 2.0, diff);
+    float historyWeight = uTemporalBlend * (1.0 - weightReduction);
+
+    float reconstructedDensity = mix(currentDensity, prevDensity, historyWeight);
+
+    gl_FragColor = vec4(currentVel, reconstructedDensity, 1.0);
+  }
+`;
+
 // Post-Processing Refraction Shader
 export const DISTORTION_FRAG = `
   uniform sampler2D tFluid;
@@ -455,12 +506,15 @@ const LOW_RES_HEIGHT = 64;
 
 export const FluidDistortion: React.FC<FluidDistortionProps> = ({
   children,
-  radius = 0.065,
-  strength = 4.5,
-  dissipation = 0.96,
+  radius = 0.05,
+  strength = 8,
+  dissipation = 0.93,
   mixRatio = 0.88,
-  curlStrength = 0.25,
-  curlFreq = 3.5,
+  curlStrength = 0.16,
+  curlFreq = 1,
+  temporalBlend = 0.3,
+  jitterStrength = 1.0,
+  historyClamp = 0.15,
 }) => {
   const { size, gl } = useThree();
 
@@ -473,16 +527,20 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     type: THREE.UnsignedByteType,
   }), []);
 
-  // Capped fixed FBO target allocation (128x128 for paint, 64x64 for lowRes)
+  // Capped fixed FBO target allocation (128x128 for paint & temporal, 64x64 for lowRes)
   const paintTargetA = useFBO(PAINT_WIDTH, PAINT_HEIGHT, fboOptions);
   const paintTargetB = useFBO(PAINT_WIDTH, PAINT_HEIGHT, fboOptions);
   const lowResTargetA = useFBO(LOW_RES_WIDTH, LOW_RES_HEIGHT, fboOptions);
   const lowResTargetB = useFBO(LOW_RES_WIDTH, LOW_RES_HEIGHT, fboOptions);
+  const temporalTargetA = useFBO(PAINT_WIDTH, PAINT_HEIGHT, fboOptions);
+  const temporalTargetB = useFBO(PAINT_WIDTH, PAINT_HEIGHT, fboOptions);
 
   const currentPaint = useRef(paintTargetA);
   const prevPaint = useRef(paintTargetB);
   const currentLowRes = useRef(lowResTargetA);
   const prevLowRes = useRef(lowResTargetB);
+  const currentReconstructed = useRef(temporalTargetA);
+  const prevReconstructed = useRef(temporalTargetB);
 
   const touchSlots = useRef<TouchSlot[]>(
     Array.from({ length: MAX_TOUCHES }, () => ({
@@ -534,6 +592,21 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     fragmentShader: BLUR_FRAG,
   }), []);
 
+  const temporalMaterial = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      tCurrent: { value: null },
+      tPrevious: { value: null },
+      uNoiseTex: { value: noiseTexture },
+      uFrameIndex: { value: 0 },
+      uTemporalBlend: { value: temporalBlend },
+      uJitterStrength: { value: jitterStrength },
+      uHistoryClamp: { value: historyClamp },
+      uTexelSize: { value: new THREE.Vector2(1 / PAINT_WIDTH, 1 / PAINT_HEIGHT) },
+    },
+    vertexShader: COMMON_VERT,
+    fragmentShader: TEMPORAL_RECONSTRUCT_FRAG,
+  }), [noiseTexture, temporalBlend, jitterStrength, historyClamp]);
+
   const paintQuad = useMemo(() => {
     return new THREE.Mesh(new THREE.PlaneGeometry(2, 2), paintMaterial);
   }, [paintMaterial]);
@@ -542,6 +615,10 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     return new THREE.Mesh(new THREE.PlaneGeometry(2, 2), blurMaterial);
   }, [blurMaterial]);
 
+  const temporalQuad = useMemo(() => {
+    return new THREE.Mesh(new THREE.PlaneGeometry(2, 2), temporalMaterial);
+  }, [temporalMaterial]);
+
   const orthographicCamera = useMemo(() => {
     return new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   }, []);
@@ -549,7 +626,8 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
   useEffect(() => {
     paintMaterial.uniforms.uAspect.value = size.width / Math.max(size.height, 1);
     blurMaterial.uniforms.uTexelSize.value.set(1 / LOW_RES_WIDTH, 1 / LOW_RES_HEIGHT);
-  }, [size, paintMaterial, blurMaterial]);
+    temporalMaterial.uniforms.uTexelSize.value.set(1 / PAINT_WIDTH, 1 / PAINT_HEIGHT);
+  }, [size, paintMaterial, blurMaterial, temporalMaterial]);
 
   useEffect(() => {
     const el = gl.domElement;
@@ -723,6 +801,17 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     blurMaterial.uniforms.tPaint.value = currentPaint.current.texture;
     state.gl.setRenderTarget(currentLowRes.current);
     state.gl.render(blurQuad, orthographicCamera);
+
+    // Pass 3: Temporal Reconstruction Pass (TAA style subpixel jitter & density history accumulation)
+    temporalMaterial.uniforms.tCurrent.value = currentPaint.current.texture;
+    temporalMaterial.uniforms.tPrevious.value = prevReconstructed.current.texture;
+    temporalMaterial.uniforms.uFrameIndex.value = state.clock.elapsedTime * 60.0;
+    temporalMaterial.uniforms.uTemporalBlend.value = temporalBlend;
+    temporalMaterial.uniforms.uJitterStrength.value = jitterStrength;
+    temporalMaterial.uniforms.uHistoryClamp.value = historyClamp;
+
+    state.gl.setRenderTarget(currentReconstructed.current);
+    state.gl.render(temporalQuad, orthographicCamera);
     state.gl.setRenderTarget(null);
 
     // Ping-Pong Swaps
@@ -733,7 +822,11 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
     const tempLowRes = currentLowRes.current;
     currentLowRes.current = prevLowRes.current;
     prevLowRes.current = tempLowRes;
+
+    const tempRec = currentReconstructed.current;
+    currentReconstructed.current = prevReconstructed.current;
+    prevReconstructed.current = tempRec;
   });
 
-  return <>{children(prevPaint.current.texture)}</>;
+  return <>{children(prevReconstructed.current.texture)}</>;
 };
