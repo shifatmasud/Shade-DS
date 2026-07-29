@@ -49,24 +49,24 @@ const PAINT_FRAG = `
   uniform float uCurlFreq;
   varying vec2 vUv;
 
-  // Replaced procedural Simplex Noise math with pre-baked 32x32 noise texture lookup
   float snoise(vec2 v) {
     return texture2D(uNoiseTex, v).r * 2.0 - 1.0;
   }
 
-  // Custom liquid potential function that generates marbled, ridged, stream-aligned patterns
   float liquidPotential(vec2 p, float time, float freq, float stretch) {
-    vec2 coord = p * freq;
-    coord.x += sin(p.y * 3.0 + time * 0.2) * 0.15 * stretch;
-    coord.y += cos(p.x * 3.0 + time * 0.15) * 0.15 * stretch;
+    // Smoother, larger frequency scale for gentle curls
+    vec2 coord = p * freq * 0.7;
+    coord.x += sin(p.y * 1.0 + time * 0.05) * 0.04;
+    coord.y += cos(p.x * 1.0 + time * 0.04) * 0.04;
     
-    vec2 tOffset = vec2(time * 0.1, time * 0.06);
+    vec2 tOffset = vec2(time * 0.02, time * 0.01);
     float n = snoise(coord + tOffset);
-    return sin(n * 4.0 + time * 0.3);
+    return n * 1.2;
   }
 
   vec2 liquidCurlNoise(vec2 p, float time, float freq, float stretch) {
-    float eps = 0.015;
+    // Larger epsilon acts as a spatial low-pass filter, making curl noise incredibly smooth and gentle
+    float eps = 0.035;
     
     float valR = liquidPotential(p + vec2(eps, 0.0), time, freq, stretch);
     float valL = liquidPotential(p - vec2(eps, 0.0), time, freq, stretch);
@@ -76,19 +76,17 @@ const PAINT_FRAG = `
     float d_dx = (valR - valL) / (2.0 * eps);
     float d_dy = (valU - valD) / (2.0 * eps);
     
-    return vec2(d_dy, -d_dx);
+    return vec2(d_dy, -d_dx) * 0.55;
   }
 
-  // Segment distance fallback function
-  float sdSegment(vec2 p, vec2 a, vec2 b) {
+  float sdSegment(vec2 p, vec2 a, vec2 b, out float outT) {
     vec2 pa = p - a;
     vec2 ba = b - a;
-    float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.000001), 0.0, 1.0);
-    return length(pa - ba * h);
+    outT = clamp(dot(pa, ba) / max(dot(ba, ba), 0.000001), 0.0, 1.0);
+    return length(pa - ba * outT);
   }
 
-  // Quadratic Bezier distance function for curved liquid trajectory
-  float sdBezier(vec2 pos, vec2 A, vec2 B, vec2 C) {    
+  float sdBezier(vec2 pos, vec2 A, vec2 B, vec2 C, out float outT) {    
     vec2 a = B - A;
     vec2 b = A - 2.0*B + C;
     vec2 c = a * 2.0;
@@ -96,7 +94,7 @@ const PAINT_FRAG = `
 
     float bb = dot(b,b);
     if (bb < 0.000001) {
-      return sdSegment(pos, A, C);
+      return sdSegment(pos, A, C, outT);
     }
 
     float kk = 1.0 / bb;
@@ -115,42 +113,52 @@ const PAINT_FRAG = `
       float hf = sqrt(h);
       vec2 x = (vec2(hf, -hf) - q) / 2.0;
       vec2 uv = sign(x)*pow(abs(x), vec2(1.0/3.0));
-      float t = clamp(uv.x + uv.y - kx, 0.0, 1.0);
-      vec2 qpos = d + (c + b*t)*t;
+      outT = clamp(uv.x + uv.y - kx, 0.0, 1.0);
+      vec2 qpos = d + (c + b*outT)*outT;
       res = dot(qpos,qpos);
     } else {
       float z = sqrt(-p);
       float v = acos( clamp(q/(p*z*2.0), -1.0, 1.0) ) / 3.0;
       float m = cos(v);
       float n = sin(v)*1.732050808;
-      vec3 t = clamp(vec3(m+m, -n-m, n-m)*z - kx, 0.0, 1.0);
-      vec2 qpos1 = d + (c + b*t.x)*t.x;
-      vec2 qpos2 = d + (c + b*t.y)*t.y;
-      vec2 qpos3 = d + (c + b*t.z)*t.z;
-      res = min(min(dot(qpos1,qpos1), dot(qpos2,qpos2)), dot(qpos3,qpos3));
+      vec3 tVec = clamp(vec3(m+m, -n-m, n-m)*z - kx, 0.0, 1.0);
+      vec2 qpos1 = d + (c + b*tVec.x)*tVec.x;
+      vec2 qpos2 = d + (c + b*tVec.y)*tVec.y;
+      vec2 qpos3 = d + (c + b*tVec.z)*tVec.z;
+      float d1 = dot(qpos1,qpos1);
+      float d2 = dot(qpos2,qpos2);
+      float d3 = dot(qpos3,qpos3);
+      if (d1 < d2 && d1 < d3) {
+        res = d1;
+        outT = tVec.x;
+      } else if (d2 < d3) {
+        res = d2;
+        outT = tVec.y;
+      } else {
+        res = d3;
+        outT = tVec.z;
+      }
     }
 
     return sqrt(res);
   }
 
   void main() {
-    // 1. Back-advect UV coordinate along low-res velocity field for natural fluid flow
+    // 1. Core Physical Semi-Lagrangian Back-Advection (Low Viscosity)
     vec4 lowResRaw = texture2D(tLowRes, vUv);
     vec2 lowResVel = (lowResRaw.rg - 0.5) * 2.0;
 
-    // 2. Spatial density gradient from low-res texture
-    float dX = texture2D(tLowRes, vUv + vec2(0.008, 0.0)).b - texture2D(tLowRes, vUv - vec2(0.008, 0.0)).b;
-    float dY = texture2D(tLowRes, vUv + vec2(0.0, 0.008)).b - texture2D(tLowRes, vUv - vec2(0.0, 0.008)).b;
-    vec2 densitySlope = vec2(dX, dY);
-    float slopeMag = length(densitySlope);
-    float trailEdgeFactor = smoothstep(0.01, 0.35, slopeMag);
+    // Trace back coordinate strictly based on low-res velocity field
+    vec2 advectUv = vUv - lowResVel * 0.022;
+    vec4 advectedSample = texture2D(tLowRes, clamp(advectUv, 0.0, 1.0));
+    
+    // Advect velocity with dissipation decay (low viscosity)
+    vec2 advectedVel = (advectedSample.rg - 0.5) * 2.0 * uDissipation;
+    // Advect fluid density
+    float advectedDensity = advectedSample.b * uDissipation;
 
     vec2 p = vUv;
     p.x *= uAspect;
-
-    // Fetch previous low-res density to calculate dissipation area
-    vec4 prevLowResRaw = texture2D(tLowRes, vUv);
-    float prevDensity = prevLowResRaw.b;
 
     // Accumulate multi-touch splats and velocity impulses
     float splat = 0.0;
@@ -167,31 +175,42 @@ const PAINT_FRAG = `
         vec2 b = uPointer[i];
         b.x *= uAspect;
 
-        float distClean = sdBezier(p, a, mid, b);
-        float rad = uRadius * mix(1.0, 1.5, act);
+        float tSeg = 0.0;
+        float distClean = sdBezier(p, a, mid, b, tSeg);
+        
+        // Dynamic taper: Brush path start is thinner than the trail end
+        float radFactor = mix(0.45, 1.0, tSeg);
+        float rad = uRadius * mix(1.0, 1.5, act) * radFactor;
+        
         float rNorm = clamp(distClean / max(rad, 0.0001), 0.0, 1.0);
         float s_i = 1.0 - rNorm * rNorm;
         s_i = s_i * s_i;
 
-        splat = max(splat, s_i);
+        // Scale down splat density when cursor is stationary.
+        // As speed goes to 0, splat intensity goes to 0, letting the existing fluid
+        // naturally dissipate and be moved by wind and curl turbulence forces.
+        float speed = length(uVelocity[i]);
+        float splatIntensity = clamp(speed * 180.0, 0.0, 1.0);
+        float s_i_density = s_i * splatIntensity;
+
+        splat = max(splat, s_i_density);
         maxActive = max(maxActive, act);
 
         vec2 pointerVel_i = uVelocity[i] * uStrength * mix(2.5, 5.2, act);
 
+        // Continuous steady wake that preserves path continuity without droplet breakup
         vec2 segDir = b - a;
         float segLen = length(segDir);
         vec2 wakeVorticity_i = vec2(0.0);
         if (segLen > 0.00001) {
           vec2 normDir = segDir / segLen;
-          vec2 normPerp = vec2(-normDir.y, normDir.x);
-          vec2 pa = p - a;
-          float side = sign(dot(pa, normPerp));
-
-          float vortexFalloff = exp(-distClean * 18.0 / max(rad, 0.001));
-          vec2 dipole = normPerp * side * vortexFalloff * segLen * 12.0 * sin(distClean * 28.0 - uTime * 5.0);
-          vec2 serpentine = normPerp * sin(dot(pa, normDir) * 38.0 - uTime * 6.0) * vortexFalloff * 0.45;
-
-          wakeVorticity_i = dipole + serpentine;
+          float vortexFalloff = exp(-distClean * 6.0 / max(rad, 0.001));
+          
+          // Uniform continuous flow: forward momentum and a slow, gentle swirl
+          vec2 forwardThrust = normDir * segLen * 6.0;
+          vec2 gentleSwirl = vec2(-normDir.y, normDir.x) * (snoise(vUv * 2.5 + uTime * 0.3) * 0.15) * segLen * 4.0;
+          
+          wakeVorticity_i = (forwardThrust + gentleSwirl) * vortexFalloff;
         }
 
         totalPointerVel += (pointerVel_i + wakeVorticity_i) * s_i;
@@ -200,87 +219,41 @@ const PAINT_FRAG = `
 
     float activeVal = maxActive;
 
-    // Dissipation area mask: high in aging/advected wake, low in active fresh trailing area
-    float activeTrailMask = clamp(splat * mix(1.0, 1.25, activeVal), 0.0, 1.0);
-    float dissipationArea = clamp(prevDensity * (1.0 - activeTrailMask * 0.9), 0.0, 1.0);
-
-    // 1. Hydrodynamic domain warping
-    float speed = length(totalPointerVel);
-    vec2 flowDir = speed > 0.0001 ? totalPointerVel / speed : vec2(1.0, 0.0);
-    vec2 perpDir = vec2(-flowDir.y, flowDir.x);
-
-    // Multi-octave liquid turbulence field
-    float n1 = snoise(vUv * uCurlFreq * 2.2 + vec2(uTime * 0.7, uTime * 0.4));
-    float n2 = snoise(vUv * uCurlFreq * 4.8 - vec2(uTime * 1.1, uTime * 0.8));
-
-    // Serpentine liquid surface wave undulation
-    float waveUndulation = sin(dot(p, flowDir) * 35.0 - uTime * 6.5) * cos(dot(p, perpDir) * 22.0 + uTime * 4.2);
-
-    // Swirling rotational noise for dissipation domain warping
-    float swirlAngle = snoise(vUv * 3.2 + uTime * 0.6) * 6.28318;
-    vec2 swirlDomainVec = vec2(cos(swirlAngle), sin(swirlAngle));
-
-    // Combined domain offset: strictly concentrated in dissipation area
-    float curlMult = max(uCurlStrength, 0.0) / 0.25;
-    vec2 fluidDomainOffset = (perpDir * (n1 * 0.045 + waveUndulation * 0.028) + flowDir * (n2 * 0.03) + swirlDomainVec * 0.035) * (1.0 + curlMult * 0.9);
-    vec2 pWarp = p + fluidDomainOffset * dissipationArea;
-
-    float localSplatEdge = smoothstep(0.05, 0.5, splat) * (1.0 - smoothstep(0.5, 0.95, splat));
-    float totalSlopesFactor = max(trailEdgeFactor, localSplatEdge);
-
-    // 2. Liquid-directed curl noise with stream-aligned stretching
-    float flowSpeed = length(lowResVel);
+    // 2. Stream-Aligned Analytical Curl Noise
+    float flowSpeed = length(advectedVel);
     float flowStretch = clamp(flowSpeed * 5.0, 0.0, 1.5);
-    
     vec2 curl1 = liquidCurlNoise(vUv, uTime, uCurlFreq, 1.0 + flowStretch);
     vec2 curl2 = liquidCurlNoise(vUv, uTime * 1.5, uCurlFreq * 2.2, 0.5 + flowStretch * 0.5);
-    vec2 combinedCurl = curl1 * 0.7 + curl2 * 0.3;
+    vec2 combinedCurl = curl1 * 0.75 + curl2 * 0.25;
 
-    // Curl noise injection
-    float baseCurlStrength = 0.01 * curlMult;
-    float dissipationCurlBoost = 0.35 * dissipationArea * curlMult;
-    float edgeCurlBoost = 0.18 * totalSlopesFactor * dissipationArea * curlMult;
-    
-    vec2 injectedCurl = combinedCurl * (baseCurlStrength + dissipationCurlBoost + edgeCurlBoost);
+    // Inject curl noise directly into physical velocity
+    float curlMult = max(uCurlStrength, 0.0);
+    vec2 curlForce = combinedCurl * curlMult * 0.28;
 
-    // 3. Wind Force Motion in Dissipation Area
-    vec2 baseWindDir = normalize(vec2(0.4, 0.7) + vec2(sin(uTime * 0.3) * 0.25, cos(uTime * 0.25) * 0.2));
-    float windNoise = snoise(vUv * 2.8 + vec2(uTime * 0.35, -uTime * 0.25)) * 0.5 + 0.5;
-    vec2 windForce = baseWindDir * (0.018 + windNoise * 0.032) * dissipationArea;
+    // 3. Smooth, gentle ambient wind force (drift) that moves fluid slowly in a natural direction,
+    // ensuring that any static or decaying density/velocity field continues to move and disperse smoothly.
+    vec2 windDir = normalize(vec2(0.35, 0.6) + vec2(sin(uTime * 0.15) * 0.12, cos(uTime * 0.1) * 0.12));
+    float windNoise = snoise(vUv * 1.5 + vec2(uTime * 0.05, -uTime * 0.03)) * 0.5 + 0.5;
+    vec2 windForce = windDir * (0.012 + windNoise * 0.018);
 
-    // 4. Back-advect density and velocity along separate paths with wind force
-    vec2 advectVelUv = vUv - (lowResVel + injectedCurl + windForce) * 0.014;
-    vec2 advectDensityUv = vUv - (lowResVel + windForce * 0.8) * 0.014;
+    // Combine advected velocity, pointer input velocity, curl force, and gentle wind drift
+    vec2 mixedVel = advectedVel + totalPointerVel * 4.2 + curlForce + windForce;
 
-    vec4 velSample = texture2D(tLowRes, clamp(advectVelUv, 0.0, 1.0));
-    vec4 densitySample = texture2D(tLowRes, clamp(advectDensityUv, 0.0, 1.0));
-
-    vec2 prevVel = (velSample.rg - 0.5) * 2.0;
-    float advectedDensity = densitySample.b * (uDissipation * 0.985);
-
-    vec2 inputVel = totalPointerVel;
-
-    // Advect and dissipate previous velocity
-    vec2 advectedVel = prevVel * uDissipation;
-
-    // Combine input velocity, back-advected fluid momentum, and wind force
-    vec2 mixedVel = advectedVel + inputVel * 3.2 + windForce * 1.5;
-
-    // Organic micro-turbulence noise
+    // Add subtle micro-turbulence noise for organic details
     float noise = sin(vUv.x * 35.0 + uTime * 3.0) * cos(vUv.y * 35.0 + uTime * 3.0) * 0.0015;
     mixedVel += vec2(noise, -noise);
 
-    // Clamp speed for numerical stability
+    // Speed clamping for physical & numerical stability
     float speedCap = length(mixedVel);
-    if (speedCap > 1.35) {
-      mixedVel = (mixedVel / speedCap) * 1.35;
+    if (speedCap > 1.45) {
+      mixedVel = (mixedVel / speedCap) * 1.45;
     }
 
-    // Combine fluid density with liquid threshold profile
+    // 3. Fluid Density Update
     float newDensity = splat * mix(0.85, 1.0, activeVal);
     float finalDensity = clamp(max(advectedDensity, newDensity), 0.0, 1.0);
 
-    // Output 8-bit packed velocity into RG channels, density into B channel
+    // Pack 8-bit velocity into RG channels, fluid density into B channel
     gl_FragColor = vec4(mixedVel * 0.5 + 0.5, finalDensity, 1.0);
   }
 `;
@@ -323,12 +296,17 @@ export const DISTORTION_FRAG = `
     vec4 fluidSample = texture2D(tFluid, uv);
     float mainDensity = fluidSample.b;
 
-    if (mainDensity < 0.0005) {
+    // Sharp threshold to define a well-bounded fluid trail zone
+    float threshold = 0.08;
+    float trailMask = smoothstep(threshold - 0.005, threshold + 0.005, mainDensity);
+
+    // Strictly limit distortion to the inside of the trail zone
+    // Absolutely NO neighbor elements outside the trail are distorted or blurred!
+    if (trailMask < 0.001) {
       outputColor = inputColor;
       return;
     }
 
-    float mask = smoothstep(0.0001, 0.25, mainDensity);
     vec2 mainVel = (fluidSample.rg - 0.5) * 2.0;
 
     float dX = texture2D(tFluid, uv + vec2(0.003, 0.0)).b - texture2D(tFluid, uv - vec2(0.003, 0.0)).b;
@@ -365,11 +343,9 @@ export const DISTORTION_FRAG = `
     weights[8] = 0.0625;
 
     float velMag = length(mainVel);
-    float blurMult = max(uBlurRadius, 0.0) / 0.012;
-    float baseBlur = 0.0018 * blurMult;
-    float edgeBlurBoost = 0.015 * trailEdgeIntensity * blurMult;
-    float velocityBlurBoost = velMag * 0.014 * blurMult;
-    float rimBlurRadius = (baseBlur + edgeBlurBoost + velocityBlurBoost) * mask;
+    
+    // Uniform smooth blur across the fluid flow zone scaled by trailMask
+    float rimBlurRadius = uBlurRadius * trailMask;
 
     float jitterMult = max(uJitterStrength, 0.0) / 0.005;
     float refractMult = max(uRefractStrength, 0.0) / 0.35;
@@ -380,7 +356,7 @@ export const DISTORTION_FRAG = `
     // RGB Chromatic Dispersion Mixer pass followed by 9-tap blur pass & 9-tap blue noise jitter pass
     for (int i = 0; i < 9; i++) {
       vec2 noiseUV = uv * 480.0 + tapOffsets[i] * 13.37;
-      float jitterVal = (0.0022 + 0.0055 * trailEdgeIntensity) * jitterMult;
+      float jitterVal = 0.004 * jitterMult;
       vec2 jitter = (hash22(noiseUV) - 0.5) * jitterVal;
 
       vec2 sampleUv = clamp(uv + tapOffsets[i] * rimBlurRadius, 0.0, 1.0);
@@ -388,15 +364,18 @@ export const DISTORTION_FRAG = `
       vec2 tapVel = (tapFluid.rg - 0.5) * 2.0;
       float tapDensity = tapFluid.b;
 
-      float refractVal = (0.12 + 0.32 * trailEdgeIntensity) * refractMult;
-      vec2 refractOffset = tapVel * refractVal * tapDensity * mask;
+      // Boost refraction significantly at the edges where slopes are steep
+      float refractVal = (0.24 + 1.25 * trailEdgeIntensity * (1.0 + slopeMag * 2.5)) * refractMult;
+      // Refraction combines velocity flow and density slope normal for realistic water-lens effect.
+      // -densitySlope pushes coordinates toward high-density areas (lensing magnification).
+      // Refraction is scaled perfectly by trailMask to avoid any bleed outside.
+      // We push the refraction vector to be heavily influenced by the slope gradients at the edges.
+      vec2 refractOffset = (tapVel * 0.3 - densitySlope * (2.2 + slopeMag * 3.5)) * refractVal * tapDensity * trailMask;
       float tapVelMag = length(tapVel);
 
-      float baseDispersion = 0.04 * dispersionMult;
-      float edgeDispersionBoost = 0.11 * trailEdgeIntensity * dispersionMult;
-      float shiftScale = (baseDispersion + edgeDispersionBoost) * (tapVelMag + 0.08);
+      float shiftScale = 0.06 * dispersionMult * (tapVelMag + 0.08);
 
-      vec2 appliedJitter = jitter * mask;
+      vec2 appliedJitter = jitter * trailMask;
       vec2 offsetR = refractOffset * (1.0 + shiftScale) + appliedJitter;
       vec2 offsetG = refractOffset + appliedJitter;
       vec2 offsetB = refractOffset * (1.0 - shiftScale) + appliedJitter;
@@ -408,7 +387,9 @@ export const DISTORTION_FRAG = `
       accumulatedColor += vec3(r, g, b) * weights[i];
     }
 
-    outputColor = vec4(accumulatedColor, inputColor.a);
+    // Blend the final refracted color with original background color using our sharp trailMask.
+    // This gives beautifully anti-aliased crisp boundaries that isolate refraction inside the trail.
+    outputColor = mix(inputColor, vec4(accumulatedColor, inputColor.a), trailMask);
   }
 `;
 
@@ -682,24 +663,38 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
         slot0.prev2Pointer.set(targetX, targetY);
       }
 
-      slot0.pointer.set(targetX, targetY);
-      slot0.activeLerp = THREE.MathUtils.lerp(slot0.activeLerp, 0.8, 0.15);
+      const currentX = THREE.MathUtils.lerp(slot0.pointer.x, targetX, 0.25);
+      const currentY = THREE.MathUtils.lerp(slot0.pointer.y, targetY, 0.25);
+      slot0.pointer.set(currentX, currentY);
     }
 
     // Process all touch slots
     for (let i = 0; i < MAX_TOUCHES; i++) {
       const slot = touchSlots.current[i];
 
-      if (!slot.active && hasActiveTouch) {
-        slot.activeLerp = THREE.MathUtils.lerp(slot.activeLerp, 0, 0.15);
-      }
-
       const delta1 = new THREE.Vector2().subVectors(slot.pointer, slot.prevPointer);
       const delta2 = new THREE.Vector2().subVectors(slot.prevPointer, slot.prev2Pointer);
       const curveOffset = delta1.clone().add(delta2).multiplyScalar(0.25);
 
       slot.midPointer.copy(slot.prevPointer).add(curveOffset);
-      slot.velocity.copy(delta1);
+
+      const distMoved = delta1.length();
+      const isHover = !hasActiveTouch && i === 0;
+      const isActive = slot.active || isHover;
+
+      if (isActive) {
+        const targetActive = isHover ? 0.8 : 1.0;
+        slot.activeLerp = THREE.MathUtils.lerp(slot.activeLerp, targetActive, 0.15);
+      } else {
+        slot.activeLerp = THREE.MathUtils.lerp(slot.activeLerp, 0.0, 0.15);
+      }
+
+      // Damp or zero velocity if movement is extremely micro/stationary to completely avoid inward vortices
+      if (distMoved < 0.0005) {
+        slot.velocity.set(0, 0);
+      } else {
+        slot.velocity.copy(delta1);
+      }
 
       uPointerArray[i].copy(slot.pointer);
       uMidPointerArray[i].copy(slot.midPointer);
