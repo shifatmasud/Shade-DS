@@ -128,22 +128,41 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
     tiltY.set(relativeX * maxTiltY);
   };
 
-  const handlePointerEnter = (e: React.PointerEvent) => {
-    if (disabled) return;
-    setIsHovered(true);
-    handleMove(e.clientX, e.clientY);
-  };
+  // Listen globally to window mouse events so that cards underneath the fluid distortion overlay are still perfectly interactable
+  useEffect(() => {
+    if (disabled || cardHoverTilt === false) {
+      setIsHovered(false);
+      tiltX.set(0);
+      tiltY.set(0);
+      return;
+    }
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (disabled) return;
-    handleMove(e.clientX, e.clientY);
-  };
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      const rect = scope.current?.getBoundingClientRect();
+      if (!rect) return;
 
-  const handlePointerLeave = () => {
-    setIsHovered(false);
-    tiltX.set(0);
-    tiltY.set(0);
-  };
+      const { clientX, clientY } = e;
+      const isInside = 
+        clientX >= rect.left && 
+        clientX <= rect.right && 
+        clientY >= rect.top && 
+        clientY <= rect.bottom;
+
+      if (isInside) {
+        setIsHovered(true);
+        handleMove(clientX, clientY);
+      } else {
+        setIsHovered(false);
+        tiltX.set(0);
+        tiltY.set(0);
+      }
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+    };
+  }, [disabled, cardHoverTilt, tiltX, tiltY]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (disabled) return;
@@ -278,9 +297,6 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({
         rotateX: cardHoverTilt !== false ? tiltXSpring : 0,
         rotateY: cardHoverTilt !== false ? tiltYSpring : 0,
       }}
-      onPointerEnter={handlePointerEnter}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

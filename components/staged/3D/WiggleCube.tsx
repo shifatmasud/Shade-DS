@@ -317,15 +317,42 @@ export const JellyBox = forwardRef<any, JellyBoxProps>(({
     if (rigidBody?.current && meshRef.current) {
       const rb = rigidBody.current;
       const vTarget = new THREE.Vector3();
+      const isKinematic = rb.isKinematic();
       
-      if (isDragging) {
+      if (isDragging || isKinematic) {
         const currentPos = rb.translation();
         const p = new THREE.Vector3(currentPos.x, currentPos.y, currentPos.z);
-        vTarget.subVectors(p, lastPosition.current).divideScalar(Math.max(dt, 0.0001));
+        if (lastPosition.current.lengthSq() > 0.0001) {
+          vTarget.subVectors(p, lastPosition.current).divideScalar(Math.max(dt, 0.0001));
+          
+          // Deadzone for kinematic movement to prevent micro-fluctuations
+          if (vTarget.lengthSq() < 0.002) {
+            vTarget.set(0, 0, 0);
+          } else {
+            // Clamp velocity to a safe maximum to prevent visual stretching glitches
+            const maxVel = 12.0;
+            if (vTarget.length() > maxVel) {
+              vTarget.normalize().multiplyScalar(maxVel);
+            }
+          }
+        } else {
+          vTarget.set(0, 0, 0);
+        }
         lastPosition.current.copy(p);
       } else {
         const vel = rb.linvel();
         vTarget.set(vel.x, vel.y, vel.z);
+        
+        // Deadzone for physical movement
+        if (vTarget.lengthSq() < 0.001) {
+          vTarget.set(0, 0, 0);
+        } else {
+          const maxVel = 20.0;
+          if (vTarget.length() > maxVel) {
+            vTarget.normalize().multiplyScalar(maxVel);
+          }
+        }
+        
         const currentPos = rb.translation();
         lastPosition.current.set(currentPos.x, currentPos.y, currentPos.z);
       }

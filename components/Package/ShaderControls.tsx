@@ -6,7 +6,6 @@ import React, { useEffect, useMemo } from 'react';
 import { useMotionValue, motion } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import RangeSlider from '../Core/RangeSlider.tsx';
-import Accordion from '../Core/Accordion.tsx';
 import Button from '../Core/Button.tsx';
 import { useShaderStore, DEFAULT_SHADER_PARAMS, ShaderParams } from '../../services/shaderStore';
 import { Sliders, ArrowCounterClockwise, Sparkle, Drop, Eye, Waves } from 'phosphor-react';
@@ -111,9 +110,9 @@ export const ShaderControls: React.FC<ShaderControlsProps> = ({ compact = false 
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.XL'] }}>
       {/* Presets Bar */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.XS'] }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Shader Presets
@@ -157,11 +156,11 @@ export const ShaderControls: React.FC<ShaderControlsProps> = ({ compact = false 
                 backgroundColor: theme.Color.Base.Surface[2],
                 color: theme.Color.Base.Content[1],
                 borderRadius: theme.radius['Radius.M'],
-                border: `1px solid ${theme.Color.Base.Surface[3]}`,
                 cursor: 'pointer',
                 ...theme.Type.Readable.Label.S,
                 fontSize: '11px',
                 textAlign: 'left',
+                ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
               }}
             >
               <span style={{ color: theme.Color.Base.Content[2] }}>{preset.icon}</span>
@@ -172,8 +171,14 @@ export const ShaderControls: React.FC<ShaderControlsProps> = ({ compact = false 
       </div>
 
       {/* Fluid Simulation Controls */}
-      <Accordion title="Fluid Simulation" defaultOpen>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'], paddingTop: theme.space['Space.XS'] }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}>
+          <span style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+            Fluid Simulation
+          </span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: theme.Color.Base.Surface[3] }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <RangeSlider
             label="Splat Radius"
             motionValue={radiusMV}
@@ -202,11 +207,17 @@ export const ShaderControls: React.FC<ShaderControlsProps> = ({ compact = false 
             onCommit={(v) => setParam('dissipation', v)}
           />
         </div>
-      </Accordion>
+      </div>
 
       {/* Curl Turbulence Controls */}
-      <Accordion title="Curl Noise & Turbulence">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'], paddingTop: theme.space['Space.XS'] }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}>
+          <span style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+            Curl Turbulence
+          </span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: theme.Color.Base.Surface[3] }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <RangeSlider
             label="Curl Turbulence"
             motionValue={curlStrengthMV}
@@ -226,11 +237,17 @@ export const ShaderControls: React.FC<ShaderControlsProps> = ({ compact = false 
             onCommit={(v) => setParam('curlFreq', v)}
           />
         </div>
-      </Accordion>
+      </div>
 
       {/* Liquid Refraction & Optics Controls */}
-      <Accordion title="Liquid Optics & Refraction">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'], paddingTop: theme.space['Space.XS'] }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'] }}>
+          <span style={{ ...theme.Type.Readable.Label.S, color: theme.Color.Base.Content[2], textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+            Liquid Optics & Refraction
+          </span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: theme.Color.Base.Surface[3] }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.M'] }}>
           <RangeSlider
             label="Refraction Force"
             motionValue={refractStrengthMV}
@@ -268,7 +285,7 @@ export const ShaderControls: React.FC<ShaderControlsProps> = ({ compact = false 
             onCommit={(v) => setParam('jitterStrength', v)}
           />
         </div>
-      </Accordion>
+      </div>
     </div>
   );
 };

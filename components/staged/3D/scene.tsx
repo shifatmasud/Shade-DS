@@ -481,7 +481,7 @@ const Scene3D: React.FC<Scene3DProps> = ({
   ambientIntensity = 0.25,
   showFps = true,
 }) => {
-  const { theme } = useTheme();
+  const { theme, themeName } = useTheme();
   const { cubes, addCube } = usePhysicsStore();
   const [controlsEnabled, setControlsEnabled] = useState(true);
   const [fps, setFps] = useState(0);
@@ -694,21 +694,21 @@ const Scene3D: React.FC<Scene3DProps> = ({
               width: '320px',
               maxHeight: 'calc(100% - 90px)',
               overflowY: 'auto',
-              backgroundColor: 'rgba(15, 15, 20, 0.85)',
+              backgroundColor: themeName === 'dark' ? 'rgba(30, 30, 30, 0.85)' : 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: theme.radius['Radius.L'],
               padding: theme.space['Space.M'],
               zIndex: 60,
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
-              color: '#ffffff',
+              boxShadow: themeName === 'dark' ? '0 20px 40px rgba(0, 0, 0, 0.5)' : '0 20px 40px rgba(0, 0, 0, 0.08)',
+              color: theme.Color.Base.Content[1],
+              ...theme.border.getBorder1px(themeName === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'),
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space['Space.M'], borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: theme.space['Space.S'] }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space['Space.M'], borderBottom: `1px solid ${theme.Color.Base.Surface[3]}`, paddingBottom: theme.space['Space.S'] }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Sliders size={18} style={{ color: theme.Color.Base.Content[2] }} />
-                <span style={{ ...theme.Type.Expressive.Headline.S, fontSize: '14px', color: '#ffffff' }}>
+                <span style={{ ...theme.Type.Expressive.Headline.S, fontSize: '14px', color: theme.Color.Base.Content[1] }}>
                   Shader Optics Controls
                 </span>
               </div>
@@ -717,7 +717,7 @@ const Scene3D: React.FC<Scene3DProps> = ({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'rgba(255, 255, 255, 0.6)',
+                  color: theme.Color.Base.Content[2],
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',

@@ -155,13 +155,14 @@ const PAINT_FRAG = `
     vec2 lowResVel = (lowResRaw.rg - 0.5) * 2.0;
 
     // Trace back coordinate strictly based on low-res velocity field
-    vec2 advectUv = vUv - lowResVel * 0.022;
+    vec2 advectUv = vUv - lowResVel * 0.038;
     vec4 advectedSample = texture2D(tLowRes, clamp(advectUv, 0.0, 1.0));
     
     // Advect velocity with dissipation decay (low viscosity)
     vec2 advectedVel = (advectedSample.rg - 0.5) * 2.0 * uDissipation;
-    // Advect fluid density
-    float advectedDensity = advectedSample.b * uDissipation;
+    // Advect fluid density with a slower, smoother decay rate to keep the trail long and coherent
+    float densityDissipation = mix(uDissipation, 0.992, 0.45);
+    float advectedDensity = advectedSample.b * densityDissipation;
 
     vec2 p = vUv;
     p.x *= uAspect;
@@ -195,8 +196,9 @@ const PAINT_FRAG = `
         // Scale down splat density when cursor is stationary.
         // As speed goes to 0, splat intensity goes to 0, letting the existing fluid
         // naturally dissipate and be moved by wind and curl turbulence forces.
+        // Enhanced to support micro-movements so even slow mouse moves generate continuous wave trails.
         float speed = length(uVelocity[i]);
-        float splatIntensity = clamp(speed * 180.0, 0.0, 1.0);
+        float splatIntensity = speed > 0.000015 ? clamp(0.3 + speed * 1200.0, 0.0, 1.0) : 0.0;
         float s_i_density = s_i * splatIntensity;
 
         splat = max(splat, s_i_density);
@@ -238,7 +240,8 @@ const PAINT_FRAG = `
 
     // 3. Smooth, gentle ambient wind force (drift) that moves fluid slowly in a natural direction,
     // ensuring that any static or decaying density/velocity field continues to move and disperse smoothly.
-    vec2 windDir = normalize(vec2(0.35, 0.6) + vec2(sin(uTime * 0.15) * 0.12, cos(uTime * 0.1) * 0.12));
+    // Centered at x = 0.0 to ensure wind is strictly upward with symmetrical organic swaying.
+    vec2 windDir = normalize(vec2(0.0, 1.0) + vec2(sin(uTime * 0.15) * 0.12, cos(uTime * 0.1) * 0.12));
     float windNoise = snoise(vUv * 1.5 + vec2(uTime * 0.05, -uTime * 0.03)) * 0.5 + 0.5;
     vec2 windForce = windDir * (0.012 + windNoise * 0.018);
 
@@ -347,9 +350,10 @@ export const DISTORTION_FRAG = `
     vec4 fluidSample = texture2D(tFluid, uv);
     float mainDensity = fluidSample.b;
 
-    // Sharp threshold to define a well-bounded fluid trail zone
-    float threshold = 0.08;
-    float trailMask = smoothstep(threshold - 0.005, threshold + 0.005, mainDensity);
+    // Soft, low-threshold mask to ensure continuous, droplet-free dissipation.
+    // As density fades, the entire trail dissolves smoothly and uniformly as a cohesive whole.
+    float threshold = 0.005;
+    float trailMask = smoothstep(threshold, 0.12, mainDensity);
 
     // Strictly limit distortion to the inside of the trail zone
     // Absolutely NO neighbor elements outside the trail are distorted or blurred!
@@ -426,10 +430,11 @@ export const DISTORTION_FRAG = `
 
       float shiftScale = 0.06 * dispersionMult * (tapVelMag + 0.08);
 
+      vec2 blurOffset = tapOffsets[i] * rimBlurRadius;
       vec2 appliedJitter = jitter * trailMask;
-      vec2 offsetR = refractOffset * (1.0 + shiftScale) + appliedJitter;
-      vec2 offsetG = refractOffset + appliedJitter;
-      vec2 offsetB = refractOffset * (1.0 - shiftScale) + appliedJitter;
+      vec2 offsetR = blurOffset + refractOffset * (1.0 + shiftScale) + appliedJitter;
+      vec2 offsetG = blurOffset + refractOffset + appliedJitter;
+      vec2 offsetB = blurOffset + refractOffset * (1.0 - shiftScale) + appliedJitter;
 
       float r = texture2D(inputBuffer, clamp(uv + offsetR, 0.0, 1.0)).r;
       float g = texture2D(inputBuffer, clamp(uv + offsetG, 0.0, 1.0)).g;
@@ -768,7 +773,8 @@ export const FluidDistortion: React.FC<FluidDistortionProps> = ({
       }
 
       // Damp or zero velocity if movement is extremely micro/stationary to completely avoid inward vortices
-      if (distMoved < 0.0005) {
+      // Lowered threshold to 0.00005 to capture slow and fine mouse/pointer movements.
+      if (distMoved < 0.00005) {
         slot.velocity.set(0, 0);
       } else {
         slot.velocity.copy(delta1);
