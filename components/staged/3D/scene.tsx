@@ -4,7 +4,7 @@
  */
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, Sky, useEnvironment } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
@@ -27,7 +27,8 @@ class DistortionEffectImpl extends Effect {
     refractStrength: number,
     dispersionScale: number,
     blurRadius: number,
-    jitterStrength: number
+    jitterStrength: number,
+    aspect: number
   ) {
     super('DistortionEffect', DISTORTION_FRAG, {
       uniforms: new Map<string, THREE.Uniform<any>>([
@@ -36,6 +37,7 @@ class DistortionEffectImpl extends Effect {
         ['uDispersionScale', new THREE.Uniform(dispersionScale)],
         ['uBlurRadius', new THREE.Uniform(blurRadius)],
         ['uJitterStrength', new THREE.Uniform(jitterStrength)],
+        ['uAspect', new THREE.Uniform(aspect)],
       ])
     });
   }
@@ -56,8 +58,11 @@ const DistortionEffect = React.forwardRef(({
   blurRadius,
   jitterStrength,
 }: DistortionEffectProps, ref) => {
+  const { size } = useThree();
+  const aspect = size.width / Math.max(size.height, 1);
+
   const effect = useMemo(
-    () => new DistortionEffectImpl(fluidTexture, refractStrength, dispersionScale, blurRadius, jitterStrength),
+    () => new DistortionEffectImpl(fluidTexture, refractStrength, dispersionScale, blurRadius, jitterStrength, aspect),
     []
   );
 
@@ -75,8 +80,10 @@ const DistortionEffect = React.forwardRef(({
       if (uBlur) uBlur.value = blurRadius;
       const uJitter = effect.uniforms.get('uJitterStrength');
       if (uJitter) uJitter.value = jitterStrength;
+      const uAsp = effect.uniforms.get('uAspect');
+      if (uAsp) uAsp.value = aspect;
     }
-  }, [effect, fluidTexture, refractStrength, dispersionScale, blurRadius, jitterStrength]);
+  }, [effect, fluidTexture, refractStrength, dispersionScale, blurRadius, jitterStrength, aspect]);
 
   return <primitive ref={ref} object={effect} />;
 });
