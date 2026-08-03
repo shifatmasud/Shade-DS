@@ -163,14 +163,44 @@ const PAINT_FRAG = `
     float borderDistY = min(vUv.y, 1.0 - vUv.y);
     float borderMask = smoothstep(0.0, 0.03, borderDistX) * smoothstep(0.0, 0.03, borderDistY);
     
-    // Dynamically adjust dissipation to ensure trails stay long and naturally dissipate slowly.
+    // Grid-Based Wave Propagation Ripple System
+    vec2 texel = vec2(1.0 / 64.0);
+    vec2 neighborOffsets[4];
+    neighborOffsets[0] = vec2(texel.x, 0.0);
+    neighborOffsets[1] = vec2(-texel.x, 0.0);
+    neighborOffsets[2] = vec2(0.0, texel.y);
+    neighborOffsets[3] = vec2(0.0, -texel.y);
+
+    float h_center = advectedSample.b;
+    float v_center = (advectedSample.a - 0.5) * 2.0;
+
+    float laplacian = 0.0;
+    for (int j = 0; j < 4; j++) {
+      vec4 nSample = texture2D(tLowRes, clamp(advectUv + neighborOffsets[j], 0.0, 1.0));
+      laplacian += nSample.b;
+    }
+    laplacian = laplacian - 4.0 * h_center;
+
+    // Wave equation: acceleration = waveSpeedSq * laplacian
+    float waveSpeedSq = 0.65;
+    float dtVal = 0.16;
+    float waveAcceleration = waveSpeedSq * laplacian;
+    float newWaveVel = v_center + waveAcceleration * dtVal;
+    float newWaveHeight = h_center + newWaveVel * dtVal;
+
+    // Option B: Non-linear progressive drag/friction
+    // Small/fading waves dissipate exponentially faster than large, high-energy impact ripples.
+    float ampFactor = clamp(newWaveHeight * 2.5, 0.0, 1.0);
+    float progressiveDamping = mix(0.70, 0.94, ampFactor * ampFactor);
+    
+    // Fast dissipation multiplier: scaled down significantly (faster, shorter dissipation)
+    float waveDissipation = uDissipation * 0.82 * borderMask;
+    newWaveVel *= progressiveDamping * waveDissipation;
+    newWaveHeight *= progressiveDamping * waveDissipation;
+
     // Velocity advection decay (low viscosity) - boosted velocity persistence to allow propagating long waves
     float velDissipation = mix(uDissipation, 0.988, 0.8);
     vec2 advectedVel = (advectedSample.rg - 0.5) * 2.0 * velDissipation * borderMask;
-
-    // Density advection decay: higher retention (e.g., 0.995) ensures long-lasting coherent trails
-    float densityDissipation = mix(uDissipation, 0.995, 0.88);
-    float advectedDensity = advectedSample.b * densityDissipation * borderMask;
 
     vec2 p = vUv;
     p.x *= uAspect;
@@ -204,7 +234,11 @@ const PAINT_FRAG = `
         // Ensure even slow mouse movements generate rich, full-density trails
         float speed = length(uVelocity[i]);
         float splatIntensity = speed > 0.000005 ? clamp(0.85 + speed * 3000.0, 0.0, 1.0) : 0.0;
-        float s_i_density = s_i * splatIntensity;
+        
+        // Option A: Glass-Lens Refraction - sharper front-facing pressure wave
+        // Higher density peak at the tip of the cursor segment (where tSeg approaches 1.0)
+        float pressureFront = mix(0.70, 1.38, pow(tSeg, 2.5));
+        float s_i_density = s_i * splatIntensity * pressureFront;
 
         splat = max(splat, s_i_density);
         maxActive = max(maxActive, act);
@@ -235,6 +269,12 @@ const PAINT_FRAG = `
     }
 
     float activeVal = maxActive;
+
+    // Excite wave height and velocity on active splat
+    if (splat > 0.001) {
+      newWaveHeight = max(newWaveHeight, splat * mix(0.85, 1.0, activeVal));
+      newWaveVel += splat * 3.5;
+    }
 
     // 2. Stream-Aligned Analytical Curl Noise
     float flowSpeed = length(advectedVel);
@@ -278,12 +318,11 @@ const PAINT_FRAG = `
       mixedVel = (mixedVel / speedCap) * 1.45;
     }
 
-    // 3. Fluid Density Update
-    float newDensity = splat * mix(0.85, 1.0, activeVal);
-    float finalDensity = clamp(max(advectedDensity, newDensity), 0.0, 1.0);
+    float finalHeight = clamp(newWaveHeight, 0.0, 1.0);
+    float finalWaveVel = clamp(newWaveVel, -1.0, 1.0) * 0.5 + 0.5;
 
-    // Pack 8-bit velocity into RG channels, fluid density into B channel
-    gl_FragColor = vec4(mixedVel * 0.5 + 0.5, finalDensity, 1.0);
+    // Pack 8-bit velocity into RG channels, fluid density (wave height) into B channel, wave velocity into A channel
+    gl_FragColor = vec4(mixedVel * 0.5 + 0.5, finalHeight, finalWaveVel);
   }
 `;
 
@@ -349,7 +388,7 @@ const TEMPORAL_RECONSTRUCT_FRAG = `
 
     float reconstructedDensity = mix(currentDensity, prevDensity, historyWeight);
 
-    gl_FragColor = vec4(currentVel, reconstructedDensity, 1.0);
+    gl_FragColor = vec4(currentVel, reconstructedDensity, currentSample.a);
   }
 `;
 
@@ -447,11 +486,30 @@ export const DISTORTION_FRAG = `
 
       // Boost refraction significantly at the edges where slopes are steep
       float refractVal = (0.24 + 1.25 * trailEdgeIntensity * (1.0 + slopeMag * 2.5)) * refractMult;
+
+      // Option C: Velocity-Driven Slope Blend & Smart Forward-Only Slopes
+      // Replace the backward density-slope term entirely with a forward advection-bias vector,
+      // so the lensing is structurally pulled forward in the direction of movement.
+      vec2 flowDir = vec2(0.0);
+      float tapVelMag = length(tapVel);
+      if (tapVelMag > 0.001) {
+        flowDir = tapVel / tapVelMag;
+      }
+      
+      vec2 slopeNormal = -densitySlope;
+      float slopeDot = dot(slopeNormal, flowDir);
+      if (slopeDot < 0.0) {
+        // Cancel backward component entirely (not in backward, only forward)
+        slopeNormal -= flowDir * slopeDot;
+        // Add a forward advection-bias vector so lensing is structurally pulled forward
+        slopeNormal += flowDir * (0.15 * slopeMag);
+      }
+
       // Refraction combines velocity flow and density slope normal for realistic water-lens effect.
       // -densitySlope pushes coordinates toward high-density areas (lensing magnification).
       // Refraction is scaled perfectly by trailMask to avoid any bleed outside.
       // We push the refraction vector to be heavily influenced by the slope gradients at the edges.
-      vec2 refractOffset = (tapVel * 0.3 - densitySlope * (2.2 + slopeMag * 3.5)) * refractVal * tapDensity * trailMask;
+      vec2 refractOffset = (tapVel * 0.3 + slopeNormal * (2.2 + slopeMag * 3.5)) * refractVal * tapDensity * trailMask;
       
       // Isotropic refraction scaling to avoid horizontal/vertical stretching of refractive offsets
       if (uAspect > 1.0) {
@@ -460,7 +518,7 @@ export const DISTORTION_FRAG = `
         refractOffset.y *= uAspect;
       }
 
-      float tapVelMag = length(tapVel);
+      tapVelMag = length(tapVel);
 
       float shiftScale = 0.06 * dispersionMult * (tapVelMag + 0.08);
 
