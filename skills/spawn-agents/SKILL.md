@@ -1,47 +1,56 @@
 ---
 name: spawn-agents
-description: The advanced multi-agent orchestrator system to handle complex tasks by decomposing them into highly focused sequential worker agents (parallel read, sequential write) followed by a comprehensive Quality Assurance / Auditor review.
+description: The advanced multi-agent orchestrator system to handle complex tasks by decomposing them into highly focused sequential worker agents (using gemini-3.5-flash-lite by default) following a strict Plan -> Build -> Review workflow. Triggers on `/spawnAgents`.
 ---
 
 # Spawn Agents Orchestration Skill
 
-This skill governs the execution of the multi-agent execution pipeline implemented in `/scripts/spawnAgents.ts`. It ensures any agent operating in this repository is fully aligned with the **Plan → Build → Review** cycle.
+This skill governs the execution of the multi-agent execution pipeline implemented in `/scripts/spawnAgents.ts`. It ensures any agent operating in this repository is fully aligned with the **Plan → Build → Review** multi-agent cycle.
 
 ---
 
-## 1. Core Architectural Constraints
+## 1. Core Architectural Constraints & Configuration
 
-To prevent race conditions, avoid file-system corruption, and ensure pristine structural integrity, the orchestrator enforces these constraints:
+- **Trigger Command**: This skill triggers on `/spawnAgents`.
+- **Default Model**: All spawned sub-agents (analyzers, lead coordinator, worker agents, reviewer) use `gemini-3.5-flash-lite` by default (configurable via `SUB_AGENT_MODEL` environment variable).
+- **Strict Plan-First Workflow**:
+  1. **Planning**: Create a tech spec / plan document in the `/plans` directory first.
+  2. **Plan Reading & Decomposition**: Spawned sub-agents read the designated master plan from the path provided via `--plan` (or `-p`) and decompose the work into discrete tasks (**1 task per agent**).
+  3. **Sequential Code Generation**: Workers execute code modifications (`writeFile`) sequentially to avoid race conditions and preserve file integrity.
+  4. **Review & Audit**: A dedicated Reviewer Agent runs compilation and linting checks (`npm run lint`, `npm run build`) and audits all code changes.
+  5. **Summary**: The main agent synthesizes the results, summarizes the auditor findings, and responds to the user.
 
-- **Strict Decomposition**: Any complex task is first broken down into a team of specialized sub-agents, each given a single, highly focused role and prompt (e.g., UXArchitect, CodeGenerator, StyleManager, BugFixer).
-- **Parallel Reads, Sequential Writes**: Workers can query and read file contexts in parallel to understand the environment, but any file modifications, edits, or writes MUST be executed sequentially (one agent at a time).
-- **Tool Access Isolation**: Every worker agent gets a fresh, clean context window but has full access to the project via standard workspace tools:
+- **Tool Access**: Sub-agents operate with fresh context windows and interact with the workspace via:
   - `readFile(filePath)`
   - `writeFile(filePath, content)`
   - `listDir(dirPath)`
   - `runCommand(command)`
-- **Mandatory Quality Assurance Review**: After all worker agents complete their sequence, a final **QA/Auditor Agent** is spawned to verify the build, run tests (`npm run lint` and `npm run build`), inspect modified code for elegance, fix any remaining minor bugs, and write a comprehensive validation report.
 
 ---
 
 ## 2. CLI Command & Usage
 
-To invoke the multi-agent orchestrator, run the following command in the workspace shell:
+To execute the multi-agent orchestrator, you **MUST** pass the path to the master plan file using the `--plan` (or `-p`) flag so that sub-agents can read and decompose the tasks:
 
 ```bash
-npx tsx scripts/spawnAgents.ts "<your task description here>"
+npx tsx scripts/spawnAgents.ts "<task description>" --plan <path_to_plan_spec>
 ```
 
-### Automatic Output Mapping
-The script logs progress live to the console with beautiful, formatted ANSI colors and writes detailed reports when execution is complete:
-- **Markdown Report**: Saved to `/plans/spawnAgents_output.md` containing the overall task description, planning details, worker agent lists, separate agent outputs, and the final Auditor Review Report.
-- **JSON Logs**: Saved to `/plans/spawnAgents_output.json` for programmatic tracking of read files, modified files, and individual outputs.
+### Example:
+```bash
+npx tsx scripts/spawnAgents.ts "Add database sync engine" --plan plans/db_sync_spec.md
+```
+
+### Generated Artifacts & Reports in `/artifacts/`
+All sub-agent generated reports, plans, logs, and other artifacts must live strictly in the `/artifacts/` directory:
+- **Spec Plan**: Generated sub-agent plan saved to `/artifacts/<task_name>_spec.md`.
+- **Markdown Report**: Saved to `/artifacts/spawnAgents_output.md` containing analyzer briefs, agent breakdown, individual responses, and Auditor Review Report.
+- **JSON Logs**: Saved to `/artifacts/spawnAgents_output.json` tracking read files, modified files, and structured logs.
 
 ---
 
-## 3. Best Practices for Prompts
+## 3. Best Practices
 
-When presenting a task to the orchestrator:
-1. **Be Specific**: State the target files, design requirements, and desired user interactions.
-2. **Align with Shade DSL**: Remind the system of styling rules (JS style objects over Tailwind where specified, typography pairing, border procedural helpers, and Framer Motion layouts).
-3. **Double-check Plans**: Ensure the system generates custom plans first under `/plans` before starting code generation.
+1. **Plan First**: Always provide a clear, well-structured master plan via the `--plan` flag.
+2. **One Task Per Agent**: Keep each spawned worker focused on exactly one module or sub-task.
+3. **Verify Build**: Always let the QA Auditor run lint and build checks to ensure zero regressions.

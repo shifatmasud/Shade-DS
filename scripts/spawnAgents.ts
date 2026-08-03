@@ -11,6 +11,9 @@ if (!apiKey) {
   process.exit(1);
 }
 
+// Default model for sub-agents (analyzers, coordinator, workers, reviewer)
+const DEFAULT_MODEL = process.env.SUB_AGENT_MODEL || "gemini-3.5-flash-lite";
+
 const ai = new GoogleGenAI({
   apiKey: apiKey,
   httpOptions: {
@@ -206,7 +209,7 @@ CRITICAL RULES:
   while (turn < maxTurns) {
     turn++;
     const response = await generateContentWithRetry({
-      model: "gemini-3.1-flash-lite",
+      model: DEFAULT_MODEL,
       contents: contents,
       config: {
         systemInstruction: systemPrompt,
@@ -300,14 +303,48 @@ CRITICAL RULES:
 }
 
 /**
+ * Helper to scan existing plans/specs in /plans and /artifacts directories.
+ */
+function readExistingPlansFromDisk(): string {
+  const dirs = [
+    { path: path.join(process.cwd(), "plans"), prefix: "plans" },
+    { path: path.join(process.cwd(), "artifacts"), prefix: "artifacts" }
+  ];
+  
+  const planTexts: string[] = [];
+
+  for (const dir of dirs) {
+    if (fs.existsSync(dir.path)) {
+      const files = fs.readdirSync(dir.path);
+      for (const file of files) {
+        if (file.endsWith(".md") && !file.startsWith("spawnAgents_output")) {
+          const filePath = path.join(dir.path, file);
+          try {
+            const content = fs.readFileSync(filePath, "utf8");
+            planTexts.push(`### Plan File: ${dir.prefix}/${file}\n${content}`);
+          } catch (e) {
+            // ignore unreadable files
+          }
+        }
+      }
+    }
+  }
+
+  return planTexts.join("\n\n");
+}
+
+/**
  * Lead Coordinator combines parallel briefs and constructs master plans & sub-agents.
  */
 async function decomposeTaskWithContext(
   mainTask: string,
-  analysisBriefs: AnalysisBrief[]
+  analysisBriefs: AnalysisBrief[],
+  planContent: string = "",
+  planPath: string = ""
 ): Promise<Decomposition> {
   console.log(`\n\x1b[36m[Manager] Parallel Analysis complete. Synthesizing briefings and constructing the execution team...\x1b[0m`);
   
+  const existingPlans = readExistingPlansFromDisk();
   const briefsString = analysisBriefs.map(b => {
     return `### Analyzer: ${b.analyzerName} (Focus: ${b.focus})
 - **Findings:** ${b.findings}
@@ -320,11 +357,22 @@ You have been provided with comprehensive parallel analyzer briefings about the 
 
 ${briefsString}
 
-Now, formulate a cohesive Master Architectural Implementation Plan and decompose the remaining implementation into a sequence of highly focused, specialized sequential worker agents.
+${planContent ? `### PRIMARY TASK IMPLEMENTATION SPEC/PLAN:
+This is the designated MASTER PLAN that you MUST strictly implement.
+Plan file path: ${planPath}
+Content:
+${planContent}
+` : ""}
+
+${existingPlans ? `Other Existing Plans in /plans directory:\n${existingPlans}\n` : ""}
+
+Now, formulate a cohesive Master Architectural Implementation Plan based on the PRIMARY TASK IMPLEMENTATION SPEC/PLAN (if provided) and decompose the remaining implementation into a sequence of highly focused, specialized sequential worker agents (1 task per agent).
 Each sub-agent will execute SEQUENTIALLY to perform the code modifications (writes).
 For each sub-agent, define a specific name, clear professional role description, a custom laser-focused system instruction, and a precise prompt.
 
 Important directives for system instructions:
+- They MUST adhere to the PRIMARY TASK IMPLEMENTATION SPEC/PLAN (if provided) to ensure architectural alignment.
+- Advise them to read the master plan file stored in /plans/ using readFile before writing code.
 - Advise them to use the provided tools (readFile, writeFile, listDir, runCommand) to write the actual changes directly.
 - Remind them that they have full read/write access to the codebase.
 - Enforce strict modular design and adherence to the Shade DSL Theme/spec guidelines.
@@ -333,7 +381,7 @@ Main Task:
 ${mainTask}`;
 
   const response = await generateContentWithRetry({
-    model: "gemini-3.1-flash-lite",
+    model: DEFAULT_MODEL,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -458,7 +506,7 @@ CRITICAL RULES:
     console.log(`\x1b[90m[Agent ${agent.name}] Calling model turn ${turn}...\x1b[0m`);
 
     const response = await generateContentWithRetry({
-      model: "gemini-3.1-flash-lite",
+      model: DEFAULT_MODEL,
       contents: contents,
       config: {
         systemInstruction: systemPrompt,
@@ -613,7 +661,7 @@ Please perform the following actions:
     console.log(`\x1b[90m[Reviewer] Calling model turn ${turn}...\x1b[0m`);
 
     const response = await generateContentWithRetry({
-      model: "gemini-3.1-flash-lite",
+      model: DEFAULT_MODEL,
       contents: contents,
       config: {
         systemInstruction: reviewerInstruction,
@@ -713,11 +761,40 @@ Please perform the following actions:
  */
 async function main() {
   const args = process.argv.slice(2);
-  const mainTask = args.join(" ").trim();
+  let planPath = "";
+  let planContent = "";
+  const taskParts: string[] = [];
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--plan" || args[i] === "-p") {
+      if (i + 1 < args.length) {
+        planPath = args[i + 1];
+        i++; // skip next arg
+      }
+    } else {
+      taskParts.push(args[i]);
+    }
+  }
+
+  let mainTask = taskParts.join(" ").trim();
+
+  if (planPath) {
+    const fullPlanPath = path.isAbsolute(planPath) ? planPath : path.join(process.cwd(), planPath);
+    if (fs.existsSync(fullPlanPath)) {
+      planContent = fs.readFileSync(fullPlanPath, "utf8");
+      console.log(`\x1b[36m[Plan Loaded] Loaded big plan from: ${planPath}\x1b[0m`);
+      if (!mainTask) {
+        mainTask = `Implement the specifications and tasks laid out in the plan: ${planPath}`;
+      }
+    } else {
+      console.error(`\x1b[31m[Error] Plan file not found at: ${planPath}\x1b[0m`);
+      process.exit(1);
+    }
+  }
 
   if (!mainTask) {
     console.log("\x1b[35m=== Spawn Agents CLI Tool ===\x1b[0m");
-    console.log("Usage: npx tsx scripts/spawnAgents.ts \"<your task description here>\"");
+    console.log("Usage: npx tsx scripts/spawnAgents.ts \"<your task description here>\" [--plan <path_to_plan_spec>]");
     process.exit(0);
   }
 
@@ -730,13 +807,13 @@ async function main() {
         "StructuralAnalyzer",
         "Codebase Structure & State Flow",
         "You analyze file lists, import mappings, dependency setups, and locate core components like App.tsx, index.tsx, package.json.",
-        `Find and analyze the key functional files, routes, state declarations, and architectural structures relevant to completing: "${mainTask}"`
+        `Find and analyze the key functional files, routes, state declarations, and architectural structures relevant to completing: "${mainTask}"${planContent ? ` according to the master plan:\n${planContent}` : ""}`
       ),
       executeParallelAnalyzer(
         "DesignSystemAnalyzer",
         "Styling, Layout, and Design Rules",
         "You analyze visual systems, components, Theme.tsx definitions, design rule catalogs, CSS/styling rules, and existing UI libraries.",
-        `Extract styling constraints, Theme token mappings, custom components guidelines, and visual specifications relevant to: "${mainTask}"`
+        `Extract styling constraints, Theme token mappings, custom components guidelines, and visual specifications relevant to: "${mainTask}"${planContent ? ` according to the master plan:\n${planContent}` : ""}`
       ),
       executeParallelAnalyzer(
         "RulesAnalyzer",
@@ -751,18 +828,24 @@ async function main() {
 
     // 2. Planning & Decomposing
     console.log(`\n\x1b[35m=== PHASE 2: Architectural Planning & Sub-Agent Planning ===\x1b[0m`);
-    const decomposition = await decomposeTaskWithContext(mainTask, briefs);
+    const decomposition = await decomposeTaskWithContext(mainTask, briefs, planContent, planPath);
     console.log(`\x1b[32m[Success] Master plan established. Task decomposed into ${decomposition.agents.length} sequential worker agents:\x1b[0m`);
     decomposition.agents.forEach((agent, i) => {
       console.log(`  - \x1b[1m${agent.name}\x1b[0m: ${agent.role}`);
     });
     console.log("");
 
-    // Create a plan file in /plans
-    const plansDir = path.join(process.cwd(), "plans");
-    if (!fs.existsSync(plansDir)) {
-      fs.mkdirSync(plansDir, { recursive: true });
+    // Create an artifacts directory for sub-agent plans, reports, logs & artifacts
+    const artifactsDir = path.join(process.cwd(), "artifacts");
+    if (!fs.existsSync(artifactsDir)) {
+      fs.mkdirSync(artifactsDir, { recursive: true });
     }
+
+    const taskSlug = decomposition.taskName.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "task_plan";
+    const specFilePath = path.join(artifactsDir, `${taskSlug}_spec.md`);
+    const specContent = `# Tech Spec: ${decomposition.taskName}\n\n## Objective\n${mainTask}\n\n## Implementation Plan\n${decomposition.plans}\n\n## Sub-Agent Breakdown (1 task per agent)\n${decomposition.agents.map((a, i) => `${i + 1}. **${a.name}** (${a.role}): ${a.prompt}`).join("\n")}\n`;
+    fs.writeFileSync(specFilePath, specContent, "utf8");
+    console.log(`\x1b[36m[Plan Saved] Master plan written to:\x1b[0m \x1b[1martifacts/${taskSlug}_spec.md\x1b[0m\n`);
 
     // 3. Sequential Execution Phase (writes must be sequential)
     console.log(`\n\x1b[35m=== PHASE 3: Sequential Code Generation ===\x1b[0m`);
@@ -775,9 +858,9 @@ async function main() {
     console.log(`\n\x1b[35m=== PHASE 4: Quality Assurance & Code Auditing ===\x1b[0m`);
     const reviewerReport = await executeReviewerAgent(mainTask, decomposition.plans, decomposition.agents);
 
-    // 5. Save results to plans/
-    const mdPath = path.join(plansDir, "spawnAgents_output.md");
-    const jsonPath = path.join(plansDir, "spawnAgents_output.json");
+    // 5. Save results to artifacts/
+    const mdPath = path.join(artifactsDir, "spawnAgents_output.md");
+    const jsonPath = path.join(artifactsDir, "spawnAgents_output.json");
 
     // Build the Markdown file
     let mdContent = `# Spawn Agents Execution Report: ${decomposition.taskName}\n\n`;
@@ -809,8 +892,8 @@ async function main() {
     fs.writeFileSync(jsonPath, JSON.stringify({ mainTask, decomposition, reviewerReport, modifiedFiles: Array.from(allModifiedFiles), readFiles: Array.from(allReadFiles) }, null, 2), "utf8");
 
     console.log(`\x1b[32m✔ Final review report and implementation verified successfully!\x1b[0m`);
-    console.log(`\x1b[36mMarkdown report saved to:\x1b[0m \x1b[1mplans/spawnAgents_output.md\x1b[0m`);
-    console.log(`\x1b[36mJSON logs saved to:\x1b[0m \x1b[1mplans/spawnAgents_output.json\x1b[0m\n`);
+    console.log(`\x1b[36mMarkdown report saved to:\x1b[0m \x1b[1martifacts/spawnAgents_output.md\x1b[0m`);
+    console.log(`\x1b[36mJSON logs saved to:\x1b[0m \x1b[1martifacts/spawnAgents_output.json\x1b[0m\n`);
 
     console.log(`\x1b[35m=== AUDITOR REVIEW REPORT ===\x1b[0m\n`);
     console.log(reviewerReport);
