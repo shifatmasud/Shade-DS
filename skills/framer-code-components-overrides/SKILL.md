@@ -353,6 +353,46 @@ function resolvePlainText(props: any): string {
 
 **Never assume text is only in `props.children`.** Variable-bound text bypasses the children structure entirely — `props.children` will contain a placeholder while `props.text` has the real value. If you only read children, variable text is invisible to your override.
 
+## Framer DOM and Layer Tree References
+
+Use these structural maps to understand how Framer projects layer trees onto the DOM, especially when targeting elements via selectors, DOM traversal, or parsing children.
+
+### Framer DOM Tree
+```text
+div [data-framer-root]
+└── div [data-framer-name="Grand Parent"]
+    └── div [data-framer-name="Parent"]
+        ├── div [data-framer-component-type="SVG"][data-framer-name="Child 1"]
+        │   └── div
+        │       └── svg
+        │           └── use [href="#svg-1414304237_256"]
+        ├── svg [data-framer-name="Child 2"] //This is called Vector Set in Framer
+        │   └── use [href="#1697384173"]
+        ├── div [data-framer-name="Child 3"]
+        │   └── div [data-framer-background-image-wrapper]
+        │       └── img [src="https://framerusercontent.com/images/GoOc6vfVj66FffhqEdI1l63h5Q.png?width=2048&amp;height=2048"]
+        └── div [data-framer-name="Child 4"][data-framer-component-type="RichTextContainer"]
+            └── p
+                ├── #text "T"
+                ├── span
+                │   └── #text "e"
+                ├── span
+                │   └── #text "x"
+                └── span
+                    └── #text "t"
+```
+
+### Framer Layer Tree
+```text
+Desktop
+└── Grand Parent
+    └── Parent
+        ├── Child 1 - Path
+        ├── Child 2 - Vector Set
+        ├── Child 3 - Image
+        └── Child 4 - Text
+```
+
 ## Triggering Framer-Attached Handlers from Code
 
 When you need to programmatically fire a Framer/Framer Motion interaction (open an overlay, trigger a tap, etc.), **synthetic DOM events do not work reliably**. Framer Motion attaches handlers like `onTap` as React handlers, not native DOM listeners — synthetic events take a different code path and leave Framer Motion's internal state desynchronised. Symptoms include stuck press/focus state, two-click-to-close bugs, and other "half-pressed" weirdness that persists for the rest of the session on that element.
