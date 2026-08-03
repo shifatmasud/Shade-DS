@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from "react"
 import { createPortal } from "react-dom"
-import { motion, useScroll, AnimatePresence } from "framer-motion"
+import { motion, useScroll, AnimatePresence, motionValue, animate } from "framer-motion"
 import { addPropertyControls, ControlType } from "framer"
 
 /**
@@ -29,6 +29,18 @@ export default function TextShimmer(props: any) {
     const [rawText, setRawText] = useState("")
     const [isComplete, setIsComplete] = useState(false)
     const [displayedCount, setDisplayedCount] = useState(0)
+    const progressMV = useRef(motionValue(0))
+
+    // Sync motion value to state for rendering
+    useEffect(() => {
+        const unsub = progressMV.current.on("change", (latest) => {
+            const count = Math.floor(latest * rawText.length)
+            setDisplayedCount(count)
+            if (latest >= 1) setIsComplete(true)
+            else setIsComplete(false)
+        })
+        return () => unsub()
+    }, [rawText])
 
     const found = !!target
 
@@ -52,9 +64,10 @@ export default function TextShimmer(props: any) {
             Array.from(sharedParent.children).forEach((child) => {
                 if (child === el || child.contains(el)) return
                 const type = child.getAttribute("data-framer-component-type")
-                if (type === "RichTextContainer" && !foundContainer) {
+                const hasTextChild = child.querySelector("p, span, h1, h2, h3, h4, h5, h6")
+                if ((type === "RichTextContainer" || hasTextChild) && !foundContainer) {
                     foundContainer = child as HTMLElement
-                    foundP = child.querySelector("p, span, h1, h2, h3, h4, h5, h6, div") as HTMLElement | null
+                    foundP = (child.querySelector("p, span, h1, h2, h3, h4, h5, h6, div") as HTMLElement | null) || (child as HTMLElement)
                 }
             })
 
@@ -63,14 +76,22 @@ export default function TextShimmer(props: any) {
                 const text = foundP.innerText || foundP.textContent || ""
                 setRawText(text)
                 
-                const computed = window.getComputedStyle(foundP)
+                const spanEl = foundP.querySelector("span") as HTMLElement | null
+                const computed = spanEl ? window.getComputedStyle(spanEl) : window.getComputedStyle(foundP)
+                const pComputed = window.getComputedStyle(foundP)
                 const containerComputed = window.getComputedStyle(foundContainer)
                 
-                const fSize = foundP.style.getPropertyValue("--framer-font-size") || computed.fontSize
-                const rawLHeight = foundP.style.getPropertyValue("--framer-line-height") || computed.lineHeight
-                const tAlign = foundP.style.getPropertyValue("--framer-text-alignment") || computed.textAlign
-                const fFamily = foundP.style.getPropertyValue("--framer-font-family") || computed.fontFamily
-                const lSpacing = foundP.style.getPropertyValue("--framer-letter-spacing") || computed.letterSpacing
+                const getVar = (name: string) => {
+                    return (spanEl ? computed.getPropertyValue(name) : "") || 
+                           pComputed.getPropertyValue(name) || 
+                           containerComputed.getPropertyValue(name)
+                }
+
+                const fSize = getVar("--framer-font-size") || computed.fontSize
+                const rawLHeight = getVar("--framer-line-height") || computed.lineHeight
+                const tAlign = getVar("--framer-text-alignment") || pComputed.textAlign || computed.textAlign
+                const fFamily = getVar("--framer-font-family") || computed.fontFamily
+                const lSpacing = getVar("--framer-letter-spacing") || computed.letterSpacing
 
                 let lHeight = rawLHeight
                 if (!isNaN(parseFloat(rawLHeight)) && !rawLHeight.includes("px") && !rawLHeight.includes("%")) {
@@ -135,46 +156,24 @@ export default function TextShimmer(props: any) {
 
     // --- SHIMMER LOGIC ---
     useEffect(() => {
-        if (!rawText) return
+        if (!found || !rawText) return
         
         setIsComplete(false)
-        setDisplayedCount(0)
-
-        const textLength = rawText.length
-        if (textLength === 0) {
-            setIsComplete(true)
-            return
-        }
-
-        let frameId: number
-
-        const runTyping = () => {
-            const duration = textLength * typingSpeed * 1000
-            let startTime: number | null = null
-            
-            const tick = (timestamp: number) => {
-                if (!startTime) startTime = timestamp
-                const elapsed = timestamp - startTime
-                const progress = duration <= 0 ? 1 : Math.min(elapsed / duration, 1)
-                setDisplayedCount(Math.floor(progress * textLength))
-                
-                if (progress < 1) {
-                    frameId = requestAnimationFrame(tick)
-                } else {
-                    setIsComplete(true)
-                }
-            }
-            frameId = requestAnimationFrame(tick)
-        }
+        progressMV.current.set(0)
 
         if (trigger === "mount" || trigger === "prop") {
-             runTyping()
-        }
+            const textLength = rawText.length
+            if (textLength === 0) {
+                setIsComplete(true)
+                return
+            }
 
-        return () => {
-            if (frameId) cancelAnimationFrame(frameId)
+            animate(progressMV.current, 1, {
+                duration: textLength * typingSpeed,
+                ease: "linear"
+            })
         }
-    }, [rawText, trigger, typingSpeed])
+    }, [rawText, trigger, typingSpeed, found])
 
     // --- TRIGGER ORCHESTRATION ---
     const targetRef = (scrollsectionref && scrollsectionref.current) ? scrollsectionref : containerRef
@@ -188,9 +187,12 @@ export default function TextShimmer(props: any) {
         
         if (trigger === "scroll") {
             const unsub = scrollYProgress.on("change", (latest) => {
-                setDisplayedCount(Math.floor(latest * rawText.length))
-                if (latest >= 1) setIsComplete(true)
-                else setIsComplete(false)
+                animate(progressMV.current, latest, {
+                    type: "spring",
+                    stiffness: 100,
+                    damping: 30,
+                    restDelta: 0.001
+                })
             })
             return () => unsub()
         }

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from "react"
 import { createPortal } from "react-dom"
-import { motion, motionValue, animate, useScroll, useMotionValue, MotionValue, useTransform } from "framer-motion"
+import { motion, motionValue, animate, MotionValue, useTransform, wrap } from "framer-motion"
 import { addPropertyControls, ControlType } from "framer"
 
 /**
@@ -12,26 +12,29 @@ import { addPropertyControls, ControlType } from "framer"
  * Pattern: Injector (Zero-UI, purely behavioral)
  */
 
+interface Track {
+    key: string
+    char: string
+    isDigit: boolean
+    digitIndex?: number // 0-based index among digits only
+    posFromRight?: number // position from right among digits
+    domIndex: number // index in original DOM text
+}
+
 // --- DIGIT COMPONENT ---
 const DIGIT_HEIGHT = '1em'
-const Digit = React.memo(({ mv, posFromRight }: { mv: MotionValue<number>, posFromRight: number }) => {
+const Digit = React.memo(({ mv, posFromRight, evenRollDirection, oddRollDirection }: { mv: MotionValue<number>, posFromRight: number, evenRollDirection: "up" | "down", oddRollDirection: "up" | "down" }) => {
     const isEven = posFromRight % 2 === 0
-    // Create a series for an "infinite" feel by tripling the set
-    // For Even: 0, 1, ..., 9. For Odd: 9, 8, ..., 0.
-    const singleSet = isEven ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] : [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+    const direction = isEven ? evenRollDirection : oddRollDirection
+    
+    // Create 3 sets of 0-9 to allow seamless infinite loops using wrap
+    const singleSet = direction === "up" ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] : [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
     const digits = [...singleSet, ...singleSet, ...singleSet]
     
-    const yTranslate = useTransform(mv, (v) => {
-        // v is the accumulated integer target.
-        // We wrap to 0-9 to find the offset within a single set.
-        let val = v % 10
-        if (val < 0) val += 10
-        
-        // We always use the middle set (indices 10-19) for smooth wrapping.
-        // For Even (0..9): index 10 is 0, index 11 is 1... -> offset = -(10 + val)
-        // For Odd (9..0): index 19 is 0, index 18 is 1... -> offset = -(10 + (9 - val))
-        const offset = isEven ? -(10 + val) : -(10 + (9 - val))
-        return `${offset}em`
+    const wrappedVal = useTransform(mv, (v) => wrap(0, 10, v))
+    const yTranslate = useTransform(wrappedVal, (w) => {
+        const offset = direction === "up" ? 10 + w : 19 + w
+        return `${-offset}em`
     })
 
     return (
@@ -48,29 +51,26 @@ Digit.displayName = 'Digit'
 
 export default function TextCounter(props: any) {
     const {
-        trigger = "mount",
-        countTarget = 100,
+        countTarget = "00100",
         stagger = 0.05,
         staggerDirection = "first",
         reelGap = 0,
         color = "",
         transition = { type: "spring", stiffness: 260, damping: 30 },
-        scrollsectionref,
-        scrollOffsetStart = "start end",
-        scrollOffsetEnd = "end start",
+        evenRollDirection = "up",
+        oddRollDirection = "down",
     } = props
 
     const containerRef = useRef<HTMLDivElement>(null)
     const [target, setTarget] = useState<HTMLElement | null>(null)
-    const [rawText, setRawText] = useState("")
-    const [paddingLength, setPaddingLength] = useState(0)
-    const [decimalCount, setDecimalCount] = useState(0)
+    const [charStyles, setCharStyles] = useState<any[]>([])
+    const [tracks, setTracks] = useState<Track[]>([])
+    const [extractedStyles, setExtractedStyles] = useState<any>({})
     
-    // Counter State
-    const [tracks, setTracks] = useState<{ key: string, char: string, isDigit: boolean }[]>([])
-    const digitMVs = useRef<Record<string, MotionValue<number>>>({})
-    const targetValues = useRef<Record<string, number>>({})
-    const countMV = useMotionValue(0)
+    // Digit MotionValues mapping (key: digitIndex)
+    const digitMVs = useRef<Record<number, MotionValue<number>>>({})
+    const prevTargetRef = useRef<string | null>(null)
+    const currentStepsRef = useRef<Record<number, number>>({})
 
     const found = !!target
 
@@ -94,32 +94,33 @@ export default function TextCounter(props: any) {
             Array.from(sharedParent.children).forEach((child) => {
                 if (child === el || child.contains(el)) return
                 const type = child.getAttribute("data-framer-component-type")
-                if (type === "RichTextContainer" && !foundContainer) {
+                const hasTextChild = child.querySelector("p, span, h1, h2, h3, h4, h5, h6")
+                if ((type === "RichTextContainer" || hasTextChild) && !foundContainer) {
                     foundContainer = child as HTMLElement
-                    foundP = child.querySelector("p, span, h1, h2, h3, h4, h5, h6, div") as HTMLElement | null
+                    foundP = (child.querySelector("p, span, h1, h2, h3, h4, h5, h6, div") as HTMLElement | null) || (child as HTMLElement)
                 }
             })
 
             if (foundP && foundContainer) {
                 setTarget(foundP)
                 const text = foundP.innerText || foundP.textContent || ""
-                setRawText(text)
 
-                const [intPart, decPart] = text.split('.')
-                const intDigits = intPart ? (intPart.match(/\d/g)?.length || 0) : 0
-                const decDigits = decPart ? (decPart.match(/\d/g)?.length || 0) : 0
-                
-                setPaddingLength(intDigits)
-                setDecimalCount(decDigits)
-                
-                const computed = window.getComputedStyle(foundP)
+                const spanEl = foundP.querySelector("span") as HTMLElement | null
+                const computed = spanEl ? window.getComputedStyle(spanEl) : window.getComputedStyle(foundP)
+                const pComputed = window.getComputedStyle(foundP)
                 const containerComputed = window.getComputedStyle(foundContainer)
                 
-                const fSize = foundP.style.getPropertyValue("--framer-font-size") || computed.fontSize
-                const rawLHeight = foundP.style.getPropertyValue("--framer-line-height") || computed.lineHeight
-                const tAlign = foundP.style.getPropertyValue("--framer-text-alignment") || computed.textAlign
-                const fFamily = foundP.style.getPropertyValue("--framer-font-family") || computed.fontFamily
-                const lSpacing = foundP.style.getPropertyValue("--framer-letter-spacing") || computed.letterSpacing
+                const getVar = (name: string) => {
+                    return (spanEl ? computed.getPropertyValue(name) : "") || 
+                           pComputed.getPropertyValue(name) || 
+                           containerComputed.getPropertyValue(name)
+                }
+
+                const fSize = getVar("--framer-font-size") || computed.fontSize
+                const rawLHeight = getVar("--framer-line-height") || computed.lineHeight
+                const tAlign = getVar("--framer-text-alignment") || pComputed.textAlign || computed.textAlign
+                const fFamily = getVar("--framer-font-family") || computed.fontFamily
+                const lSpacing = getVar("--framer-letter-spacing") || computed.letterSpacing
 
                 let lHeight = rawLHeight
                 if (!isNaN(parseFloat(rawLHeight)) && !rawLHeight.includes("px") && !rawLHeight.includes("%")) {
@@ -144,23 +145,78 @@ export default function TextCounter(props: any) {
                     fontStretch: computed.fontStretch,
                 })
 
-                // 🎭 Mask original text node instead of the container
+                // Extract individual character-by-character styles from the DOM tree of foundP
+                const stylesArray: any[] = []
+                const walk = (node: Node) => {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const textContent = node.textContent || ""
+                        if (textContent.length === 0) return
+                        const parentEl = node.parentElement || foundP
+                        const comp = window.getComputedStyle(parentEl)
+                        for (let charIdx = 0; charIdx < textContent.length; charIdx++) {
+                            stylesArray.push({
+                                color: color || comp.color,
+                                fontSize: comp.getPropertyValue("--framer-font-size") || comp.fontSize,
+                                fontWeight: comp.fontWeight,
+                                fontStyle: comp.fontStyle,
+                                textDecoration: comp.textDecoration,
+                                letterSpacing: comp.getPropertyValue("--framer-letter-spacing") || comp.letterSpacing,
+                                fontFamily: comp.getPropertyValue("--framer-font-family") || comp.fontFamily,
+                                textTransform: comp.textTransform,
+                            })
+                        }
+                    } else if (node.nodeType === Node.ELEMENT_NODE) {
+                        node.childNodes.forEach(walk)
+                    }
+                }
+                Array.from(foundP.childNodes).forEach(walk)
+                setCharStyles(stylesArray)
+
+                // Build Track layout mapping digits vs static symbols
+                const trackList: Track[] = []
+                const totalDigits = (text.match(/\d/g) || []).length
+                let currentDigitIdx = 0
+
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i]
+                    const isDigit = /\d/.test(char)
+                    if (isDigit) {
+                        const posFromRight = totalDigits - 1 - currentDigitIdx
+                        trackList.push({
+                            key: `digit-${currentDigitIdx}`,
+                            char,
+                            isDigit: true,
+                            digitIndex: currentDigitIdx,
+                            posFromRight,
+                            domIndex: i
+                        })
+                        if (!digitMVs.current[currentDigitIdx]) {
+                            digitMVs.current[currentDigitIdx] = motionValue(0)
+                        }
+                        currentDigitIdx++
+                    } else {
+                        trackList.push({
+                            key: `static-${i}`,
+                            char,
+                            isDigit: false,
+                            domIndex: i
+                        })
+                    }
+                }
+                setTracks(trackList)
+
+                // Mask original text node instead of container
                 foundP.style.opacity = "0"
                 foundP.style.pointerEvents = "none"
                 
                 if (!observer) {
                     observer = new MutationObserver(() => {
                         const newText = foundP?.innerText || foundP?.textContent || ""
-                        setRawText(newText)
+                        if (newText) {
+                            discover()
+                        }
                     })
                     observer.observe(foundP, { characterData: true, childList: true, subtree: true })
-                }
-
-                if (countTarget === 0) {
-                    const parsedValue = parseFloat(text.replace(/[^0-9.]/g, ""))
-                    if (!isNaN(parsedValue)) {
-                        countMV.set(0) 
-                    }
                 }
                 
                 return true
@@ -185,157 +241,82 @@ export default function TextCounter(props: any) {
                 target.style.pointerEvents = ""
             }
         }
-    }, [target, color, countTarget, trigger])
+    }, [target, color])
 
-    const [extractedStyles, setExtractedStyles] = useState<any>({})
+    // Compute Target Digits array matching DOM digit count
+    const digitTracks = tracks.filter(t => t.isDigit)
+    const totalDigitsInDom = digitTracks.length
 
-    // --- COUNTER LOGIC ---
-    const tracksRef = useRef(tracks)
+    const targetInput = String(countTarget ?? "00100")
+    const inputDigits = targetInput.replace(/[^0-9]/g, "").split("")
+
+    let targetDigits: number[] = []
+    if (totalDigitsInDom > 0) {
+        if (inputDigits.length < totalDigitsInDom) {
+            const padCount = totalDigitsInDom - inputDigits.length
+            const padded = [...Array(padCount).fill("0"), ...inputDigits]
+            targetDigits = padded.map(d => parseInt(d, 10))
+        } else {
+            targetDigits = inputDigits.slice(inputDigits.length - totalDigitsInDom).map(d => parseInt(d, 10))
+        }
+    }
+
+    // Update Animations on countTarget change (Slot machine reel spin)
     useEffect(() => {
-        if (!rawText) return
+        if (!found || totalDigitsInDom === 0) return
 
-        const getTracks = (valueStr: string) => {
-            const chars = valueStr.split('')
-            return chars.map((char, idx) => {
-                const isDigit = !isNaN(parseInt(char, 10))
-                const posFromRight = chars.length - 1 - idx
-                const key = isDigit ? `digit-${posFromRight}` : `char-${idx}`
-                return { key, char, isDigit }
-            })
-        }
+        const isInitial = prevTargetRef.current === null
 
-        const formatValue = (val: number) => {
-            const valStr = val.toLocaleString(undefined, {
-                minimumFractionDigits: decimalCount,
-                maximumFractionDigits: decimalCount,
-            })
-            
-            const [intPart, decPart] = valStr.split('.')
-            // Remove commas for padding check
-            const intDigitsOnly = intPart.replace(/[^0-9]/g, '')
-            
-            if (paddingLength > intDigitsOnly.length && !intPart.includes(',')) {
-                const paddedInt = intPart.padStart(paddingLength, '0')
-                return decPart !== undefined ? `${paddedInt}.${decPart}` : paddedInt
-            }
-            
-            return valStr
-        }
+        digitTracks.forEach((t) => {
+            const dIndex = t.digitIndex!
+            const targetDigit = targetDigits[dIndex] ?? 0
+            const mv = digitMVs.current[dIndex]
+            if (!mv) return
 
-        const updateDigitAnimations = (currentTracks: typeof tracks) => {
-            currentTracks.forEach((t, i) => {
-                if (t.isDigit) {
-                    const num = parseInt(t.char, 10)
-                    const mv = digitMVs.current[t.key]
-                    if (!mv) return
+            const isEven = (t.posFromRight ?? 0) % 2 === 0
+            const direction = isEven ? evenRollDirection : oddRollDirection
 
-                    const currentTarget = targetValues.current[t.key] || 0
-                    const currentTargetDigit = ((Math.round(currentTarget) % 10) + 10) % 10
-                    
-                    if (num !== currentTargetDigit) {
-                        let diff = num - currentTargetDigit
-                        // 🔄 Infinite Scroll Logic: Shortest path wrapping
-                        if (diff > 5) diff -= 10
-                        if (diff < -5) diff += 10
-                        
-                        const nextTarget = currentTarget + diff
-                        targetValues.current[t.key] = nextTarget
-                        
-                        const delay = (() => {
-                            if (staggerDirection === "first") return i * stagger
-                            if (staggerDirection === "last") return (currentTracks.length - 1 - i) * stagger
-                            if (staggerDirection === "center") {
-                                const mid = (currentTracks.length - 1) / 2
-                                return Math.abs(i - mid) * stagger
-                            }
-                            return 0
-                        })()
-
-                        animate(mv, nextTarget, {
-                            ...transition,
-                            delay: delay
-                        })
-                    }
-                }
-            })
-        }
-
-        const handleValueChange = (val: number) => {
-            const valStr = formatValue(val)
-            const newTracks = getTracks(valStr)
-            
-            newTracks.forEach(t => {
-                if (t.isDigit && !digitMVs.current[t.key]) {
-                    digitMVs.current[t.key] = motionValue(0)
-                    targetValues.current[t.key] = 0
-                }
-            })
-
-            const hasStructureChanged = 
-                newTracks.length !== tracksRef.current.length ||
-                newTracks.some((t, idx) => t.key !== tracksRef.current[idx]?.key)
-
-            if (hasStructureChanged) {
-                tracksRef.current = newTracks
-                setTracks(newTracks)
+            if (isInitial) {
+                const targetSteps = direction === "up" 
+                    ? targetDigit 
+                    : ((10 - targetDigit) % 10)
+                mv.set(targetSteps)
+                currentStepsRef.current[dIndex] = targetSteps
             } else {
-                updateDigitAnimations(newTracks)
-            }
-        }
-
-        const unsub = countMV.on("change", handleValueChange)
-        handleValueChange(countMV.get())
-        return () => unsub()
-    }, [rawText, transition, countMV, stagger, staggerDirection, paddingLength, decimalCount])
-
-    useLayoutEffect(() => {
-        tracks.forEach((t, i) => {
-            if (t.isDigit) {
-                const num = parseInt(t.char, 10)
-                const mv = digitMVs.current[t.key]
-                if (mv) {
-                    const currentTarget = targetValues.current[t.key] || 0
-                    const currentTargetDigit = ((Math.round(currentTarget) % 10) + 10) % 10
-                    
-                    if (num !== currentTargetDigit) {
-                        let diff = num - currentTargetDigit
-                        if (diff > 5) diff -= 10
-                        if (diff < -5) diff += 10
-                        const nextTarget = currentTarget + diff
-                        
-                        targetValues.current[t.key] = nextTarget
-                        animate(mv, nextTarget, transition)
-                    }
+                const prevSteps = currentStepsRef.current[dIndex] ?? targetDigits[dIndex] ?? 0
+                
+                let candidate = 0
+                if (direction === "up") {
+                    candidate = prevSteps + ((targetDigit - (prevSteps % 10)) + 10) % 10
+                } else {
+                    const targetMod = (10 - targetDigit) % 10
+                    candidate = prevSteps + ((targetMod - (prevSteps % 10)) + 10) % 10
                 }
+
+                const minLoops = 1
+                const targetSteps = candidate + 10 * minLoops
+
+                currentStepsRef.current[dIndex] = targetSteps
+
+                const delay = (() => {
+                    if (staggerDirection === "first") return dIndex * stagger
+                    if (staggerDirection === "last") return (totalDigitsInDom - 1 - dIndex) * stagger
+                    if (staggerDirection === "center") {
+                        const mid = (totalDigitsInDom - 1) / 2
+                        return Math.abs(dIndex - mid) * stagger
+                    }
+                    return 0
+                })()
+
+                animate(mv, targetSteps, {
+                    ...transition,
+                    delay: delay,
+                })
             }
         })
-    }, [tracks, transition])
 
-    // --- TRIGGER ORCHESTRATION ---
-    const targetRef = (scrollsectionref && scrollsectionref.current) ? scrollsectionref : containerRef
-    const { scrollYProgress } = useScroll({
-        target: targetRef,
-        offset: [scrollOffsetStart as any, scrollOffsetEnd as any]
-    })
-
-    useEffect(() => {
-        if (!found) return
-        
-        let targetValue = countTarget
-        if (countTarget === 0 && rawText) {
-            const parsed = parseFloat(rawText.replace(/[^0-9.]/g, ""))
-            if (!isNaN(parsed)) targetValue = parsed
-        }
-
-        if (trigger === "mount" || trigger === "prop") {
-            animate(countMV, targetValue, transition)
-        } else if (trigger === "scroll") {
-            const unsub = scrollYProgress.on("change", (latest) => {
-                countMV.set(latest * targetValue)
-            })
-            return () => unsub()
-        }
-    }, [trigger, found, countTarget, transition, scrollYProgress, rawText, countMV])
+        prevTargetRef.current = countTarget
+    }, [found, countTarget, stagger, staggerDirection, transition, totalDigitsInDom, evenRollDirection, oddRollDirection])
 
     const commonTextStyle: React.CSSProperties = {
         fontSize: extractedStyles.fontSize || 'inherit',
@@ -384,17 +365,40 @@ export default function TextCounter(props: any) {
                 >
                     <div style={commonTextStyle}>
                         <div style={{ display: "flex", fontVariantNumeric: 'tabular-nums' }}>
-                            {tracks.map((track, i) => (
-                                <span 
-                                    key={track.key} 
-                                    style={{ 
-                                        display: 'inline-flex', 
-                                        marginLeft: i > 0 ? `${reelGap}px` : 0 
-                                    }}
-                                >
-                                    {track.isDigit ? <Digit mv={digitMVs.current[track.key]} posFromRight={parseInt(track.key.split('-')[1], 10)} /> : track.char}
-                                </span>
-                            ))}
+                            {tracks.map((track, i) => {
+                                const charStyle = charStyles[track.domIndex] || extractedStyles
+
+                                return (
+                                    <span 
+                                        key={track.key} 
+                                        style={{ 
+                                            display: 'inline-flex', 
+                                            marginLeft: i > 0 ? `${reelGap}px` : 0,
+                                            fontSize: charStyle?.fontSize || 'inherit',
+                                            fontWeight: charStyle?.fontWeight || 'inherit',
+                                            color: charStyle?.color || 'inherit',
+                                            fontFamily: charStyle?.fontFamily || 'inherit',
+                                            letterSpacing: charStyle?.letterSpacing || 'inherit',
+                                            textTransform: charStyle?.textTransform || 'none',
+                                            fontStyle: charStyle?.fontStyle || 'normal',
+                                            textDecoration: charStyle?.textDecoration || 'none',
+                                        }}
+                                    >
+                                        {track.isDigit && track.digitIndex !== undefined ? (
+                                            <Digit 
+                                                mv={digitMVs.current[track.digitIndex] || motionValue(0)} 
+                                                posFromRight={track.posFromRight ?? 0} 
+                                                evenRollDirection={evenRollDirection}
+                                                oddRollDirection={oddRollDirection}
+                                            />
+                                        ) : (
+                                            <span style={{ height: DIGIT_HEIGHT, display: 'inline-flex', alignItems: 'center' }}>
+                                                {track.char}
+                                            </span>
+                                        )}
+                                    </span>
+                                )
+                            })}
                         </div>
                     </div>
                 </div>,
@@ -404,19 +408,11 @@ export default function TextCounter(props: any) {
     )
 }
 
-
 addPropertyControls(TextCounter, {
-    trigger: {
-        type: ControlType.Enum,
-        title: "Trigger",
-        options: ["mount", "scroll", "prop"],
-        optionTitles: ["On Mount", "Scroll Linked", "From Prop"],
-        defaultValue: "mount",
-    },
     countTarget: {
-        type: ControlType.Number,
+        type: ControlType.String,
         title: "Count To",
-        defaultValue: 100,
+        defaultValue: "00100",
     },
     stagger: {
         type: ControlType.Number,
@@ -441,6 +437,20 @@ addPropertyControls(TextCounter, {
         step: 1,
         defaultValue: 0,
     },
+    evenRollDirection: {
+        type: ControlType.Enum,
+        title: "Even Roll",
+        options: ["up", "down"],
+        optionTitles: ["Up", "Down"],
+        defaultValue: "up",
+    },
+    oddRollDirection: {
+        type: ControlType.Enum,
+        title: "Odd Roll",
+        options: ["up", "down"],
+        optionTitles: ["Up", "Down"],
+        defaultValue: "down",
+    },
     color: {
         type: ControlType.Color,
         title: "Text Color",
@@ -451,22 +461,6 @@ addPropertyControls(TextCounter, {
         title: "Transition",
         defaultValue: { type: "spring", stiffness: 260, damping: 30 },
     },
-    scrollsectionref: {
-        // @ts-ignore
-        type: ControlType.ScrollSectionRef,
-        title: "Scroll Section",
-        hidden(props) { return props.trigger !== "scroll" }
-    },
-    scrollOffsetStart: {
-        type: ControlType.String,
-        title: "Scroll Start",
-        defaultValue: "start end",
-        hidden(props) { return props.trigger !== "scroll" }
-    },
-    scrollOffsetEnd: {
-        type: ControlType.String,
-        title: "Scroll End",
-        defaultValue: "end start",
-        hidden(props) { return props.trigger !== "scroll" }
-    },
 })
+
+

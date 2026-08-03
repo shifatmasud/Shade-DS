@@ -3,6 +3,68 @@ import { motionValue, animate, svgEffect, useScroll } from "framer-motion"
 import { addPropertyControls, ControlType } from "framer"
 
 /**
+ * 🛠️ Helper to detect if an element is inside <defs> template
+ */
+const isInsideDefs = (el: HTMLElement | SVGElement): boolean => {
+    let parent = el.parentElement
+    while (parent) {
+        if (parent.tagName.toLowerCase() === "defs") {
+            return true
+        }
+        parent = parent.parentElement
+    }
+    return false
+}
+
+/**
+ * 🛠️ Helper to detect if an element is a small anchor point or control handle
+ */
+const isAnchorPoint = (el: HTMLElement | SVGElement): boolean => {
+    const tagName = el.tagName.toLowerCase()
+    const id = (el.id || "").toLowerCase()
+    const className = (typeof el.className === "string" ? el.className : "").toLowerCase()
+    const nameAttr = (el.getAttribute("data-framer-name") || "").toLowerCase()
+
+    // 1. Check common names/attributes
+    if (
+        id.includes("anchor") || id.includes("handle") || id.includes("point") || id.includes("marker") || id.includes("dot") || id.includes("vector") ||
+        className.includes("anchor") || className.includes("handle") || className.includes("point") || className.includes("marker") || className.includes("dot") || className.includes("vector") ||
+        nameAttr.includes("anchor") || nameAttr.includes("handle") || nameAttr.includes("point") || nameAttr.includes("marker") || nameAttr.includes("dot") || nameAttr.includes("vector")
+    ) {
+        return true
+    }
+
+    // 2. Check geometry and size constraints for shape types
+    if (tagName === "circle") {
+        const r = parseFloat(el.getAttribute("r") || "0")
+        if (r > 0 && r <= 8) return true
+    } else if (tagName === "rect") {
+        const w = parseFloat(el.getAttribute("width") || "0")
+        const h = parseFloat(el.getAttribute("height") || "0")
+        if (w > 0 && w <= 16 && h > 0 && h <= 16) return true
+    } else if (tagName === "ellipse") {
+        const rx = parseFloat(el.getAttribute("rx") || "0")
+        const ry = parseFloat(el.getAttribute("ry") || "0")
+        if (rx > 0 && rx <= 8 && ry > 0 && ry <= 8) return true
+    } else if (tagName === "path") {
+        try {
+            if ("getBBox" in el) {
+                const bbox = (el as any).getBBox()
+                if (bbox.width > 0 && bbox.width <= 16 && bbox.height > 0 && bbox.height <= 16) {
+                    return true
+                }
+            }
+        } catch (e) {
+            const d = el.getAttribute("d") || ""
+            if (d.length < 50 && (d.includes("M") || d.includes("m"))) {
+                return true
+            }
+        }
+    }
+    return false
+}
+
+/**
  * 🎨 SVGPathInjector (svgEffect Edition)
  * 
  * A self-contained Framer Code Component that uses the 'svgEffect' API 
@@ -66,8 +128,9 @@ export default function SVGPathInjector(props: any) {
             Array.from(sharedParent.children).forEach((child) => {
                 if (child === el || child.contains(el)) return
                 const type = child.getAttribute("data-framer-component-type")
-                if ((type === "SVG" || child.querySelector("svg")) && !foundSvg) {
-                    foundSvg = child.querySelector("svg") as SVGSVGElement | null
+                const isSvgElement = child.tagName.toLowerCase() === "svg"
+                if ((type === "SVG" || isSvgElement || child.querySelector("svg")) && !foundSvg) {
+                    foundSvg = isSvgElement ? (child as unknown as SVGSVGElement) : (child.querySelector("svg") as SVGSVGElement | null)
                 }
             })
 
@@ -98,7 +161,7 @@ export default function SVGPathInjector(props: any) {
                 const foundTargets = foundSvg.querySelectorAll(drawableSelectors)
                 
                 if (foundTargets.length > 0) {
-                    const targetsArray = Array.from(foundTargets)
+                    const targetsArray = Array.from(foundTargets).filter((el: any) => !isInsideDefs(el))
                     // Only update state if targets list changes to prevent infinite render loops
                     setTargets((prev) => {
                         if (prev.length === targetsArray.length && prev.every((val, index) => val === targetsArray[index])) {
@@ -121,6 +184,18 @@ export default function SVGPathInjector(props: any) {
     useEffect(() => {
         if (targets.length === 0) return
 
+        // Separate targets into drawables (paths to be drawn) and anchors (dots, circles, points)
+        const drawables: any[] = []
+        const anchors: any[] = []
+
+        targets.forEach((p: any) => {
+            if (isAnchorPoint(p)) {
+                anchors.push(p)
+            } else {
+                drawables.push(p)
+            }
+        })
+
         // Set initial values
         targets.forEach((p: any) => {
             const initialColor = colorVal.current.get()
@@ -131,11 +206,27 @@ export default function SVGPathInjector(props: any) {
             if (p.getAttribute("fill") === null) p.setAttribute("fill", "transparent")
         })
 
-        // Bind progress with svgEffect
+        // Ensure anchor points are fully solid by overriding strokeDasharray and strokeDashoffset
+        anchors.forEach((p: any) => {
+            p.style.strokeDasharray = "none"
+            p.style.strokeDashoffset = "none"
+        })
+
+        // Bind progress with svgEffect only to drawables
         // @ts-ignore
-        activeEffect.current = svgEffect(targets, {
+        activeEffect.current = svgEffect(drawables, {
             pathLength: progressVal.current
         })
+
+        // Bind anchor points opacity to fade in smoothly as progress goes from 0 to 1
+        // This stops them from blinking, turning off, or showing broken/jittery drawing states
+        let activeAnchorEffect: (() => void) | null = null
+        if (anchors.length > 0) {
+            // @ts-ignore
+            activeAnchorEffect = svgEffect(anchors, {
+                opacity: progressVal.current
+            })
+        }
 
         // Listen to changes in stroke width and color and update elements
         const unsubWidth = strokeWidthVal.current.on("change", (latest) => {
@@ -156,6 +247,9 @@ export default function SVGPathInjector(props: any) {
             if (activeEffect.current) {
                 activeEffect.current()
                 activeEffect.current = null
+            }
+            if (activeAnchorEffect) {
+                activeAnchorEffect()
             }
         }
     }, [targets])
