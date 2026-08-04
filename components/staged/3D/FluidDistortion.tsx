@@ -5,21 +5,21 @@ import { useFBO } from '@react-three/drei';
 
 export interface FluidDistortionProps {
   children: (texture: THREE.Texture) => React.ReactNode;
-  /** Brush radius in normalized screen space (default: 0.065) */
+  /** Brush radius in normalized screen space (default: 0.06) */
   radius?: number;
-  /** Impulse force strength (default: 4.5) */
+  /** Impulse force strength (default: 0.5) */
   strength?: number;
-  /** Dissipation decay rate per frame (default: 0.96) */
+  /** Dissipation decay rate per frame (default: 0.85) */
   dissipation?: number;
   /** Blending weight between carried low-res velocity and new input (default: 0.88) */
   mixRatio?: number;
-  /** Curl noise strength (default: 0.25) */
+  /** Curl noise strength (default: 0.07) */
   curlStrength?: number;
-  /** Curl noise frequency (default: 3.5) */
+  /** Curl noise frequency (default: 1.0) */
   curlFreq?: number;
   /** Temporal blend weight for density history (default: 0.3) */
   temporalBlend?: number;
-  /** Subpixel blue noise jitter strength (default: 1.0) */
+  /** Subpixel blue noise jitter strength (default: 0.02) */
   jitterStrength?: number;
   /** Density history clamp threshold to prevent ghosting (default: 0.15) */
   historyClamp?: number;
@@ -152,18 +152,29 @@ const PAINT_FRAG = `
   void main() {
     // 1. Core Physical Semi-Lagrangian Back-Advection (Low Viscosity)
     vec4 lowResRaw = texture2D(tLowRes, vUv);
+    
+    // Safely initialize the FBO state to quiet neutral water (0.5 in blue & alpha) on startup
+    if (uTime < 0.1 && lowResRaw.b == 0.0 && lowResRaw.a == 0.0) {
+      lowResRaw = vec4(0.5, 0.5, 0.5, 0.5);
+    }
+
     vec2 lowResVel = (lowResRaw.rg - 0.5) * 2.0;
 
     // Trace back coordinate strictly based on low-res velocity field
     vec2 advectUv = vUv - lowResVel * 0.038;
     vec4 advectedSample = texture2D(tLowRes, clamp(advectUv, 0.0, 1.0));
     
+    // Safely initialize the advected sample as well
+    if (uTime < 0.1 && advectedSample.b == 0.0 && advectedSample.a == 0.0) {
+      advectedSample = vec4(0.5, 0.5, 0.5, 0.5);
+    }
+    
     // Smooth border mask to fade out fluid properties near the boundaries and prevent edge streak/stretching artifacts
     float borderDistX = min(vUv.x, 1.0 - vUv.x);
     float borderDistY = min(vUv.y, 1.0 - vUv.y);
     float borderMask = smoothstep(0.0, 0.03, borderDistX) * smoothstep(0.0, 0.03, borderDistY);
     
-    // Grid-Based Wave Propagation Ripple System
+    // Grid-Based Wave Propagation Ripple System (centered around 0.5 to allow negative troughs)
     vec2 texel = vec2(1.0 / 64.0);
     vec2 neighborOffsets[4];
     neighborOffsets[0] = vec2(texel.x, 0.0);
@@ -171,13 +182,18 @@ const PAINT_FRAG = `
     neighborOffsets[2] = vec2(0.0, texel.y);
     neighborOffsets[3] = vec2(0.0, -texel.y);
 
-    float h_center = advectedSample.b;
+    float h_center = (advectedSample.b - 0.5) * 2.0;
     float v_center = (advectedSample.a - 0.5) * 2.0;
 
     float laplacian = 0.0;
     for (int j = 0; j < 4; j++) {
       vec4 nSample = texture2D(tLowRes, clamp(advectUv + neighborOffsets[j], 0.0, 1.0));
-      laplacian += nSample.b;
+      // Safely initialize neighbor samples too
+      if (uTime < 0.1 && nSample.b == 0.0 && nSample.a == 0.0) {
+        nSample = vec4(0.5, 0.5, 0.5, 0.5);
+      }
+      float h_neighbor = (nSample.b - 0.5) * 2.0;
+      laplacian += h_neighbor;
     }
     laplacian = laplacian - 4.0 * h_center;
 
@@ -190,16 +206,18 @@ const PAINT_FRAG = `
 
     // Option B: Non-linear progressive drag/friction
     // Small/fading waves dissipate exponentially faster than large, high-energy impact ripples.
-    float ampFactor = clamp(newWaveHeight * 2.5, 0.0, 1.0);
-    float progressiveDamping = mix(0.70, 0.94, ampFactor * ampFactor);
+    float ampFactor = clamp(abs(newWaveHeight) * 2.5, 0.0, 1.0);
+    float progressiveDamping = mix(0.965, 0.995, ampFactor * ampFactor);
     
-    // Fast dissipation multiplier: scaled down significantly (faster, shorter dissipation)
-    float waveDissipation = uDissipation * 0.82 * borderMask;
-    newWaveVel *= progressiveDamping * waveDissipation;
-    newWaveHeight *= progressiveDamping * waveDissipation;
+    // Wave decay that directly honors uDissipation to make rapid dissipation possible
+    float waveDissipation = uDissipation * borderMask;
+    float finalDamping = clamp(progressiveDamping * waveDissipation, 0.0, 0.996);
 
-    // Velocity advection decay (low viscosity) - boosted velocity persistence to allow propagating long waves
-    float velDissipation = mix(uDissipation, 0.988, 0.8);
+    newWaveVel *= finalDamping;
+    newWaveHeight *= finalDamping;
+
+    // Velocity advection decay (low viscosity) that honors uDissipation directly
+    float velDissipation = uDissipation;
     vec2 advectedVel = (advectedSample.rg - 0.5) * 2.0 * velDissipation * borderMask;
 
     vec2 p = vUv;
@@ -231,14 +249,14 @@ const PAINT_FRAG = `
         float s_i = 1.0 - rNorm * rNorm;
         s_i = s_i * s_i;
 
-        // Ensure even slow mouse movements generate rich, full-density trails
+        // Force scale is strongly proportional to mouse move speed to prevent static flat sausage trails
         float speed = length(uVelocity[i]);
-        float splatIntensity = speed > 0.000005 ? clamp(0.85 + speed * 3000.0, 0.0, 1.0) : 0.0;
+        float forceScale = 0.12 + speed * 28.0;
         
         // Option A: Glass-Lens Refraction - sharper front-facing pressure wave
         // Higher density peak at the tip of the cursor segment (where tSeg approaches 1.0)
         float pressureFront = mix(0.70, 1.38, pow(tSeg, 2.5));
-        float s_i_density = s_i * splatIntensity * pressureFront;
+        float s_i_density = s_i * forceScale * pressureFront;
 
         splat = max(splat, s_i_density);
         maxActive = max(maxActive, act);
@@ -270,10 +288,10 @@ const PAINT_FRAG = `
 
     float activeVal = maxActive;
 
-    // Excite wave height and velocity on active splat
+    // Excite wave height and velocity dynamically via a force impulse instead of overriding heights
     if (splat > 0.001) {
-      newWaveHeight = max(newWaveHeight, splat * mix(0.85, 1.0, activeVal));
-      newWaveVel += splat * 3.5;
+      newWaveHeight = clamp(newWaveHeight + splat * mix(0.4, 0.85, activeVal), -1.0, 1.0);
+      newWaveVel = clamp(newWaveVel + splat * 3.5, -2.5, 2.5);
     }
 
     // 2. Stream-Aligned Analytical Curl Noise
@@ -287,9 +305,7 @@ const PAINT_FRAG = `
     float curlMult = max(uCurlStrength, 0.0);
     vec2 curlForce = combinedCurl * curlMult * 0.28;
 
-    // 3. Smooth, gentle ambient wind force (drift) that moves fluid slowly in a natural direction,
-    // ensuring that any static or decaying density/velocity field continues to move and disperse smoothly.
-    // Centered at x = 0.0 to ensure wind is strictly upward with symmetrical organic swaying.
+    // 3. Smooth, gentle ambient wind force (drift) that moves fluid slowly in a natural direction
     vec2 windDir = normalize(vec2(0.0, 1.0) + vec2(sin(uTime * 0.15) * 0.12, cos(uTime * 0.1) * 0.12));
     float windNoise = snoise(vUv * 1.5 + vec2(uTime * 0.05, -uTime * 0.03)) * 0.5 + 0.5;
 
@@ -318,8 +334,8 @@ const PAINT_FRAG = `
       mixedVel = (mixedVel / speedCap) * 1.45;
     }
 
-    float finalHeight = clamp(newWaveHeight, 0.0, 1.0);
-    float finalWaveVel = clamp(newWaveVel, -1.0, 1.0) * 0.5 + 0.5;
+    float finalHeight = clamp(newWaveHeight * 0.5 + 0.5, 0.0, 1.0);
+    float finalWaveVel = clamp(newWaveVel * 0.5 + 0.5, 0.0, 1.0);
 
     // Pack 8-bit velocity into RG channels, fluid density (wave height) into B channel, wave velocity into A channel
     gl_FragColor = vec4(mixedVel * 0.5 + 0.5, finalHeight, finalWaveVel);
@@ -413,7 +429,9 @@ export const DISTORTION_FRAG = `
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec2 fluidUv = uv;
     vec4 fluidSample = sampleFluid(fluidUv);
-    float mainDensity = fluidSample.b;
+    
+    // Decode density as wave amplitude from the 0.5 center
+    float mainDensity = abs(fluidSample.b - 0.5) * 2.0;
 
     // Soft, low-threshold mask to ensure continuous, droplet-free dissipation.
     // As density fades, the entire trail dissolves smoothly and uniformly as a cohesive whole.
@@ -482,7 +500,9 @@ export const DISTORTION_FRAG = `
       vec2 sampleUv = fluidUv + tapOffsets[i] * rimBlurRadius;
       vec4 tapFluid = sampleFluid(sampleUv);
       vec2 tapVel = (tapFluid.rg - 0.5) * 2.0;
-      float tapDensity = tapFluid.b;
+      
+      // Decode density as wave amplitude from the 0.5 center
+      float tapDensity = abs(tapFluid.b - 0.5) * 2.0;
 
       // Boost refraction significantly at the edges where slopes are steep
       float refractVal = (0.24 + 1.25 * trailEdgeIntensity * (1.0 + slopeMag * 2.5)) * refractMult;
@@ -603,14 +623,14 @@ const LOW_RES_HEIGHT = 64;
 
 export const FluidDistortion: React.FC<FluidDistortionProps> = ({
   children,
-  radius = 0.05,
-  strength = 8,
-  dissipation = 0.93,
+  radius = 0.06,
+  strength = 0.5,
+  dissipation = 0.85,
   mixRatio = 0.88,
-  curlStrength = 0.16,
+  curlStrength = 0.07,
   curlFreq = 1,
   temporalBlend = 0.3,
-  jitterStrength = 1.0,
+  jitterStrength = 0.02,
   historyClamp = 0.15,
 }) => {
   const { size, gl } = useThree();

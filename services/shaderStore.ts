@@ -16,15 +16,15 @@ export interface ShaderParams {
 }
 
 export const DEFAULT_SHADER_PARAMS: ShaderParams = {
-  radius: 0.05,
-  strength: 15,
-  dissipation: 0.94,
-  curlStrength: 0.04,
-  curlFreq: 10,
-  refractStrength: 0.16,
+  radius: 0.06,
+  strength: 0.5,
+  dissipation: 0.85,
+  curlStrength: 0.07,
+  curlFreq: 1,
+  refractStrength: 0.18,
   dispersionScale: 0.5,
-  blurRadius: 0.015,
-  jitterStrength: 0.019,
+  blurRadius: 0.004,
+  jitterStrength: 0.02,
 };
 
 interface ShaderStore {
