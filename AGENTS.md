@@ -60,14 +60,16 @@ You MUST adhere to the following hierarchy when organizing components:
 
 ## Multi-Agent Orchestration
 - **Sub-Agent Isolation**: All child sub-agents MUST have a fresh context window and be assigned exactly one focused task.
-- **Harness Loop**: Orchestrate all complex tasks via the fully automated **Plan → Build → Review** loop powered by the upgraded spawn agents orchestrator.
-- **Concurrency Permissions**: Parallel reads are permitted when worker agents are collecting file context. However, to guarantee file system consistency and avoid race conditions, all code modifications, edits, and writes MUST be executed in sequence (never write in parallel).
-- **Workspace Tool-Access**: Spawned agents are equipped with full read and write access to the codebase using standard workspace tools (`readFile`, `writeFile`, `listDir`, and `runCommand`). They must use these tools to inspect existing files before making edits and to write complete, verified code modifications.
+- **Harness Loop**: Orchestrate all complex tasks via the fully automated **Planner → Lead Coordinator → Workers → Authoritative Reviewer** pipeline powered by the upgraded spawn agents orchestrator.
+- **Dependency Graph & Contracts**: Tasks are partitioned into an explicit Task Dependency Graph with topological execution. Workers operate under strict Input/Output Contracts passing forward predecessor rationales and outputs.
+- **Authoritative Reviewer & Fix Loop**: The Reviewer Agent audits build/lint results, architectural compliance, Theme token usage, code duplication, and security. If issues are identified, a Fix Agent loop resolves them automatically before re-review.
+- **Concurrency Permissions**: Parallel reads are permitted when analyzer agents are collecting file context. Code modifications and writes MUST be executed sequentially per task node to preserve file system integrity.
+- **Workspace Tool-Access**: Spawned agents are equipped with full read/write/execution access (`readFile`, `writeFile`, `listDir`, `runCommand`).
 - **CLI Spawn Tool**: Run the dedicated orchestrator at `scripts/spawnAgents.ts` using:
   ```bash
-  npx tsx scripts/spawnAgents.ts "<task description>"
+  npx tsx scripts/spawnAgents.ts "<task description>" [--plan <path_to_plan_spec>]
   ```
-  This automatically analyzes the task, creates structured architectural plans in `plans/`, decomposes the work into sequential worker agents who execute code modifications using workspace tools, and invokes a final **Code Auditor Reviewer** to run linting/compilation checks and write a comprehensive validation report. Output is saved to `plans/spawnAgents_output.md` and `plans/spawnAgents_output.json`.
+  This automatically formulates or validates master specs, decomposes work into a dependency graph, executes worker contracts, runs the authoritative reviewer audit, and writes comprehensive reports to `/artifacts/spawnAgents_output.md` and `/artifacts/spawnAgents_output.json`.
 - **Manager Persona**: When a user presents a complex task, act as a manager. Plan the agent layout, coordinate specialized sub-agents, and aggregate their domain-specific outputs into a unified solution. Use the CLI spawn tool to execute and persistent-record the multi-agent workflow.
 
 ## Workflow Integration

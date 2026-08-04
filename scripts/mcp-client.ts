@@ -60,7 +60,7 @@ export class UniversalMCPClient {
       this.transport = new SSEClientTransport(new URL(url), {
         eventSourceInit: {
           headers: authHeaders as any,
-        },
+        } as any,
         requestInit: {
           headers: authHeaders,
         },

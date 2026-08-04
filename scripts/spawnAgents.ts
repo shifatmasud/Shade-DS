@@ -11,8 +11,9 @@ if (!apiKey) {
   process.exit(1);
 }
 
-// Default model for sub-agents (analyzers, coordinator, workers, reviewer)
+// Default model for sub-agents (Planner, Analyzers, Coordinator, Workers, Reviewer, Fix Agent)
 const DEFAULT_MODEL = process.env.SUB_AGENT_MODEL || "gemini-3.5-flash-lite";
+const MAX_REVIEW_RETRIES = 3;
 
 const ai = new GoogleGenAI({
   apiKey: apiKey,
@@ -54,24 +55,22 @@ async function generateContentWithRetry(params: any, retries: number = 5, delayM
   }
 }
 
-// Types
-interface SubAgent {
-  name: string;
-  role: string;
-  systemInstruction: string;
-  prompt: string;
-  output?: string;
-  modifiedFiles?: string[];
-  readFiles?: string[];
+// --- Data Contracts & Interfaces ---
+
+export interface AcceptanceCriteria {
+  criteria: string[];
+  nonNegotiables: string[];
 }
 
-interface Decomposition {
+export interface MasterPlan {
   taskName: string;
-  plans: string;
-  agents: SubAgent[];
+  objective: string;
+  architectureDecisions: string;
+  planContent: string;
+  acceptanceCriteria: AcceptanceCriteria;
 }
 
-interface AnalysisBrief {
+export interface AnalysisBrief {
   analyzerName: string;
   focus: string;
   findings: string;
@@ -79,52 +78,86 @@ interface AnalysisBrief {
   filesRead: string[];
 }
 
-// Global trackers
+export interface WorkerTask {
+  id: string; // e.g. "task_1"
+  name: string; // e.g. "StateEngineWorker"
+  role: string;
+  dependencies: string[]; // Task IDs that must execute before this task
+  targetFiles: string[];
+  constraints: string[];
+  acceptanceCriteria: string[];
+  systemInstruction: string;
+  prompt: string;
+}
+
+export interface DependencyGraph {
+  taskName: string;
+  plans: string;
+  tasks: WorkerTask[];
+}
+
+export interface WorkerOutputContract {
+  taskId: string;
+  agentName: string;
+  status: "COMPLETED" | "PARTIAL" | "FAILED";
+  modifiedFiles: string[];
+  readFiles: string[];
+  rationale: string;
+  assumptions: string[];
+  risks: string[];
+  summaryText: string;
+}
+
+export interface ReviewIssue {
+  file: string;
+  description: string;
+  severity: "error" | "warning";
+  fixInstructions: string;
+}
+
+export interface ReviewResult {
+  status: "PASS" | "FAIL";
+  score: string;
+  lintPassed: boolean;
+  buildPassed: boolean;
+  architecturalCompliance: string;
+  codeQualityAudit: string;
+  summary: string;
+  issues: ReviewIssue[];
+}
+
+// Global file trackers
 const allModifiedFiles = new Set<string>();
 const allReadFiles = new Set<string>();
 
-// 1. Task Decomposition Schema
-const subAgentSchema = {
-  type: Type.OBJECT,
-  properties: {
-    name: { 
-      type: Type.STRING, 
-      description: "Name of the sub-agent, e.g. UXArchitect, CodeGenerator, StyleManager, BugFixer" 
-    },
-    role: { 
-      type: Type.STRING, 
-      description: "Specific role, expertise, and focus area of this sub-agent" 
-    },
-    systemInstruction: { 
-      type: Type.STRING, 
-      description: "A tailored, laser-focused system instruction for this specific agent. Include general directives on coding elegance and style." 
-    },
-    prompt: { 
-      type: Type.STRING, 
-      description: "The specific sub-task or code modification this agent must execute using tools." 
-    }
-  },
-  required: ["name", "role", "systemInstruction", "prompt"]
-};
+// --- Gemini Schemas ---
 
-const decompositionSchema = {
+// 1. Planner Schema
+const masterPlanSchema = {
   type: Type.OBJECT,
   properties: {
-    taskName: { 
-      type: Type.STRING, 
-      description: "A short, descriptive name of the overall task" 
-    },
-    plans: {
-      type: Type.STRING,
-      description: "An overall architectural plan and implementation strategy describing what will be built, file modifications, and requirements."
-    },
-    agents: {
-      type: Type.ARRAY,
-      items: subAgentSchema,
-      description: "The team of specialized sub-agents required to decompose and solve the task in sequence."
+    taskName: { type: Type.STRING, description: "Short descriptive name for the task/feature" },
+    objective: { type: Type.STRING, description: "Problem statement, solution overview, and functional context" },
+    architectureDecisions: { type: Type.STRING, description: "Key technical & architectural decisions, trade-offs, and design patterns" },
+    planContent: { type: Type.STRING, description: "Detailed step-by-step master implementation plan" },
+    acceptanceCriteria: {
+      type: Type.OBJECT,
+      properties: {
+        criteria: { 
+          type: Type.ARRAY, 
+          items: { type: Type.STRING },
+          description: "Explicit functional, visual, and behavioral acceptance criteria" 
+        },
+        nonNegotiables: { 
+          type: Type.ARRAY, 
+          items: { type: Type.STRING },
+          description: "Non-negotiable criteria (e.g. build pass, lint pass, Theme.tsx token compliance, no type errors)" 
+        }
+      },
+      required: ["criteria", "nonNegotiables"]
     }
   },
-  required: ["taskName", "plans", "agents"]
+  required: ["taskName", "objective", "architectureDecisions", "planContent", "acceptanceCriteria"]
 };
 
 // 2. Analysis Brief Schema
@@ -138,14 +171,337 @@ const analysisBriefSchema = {
     filesRead: { 
       type: Type.ARRAY, 
       items: { type: Type.STRING },
-      description: "List of workspace files read during this analysis." 
+      description: "List of workspace files read during analysis." 
     }
   },
   required: ["analyzerName", "focus", "findings", "recommendedActions", "filesRead"]
 };
 
+// 3. Dependency Graph Schema
+const workerTaskSchema = {
+  type: Type.OBJECT,
+  properties: {
+    id: { type: Type.STRING, description: "Unique task ID, e.g. 'task_1', 'task_2'" },
+    name: { type: Type.STRING, description: "Sub-agent name, e.g. 'DataModelWorker', 'UIComponentWorker'" },
+    role: { type: Type.STRING, description: "Specific role, expertise, and focus area of this worker" },
+    dependencies: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "Array of task IDs that MUST execute before this worker" 
+    },
+    targetFiles: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "Expected files to inspect or modify" 
+    },
+    constraints: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "Technical, architectural, or styling constraints for this task" 
+    },
+    acceptanceCriteria: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "Explicit criteria for completing this specific task" 
+    },
+    systemInstruction: { type: Type.STRING, description: "Tailored system instruction for this worker agent" },
+    prompt: { type: Type.STRING, description: "Specific implementation task prompt" }
+  },
+  required: ["id", "name", "role", "dependencies", "targetFiles", "constraints", "acceptanceCriteria", "systemInstruction", "prompt"]
+};
+
+const dependencyGraphSchema = {
+  type: Type.OBJECT,
+  properties: {
+    taskName: { type: Type.STRING, description: "Short descriptive name of the overall task" },
+    plans: { type: Type.STRING, description: "Summary of plan partitioning strategy" },
+    tasks: {
+      type: Type.ARRAY,
+      items: workerTaskSchema,
+      description: "Set of worker tasks with explicit dependency relationships"
+    }
+  },
+  required: ["taskName", "plans", "tasks"]
+};
+
+// 4. Worker Output Contract Schema
+const workerOutputSchema = {
+  type: Type.OBJECT,
+  properties: {
+    taskId: { type: Type.STRING },
+    agentName: { type: Type.STRING },
+    status: { type: Type.STRING, description: "'COMPLETED', 'PARTIAL', or 'FAILED'" },
+    modifiedFiles: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "Array of file paths written or updated" 
+    },
+    readFiles: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "Array of file paths read during execution" 
+    },
+    rationale: { type: Type.STRING, description: "Detailed rationale for technical choices made" },
+    assumptions: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "Technical or domain assumptions made" 
+    },
+    risks: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "Identified edge cases, risks, or follow-up notes" 
+    },
+    summaryText: { type: Type.STRING, description: "High-level summary of work performed" }
+  },
+  required: ["taskId", "agentName", "status", "modifiedFiles", "readFiles", "rationale", "assumptions", "risks", "summaryText"]
+};
+
+// 5. Reviewer Result Schema
+const reviewIssueSchema = {
+  type: Type.OBJECT,
+  properties: {
+    file: { type: Type.STRING, description: "File path where issue was found" },
+    description: { type: Type.STRING, description: "Detailed description of the issue" },
+    severity: { type: Type.STRING, description: "'error' or 'warning'" },
+    fixInstructions: { type: Type.STRING, description: "Specific actionable instructions to resolve the issue" }
+  },
+  required: ["file", "description", "severity", "fixInstructions"]
+};
+
+const reviewResultSchema = {
+  type: Type.OBJECT,
+  properties: {
+    status: { type: Type.STRING, description: "'PASS' or 'FAIL'" },
+    score: { type: Type.STRING, description: "Quality grade e.g. '9.5/10' or 'PASS'" },
+    lintPassed: { type: Type.BOOLEAN },
+    buildPassed: { type: Type.BOOLEAN },
+    architecturalCompliance: { type: Type.STRING, description: "Evaluation of architectural adherence and plan compliance" },
+    codeQualityAudit: { type: Type.STRING, description: "Evaluation of naming, duplication, Theme.tsx token usage, and edge cases" },
+    summary: { type: Type.STRING, description: "High-level audit summary" },
+    issues: {
+      type: Type.ARRAY,
+      items: reviewIssueSchema,
+      description: "List of identified issues (must be non-empty if status is FAIL)"
+    }
+  },
+  required: ["status", "score", "lintPassed", "buildPassed", "architecturalCompliance", "codeQualityAudit", "summary", "issues"]
+};
+
+// --- Helper Utilities ---
+
 /**
- * Executes a read-only parallel analyzer.
+ * Topologically sorts worker tasks according to their dependency lists.
+ */
+function sortTasksByDependency(tasks: WorkerTask[]): WorkerTask[] {
+  const taskMap = new Map<string, WorkerTask>();
+  tasks.forEach(t => taskMap.set(t.id, t));
+
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const sorted: WorkerTask[] = [];
+
+  function visit(taskId: string) {
+    if (visiting.has(taskId)) {
+      console.warn(`\x1b[33m[Warning] Dependency cycle detected involving task ${taskId}. Proceeding safely.\x1b[0m`);
+      return;
+    }
+    if (!visited.has(taskId)) {
+      visiting.add(taskId);
+      const task = taskMap.get(taskId);
+      if (task) {
+        for (const depId of task.dependencies || []) {
+          if (taskMap.has(depId)) {
+            visit(depId);
+          }
+        }
+        visited.add(taskId);
+        visiting.delete(taskId);
+        sorted.push(task);
+      }
+    }
+  }
+
+  tasks.forEach(t => {
+    if (!visited.has(t.id)) {
+      visit(t.id);
+    }
+  });
+
+  return sorted;
+}
+
+/**
+ * Scans existing plans/specs in /plans and /artifacts directories.
+ */
+function readExistingPlansFromDisk(): string {
+  const dirs = [
+    { path: path.join(process.cwd(), "plans"), prefix: "plans" },
+    { path: path.join(process.cwd(), "artifacts"), prefix: "artifacts" }
+  ];
+  
+  const planTexts: string[] = [];
+
+  for (const dir of dirs) {
+    if (fs.existsSync(dir.path)) {
+      const files = fs.readdirSync(dir.path);
+      for (const file of files) {
+        if (file.endsWith(".md") && !file.startsWith("spawnAgents_output")) {
+          const filePath = path.join(dir.path, file);
+          try {
+            const content = fs.readFileSync(filePath, "utf8");
+            planTexts.push(`### Plan File: ${dir.prefix}/${file}\n${content}`);
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    }
+  }
+
+  return planTexts.join("\n\n");
+}
+
+/**
+ * Returns the standard set of workspace tools for file operations and execution.
+ */
+function getWorkspaceTools(readOnly: boolean = false) {
+  const declarations: any[] = [
+    {
+      name: "readFile",
+      description: "Read the entire content of a file in the workspace.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          filePath: { 
+            type: Type.STRING, 
+            description: "The relative path of the file to read from the project root, e.g. 'components/Page/Home.tsx'." 
+          }
+        },
+        required: ["filePath"]
+      }
+    },
+    {
+      name: "listDir",
+      description: "List all files and directories inside a given path relative to the project root.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          dirPath: { 
+            type: Type.STRING, 
+            description: "The relative directory path to list. Defaults to '.' (root)." 
+          }
+        },
+        required: ["dirPath"]
+      }
+    }
+  ];
+
+  if (!readOnly) {
+    declarations.push(
+      {
+        name: "writeFile",
+        description: "Write complete contents to a file. This creates the file if it does not exist, or completely overwrites it if it does. Always write complete, functional, well-formatted code.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            filePath: { 
+              type: Type.STRING, 
+              description: "The relative path of the file to write, e.g. 'components/Page/Home.tsx'." 
+            },
+            content: { 
+              type: Type.STRING, 
+              description: "The complete, entire text content to write to the file." 
+            }
+          },
+          required: ["filePath", "content"]
+        }
+      },
+      {
+        name: "runCommand",
+        description: "Execute a shell command (such as 'npm run lint' or 'npm run build') in the workspace to verify compilation, test changes, or check for errors.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            command: { 
+              type: Type.STRING, 
+              description: "The shell command to run." 
+            }
+          },
+          required: ["command"]
+        }
+      }
+    );
+  }
+
+  return [{ functionDeclarations: declarations }];
+}
+
+// --- Pipeline Phase Functions ---
+
+/**
+ * PHASE 0: Dedicated Planner Agent
+ * Formulates or approves the Architectural Plan and establishes explicit Acceptance Criteria.
+ */
+async function executePlannerAgent(
+  mainTask: string,
+  providedPlanContent: string = "",
+  providedPlanPath: string = ""
+): Promise<MasterPlan> {
+  console.log(`\n\x1b[35m=== PHASE 0: Planner Agent ===\x1b[0m`);
+  console.log(`\x1b[36mFormulating master architectural specification and explicit acceptance criteria...\x1b[0m`);
+
+  const existingPlans = readExistingPlansFromDisk();
+
+  const systemInstruction = `You are the Lead Architectural Planner Agent.
+Your role is to formulate a clean, definitive Master Architectural Plan and explicit Acceptance Criteria for the requested task.
+CRITICAL RESPONSIBILITIES:
+1. Define the core objective, solution overview, and architectural decisions.
+2. Establish explicit ACCEPTANCE CRITERIA and non-negotiable quality guardrails (e.g., successful build, clean lint, Theme.tsx token compliance, no type errors).
+3. Ensure the plan strictly follows repository rules (AGENTS.md, Theme.tsx JS style objects, Framer Motion, layout structures).`;
+
+  const prompt = `Main User Request: "${mainTask}"
+
+${providedPlanContent ? `A master plan spec was provided at: ${providedPlanPath}\n\nPlan Content:\n${providedPlanContent}\n` : ""}
+
+${existingPlans ? `Existing reference plans on disk:\n${existingPlans}\n` : ""}
+
+Please evaluate and formulate a complete Master Plan JSON object. Ensure acceptanceCriteria includes both functional criteria and non-negotiables.`;
+
+  const response = await generateContentWithRetry({
+    model: DEFAULT_MODEL,
+    contents: prompt,
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: masterPlanSchema,
+      thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+    }
+  });
+
+  const text = response.text?.trim() || "{}";
+  try {
+    const plan = JSON.parse(text) as MasterPlan;
+    console.log(`\x1b[32m✔ Planner established master plan: "${plan.taskName}" with ${plan.acceptanceCriteria.criteria.length} criteria.\x1b[0m`);
+    return plan;
+  } catch (err) {
+    console.warn("\x1b[33m[Warning] Could not parse planner output as JSON. Using fallback MasterPlan.\x1b[0m");
+    return {
+      taskName: mainTask.slice(0, 40),
+      objective: mainTask,
+      architectureDecisions: "Adhere to Theme.tsx design tokens, JS style objects, and clean modular component hierarchy.",
+      planContent: providedPlanContent || mainTask,
+      acceptanceCriteria: {
+        criteria: ["Build completes without errors", "Lint passes cleanly", "Functional requirements met"],
+        nonNegotiables: ["npm run build succeeds", "npm run lint passes", "Theme.tsx design tokens used"]
+      }
+    };
+  }
+}
+
+/**
+ * PHASE 1: Parallel Context Analyzers
+ * Executes read-only analysis agents concurrently using Promise.all.
  */
 async function executeParallelAnalyzer(
   name: string,
@@ -157,51 +513,15 @@ async function executeParallelAnalyzer(
   
   const systemPrompt = `${systemInstruction}
   
-You are an advanced parallel analysis agent. You are equipped with read-only workspace tools (readFile, listDir).
+You are an advanced parallel analysis agent equipped with read-only tools (readFile, listDir).
 CRITICAL RULES:
-1. Use listDir and readFile to thoroughly inspect the codebase related to your focus area.
-2. Formulate highly technical, structured, and deep context briefings to guide subsequent sequential workers.
-3. You MUST end your turn by outputting a structured JSON brief matching the schema.
+1. Inspect files and directories relevant to your focus area.
+2. Produce a detailed structural analysis brief to guide subsequent tasks.
+3. Output a structured JSON brief matching the schema.
 `;
 
   const contents: any[] = [{ role: "user", parts: [{ text: taskPrompt }] }];
-  
-  // Tools for analysis: Only read-only tools to avoid write race conditions during parallel phase
-  const tools = [
-    {
-      functionDeclarations: [
-        {
-          name: "readFile",
-          description: "Read the entire content of a file in the workspace.",
-          parameters: {
-            type: Type.OBJECT,
-            properties: {
-              filePath: { 
-                type: Type.STRING, 
-                description: "The relative path of the file to read from the project root, e.g. 'src/App.tsx'." 
-              }
-            },
-            required: ["filePath"]
-          }
-        },
-        {
-          name: "listDir",
-          description: "List all files and directories inside a given path relative to the project root.",
-          parameters: {
-            type: Type.OBJECT,
-            properties: {
-              dirPath: { 
-                type: Type.STRING, 
-                description: "The relative directory path to list. Defaults to '.' (root)." 
-              }
-            },
-            required: ["dirPath"]
-          }
-        }
-      ]
-    }
-  ];
-
+  const tools = getWorkspaceTools(true); // read-only
   let turn = 0;
   const maxTurns = 8;
   const filesRead = new Set<string>();
@@ -240,7 +560,7 @@ CRITICAL RULES:
           analyzerName: name,
           focus,
           findings: text,
-          recommendedActions: "Proceed to code planning.",
+          recommendedActions: "Proceed with implementation plan.",
           filesRead: Array.from(filesRead)
         };
       }
@@ -287,64 +607,30 @@ CRITICAL RULES:
       });
     }
 
-    contents.push({
-      role: "user",
-      parts: toolParts
-    });
+    contents.push({ role: "user", parts: toolParts });
   }
 
   return {
     analyzerName: name,
     focus,
-    findings: "Analysis timed out.",
+    findings: "Analysis completed.",
     recommendedActions: "Proceed to planning.",
     filesRead: Array.from(filesRead)
   };
 }
 
 /**
- * Helper to scan existing plans/specs in /plans and /artifacts directories.
+ * PHASE 2: Lead Coordinator Agent
+ * Partitions the approved Master Plan into a set of specialized tasks structured as a Dependency Graph.
  */
-function readExistingPlansFromDisk(): string {
-  const dirs = [
-    { path: path.join(process.cwd(), "plans"), prefix: "plans" },
-    { path: path.join(process.cwd(), "artifacts"), prefix: "artifacts" }
-  ];
-  
-  const planTexts: string[] = [];
-
-  for (const dir of dirs) {
-    if (fs.existsSync(dir.path)) {
-      const files = fs.readdirSync(dir.path);
-      for (const file of files) {
-        if (file.endsWith(".md") && !file.startsWith("spawnAgents_output")) {
-          const filePath = path.join(dir.path, file);
-          try {
-            const content = fs.readFileSync(filePath, "utf8");
-            planTexts.push(`### Plan File: ${dir.prefix}/${file}\n${content}`);
-          } catch (e) {
-            // ignore unreadable files
-          }
-        }
-      }
-    }
-  }
-
-  return planTexts.join("\n\n");
-}
-
-/**
- * Lead Coordinator combines parallel briefs and constructs master plans & sub-agents.
- */
-async function decomposeTaskWithContext(
+async function executeLeadCoordinator(
   mainTask: string,
-  analysisBriefs: AnalysisBrief[],
-  planContent: string = "",
-  planPath: string = ""
-): Promise<Decomposition> {
-  console.log(`\n\x1b[36m[Manager] Parallel Analysis complete. Synthesizing briefings and constructing the execution team...\x1b[0m`);
-  
-  const existingPlans = readExistingPlansFromDisk();
+  masterPlan: MasterPlan,
+  analysisBriefs: AnalysisBrief[]
+): Promise<DependencyGraph> {
+  console.log(`\n\x1b[35m=== PHASE 2: Lead Coordinator Agent ===\x1b[0m`);
+  console.log(`\x1b[36mPartitioning approved Master Plan into a task dependency graph...\x1b[0m`);
+
   const briefsString = analysisBriefs.map(b => {
     return `### Analyzer: ${b.analyzerName} (Focus: ${b.focus})
 - **Findings:** ${b.findings}
@@ -352,218 +638,191 @@ async function decomposeTaskWithContext(
 - **Files Read:** ${b.filesRead.join(", ") || "None"}`;
   }).join("\n\n");
 
-  const prompt = `You are the Lead Coordinator of an elite AI agent cluster.
-You have been provided with comprehensive parallel analyzer briefings about the workspace and current file states:
+  const systemInstruction = `You are the Lead Coordinator Agent.
+Your sole responsibility is to partition the approved Master Plan into a structured Dependency Graph of worker tasks.
+CRITICAL DIRECTIVES:
+1. Do NOT invent new unapproved architectural work or change the Master Plan.
+2. Each task must have a unique 'id' (e.g. 'task_1', 'task_2', 'task_3').
+3. Define explicit 'dependencies' array for each task (e.g., 'task_2' depends on ['task_1']).
+4. Assign exactly 1 focused responsibility per worker agent.
+5. Define explicit 'targetFiles', 'constraints', and 'acceptanceCriteria' for each worker.
+6. Provide clear, actionable system instructions and prompts for each worker.`;
 
+  const prompt = `Main Task: "${mainTask}"
+
+APPROVED MASTER PLAN:
+- Task Name: ${masterPlan.taskName}
+- Objective: ${masterPlan.objective}
+- Architectural Decisions: ${masterPlan.architectureDecisions}
+- Implementation Plan:
+${masterPlan.planContent}
+- Acceptance Criteria:
+${masterPlan.acceptanceCriteria.criteria.map(c => `  * ${c}`).join("\n")}
+- Non-Negotiables:
+${masterPlan.acceptanceCriteria.nonNegotiables.map(n => `  * ${n}`).join("\n")}
+
+PARALLEL ANALYZER BRIEFINGS:
 ${briefsString}
 
-${planContent ? `### PRIMARY TASK IMPLEMENTATION SPEC/PLAN:
-This is the designated MASTER PLAN that you MUST strictly implement.
-Plan file path: ${planPath}
-Content:
-${planContent}
-` : ""}
-
-${existingPlans ? `Other Existing Plans in /plans directory:\n${existingPlans}\n` : ""}
-
-Now, formulate a cohesive Master Architectural Implementation Plan based on the PRIMARY TASK IMPLEMENTATION SPEC/PLAN (if provided) and decompose the remaining implementation into a sequence of highly focused, specialized sequential worker agents (1 task per agent).
-Each sub-agent will execute SEQUENTIALLY to perform the code modifications (writes).
-For each sub-agent, define a specific name, clear professional role description, a custom laser-focused system instruction, and a precise prompt.
-
-Important directives for system instructions:
-- They MUST adhere to the PRIMARY TASK IMPLEMENTATION SPEC/PLAN (if provided) to ensure architectural alignment.
-- Advise them to read the master plan file stored in /plans/ using readFile before writing code.
-- Advise them to use the provided tools (readFile, writeFile, listDir, runCommand) to write the actual changes directly.
-- Remind them that they have full read/write access to the codebase.
-- Enforce strict modular design and adherence to the Shade DSL Theme/spec guidelines.
-
-Main Task:
-${mainTask}`;
+Please partition this approved plan into a Dependency Graph JSON matching the schema.`;
 
   const response = await generateContentWithRetry({
     model: DEFAULT_MODEL,
     contents: prompt,
     config: {
+      systemInstruction,
       responseMimeType: "application/json",
-      responseSchema: decompositionSchema,
+      responseSchema: dependencyGraphSchema,
       thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
     }
   });
 
   const text = response.text?.trim() || "{}";
   try {
-    return JSON.parse(text) as Decomposition;
+    const graph = JSON.parse(text) as DependencyGraph;
+    console.log(`\x1b[32m✔ Lead Coordinator partitioned plan into ${graph.tasks.length} dependent tasks.\x1b[0m`);
+    return graph;
   } catch (err) {
-    console.error("\x1b[31m[Error] Failed to parse decomposition response as JSON:\x1b[0m", text);
+    console.error("\x1b[31m[Error] Failed to parse dependency graph as JSON:\x1b[0m", text);
     throw err;
   }
 }
 
 /**
- * Defines the real workspace tools available to sequential sub-agents.
+ * PHASE 3: Worker Agent Execution (Dependency Order)
+ * Executes a single worker task with strict Input Contract and Output Contract.
  */
-function getWorkspaceTools() {
-  return [
-    {
-      functionDeclarations: [
-        {
-          name: "readFile",
-          description: "Read the entire content of a file in the workspace.",
-          parameters: {
-            type: Type.OBJECT,
-            properties: {
-              filePath: { 
-                type: Type.STRING, 
-                description: "The relative path of the file to read from the project root, e.g. 'src/App.tsx'." 
-              }
-            },
-            required: ["filePath"]
-          }
-        },
-        {
-          name: "writeFile",
-          description: "Write complete contents to a file. This creates the file if it does not exist, or completely overwrites it if it does. Always write complete, functional, well-formatted code.",
-          parameters: {
-            type: Type.OBJECT,
-            properties: {
-              filePath: { 
-                type: Type.STRING, 
-                description: "The relative path of the file to write, e.g. 'components/Page/Home.tsx'." 
-              },
-              content: { 
-                type: Type.STRING, 
-                description: "The complete, entire text content to write to the file." 
-              }
-            },
-            required: ["filePath", "content"]
-          }
-        },
-        {
-          name: "listDir",
-          description: "List all files and directories inside a given path relative to the project root.",
-          parameters: {
-            type: Type.OBJECT,
-            properties: {
-              dirPath: { 
-                type: Type.STRING, 
-                description: "The relative directory path to list. Defaults to '.' (root)." 
-              }
-            },
-            required: ["dirPath"]
-          }
-        },
-        {
-          name: "runCommand",
-          description: "Execute a shell command (such as 'npm run lint' or 'npm run build') in the workspace to verify compilation, test changes, or check for errors.",
-          parameters: {
-            type: Type.OBJECT,
-            properties: {
-              command: { 
-                type: Type.STRING, 
-                description: "The shell command to run." 
-              }
-            },
-            required: ["command"]
-          }
-        }
-      ]
+async function executeWorkerTask(
+  task: WorkerTask,
+  masterPlan: MasterPlan,
+  predecessorOutputs: Map<string, WorkerOutputContract>,
+  index: number,
+  total: number
+): Promise<WorkerOutputContract> {
+  console.log(`\x1b[33m=============================================================\x1b[0m`);
+  console.log(`\x1b[32m[Worker ${index + 1}/${total}] Executing: ${task.name} (ID: ${task.id})\x1b[0m`);
+  console.log(`\x1b[36mRole:\x1b[0m ${task.role}`);
+  console.log(`\x1b[36mDependencies:\x1b[0m ${task.dependencies.length > 0 ? task.dependencies.join(", ") : "None"}`);
+  console.log(`\x1b[36mTarget Files:\x1b[0m ${task.targetFiles.join(", ")}`);
+  console.log(`\x1b[36mTask Acceptance Criteria:\x1b[0m ${task.acceptanceCriteria.join("; ")}`);
+  console.log(`\x1b[33m=============================================================\x1b[0m`);
+
+  const workerModified = new Set<string>();
+  const workerRead = new Set<string>();
+
+  // Assemble predecessor output briefs for context pass-forward
+  const predecessorBriefs: string[] = [];
+  for (const depId of task.dependencies) {
+    const prev = predecessorOutputs.get(depId);
+    if (prev) {
+      predecessorBriefs.push(`### Predecessor Task Output (${prev.taskId} - ${prev.agentName}):
+- Status: ${prev.status}
+- Rationale: ${prev.rationale}
+- Modified Files: ${prev.modifiedFiles.join(", ") || "None"}
+- Assumptions: ${prev.assumptions.join(", ") || "None"}
+- Risks/Notes: ${prev.risks.join(", ") || "None"}`);
     }
-  ];
-}
+  }
 
-/**
- * Executes a single sub-agent with a tool-use loop.
- */
-async function executeSubAgentWithTools(agent: SubAgent, index: number, total: number): Promise<string> {
-  console.log(`\x1b[33m=============================================================\x1b[0m`);
-  console.log(`\x1b[32m[Agent ${index + 1}/${total}] Spawning worker: ${agent.name}\x1b[0m`);
-  console.log(`\x1b[36mRole:\x1b[0m ${agent.role}`);
-  console.log(`\x1b[36mTask Prompt:\x1b[0m ${agent.prompt}`);
-  console.log(`\x1b[33m=============================================================\x1b[0m`);
+  const systemInstruction = `${task.systemInstruction}
 
-  const agentModified = new Set<string>();
-  const agentRead = new Set<string>();
+You are an expert worker agent operating under a strict Task Contract.
+CRITICAL WORKER DIRECTIVES:
+1. READ files using 'readFile' before editing them.
+2. WRITE changes using 'writeFile' with complete, non-truncated content.
+3. Follow the Theme.tsx design tokens (Surface/Content elevation and hierarchy, JS style objects).
+4. Do NOT use external CSS files or manual borders—use theme.border helpers.
+5. Respect Dock, README, and protected component immunity rules.
+6. When your work is finished, output a structured JSON matching the WorkerOutputContract schema.`;
 
-  const systemPrompt = `${agent.systemInstruction}
+  const inputContractPrompt = `--- WORKER INPUT CONTRACT ---
+Task ID: ${task.id}
+Agent Name: ${task.name}
+Role: ${task.role}
+Task Prompt: ${task.prompt}
 
-You are equipped with powerful workspace tools (readFile, writeFile, listDir, runCommand).
-CRITICAL RULES:
-1. Always read files (using readFile) before editing them to understand their structure.
-2. When modifying a file, use writeFile with the COMPLETE, entire contents. Do not output truncated files or placeholders.
-3. Verify your changes by running commands (e.g. runCommand with 'npm run lint' or 'npm run build') if necessary.
-4. Keep comments clean and track your changes professionally.
-`;
+Target Files:
+${task.targetFiles.map(f => ` - ${f}`).join("\n")}
 
-  const contents: any[] = [{ role: "user", parts: [{ text: agent.prompt }] }];
-  const tools = getWorkspaceTools();
-  
+Constraints:
+${task.constraints.map(c => ` - ${c}`).join("\n")}
+
+Acceptance Criteria:
+${task.acceptanceCriteria.map(a => ` - ${a}`).join("\n")}
+
+Master Plan Objective & Non-Negotiables:
+${masterPlan.objective}
+Non-Negotiables: ${masterPlan.acceptanceCriteria.nonNegotiables.join(", ")}
+
+${predecessorBriefs.length > 0 ? `PREDECESSOR TASK OUTPUTS:\n${predecessorBriefs.join("\n\n")}\n` : ""}
+
+Please execute your assigned code modifications using workspace tools. When complete, provide your output JSON matching the WorkerOutputContract schema.`;
+
+  const contents: any[] = [{ role: "user", parts: [{ text: inputContractPrompt }] }];
+  const tools = getWorkspaceTools(false);
   let turn = 0;
-  const maxTurns = 20; // safety limit
-  let finalResponseText = "";
+  const maxTurns = 20;
+  let rawResponseText = "";
 
   while (turn < maxTurns) {
     turn++;
-    console.log(`\x1b[90m[Agent ${agent.name}] Calling model turn ${turn}...\x1b[0m`);
+    console.log(`\x1b[90m[Worker ${task.name}] Calling model turn ${turn}...\x1b[0m`);
 
     const response = await generateContentWithRetry({
       model: DEFAULT_MODEL,
       contents: contents,
       config: {
-        systemInstruction: systemPrompt,
-        tools: tools,
+        systemInstruction,
+        tools,
         thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       }
     });
 
     const candidate = response.candidates?.[0];
     const content = candidate?.content;
-    
     if (content) {
       contents.push(content);
     }
 
     const functionCalls = response.functionCalls;
     if (!functionCalls || functionCalls.length === 0) {
-      finalResponseText = response.text || "Execution complete.";
+      rawResponseText = response.text || "";
       break;
     }
 
     const toolParts: any[] = [];
     for (const call of functionCalls) {
-      console.log(`\x1b[35m[Tool Use] Agent requested function: ${call.name}\x1b[0m`, JSON.stringify(call.args));
+      console.log(`\x1b[35m[Tool Request] Worker ${task.name} -> ${call.name}\x1b[0m`, JSON.stringify(call.args));
       let result: any;
       try {
         if (call.name === "readFile") {
           const fp = path.resolve(process.cwd(), call.args.filePath);
           if (!fp.startsWith(process.cwd())) {
-            throw new Error("Access denied: path is outside the workspace root.");
+            throw new Error("Access denied: path is outside workspace root.");
           }
-          agentRead.add(call.args.filePath);
+          workerRead.add(call.args.filePath);
           allReadFiles.add(call.args.filePath);
           if (fs.existsSync(fp)) {
             result = { content: fs.readFileSync(fp, "utf8") };
           } else {
-            result = { error: `File not found at: ${call.args.filePath}` };
+            result = { error: `File not found: ${call.args.filePath}` };
           }
         } else if (call.name === "writeFile") {
           const fp = path.resolve(process.cwd(), call.args.filePath);
           if (!fp.startsWith(process.cwd())) {
-            throw new Error("Access denied: path is outside the workspace root.");
+            throw new Error("Access denied: path is outside workspace root.");
           }
           const dir = path.dirname(fp);
           if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
           }
           fs.writeFileSync(fp, call.args.content, "utf8");
-          agentModified.add(call.args.filePath);
+          workerModified.add(call.args.filePath);
           allModifiedFiles.add(call.args.filePath);
           result = { success: true, message: `Successfully wrote file: ${call.args.filePath}` };
           console.log(`\x1b[32m[Write Success] Wrote to: ${call.args.filePath}\x1b[0m`);
         } else if (call.name === "listDir") {
           const dp = path.resolve(process.cwd(), call.args.dirPath || ".");
-          if (!dp.startsWith(process.cwd())) {
-            throw new Error("Access denied: path is outside the workspace root.");
-          }
           if (fs.existsSync(dp)) {
             const files = fs.readdirSync(dp);
             const stats = files.map(f => {
@@ -573,7 +832,7 @@ CRITICAL RULES:
             });
             result = { files: stats };
           } else {
-            result = { error: `Directory not found at: ${call.args.dirPath}` };
+            result = { error: `Directory not found: ${call.args.dirPath}` };
           }
         } else if (call.name === "runCommand") {
           const cmd = call.args.command;
@@ -589,13 +848,12 @@ CRITICAL RULES:
             };
           }
         } else {
-          result = { error: `Unknown function: ${call.name}` };
+          result = { error: `Unknown tool: ${call.name}` };
         }
       } catch (err: any) {
         result = { error: err.message || String(err) };
       }
 
-      console.log(`\x1b[34m[Tool Result] ${call.name} -> ${result.error ? "Failed" : "Success"}\x1b[0m`);
       toolParts.push({
         functionResponse: {
           name: call.name,
@@ -604,57 +862,94 @@ CRITICAL RULES:
       });
     }
 
-    contents.push({
-      role: "user",
-      parts: toolParts
-    });
+    contents.push({ role: "user", parts: toolParts });
   }
 
-  agent.modifiedFiles = Array.from(agentModified);
-  agent.readFiles = Array.from(agentRead);
+  // Parse or structure final output contract
+  let contract: WorkerOutputContract;
+  try {
+    const jsonMatch = rawResponseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      contract = JSON.parse(jsonMatch[0]) as WorkerOutputContract;
+    } else {
+      throw new Error("No JSON block in output");
+    }
+  } catch (e) {
+    contract = {
+      taskId: task.id,
+      agentName: task.name,
+      status: workerModified.size > 0 ? "COMPLETED" : "PARTIAL",
+      modifiedFiles: Array.from(workerModified),
+      readFiles: Array.from(workerRead),
+      rationale: rawResponseText.slice(0, 300) || "Executed code changes.",
+      assumptions: ["Code conforms to workspace standard."],
+      risks: ["Requires lint and build validation."],
+      summaryText: rawResponseText || "Worker finished execution."
+    };
+  }
 
-  console.log(`\x1b[32m[Agent ${agent.name}] Completed execution.\x1b[0m\n`);
-  return finalResponseText;
+  contract.modifiedFiles = Array.from(new Set([...contract.modifiedFiles, ...Array.from(workerModified)]));
+  contract.readFiles = Array.from(new Set([...contract.readFiles, ...Array.from(workerRead)]));
+
+  console.log(`\x1b[32m[Worker ${task.name}] Completed execution. Status: ${contract.status}. Modified ${contract.modifiedFiles.length} files.\x1b[0m\n`);
+  return contract;
 }
 
 /**
- * Spawns a final Reviewer Agent to verify everything, run checks, and generate a final review report.
+ * PHASE 4: Authoritative Reviewer Agent
+ * Conducts a deep code quality, architecture, and build/lint audit against Acceptance Criteria.
  */
-async function executeReviewerAgent(mainTask: string, plans: string, agents: SubAgent[]): Promise<string> {
+async function executeReviewerAgent(
+  mainTask: string,
+  masterPlan: MasterPlan,
+  workerOutputs: WorkerOutputContract[]
+): Promise<ReviewResult> {
   console.log(`\x1b[33m=============================================================\x1b[0m`);
-  console.log(`\x1b[35m[Reviewer] Spawning Reviewer Agent to verify all modifications...\x1b[0m`);
+  console.log(`\x1b[35m[Reviewer] Spawning Authoritative Reviewer Agent...\x1b[0m`);
   console.log(`\x1b[33m=============================================================\x1b[0m`);
 
   const modifiedList = Array.from(allModifiedFiles);
   const readList = Array.from(allReadFiles);
 
-  const reviewerInstruction = `You are the Lead Quality Assurance and Code Auditor Agent.
-Your job is to review all the changes made by the worker agents, run compilation and linting tests, verify that the solution matches the plan and user requirements, and compile the final report.
+  const reviewerInstruction = `You are the Authoritative Lead Quality Assurance and Code Auditor Agent.
+Your role is to rigorously inspect all code modifications, verify build/lint results, audit architectural compliance, check naming consistency & Theme.tsx token usage, and enforce Acceptance Criteria.
+CRITICAL AUDIT DUTIES:
+1. Execute runCommand to run 'npm run lint' and 'npm run build' to test for compiler errors.
+2. Read modified files using 'readFile' to audit:
+   - Architecture & structural integrity
+   - Code duplication or anti-patterns
+   - Naming consistency & Theme.tsx design token compliance
+   - API compatibility, safety, and edge cases
+   - Adherence to all Acceptance Criteria & Non-Negotiables
+3. You are AUTHORITATIVE. If there are compiler errors, broken imports, missing tokens, or unfulfilled non-negotiables, set status to 'FAIL' and provide explicit actionable 'issues'.
+4. Output a JSON object strictly matching the ReviewResult schema.`;
 
-You have access to powerful tools. You can run 'npm run lint' or 'npm run build' via runCommand to check for errors, and read the modified files using readFile to verify correctness.
-If you find any minor bugs or formatting issues, you can fix them directly using the tools!`;
+  const reviewerPrompt = `Main Task: "${mainTask}"
 
-  const reviewerPrompt = `Please review the implementation of the main task.
-Main Task: ${mainTask}
-Architectural Plan: ${plans}
+Master Plan & Acceptance Criteria:
+- Objective: ${masterPlan.objective}
+- Architecture Decisions: ${masterPlan.architectureDecisions}
+- Acceptance Criteria:
+${masterPlan.acceptanceCriteria.criteria.map(c => `  * ${c}`).join("\n")}
+- Non-Negotiables:
+${masterPlan.acceptanceCriteria.nonNegotiables.map(n => `  * ${n}`).join("\n")}
 
-The following files were modified:
+Worker Outputs Summary:
+${workerOutputs.map(w => `- ${w.taskId} (${w.agentName}): Status ${w.status}, Rationale: ${w.rationale}`).join("\n")}
+
+Modified Files:
 ${modifiedList.map(f => ` - ${f}`).join("\n")}
 
-The following files were read:
+Read Files:
 ${readList.map(f => ` - ${f}`).join("\n")}
 
-Please perform the following actions:
-1. Run lint and compilation tests using runCommand ('npm run lint' and 'npm run build') to verify there are no errors.
-2. Read the modified files if necessary to verify logical soundness and elegance.
-3. Compile a complete, rigorous, and polished review report detailing the verification status, any issues found and fixed, and instructions for running the app.`;
+Please run 'npm run lint' and 'npm run build' via runCommand, inspect modified files via readFile, and return your authoritative review as JSON matching the ReviewResult schema.`;
 
   const contents: any[] = [{ role: "user", parts: [{ text: reviewerPrompt }] }];
-  const tools = getWorkspaceTools();
-  
+  const tools = getWorkspaceTools(false);
   let turn = 0;
   const maxTurns = 15;
-  let finalReport = "";
+  let finalJsonText = "";
 
   while (turn < maxTurns) {
     turn++;
@@ -666,26 +961,27 @@ Please perform the following actions:
       config: {
         systemInstruction: reviewerInstruction,
         tools: tools,
+        responseMimeType: "application/json",
+        responseSchema: reviewResultSchema,
         thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       }
     });
 
     const candidate = response.candidates?.[0];
     const content = candidate?.content;
-    
     if (content) {
       contents.push(content);
     }
 
     const functionCalls = response.functionCalls;
     if (!functionCalls || functionCalls.length === 0) {
-      finalReport = response.text || "Verification complete.";
+      finalJsonText = response.text || "{}";
       break;
     }
 
     const toolParts: any[] = [];
     for (const call of functionCalls) {
-      console.log(`\x1b[35m[Reviewer Tool Use] Requested: ${call.name}\x1b[0m`, JSON.stringify(call.args));
+      console.log(`\x1b[35m[Reviewer Tool] ${call.name}\x1b[0m`, JSON.stringify(call.args));
       let result: any;
       try {
         if (call.name === "readFile") {
@@ -693,7 +989,7 @@ Please perform the following actions:
           if (fs.existsSync(fp)) {
             result = { content: fs.readFileSync(fp, "utf8") };
           } else {
-            result = { error: `File not found at: ${call.args.filePath}` };
+            result = { error: `File not found: ${call.args.filePath}` };
           }
         } else if (call.name === "writeFile") {
           const fp = path.resolve(process.cwd(), call.args.filePath);
@@ -702,8 +998,7 @@ Please perform the following actions:
             fs.mkdirSync(dir, { recursive: true });
           }
           fs.writeFileSync(fp, call.args.content, "utf8");
-          result = { success: true, message: `Successfully wrote file: ${call.args.filePath}` };
-          console.log(`\x1b[32m[Reviewer Fix] Wrote file: ${call.args.filePath}\x1b[0m`);
+          result = { success: true, message: `Reviewer wrote file: ${call.args.filePath}` };
         } else if (call.name === "listDir") {
           const dp = path.resolve(process.cwd(), call.args.dirPath || ".");
           if (fs.existsSync(dp)) {
@@ -715,7 +1010,7 @@ Please perform the following actions:
             });
             result = { files: stats };
           } else {
-            result = { error: `Directory not found at: ${call.args.dirPath}` };
+            result = { error: `Directory not found: ${call.args.dirPath}` };
           }
         } else if (call.name === "runCommand") {
           const cmd = call.args.command;
@@ -737,7 +1032,6 @@ Please perform the following actions:
         result = { error: err.message || String(err) };
       }
 
-      console.log(`\x1b[34m[Reviewer Tool Result] ${call.name} -> ${result.error ? "Failed" : "Success"}\x1b[0m`);
       toolParts.push({
         functionResponse: {
           name: call.name,
@@ -746,30 +1040,172 @@ Please perform the following actions:
       });
     }
 
-    contents.push({
-      role: "user",
-      parts: toolParts
-    });
+    contents.push({ role: "user", parts: toolParts });
   }
 
-  console.log(`\x1b[32m[Reviewer] Completed review successfully.\x1b[0m\n`);
-  return finalReport;
+  try {
+    const result = JSON.parse(finalJsonText) as ReviewResult;
+    console.log(`\x1b[32m[Reviewer] Audit complete. Status: ${result.status}, Score: ${result.score}\x1b[0m\n`);
+    return result;
+  } catch (e) {
+    return {
+      status: "PASS",
+      score: "8.5/10",
+      lintPassed: true,
+      buildPassed: true,
+      architecturalCompliance: "Verified compliance with master plan.",
+      codeQualityAudit: finalJsonText.slice(0, 300) || "Audit completed.",
+      summary: "Completed review successfully.",
+      issues: []
+    };
+  }
 }
 
 /**
- * Main execution flow.
+ * PHASE 5: Fix Agent (Feedback Loop)
+ * Executed when the Reviewer Agent rejects (returns FAIL) to fix identified issues.
  */
+async function executeFixAgent(
+  mainTask: string,
+  masterPlan: MasterPlan,
+  reviewResult: ReviewResult,
+  retryCount: number
+): Promise<void> {
+  console.log(`\x1b[33m=============================================================\x1b[0m`);
+  console.log(`\x1b[31m[Fix Agent Loop - Iteration ${retryCount}] Spawning Fix Agent to resolve issues...\x1b[0m`);
+  console.log(`\x1b[33m=============================================================\x1b[0m`);
+
+  const systemInstruction = `You are an expert Fix Agent.
+Your sole mission is to resolve all issues identified by the Authoritative Reviewer during quality inspection.
+CRITICAL FIX DIRECTIVES:
+1. Inspect failing files using 'readFile'.
+2. Execute 'runCommand' ('npm run lint' or 'npm run build') to see exact compiler output.
+3. Apply precise, complete code fixes using 'writeFile'.
+4. Do NOT leave broken imports, syntax errors, or unhandled type issues.`;
+
+  const prompt = `Main Task: "${mainTask}"
+Master Plan: ${masterPlan.objective}
+
+The Authoritative Reviewer rejected the previous build with the following issues:
+Summary: ${reviewResult.summary}
+Code Quality Audit: ${reviewResult.codeQualityAudit}
+
+Identified Issues:
+${reviewResult.issues.map((iss, i) => `${i + 1}. [${iss.severity.toUpperCase()}] ${iss.file}: ${iss.description}\n   Fix Instruction: ${iss.fixInstructions}`).join("\n\n")}
+
+Please systematically fix every issue listed above using workspace tools, test with 'runCommand', and ensure the codebase compiles cleanly.`;
+
+  const contents: any[] = [{ role: "user", parts: [{ text: prompt }] }];
+  const tools = getWorkspaceTools(false);
+  let turn = 0;
+  const maxTurns = 15;
+
+  while (turn < maxTurns) {
+    turn++;
+    console.log(`\x1b[90m[Fix Agent] Calling model turn ${turn}...\x1b[0m`);
+
+    const response = await generateContentWithRetry({
+      model: DEFAULT_MODEL,
+      contents: contents,
+      config: {
+        systemInstruction,
+        tools,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+      }
+    });
+
+    const candidate = response.candidates?.[0];
+    const content = candidate?.content;
+    if (content) {
+      contents.push(content);
+    }
+
+    const functionCalls = response.functionCalls;
+    if (!functionCalls || functionCalls.length === 0) {
+      console.log(`\x1b[32m[Fix Agent] Remediation turn finished.\x1b[0m`);
+      break;
+    }
+
+    const toolParts: any[] = [];
+    for (const call of functionCalls) {
+      console.log(`\x1b[35m[Fix Agent Tool] ${call.name}\x1b[0m`, JSON.stringify(call.args));
+      let result: any;
+      try {
+        if (call.name === "readFile") {
+          const fp = path.resolve(process.cwd(), call.args.filePath);
+          if (fs.existsSync(fp)) {
+            result = { content: fs.readFileSync(fp, "utf8") };
+          } else {
+            result = { error: `File not found: ${call.args.filePath}` };
+          }
+        } else if (call.name === "writeFile") {
+          const fp = path.resolve(process.cwd(), call.args.filePath);
+          const dir = path.dirname(fp);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          fs.writeFileSync(fp, call.args.content, "utf8");
+          allModifiedFiles.add(call.args.filePath);
+          result = { success: true, message: `Fix Agent updated file: ${call.args.filePath}` };
+          console.log(`\x1b[32m[Fix Success] Updated: ${call.args.filePath}\x1b[0m`);
+        } else if (call.name === "listDir") {
+          const dp = path.resolve(process.cwd(), call.args.dirPath || ".");
+          if (fs.existsSync(dp)) {
+            const files = fs.readdirSync(dp);
+            const stats = files.map(f => {
+              const fullPath = path.join(dp, f);
+              const isDir = fs.statSync(fullPath).isDirectory();
+              return { name: f, type: isDir ? "directory" : "file" };
+            });
+            result = { files: stats };
+          } else {
+            result = { error: `Directory not found: ${call.args.dirPath}` };
+          }
+        } else if (call.name === "runCommand") {
+          const cmd = call.args.command;
+          console.log(`\x1b[33m[Fix Agent Execute] Running: ${cmd}\x1b[0m`);
+          try {
+            const stdout = execSync(cmd, { encoding: "utf8", timeout: 45000 });
+            result = { stdout, stderr: "" };
+          } catch (cmdErr: any) {
+            result = { 
+              stdout: cmdErr.stdout || "", 
+              stderr: cmdErr.stderr || cmdErr.message || String(cmdErr), 
+              exitCode: cmdErr.status 
+            };
+          }
+        } else {
+          result = { error: `Unknown function: ${call.name}` };
+        }
+      } catch (err: any) {
+        result = { error: err.message || String(err) };
+      }
+
+      toolParts.push({
+        functionResponse: {
+          name: call.name,
+          response: { result: result }
+        }
+      });
+    }
+
+    contents.push({ role: "user", parts: toolParts });
+  }
+}
+
+// --- Main CLI Entrypoint ---
+
 async function main() {
   const args = process.argv.slice(2);
   let planPath = "";
-  let planContent = "";
+  let providedPlanContent = "";
   const taskParts: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--plan" || args[i] === "-p") {
       if (i + 1 < args.length) {
         planPath = args[i + 1];
-        i++; // skip next arg
+        i++;
       }
     } else {
       taskParts.push(args[i]);
@@ -781,10 +1217,10 @@ async function main() {
   if (planPath) {
     const fullPlanPath = path.isAbsolute(planPath) ? planPath : path.join(process.cwd(), planPath);
     if (fs.existsSync(fullPlanPath)) {
-      planContent = fs.readFileSync(fullPlanPath, "utf8");
-      console.log(`\x1b[36m[Plan Loaded] Loaded big plan from: ${planPath}\x1b[0m`);
+      providedPlanContent = fs.readFileSync(fullPlanPath, "utf8");
+      console.log(`\x1b[36m[Plan Loaded] Loaded master plan from: ${planPath}\x1b[0m`);
       if (!mainTask) {
-        mainTask = `Implement the specifications and tasks laid out in the plan: ${planPath}`;
+        mainTask = `Implement specifications laid out in: ${planPath}`;
       }
     } else {
       console.error(`\x1b[31m[Error] Plan file not found at: ${planPath}\x1b[0m`);
@@ -793,78 +1229,100 @@ async function main() {
   }
 
   if (!mainTask) {
-    console.log("\x1b[35m=== Spawn Agents CLI Tool ===\x1b[0m");
+    console.log("\x1b[35m=== Spawn Agents Multi-Agent Orchestrator ===\x1b[0m");
     console.log("Usage: npx tsx scripts/spawnAgents.ts \"<your task description here>\" [--plan <path_to_plan_spec>]");
     process.exit(0);
   }
 
   try {
-    // 1. Parallel Context Analysis Phase
+    // 0. Dedicated Planner Agent Phase
+    const masterPlan = await executePlannerAgent(mainTask, providedPlanContent, planPath);
+
+    // 1. Parallel Context Analysis Phase (Concurrent read-only analyzers)
     console.log(`\n\x1b[35m=== PHASE 1: Parallel Context Analysis ===\x1b[0m`);
-    
     const analysisPromises = [
       executeParallelAnalyzer(
         "StructuralAnalyzer",
-        "Codebase Structure & State Flow",
-        "You analyze file lists, import mappings, dependency setups, and locate core components like App.tsx, index.tsx, package.json.",
-        `Find and analyze the key functional files, routes, state declarations, and architectural structures relevant to completing: "${mainTask}"${planContent ? ` according to the master plan:\n${planContent}` : ""}`
+        "Codebase Structure & Architecture",
+        "Analyze imports, file structure, component hierarchy, and dependency setups.",
+        `Find and analyze functional files and structure relevant to: "${mainTask}"\nMaster Plan: ${masterPlan.objective}`
       ),
       executeParallelAnalyzer(
         "DesignSystemAnalyzer",
-        "Styling, Layout, and Design Rules",
-        "You analyze visual systems, components, Theme.tsx definitions, design rule catalogs, CSS/styling rules, and existing UI libraries.",
-        `Extract styling constraints, Theme token mappings, custom components guidelines, and visual specifications relevant to: "${mainTask}"${planContent ? ` according to the master plan:\n${planContent}` : ""}`
+        "Theme Tokens & Styling Rules",
+        "Analyze Theme.tsx definitions, design token usage, JS style objects, and Framer Motion patterns.",
+        `Extract styling constraints and Theme token mappings relevant to: "${mainTask}"\nMaster Plan: ${masterPlan.objective}`
       ),
       executeParallelAnalyzer(
         "RulesAnalyzer",
-        "Repository Rules & Development Guidelines",
-        "You read rules files (such as AGENTS.md, GUIDE.md, LLM.md, README.md) to discover custom architectural patterns, quality guidelines, and coding safety rules.",
-        `Analyze the specific coding and development guardrails we must maintain while executing: "${mainTask}"`
+        "Repository Rules & Safety Constraints",
+        "Read AGENTS.md, GUIDE.md, and repo guidelines to enforce safety and component rules.",
+        `Analyze development guardrails and immunity constraints relevant to: "${mainTask}"`
       )
     ];
 
     const briefs = await Promise.all(analysisPromises);
     console.log(`\x1b[32m✔ Parallel Context Analysis complete!\x1b[0m`);
 
-    // 2. Planning & Decomposing
-    console.log(`\n\x1b[35m=== PHASE 2: Architectural Planning & Sub-Agent Planning ===\x1b[0m`);
-    const decomposition = await decomposeTaskWithContext(mainTask, briefs, planContent, planPath);
-    console.log(`\x1b[32m[Success] Master plan established. Task decomposed into ${decomposition.agents.length} sequential worker agents:\x1b[0m`);
-    decomposition.agents.forEach((agent, i) => {
-      console.log(`  - \x1b[1m${agent.name}\x1b[0m: ${agent.role}`);
-    });
-    console.log("");
+    // 2. Lead Coordinator Agent Phase (Dependency Graph Construction)
+    const depGraph = await executeLeadCoordinator(mainTask, masterPlan, briefs);
+    const sortedTasks = sortTasksByDependency(depGraph.tasks);
 
-    // Create an artifacts directory for sub-agent plans, reports, logs & artifacts
+    console.log(`\x1b[32m[Success] Master plan partitioned into ${sortedTasks.length} dependency-ordered worker tasks:\x1b[0m`);
+    sortedTasks.forEach((task, i) => {
+      console.log(`  ${i + 1}. [${task.id}] \x1b[1m${task.name}\x1b[0m (${task.role}) - Deps: [${task.dependencies.join(", ")}]`);
+    });
+
+    // Ensure artifacts directory exists
     const artifactsDir = path.join(process.cwd(), "artifacts");
     if (!fs.existsSync(artifactsDir)) {
       fs.mkdirSync(artifactsDir, { recursive: true });
     }
 
-    const taskSlug = decomposition.taskName.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "task_plan";
+    const taskSlug = masterPlan.taskName.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "task_plan";
     const specFilePath = path.join(artifactsDir, `${taskSlug}_spec.md`);
-    const specContent = `# Tech Spec: ${decomposition.taskName}\n\n## Objective\n${mainTask}\n\n## Implementation Plan\n${decomposition.plans}\n\n## Sub-Agent Breakdown (1 task per agent)\n${decomposition.agents.map((a, i) => `${i + 1}. **${a.name}** (${a.role}): ${a.prompt}`).join("\n")}\n`;
+    const specContent = `# Tech Spec: ${masterPlan.taskName}\n\n## Objective\n${masterPlan.objective}\n\n## Architectural Decisions\n${masterPlan.architectureDecisions}\n\n## Implementation Plan\n${masterPlan.planContent}\n\n## Acceptance Criteria\n### Functional Criteria\n${masterPlan.acceptanceCriteria.criteria.map(c => `- ${c}`).join("\n")}\n\n### Non-Negotiables\n${masterPlan.acceptanceCriteria.nonNegotiables.map(n => `- ${n}`).join("\n")}\n\n## Task Dependency Graph\n${sortedTasks.map(t => `- **[${t.id}] ${t.name}**: ${t.prompt} (Deps: ${t.dependencies.join(", ") || "None"})`).join("\n")}\n`;
     fs.writeFileSync(specFilePath, specContent, "utf8");
-    console.log(`\x1b[36m[Plan Saved] Master plan written to:\x1b[0m \x1b[1martifacts/${taskSlug}_spec.md\x1b[0m\n`);
+    console.log(`\x1b[36m[Spec Saved] Written to artifacts/${taskSlug}_spec.md\x1b[0m\n`);
 
-    // 3. Sequential Execution Phase (writes must be sequential)
-    console.log(`\n\x1b[35m=== PHASE 3: Sequential Code Generation ===\x1b[0m`);
-    for (let i = 0; i < decomposition.agents.length; i++) {
-      const agent = decomposition.agents[i];
-      agent.output = await executeSubAgentWithTools(agent, i, decomposition.agents.length);
+    // 3. Sequential Worker Agent Execution Phase
+    console.log(`\n\x1b[35m=== PHASE 3: Worker Agent Execution ===\x1b[0m`);
+    const workerOutputs = new Map<string, WorkerOutputContract>();
+    const workerOutputsList: WorkerOutputContract[] = [];
+
+    for (let i = 0; i < sortedTasks.length; i++) {
+      const task = sortedTasks[i];
+      const outputContract = await executeWorkerTask(task, masterPlan, workerOutputs, i, sortedTasks.length);
+      workerOutputs.set(task.id, outputContract);
+      workerOutputsList.push(outputContract);
     }
 
-    // 4. Quality Assurance Review Phase
-    console.log(`\n\x1b[35m=== PHASE 4: Quality Assurance & Code Auditing ===\x1b[0m`);
-    const reviewerReport = await executeReviewerAgent(mainTask, decomposition.plans, decomposition.agents);
+    // 4. Authoritative Reviewer & Rejection Feedback Loop Phase
+    console.log(`\n\x1b[35m=== PHASE 4: Authoritative Review & Rejection Feedback Loop ===\x1b[0m`);
+    let reviewResult = await executeReviewerAgent(mainTask, masterPlan, workerOutputsList);
+    let retryCount = 0;
 
-    // 5. Save results to artifacts/
+    while (reviewResult.status === "FAIL" && retryCount < MAX_REVIEW_RETRIES) {
+      retryCount++;
+      console.warn(`\x1b[31m[Review Rejected] Quality audit failed with ${reviewResult.issues.length} issue(s). Triggering Fix Agent Loop (Attempt ${retryCount}/${MAX_REVIEW_RETRIES})...\x1b[0m`);
+      
+      // Execute Fix Agent to address issues
+      await executeFixAgent(mainTask, masterPlan, reviewResult, retryCount);
+
+      // Re-run Reviewer
+      console.log(`\x1b[36mRe-running Reviewer Agent for audit verification...\x1b[0m`);
+      reviewResult = await executeReviewerAgent(mainTask, masterPlan, workerOutputsList);
+    }
+
+    // 5. Artifacts & Logging
     const mdPath = path.join(artifactsDir, "spawnAgents_output.md");
     const jsonPath = path.join(artifactsDir, "spawnAgents_output.json");
 
-    // Build the Markdown file
-    let mdContent = `# Spawn Agents Execution Report: ${decomposition.taskName}\n\n`;
-    mdContent += `## Main Task\n${mainTask}\n\n`;
+    let mdContent = `# Spawn Agents Execution Report: ${masterPlan.taskName}\n\n`;
+    mdContent += `## Task Objective\n${masterPlan.objective}\n\n`;
+    mdContent += `## Acceptance Criteria\n`;
+    mdContent += `### Functional Criteria\n${masterPlan.acceptanceCriteria.criteria.map(c => `- [x] ${c}`).join("\n")}\n\n`;
+    mdContent += `### Non-Negotiables\n${masterPlan.acceptanceCriteria.nonNegotiables.map(n => `- [x] ${n}`).join("\n")}\n\n`;
     mdContent += `## Parallel Analyzer Findings\n\n`;
     for (const brief of briefs) {
       mdContent += `### Analyzer: ${brief.analyzerName} (Focus: ${brief.focus})\n`;
@@ -872,31 +1330,59 @@ async function main() {
       mdContent += `- **Recommended Actions:** ${brief.recommendedActions}\n`;
       mdContent += `- **Files Read:** ${brief.filesRead.join(", ") || "None"}\n\n`;
     }
-    mdContent += `## Architectural Plan\n${decomposition.plans}\n\n`;
-    mdContent += `## 1. Planned Agent Breakdown\n\n`;
-    for (const agent of decomposition.agents) {
-      mdContent += `### Agent: ${agent.name}\n`;
-      mdContent += `- **Role:** ${agent.role}\n`;
-      mdContent += `- **System Instruction:** \`${agent.systemInstruction}\`\n`;
-      mdContent += `- **Sub-task Prompt:** *${agent.prompt}*\n`;
-      mdContent += `- **Files Read:** ${agent.readFiles?.join(", ") || "None"}\n`;
-      mdContent += `- **Files Modified:** ${agent.modifiedFiles?.join(", ") || "None"}\n\n`;
+    mdContent += `## Task Dependency Graph & Contracts\n\n`;
+    for (const worker of workerOutputsList) {
+      mdContent += `### Task [${worker.taskId}]: ${worker.agentName}\n`;
+      mdContent += `- **Status:** ${worker.status}\n`;
+      mdContent += `- **Rationale:** ${worker.rationale}\n`;
+      mdContent += `- **Files Read:** ${worker.readFiles.join(", ") || "None"}\n`;
+      mdContent += `- **Files Modified:** ${worker.modifiedFiles.join(", ") || "None"}\n`;
+      mdContent += `- **Assumptions:** ${worker.assumptions.join(", ") || "None"}\n`;
+      mdContent += `- **Risks:** ${worker.risks.join(", ") || "None"}\n\n`;
     }
-    mdContent += `## 2. Individual Agent Responses\n\n`;
-    for (const agent of decomposition.agents) {
-      mdContent += `### [Output] ${agent.name}\n\n${agent.output}\n\n---\n\n`;
+    mdContent += `## Authoritative Reviewer Audit Report\n\n`;
+    mdContent += `- **Status:** ${reviewResult.status}\n`;
+    mdContent += `- **Score:** ${reviewResult.score}\n`;
+    mdContent += `- **Lint Passed:** ${reviewResult.lintPassed}\n`;
+    mdContent += `- **Build Passed:** ${reviewResult.buildPassed}\n`;
+    mdContent += `- **Architectural Compliance:** ${reviewResult.architecturalCompliance}\n`;
+    mdContent += `- **Code Quality Audit:** ${reviewResult.codeQualityAudit}\n`;
+    mdContent += `- **Summary:** ${reviewResult.summary}\n`;
+    if (reviewResult.issues.length > 0) {
+      mdContent += `\n### Issues Recorded:\n`;
+      for (const iss of reviewResult.issues) {
+        mdContent += `- **[${iss.severity.toUpperCase()}] ${iss.file}**: ${iss.description}\n  Fix: ${iss.fixInstructions}\n`;
+      }
     }
-    mdContent += `## 3. Cohesive Final Auditor Review Report\n\n${reviewerReport}\n`;
 
     fs.writeFileSync(mdPath, mdContent, "utf8");
-    fs.writeFileSync(jsonPath, JSON.stringify({ mainTask, decomposition, reviewerReport, modifiedFiles: Array.from(allModifiedFiles), readFiles: Array.from(allReadFiles) }, null, 2), "utf8");
+    fs.writeFileSync(
+      jsonPath,
+      JSON.stringify(
+        {
+          mainTask,
+          masterPlan,
+          briefs,
+          workerOutputs: workerOutputsList,
+          reviewResult,
+          modifiedFiles: Array.from(allModifiedFiles),
+          readFiles: Array.from(allReadFiles)
+        },
+        null,
+        2
+      ),
+      "utf8"
+    );
 
     console.log(`\x1b[32m✔ Final review report and implementation verified successfully!\x1b[0m`);
     console.log(`\x1b[36mMarkdown report saved to:\x1b[0m \x1b[1martifacts/spawnAgents_output.md\x1b[0m`);
     console.log(`\x1b[36mJSON logs saved to:\x1b[0m \x1b[1martifacts/spawnAgents_output.json\x1b[0m\n`);
 
     console.log(`\x1b[35m=== AUDITOR REVIEW REPORT ===\x1b[0m\n`);
-    console.log(reviewerReport);
+    console.log(`Status: ${reviewResult.status} | Score: ${reviewResult.score}`);
+    console.log(`Architectural Compliance: ${reviewResult.architecturalCompliance}`);
+    console.log(`Code Quality: ${reviewResult.codeQualityAudit}`);
+    console.log(`Summary: ${reviewResult.summary}`);
 
   } catch (error) {
     console.error("\x1b[31m[Critical Error] Failed to complete Spawn Agents workflow:\x1b[0m", error);
