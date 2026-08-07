@@ -110,6 +110,7 @@ Ensure all animations adhere to the core principle of physical predictability:
 
 ## Interpolation & Tooling Rules
 - **Shadow Interpolation**: You MUST maintain a constant number of shadow layers across all animation states to ensure smooth interpolation. Use transparent placeholders (`0 0 0 rgba(0,0,0,0)`) for "empty" layers instead of removing them to prevent browser "snapping".
+- **Filter Interpolation**: You MUST use explicit keyframe arrays (e.g., `[fromBlur, toBlur]`) instead of `none` target-only values during active blur filter transitions to avoid sudden snapping and character jittering in stagger/delay timings.
 - **No CSS Transitions**: You are strictly forbidden from using the CSS `transition` property. All property interpolations must be handled via Framer Motion's `animate` prop to guarantee reliable multi-layer value transition.
 
 ## Safety Rules
