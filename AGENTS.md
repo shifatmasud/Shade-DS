@@ -11,6 +11,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - **spawn-agents** (found in `/skills/spawn-agents/SKILL.md`): Activate when orchestrating complex tasks, decomposing tasks into multiple worker agents, executing parallel codebase analysis, or generating detailed auditor reviews.
 - **modern-web-guidance** (found in `/skills/modern-web-guidance/SKILL.md`): Activate when applying modern browser APIs, performance optimizations, accessibility audits, or advanced CSS layouts.
 - **parasitic-dom-binding** (found in `/skills/parasitic-dom-binding/SKILL.md`): Activate when creating "self-aware" components that bind directly to parent or sibling DOM nodes to augment UI behavior or rendering (e.g., RippleLayer, StateLayer, SuccessLayer).
+- **decoupled-kinetic-scrub** (found in `/skills/decoupled-kinetic-scrub/SKILL.md`): Activate when decoupling onScroll inputs from rigid 1:1 scrubbing using virtual target anchors, spring dynamics, and kinetic momentum carry-over.
 - **agent-debugging** (found in `/skills/agent-debugging/SKILL.md`): Activate when encountering bugs, errors, failing tests, regressions, or unexpected behavior to apply scientific debugging principles.
 - **3d-light-design** (found in `/skills/3d-light-design/SKILL.md`): Activate when designing or modifying 3D scene lighting, shadows, reflections, and ambient illumination.
 
