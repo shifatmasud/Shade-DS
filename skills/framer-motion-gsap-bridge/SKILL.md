@@ -289,5 +289,5 @@ useGSAP(() => {
 ---
 
 # Related Advanced Skills
-- For parasitic typography splitting, two-tier clipping envelopes, and CMS rich text animations, see `/skills/parasitic-splittext-mask-slide/SKILL.md`.
+- For parasitic typography splitting, two-tier clipping envelopes, and CMS rich text animations, see `skills/framer-motion-gsap-bridge/parasitic-splittext-mask-slide/SKILL.md`.
 
