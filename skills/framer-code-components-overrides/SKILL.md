@@ -170,11 +170,13 @@ Treat props as the single source of truth for animation.
 
 See [references/props-driven-animation.md](references/props-driven-animation.md) for implementation details.
 
-### Shared Element Page Transitions with animateView
+### Shared Element Page Transitions (ScrollSectionRef + animateView)
 
-Use `animateView()` and parasitic DOM binding to morph shared elements across pages while applying crossfade, blur, and slide transitions to non-shared content.
+Perform app-like route transitions in Framer that morph shared elements across pages using `ScrollSectionRef` and Framer Motion's `animateView`.
 
-See [references/animateview-shared-element-transitions.md](references/animateview-shared-element-transitions.md) for complete implementation details.
+**Agent Rule**: Use `ControlType.ScrollSectionRef` to bind shared elements between routes and structure transitions using `animateView(update).add(from, to)` with `.old({ opacity: 0, y: exitOffset, filter: "blur(...)" })` and `.new({ opacity: 1, y: 0, filter: "blur(0px)" })`. Pass Framer `ControlType.Transition` configuration directly to `animateView`.
+
+See [references/shared-element-page-transitions.md](references/shared-element-page-transitions.md) for implementation details.
 
 ## Common Patterns
 

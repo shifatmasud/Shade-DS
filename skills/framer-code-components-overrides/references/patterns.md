@@ -397,3 +397,23 @@ export function withPropsAnimation(Component): ComponentType {
 ```
 
 See [references/props-driven-animation.md](props-driven-animation.md) for more details.
+
+## Shared Element Page Transitions
+
+Perform app-like route transitions in Framer that morph shared elements across pages using `ScrollSectionRef` and Framer Motion's `animateView`.
+
+```typescript
+// 1. Morph shared element between routes
+animateView(update).add(fromElement, toElement)
+
+// 2. Crossfade & translate non-shared page content
+animateView(update)
+    .old({ opacity: 0, y: 40, filter: "blur(8px)" })
+    .new({ opacity: 1, y: 0, filter: "blur(0px)" })
+
+// 3. Compatible with Framer Transition control
+animateView(update, ...transition)
+```
+
+See [references/shared-element-page-transitions.md](shared-element-page-transitions.md) for complete component implementation and details.
+
