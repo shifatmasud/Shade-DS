@@ -1,12 +1,12 @@
+import { addPropertyControls, ControlType, RenderTarget } from "framer"
 import {
     forwardRef,
     type ComponentType,
-    type MutableRefObject,
     useCallback,
     useEffect,
     useRef,
 } from "react"
-import { isStaticRenderer } from "framer"
+import { animate } from "framer-motion"
 
 const STORAGE_KEY = "ait"
 const MAX_SNAPSHOT_AGE_MS = 15000
@@ -52,7 +52,10 @@ function normalizeUrl(url: string): string {
 function getBaseImageUrl(url: string): string {
     if (!url) return ""
     try {
-        const u = new URL(url, typeof window !== "undefined" ? window.location.href : undefined)
+        const u = new URL(
+            url,
+            typeof window !== "undefined" ? window.location.href : undefined
+        )
         return u.origin + u.pathname
     } catch (_error) {
         return url.split("?")[0]
@@ -82,10 +85,16 @@ function isModifiedOrNonPrimaryClick(event: any): boolean {
     return false
 }
 
-function readSnapshot(): Snapshot | null {
+// Find the root-most container for page transitions (usually #root or body)
+function getPageTransitionTarget(el: HTMLElement | null): HTMLElement | null {
+    if (typeof document === "undefined") return el
+    return document.getElementById("root") || document.body || el
+}
+
+function readSnapshot(key: string = STORAGE_KEY): Snapshot | null {
     if (typeof window === "undefined") return null
     try {
-        const raw = window.sessionStorage.getItem(STORAGE_KEY)
+        const raw = window.sessionStorage.getItem(key)
         if (!raw) return null
         const parsed = JSON.parse(raw) as Snapshot
         if (!parsed) return null
@@ -114,10 +123,10 @@ function readSnapshot(): Snapshot | null {
     }
 }
 
-function clearSnapshot(): void {
+function clearSnapshot(key: string = STORAGE_KEY): void {
     if (typeof window === "undefined") return
     try {
-        window.sessionStorage.removeItem(STORAGE_KEY)
+        window.sessionStorage.removeItem(key)
     } catch (_error) {}
 }
 
@@ -192,7 +201,9 @@ function findBestVisualCandidate(
     // If we have a matching source URL, prioritize candidates matching the base URL
     if (matchingSrc) {
         const baseTarget = getBaseImageUrl(matchingSrc)
-        const matched = candidates.filter(c => getBaseImageUrl(c.src) === baseTarget)
+        const matched = candidates.filter(
+            (c) => getBaseImageUrl(c.src) === baseTarget
+        )
         if (matched.length > 0) {
             matched.sort((a, b) => getRectArea(b.rect) - getRectArea(a.rect))
             return matched[0]
@@ -203,134 +214,116 @@ function findBestVisualCandidate(
     return candidates[0]
 }
 
-export function CaptureArticleImageTransition(
-    Component: ComponentType<any>
-): ComponentType {
-    const Wrapper = forwardRef(function CaptureArticleImageTransitionOverride(
-        props: any,
-        ref
-    ) {
-        const lastCaptureSignatureRef = useRef<string>("")
+/**
+ * @framerDisableUnlink
+ * @framerIntrinsicWidth 1
+ * @framerIntrinsicHeight 1
+ */
+export default function ArticleTransition(props: any) {
+    const { mode, layoutId, targetName, transition } = props
+    const isCanvas = RenderTarget.current() === RenderTarget.canvas
+    const activeAnimationsRef = useRef<any[]>([])
+    const hasPlayedRef = useRef(false)
+    const lastPlayedUrlRef = useRef<string>("")
+    const currentUrl =
+        typeof window !== "undefined" ? window.location.href : ""
 
-        const tryCaptureSnapshot = useCallback((event: any) => {
-            if (isStaticRenderer()) return
-            if (typeof window === "undefined") return
-            if (isModifiedOrNonPrimaryClick(event)) return
+    useEffect(() => {
+        if (isCanvas || typeof document === "undefined") return
 
-            const container = event.currentTarget as HTMLElement | null
-            const candidate = findBestVisualCandidate(container, event.target)
-            if (!candidate || !candidate.src) return
-            const rect = candidate.rect
-            if (rect.width <= 0 || rect.height <= 0) return
+        if (mode === "Capture") {
+            const elements = document.querySelectorAll<HTMLElement>(
+                `[data-framer-name="${CSS.escape(targetName)}"]`
+            )
 
-            const eventTime =
-                typeof event.timeStamp === "number"
-                    ? Math.round(event.timeStamp)
-                    : Date.now()
-            const signature = `${eventTime}:${candidate.src}:${Math.round(rect.left)}:${Math.round(rect.top)}`
-            if (signature === lastCaptureSignatureRef.current) return
-            lastCaptureSignatureRef.current = signature
+            const tryCaptureSnapshot = (event: any) => {
+                if (isModifiedOrNonPrimaryClick(event)) return
 
-            // Capture document-relative coordinates to protect against scroll offsets
-            const snapshot: Snapshot = {
-                src: candidate.src,
-                x: rect.left + window.scrollX,
-                y: rect.top + window.scrollY,
-                width: rect.width,
-                height: rect.height,
-                fit: candidate.fit || "cover",
-                radius: candidate.radius || "0px",
-                ts: Date.now(),
+                const container = event.currentTarget as HTMLElement | null
+                const candidate = findBestVisualCandidate(
+                    container,
+                    event.target
+                )
+                if (!candidate || !candidate.src) return
+                const rect = candidate.rect
+                if (rect.width <= 0 || rect.height <= 0) return
+
+                // Capture document-relative coordinates to protect against scroll offsets
+                const snapshot: Snapshot = {
+                    src: candidate.src,
+                    x: rect.left + window.scrollX,
+                    y: rect.top + window.scrollY,
+                    width: rect.width,
+                    height: rect.height,
+                    fit: candidate.fit || "cover",
+                    radius: candidate.radius || "0px",
+                    ts: Date.now(),
+                }
+
+                try {
+                    window.sessionStorage.setItem(
+                        layoutId || STORAGE_KEY,
+                        JSON.stringify(snapshot)
+                    )
+
+                    // Exit animation for the whole page
+                    const pageTarget = getPageTransitionTarget(container)
+                    if (pageTarget) {
+                        animate(
+                            pageTarget,
+                            {
+                                filter: "blur(20px)",
+                                opacity: 0,
+                                y: -10,
+                                scale: 0.98,
+                            },
+                            {
+                                duration: 0.4,
+                                ease: [0.4, 0, 1, 1],
+                            }
+                        )
+                    }
+                } catch (_error) {}
             }
 
-            try {
-                window.sessionStorage.setItem(
-                    STORAGE_KEY,
-                    JSON.stringify(snapshot)
-                )
-            } catch (_error) {}
-        }, [])
+            const handlePointerDown = (event: any) => tryCaptureSnapshot(event)
+            const handleClick = (event: any) => tryCaptureSnapshot(event)
 
-        const handlePointerDownCapture = useCallback(
-            (event: any) => {
-                props.onPointerDownCapture?.(event)
-                if (event.defaultPrevented) return
-                tryCaptureSnapshot(event)
-            },
-            [props, tryCaptureSnapshot]
-        )
+            elements.forEach((el) => {
+                el.addEventListener("pointerdown", handlePointerDown, {
+                    capture: true,
+                })
+                el.addEventListener("click", handleClick, { capture: true })
+            })
 
-        const handleClickCapture = useCallback(
-            (event: any) => {
-                props.onClickCapture?.(event)
-                if (event.defaultPrevented) return
-                tryCaptureSnapshot(event)
-            },
-            [props, tryCaptureSnapshot]
-        )
+            return () => {
+                elements.forEach((el) => {
+                    el.removeEventListener("pointerdown", handlePointerDown, {
+                        capture: true,
+                    })
+                    el.removeEventListener("click", handleClick, {
+                        capture: true,
+                    })
+                })
+            }
+        }
 
-        return (
-            <Component
-                ref={ref}
-                {...props}
-                onPointerDownCapture={handlePointerDownCapture}
-                onClickCapture={handleClickCapture}
-            />
-        )
-    })
-    Wrapper.displayName = "CaptureArticleImageTransition"
-    return Wrapper
-}
-
-export function PlayArticleImageTransition(
-    Component: ComponentType<any>
-): ComponentType {
-    const Wrapper = forwardRef(function PlayArticleImageTransitionOverride(
-        props: any,
-        ref
-    ) {
-        const elementRef = useRef<HTMLElement | null>(null)
-        const hasPlayedRef = useRef(false)
-        const lastPlayedUrlRef = useRef<string>("")
-        const activeAnimationsRef = useRef<any[]>([])
-
-        const setRefs = useCallback(
-            (node: HTMLElement | null) => {
-                elementRef.current = node
-                if (typeof ref === "function") {
-                    ref(node)
-                } else if (ref && typeof ref === "object") {
-                    ;(ref as MutableRefObject<HTMLElement | null>).current =
-                        node
-                }
-            },
-            [ref]
-        )
-
-        const currentUrl = typeof window !== "undefined" ? window.location.href : ""
-
-        useEffect(() => {
-            if (typeof window === "undefined" || typeof document === "undefined") return
-
+        if (mode === "Play") {
             // Reset played state if URL has changed to handle single-page dynamic app routing
             if (window.location.href !== lastPlayedUrlRef.current) {
                 hasPlayedRef.current = false
                 lastPlayedUrlRef.current = window.location.href
             }
 
-            const snapshot = readSnapshot()
+            const currentLayoutId = layoutId || STORAGE_KEY
+            const snapshot = readSnapshot(currentLayoutId)
             if (!snapshot) return
-            if (hasPlayedRef.current || isStaticRenderer()) return
+            if (hasPlayedRef.current) return
             if (isReducedMotion()) return
-            if (
-                typeof Element === "undefined" ||
-                typeof Element.prototype.animate !== "function"
-            )
-                return
 
             const age = Date.now() - snapshot.ts
             if (age < 0 || age > MAX_SNAPSHOT_AGE_MS) {
-                clearSnapshot()
+                clearSnapshot(currentLayoutId)
                 return
             }
 
@@ -347,7 +340,7 @@ export function PlayArticleImageTransition(
                 if (hasPlayedRef.current) return
 
                 const destinationRadius = target.radius || "0px"
-                const destinationElement = target.imageEl ?? elementRef.current
+                const destinationElement = target.imageEl
                 if (!destinationElement) return
 
                 // Get absolute target coordinates relative to the page document
@@ -359,7 +352,7 @@ export function PlayArticleImageTransition(
                 overlay.src = snapshot.src
                 overlay.alt = ""
                 overlay.setAttribute("aria-hidden", "true")
-                
+
                 // Using position: absolute locked to document scroll context to eliminate scroll jitter
                 overlay.style.position = "absolute"
                 overlay.style.left = `${snapshot.x}px`
@@ -369,7 +362,8 @@ export function PlayArticleImageTransition(
                 overlay.style.objectFit = snapshot.fit || "cover"
                 overlay.style.borderRadius = snapshot.radius || "0px"
                 overlay.style.transformOrigin = "top left"
-                overlay.style.transform = "translate3d(0px, 0px, 0px) scale(1, 1)"
+                overlay.style.transform =
+                    "translate3d(0px, 0px, 0px) scale(1, 1)"
                 overlay.style.opacity = "1"
                 overlay.style.pointerEvents = "none"
                 overlay.style.zIndex = "2147483647"
@@ -380,14 +374,36 @@ export function PlayArticleImageTransition(
                 const previousOpacity = destinationElement.style.opacity
                 destinationElement.style.opacity = "0"
 
+                const pageTarget = getPageTransitionTarget(destinationElement)
+                const previousPageOpacity = pageTarget
+                    ? pageTarget.style.opacity
+                    : ""
+                const previousPageFilter = pageTarget
+                    ? pageTarget.style.filter
+                    : ""
+                const previousPageTransform = pageTarget
+                    ? pageTarget.style.transform
+                    : ""
+
                 let cleaned = false
                 const cleanup = () => {
                     if (cleaned) return
                     cleaned = true
                     destinationElement.style.opacity = previousOpacity
+                    if (pageTarget) {
+                        pageTarget.style.opacity = previousPageOpacity
+                        pageTarget.style.filter = previousPageFilter
+                        pageTarget.style.transform = previousPageTransform
+                    }
                     if (overlay.parentNode) {
                         overlay.parentNode.removeChild(overlay)
                     }
+                }
+
+                // Initial state for page transition to avoid flash
+                if (pageTarget) {
+                    pageTarget.style.opacity = "0"
+                    pageTarget.style.filter = "blur(20px)"
                 }
 
                 // Compute exact deltas and scales in document coordinates
@@ -397,45 +413,62 @@ export function PlayArticleImageTransition(
                 const scaleY = destRect.height / snapshot.height
 
                 try {
-                    const animation = overlay.animate(
-                        [
-                            {
-                                transform: "translate3d(0px, 0px, 0px) scale(1, 1)",
-                                opacity: 1,
-                                borderRadius: snapshot.radius || "0px",
-                            },
-                            {
-                                transform: `translate3d(${deltaX}px, ${deltaY}px, 0px) scale(${scaleX}, ${scaleY})`,
-                                opacity: 1,
-                                borderRadius: destinationRadius,
-                            },
-                        ],
+                    // Shared image morph animation using Framer Motion
+                    const morphAnimation = animate(
+                        overlay,
                         {
-                            duration: 460,
-                            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-                            fill: "forwards",
+                            x: deltaX,
+                            y: deltaY,
+                            scaleX: scaleX,
+                            scaleY: scaleY,
+                            borderRadius: destinationRadius,
+                        },
+                        transition || {
+                            duration: 0.5,
+                            ease: [0.22, 1, 0.36, 1],
                         }
                     )
 
-                    const destAnimation = destinationElement.animate(
-                        [{ opacity: 0 }, { opacity: 1 }],
+                    // Page entrance animation using Framer Motion
+                    const pageAnimation = pageTarget
+                        ? animate(
+                              pageTarget,
+                              {
+                                  opacity: 1,
+                                  filter: "blur(0px)",
+                                  y: 0,
+                                  scale: 1,
+                              },
+                              {
+                                  duration: 0.8,
+                                  delay: 0.05,
+                                  ease: [0.22, 1, 0.36, 1],
+                              }
+                          )
+                        : null
+
+                    // Destination image fade-in
+                    const destAnimation = animate(
+                        destinationElement,
+                        { opacity: 1 },
                         {
-                            duration: 220,
-                            easing: "ease-out",
-                            delay: 280,
-                            fill: "forwards",
+                            duration: 0.3,
+                            delay: 0.3,
+                            ease: "easeOut",
                         }
                     )
 
-                    activeAnimationsRef.current.push(animation, destAnimation)
+                    activeAnimationsRef.current.push(morphAnimation)
+                    if (pageAnimation)
+                        activeAnimationsRef.current.push(pageAnimation)
+                    activeAnimationsRef.current.push(destAnimation)
 
                     const finish = () => {
                         cleanup()
-                        clearSnapshot()
+                        clearSnapshot(currentLayoutId)
                     }
 
-                    animation.onfinish = finish
-                    animation.oncancel = finish
+                    morphAnimation.then(finish).catch(finish)
                     window.setTimeout(finish, FALLBACK_CLEANUP_MS)
                     hasPlayedRef.current = true
                 } catch (_error) {
@@ -446,16 +479,23 @@ export function PlayArticleImageTransition(
             const checkReady = () => {
                 if (cancelled) return
                 const elapsed = Date.now() - startAt
-                const liveSnapshot = readSnapshot()
+                const liveSnapshot = readSnapshot(currentLayoutId)
                 if (!liveSnapshot) return
                 if (Date.now() - liveSnapshot.ts > MAX_SNAPSHOT_AGE_MS) {
-                    clearSnapshot()
+                    clearSnapshot(currentLayoutId)
                     return
                 }
                 if (elapsed > READINESS_TIMEOUT_MS) return
 
-                // Retrieve the matching target image based on the snapshot's source URL (fuzzy base match)
-                const target = findBestVisualCandidate(elementRef.current, null, liveSnapshot.src)
+                // Retrieve the matching target element based on data-framer-name
+                const targetRoot = document.querySelector<HTMLElement>(
+                    `[data-framer-name="${CSS.escape(targetName)}"]`
+                )
+                const target = findBestVisualCandidate(
+                    targetRoot,
+                    null,
+                    liveSnapshot.src
+                )
                 if (
                     !target ||
                     target.rect.width <= 0 ||
@@ -472,8 +512,11 @@ export function PlayArticleImageTransition(
                 }
 
                 // Verify base image match to resolve responsive CMS image sizes
-                if (getBaseImageUrl(targetSrc) !== getBaseImageUrl(liveSnapshot.src)) {
-                    clearSnapshot()
+                if (
+                    getBaseImageUrl(targetSrc) !==
+                    getBaseImageUrl(liveSnapshot.src)
+                ) {
+                    rafId = window.requestAnimationFrame(checkReady)
                     return
                 }
 
@@ -491,8 +534,6 @@ export function PlayArticleImageTransition(
                     return
                 }
 
-                // Start transition immediately without waiting for image download or decode.
-                // Since the source image is already cached, it will render instantly.
                 startAnimation(target)
             }
 
@@ -506,17 +547,57 @@ export function PlayArticleImageTransition(
                 cancelled = true
                 if (rafId) window.cancelAnimationFrame(rafId)
                 if (timeoutId) window.clearTimeout(timeoutId)
-                activeAnimationsRef.current.forEach(anim => {
+                activeAnimationsRef.current.forEach((anim) => {
                     try {
-                        anim.cancel()
+                        anim.stop()
                     } catch (_e) {}
                 })
                 activeAnimationsRef.current = []
             }
-        }, [currentUrl, props])
+        }
+    }, [mode, targetName, layoutId, currentUrl, isCanvas, transition])
 
-        return <Component ref={setRefs} {...props} />
-    })
-    Wrapper.displayName = "PlayArticleImageTransition"
-    return Wrapper
+    return (
+        <div
+            style={{
+                width: 1,
+                height: 1,
+                position: "absolute",
+                opacity: 0,
+                pointerEvents: "none",
+            }}
+        />
+    )
 }
+
+ArticleTransition.defaultProps = {
+    mode: "Capture",
+    layoutId: "article-hero",
+    targetName: "Hero Image",
+}
+
+addPropertyControls(ArticleTransition, {
+    mode: {
+        type: ControlType.Enum,
+        options: ["Capture", "Play"],
+        optionTitles: ["Capture (Link Source)", "Play (Page Destination)"],
+        defaultValue: "Capture",
+    },
+    layoutId: {
+        type: ControlType.String,
+        title: "Layout ID",
+        defaultValue: "article-hero",
+        description: "Shared ID between source card and destination page.",
+    },
+    targetName: {
+        type: ControlType.String,
+        title: "Target Name",
+        defaultValue: "Hero Image",
+        description: "data-framer-name of the element to capture or animate.",
+    },
+    transition: {
+        type: ControlType.Transition,
+        title: "Transition",
+    },
+})
+
