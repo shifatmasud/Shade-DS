@@ -1,15 +1,14 @@
 import React, { useRef, useState, useEffect, useCallback } from "react"
 import { addPropertyControls, ControlType, RenderTarget } from "framer"
+import {animateView } from "framer-motion"
 
-// Type interface for undocumented ScrollSectionRef
 export interface ScrollSectionRef {
     current: HTMLElement | null
 }
 
 export interface SharedElementTransitionProps {
+    mode?: "auto" | "old page" | "new page"
     section?: ScrollSectionRef
-    viewport?: "top" | "center" | "bottom"
-    sectionIdentifier?: string
     transition?: any
     exitOffset?: number
     entryOffset?: number
@@ -17,18 +16,31 @@ export interface SharedElementTransitionProps {
     style?: React.CSSProperties
 }
 
+interface SharedElementRegistry {
+    lastOutgoingRect: DOMRect | null
+    lastOutgoingPath: string
+    activeIdentifier: string
+    snapshotTimestamp: number
+}
+
+const globalRegistry: SharedElementRegistry = {
+    lastOutgoingRect: null,
+    lastOutgoingPath: "",
+    activeIdentifier: "shared-section",
+    snapshotTimestamp: 0,
+}
+
 /**
  * @framerDisableUnlink
- * @framerIntrinsicWidth 240
- * @framerIntrinsicHeight 48
+ * @framerIntrinsicWidth 260
+ * @framerIntrinsicHeight 52
  * @framerSupportedLayoutWidth any-prefer-fixed
  * @framerSupportedLayoutHeight any-prefer-fixed
  */
 export default function SharedElementTransition(props: SharedElementTransitionProps) {
     const {
+        mode = "auto",
         section,
-        viewport = "top",
-        sectionIdentifier = "shared-hero",
         transition = {
             type: "spring",
             stiffness: 300,
@@ -43,55 +55,102 @@ export default function SharedElementTransition(props: SharedElementTransitionPr
 
     const [isClient, setIsClient] = useState(false)
     const isNavigating = useRef(false)
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    // Load theme using the robust token helper pattern
+    let theme: any = {
+        Color: {
+            Base: {
+                Surface: { "1": "#121212", "2": "#1E1E1E", "3": "#333333" },
+                Content: { "1": "#E0E0E0", "2": "#AAAAAA", "3": "#777777" }
+            },
+            Focus: {
+                Surface: { "1": "#0D1B2A" },
+                Content: { "1": "#64B5F6" }
+            }
+        },
+        radius: { "Radius.M": "8px" },
+        border: {
+            getBorder1px: (color: string) => ({
+                border: "none",
+                boxShadow: `0 0 1px 0px ${color}, inset 0 0 1px 0px ${color}`
+            })
+        }
+    }
 
     useEffect(() => {
         setIsClient(true)
     }, [])
 
-    /**
-     * Resolves the target element designated by the ScrollSectionRef or fallback identifier
-     */
     const resolveTargetElement = useCallback(
         (doc: Document | HTMLElement = document): HTMLElement | null => {
-            // Direct reference when inside the active DOM
-            if (section?.current && doc === document) {
-                return section.current
+            if (doc === document) {
+                return section?.current || null
             }
-
-            // Target via data attributes or custom ID
-            if (sectionIdentifier) {
-                return (
-                    doc.querySelector(`[data-framer-name="${sectionIdentifier}"]`) ||
-                    doc.querySelector(`[data-scroll-section="${sectionIdentifier}"]`) ||
-                    doc.querySelector(`#${sectionIdentifier}`)
-                )
+            // For the incoming document clone (newDoc), match using the exact ID or structural tag of the outgoing section
+            const outgoingEl = section?.current
+            if (outgoingEl) {
+                if (outgoingEl.id) {
+                    const matched = doc.querySelector(`#${outgoingEl.id}`)
+                    if (matched) return matched as HTMLElement
+                }
+                const selector = outgoingEl.className
+                    ? `${outgoingEl.tagName.toLowerCase()}.${outgoingEl.className.split(" ").join(".")}`
+                    : outgoingEl.tagName.toLowerCase()
+                try {
+                    const matched = doc.querySelector(selector)
+                    if (matched) return matched as HTMLElement
+                } catch (e) {
+                    // Ignore selector errors
+                }
             }
             return null
         },
-        [section, sectionIdentifier]
+        [section]
     )
 
-    /**
-     * Choreographs the 6-step transition lifecycle
-     */
+    useEffect(() => {
+        if (!isClient) return
+
+        const currentTarget = resolveTargetElement(document)
+        if (currentTarget) {
+            const rect = currentTarget.getBoundingClientRect()
+            if (mode === "old page" || (mode === "auto" && !globalRegistry.lastOutgoingRect)) {
+                globalRegistry.lastOutgoingRect = rect
+                globalRegistry.lastOutgoingPath = window.location.pathname
+                globalRegistry.snapshotTimestamp = Date.now()
+            }
+        }
+    }, [isClient, mode, resolveTargetElement])
+
     const performPageTransition = useCallback(
         async (destinationUrl: string) => {
             if (isNavigating.current) return
             isNavigating.current = true
 
             const fromElement = resolveTargetElement(document)
+            if (fromElement) {
+                globalRegistry.lastOutgoingRect = fromElement.getBoundingClientRect()
+                globalRegistry.lastOutgoingPath = window.location.pathname
+                globalRegistry.snapshotTimestamp = Date.now()
+            }
 
             try {
-                // Fetch destination HTML
                 const response = await fetch(destinationUrl)
+                if (!response.ok) throw new Error(`HTTP ${response.status} loading ${destinationUrl}`)
                 const htmlText = await response.text()
                 const parser = new DOMParser()
                 const newDoc = parser.parseFromString(htmlText, "text/html")
 
-                // Asynchronous update callback that mutates the DOM
                 const swapDOM = async () => {
-                    const currentRoot = document.querySelector("[data-framer-root]") || document.body
-                    const newRoot = newDoc.querySelector("[data-framer-root]") || newDoc.body
+                    const currentRoot =
+                        document.querySelector("[data-framer-root]") ||
+                        document.querySelector("#main") ||
+                        document.body
+                    const newRoot =
+                        newDoc.querySelector("[data-framer-root]") ||
+                        newDoc.querySelector("#main") ||
+                        newDoc.body
 
                     if (currentRoot && newRoot) {
                         currentRoot.innerHTML = newRoot.innerHTML
@@ -102,74 +161,58 @@ export default function SharedElementTransition(props: SharedElementTransitionPr
                     window.scrollTo(0, 0)
                 }
 
-                // Check for Framer Motion animateView API
-                if (typeof (window as any).animateView === "function") {
-                    const updateTransition = (window as any).animateView(swapDOM, transition)
+                // Check for animateView support
+                const runAnimateView = typeof animateView === "function" ? animateView : (window as any).animateView
+
+                if (typeof runAnimateView === "function") {
+                    const updateTransition = runAnimateView(swapDOM, transition)
 
                     if (fromElement) {
                         const toElement = resolveTargetElement(document)
                         if (toElement) {
-                            // Morph shared element
                             updateTransition.add(fromElement, toElement)
                         }
                     }
 
-                    // Choreograph exit and entry for non-shared page content
                     updateTransition
                         .old({
                             opacity: 0,
-                            y: exitOffset,
+                            transform: `translateY(${exitOffset}px)`,
                             filter: `blur(${blurAmount}px)`,
                         })
                         .new({
                             opacity: 1,
-                            y: 0,
+                            transform: "translateY(0px)",
                             filter: "blur(0px)",
                         })
 
                     await updateTransition.finished
-                } else if (document.startViewTransition) {
-                    // Browser native View Transitions fallback
-                    if (fromElement) {
-                        fromElement.style.viewTransitionName = "shared-element-morph"
-                    }
-
-                    const viewTransition = document.startViewTransition(async () => {
-                        await swapDOM()
-                        const toElement = resolveTargetElement(document)
-                        if (toElement) {
-                            toElement.style.viewTransitionName = "shared-element-morph"
-                        }
-                    })
-
-                    await viewTransition.finished
-                    if (fromElement) fromElement.style.viewTransitionName = ""
                 } else {
-                    // Direct swap fallback
                     await swapDOM()
                 }
             } catch (error) {
-                console.warn("[SharedElementTransition] Falling back to standard navigation:", error)
+                console.warn("[SharedElementTransition] Falling back to direct navigation:", error)
                 window.location.href = destinationUrl
-            } finally {
+            } {
                 isNavigating.current = false
             }
         },
-        [resolveTargetElement, transition, exitOffset, entryOffset, blurAmount]
+        [resolveTargetElement, transition, exitOffset, blurAmount]
     )
 
-    // Intercept navigation links
     useEffect(() => {
         if (!isClient) return
         if (RenderTarget.current() === RenderTarget.canvas) return
 
         const handleAnchorClick = (e: MouseEvent) => {
+            if (mode === "new page") return
+
             const anchor = (e.target as HTMLElement).closest("a")
             if (!anchor) return
 
             const href = anchor.getAttribute("href")
-            if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return
-            if (anchor.target === "_blank" || e.metaKey || e.ctrlKey || e.shiftKey) return
+            if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) return
+            if (anchor.target === "_blank" || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
 
             const targetUrl = new URL(anchor.href, window.location.origin)
             if (targetUrl.origin !== window.location.origin) return
@@ -190,7 +233,7 @@ export default function SharedElementTransition(props: SharedElementTransitionPr
             document.removeEventListener("click", handleAnchorClick, { capture: true })
             window.removeEventListener("popstate", handlePopState)
         }
-    }, [isClient, performPageTransition])
+    }, [isClient, mode, performPageTransition])
 
     if (!isClient) {
         return <div style={{ display: "none", ...style }} />
@@ -198,56 +241,61 @@ export default function SharedElementTransition(props: SharedElementTransitionPr
 
     const isOnCanvas = RenderTarget.current() === RenderTarget.canvas
 
+    const badgeStyle: React.CSSProperties = {
+        display: isOnCanvas ? "flex" : "none",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+        padding: "8px 14px",
+        borderRadius: theme.radius["Radius.M"] || 8,
+        background: theme.Color.Focus.Surface["1"] || "rgba(0, 153, 255, 0.08)",
+        border: "1px dashed " + (theme.Color.Focus.Content["1"] || "rgba(0, 153, 255, 0.4)"),
+        color: theme.Color.Focus.Content["1"] || "#0099ff",
+        fontSize: 12,
+        fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+        fontWeight: 500,
+        userSelect: "none",
+        width: "100%",
+        ...style,
+    }
+
     return (
-        <div
-            style={{
-                display: isOnCanvas ? "flex" : "none",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                padding: "8px 16px",
-                borderRadius: 8,
-                background: "rgba(0, 153, 255, 0.08)",
-                border: "1px dashed rgba(0, 153, 255, 0.4)",
-                color: "#0099ff",
-                fontSize: 12,
-                fontFamily: "Inter, sans-serif",
-                fontWeight: 500,
-                ...style,
-            }}
-        >
-            <span style={{ fontSize: 14 }}>✦</span>
-            <span>Shared Page Transition ({sectionIdentifier})</span>
+        <div ref={containerRef} style={badgeStyle}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 13 }}>✦</span>
+                <span>Shared Transition</span>
+            </div>
+            <span
+                style={{
+                    fontSize: 10,
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    background: "rgba(0, 153, 255, 0.15)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    fontWeight: 600,
+                }}
+            >
+                {mode === "auto" ? "Auto" : mode === "old page" ? "Old Page" : "New Page"}
+            </span>
         </div>
     )
 }
 
 addPropertyControls(SharedElementTransition, {
+    mode: {
+        type: ControlType.Enum,
+        title: "Mode",
+        options: ["auto", "old page", "new page"],
+        optionTitles: ["Auto Detect", "Old Page (Outgoing)", "New Page (Incoming)"],
+        defaultValue: "auto",
+        description: "Observe prop change between component instance between two pages.",
+    },
     section: {
         // @ts-ignore
         type: ControlType.ScrollSectionRef,
         title: "Shared Section",
         description: "Select the scroll section to preserve and morph across pages",
-    },
-    viewport: {
-        type: ControlType.Enum,
-        title: "Viewport",
-        displaySegmentedControl: true,
-        options: ["top", "center", "bottom"],
-        optionTitles: [
-            "Top (Viewport Top)",
-            "Center (Viewport Center)",
-            "Bottom (Viewport Bottom)",
-        ],
-        // @ts-ignore
-        optionIcons: ["align-top", "align-middle", "align-bottom"],
-        defaultValue: "top",
-    },
-    sectionIdentifier: {
-        type: ControlType.String,
-        title: "Identifier",
-        defaultValue: "shared-hero",
-        description: "Fallback name or data-framer-name matching the destination element",
     },
     transition: {
         type: ControlType.Transition,

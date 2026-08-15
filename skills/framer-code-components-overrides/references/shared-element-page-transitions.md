@@ -19,456 +19,44 @@ Outgoing Page (Route A)                         Incoming Page (Route B)
 │                                 │             │                                 │
 │ Non-Shared Body Content         │             │ Non-Shared Detail Content       │
 │ [Fade Out + Blur + Slide Down]  │             │ [Fade In + De-blur + Slide Up]  │
-└─────────────────────────────────┘             └─────────────────────────────────┘
+│ └─────────────────────────────────┘             └─────────────────────────────────┘
                  │                                               ▲
                  └───────── History API (pushState) ─────────────┘
 ```
 
 ---
 
-## The 6-Step Transition Model
+## The Mode System: Instance State Observation
 
-The entire transition lifecycle follows six distinct stages:
+When choreographing transitions across two distinct page component trees in Framer, the component supports three observation modes:
 
-```
-1. Detect Navigation (Click / popstate interception)
-               │
-               ▼
-2. Identify Shared Elements (Match ScrollSectionRef / section ID)
-               │
-               ▼
-3. Morph Shared Elements (animateView(update).add(fromEl, toEl))
-               │
-               ▼
-4. Exit Non-Shared Content (Fade out + blur + slide down translateY)
-               │
-               ▼
-5. Enter Non-Shared Content (Fade in + de-blur + slide up translateY)
-               │
-               ▼
-6. Update History & State (history.pushState without full reload)
-```
-
-### 1. Detect Navigation
-Intercept internal link clicks (`<a href="...">`) or `popstate` events. Prevent the default browser full-page reload when navigating between internal Framer routes:
-```typescript
-const handleAnchorClick = (e: MouseEvent) => {
-    const anchor = (e.target as HTMLElement).closest("a")
-    if (!anchor || anchor.target === "_blank") return
-    
-    const targetUrl = new URL(anchor.href, window.location.origin)
-    if (targetUrl.origin !== window.location.origin) return // Ignore external links
-    if (targetUrl.pathname === window.location.pathname) return // Ignore same-page links
-    
-    e.preventDefault()
-    performTransition(targetUrl.pathname + targetUrl.search)
-}
-```
-
-### 2. Identify Shared Elements
-Query the DOM for the outgoing shared element designated by `ScrollSectionRef` (or matching `data-framer-name` / `id` / `data-scroll-section`). Before updating the DOM, capture the element reference:
-```typescript
-const fromElement = section?.current || document.querySelector(`[data-framer-name="${sectionName}"]`)
-```
-
-### 3. Morph Shared Element
-During the `animateView` update callback, swap the page content and query the incoming shared element on the new page, adding both to the morph pipeline:
-```typescript
-animateView(async () => {
-    // 1. Fetch & swap page DOM
-    await swapPageContent(destinationUrl)
-    // 2. Query target element on newly mounted page
-    const toElement = document.querySelector(`[data-framer-name="${sectionName}"]`)
-    // 3. Register morph pair
-    if (fromElement && toElement) {
-        return { from: fromElement, to: toElement }
-    }
-}).add(fromElement, toElement)
-```
-
-### 4. Exit Non-Shared Content
-Choreograph all non-shared outgoing page content to fade out, blur, and translate vertically downwards:
-```typescript
-animateView(update)
-    .old({
-        opacity: 0,
-        y: exitOffset, // e.g. 40px down
-        filter: `blur(${blurAmount}px)`,
-    })
-```
-
-### 5. Enter Non-Shared Content
-Choreograph incoming non-shared page content to fade in, clear blur, and translate into its natural resting position from an offset:
-```typescript
-animateView(update)
-    .new({
-        opacity: 1,
-        y: 0,
-        filter: "blur(0px)",
-    })
-```
-
-### 6. Update Browser History
-Update browser history via `window.history.pushState` and manage scroll restoration without triggering a full document reload:
-```typescript
-window.history.pushState({ path: destinationUrl }, "", destinationUrl)
-```
+| Mode | Property Value | Behavior | Use Case |
+| :--- | :--- | :--- | :--- |
+| **Auto Detect** | `"auto"` | Automatically detects outgoing vs. incoming navigation based on URL matching and route history. | Default single-component drop-in on shared layouts or layout templates. |
+| **Old Page (Outgoing)** | `"old page"` | Actively monitors user click actions, freezes snapshot geometry, and prepares the outgoing exit snapshot. | Explicitly pinned on list/index pages (e.g. Card Grid) navigating to Detail views. |
+| **New Page (Incoming)** | `"new page"` | Inactive on link clicks; activates immediately upon route mount to receive target geometry and execute the `.new()` spring entry. | Explicitly pinned on destination/detail pages (e.g. Project Detail) receiving the morph. |
 
 ---
 
-## `animateView` Syntax & Integration
+## Property Controls Schema
 
-`animateView` wraps the asynchronous DOM mutation and configures element morphing, crossfades, and transition curve options.
-
-### 1. Morph Shared Elements
-```typescript
-// Morph shared elements between old and new snapshots
-animateView(update).add(fromElement, toElement)
-```
-
-### 2. Crossfade Page Transition
-```typescript
-// Fade + blur + vertical translation for page content
-animateView(update)
-    .old({ 
-        opacity: 0, 
-        y: 40, 
-        filter: "blur(10px)" 
-    })
-    .new({ 
-        opacity: 1, 
-        y: 0, 
-        filter: "blur(0px)" 
-    })
-```
-
-### 3. Framer `ControlType.Transition` Compatibility
-`animateView` accepts standard Framer Motion transition parameters directly from Framer's `ControlType.Transition`:
-```typescript
-animateView(update, {
-    duration: transition.duration ?? 0.5,
-    ease: transition.ease ?? [0.16, 1, 0.3, 1],
-    ...transition,
-})
-```
-
----
-
-## Property Controls Definition
-
-When building the Framer Code Component, expose `ScrollSectionRef`, `viewport`, `transition`, and motion tuning parameters:
+The component exposes the following schema in Framer's property inspector:
 
 ```typescript
-import { addPropertyControls, ControlType } from "framer"
-
 addPropertyControls(SharedElementTransition, {
+    mode: {
+        type: ControlType.Enum,
+        title: "Mode",
+        options: ["auto", "old page", "new page"],
+        optionTitles: ["Auto Detect", "Old Page (Outgoing)", "New Page (Incoming)"],
+        defaultValue: "auto",
+        description: "Observe prop change between component instance between two pages.",
+    },
     section: {
         // @ts-ignore
         type: ControlType.ScrollSectionRef,
         title: "Shared Section",
         description: "Select the scroll section to preserve and morph across pages",
-    },
-    viewport: {
-        type: ControlType.Enum,
-        title: "Viewport",
-        displaySegmentedControl: true,
-        options: ["top", "center", "bottom"],
-        optionTitles: [
-            "Top (Viewport Top)",
-            "Center (Viewport Center)",
-            "Bottom (Viewport Bottom)",
-        ],
-        // @ts-ignore
-        optionIcons: ["align-top", "align-middle", "align-bottom"],
-        defaultValue: "top",
-    },
-    sectionIdentifier: {
-        type: ControlType.String,
-        title: "Section ID",
-        defaultValue: "hero-section",
-        description: "Fallback name or data-framer-name matching the destination element",
-    },
-    transition: {
-        type: ControlType.Transition,
-        title: "Transition",
-        defaultValue: {
-            type: "spring",
-            stiffness: 300,
-            damping: 30,
-            duration: 0.6,
-        },
-    },
-    exitOffset: {
-        type: ControlType.Number,
-        title: "Exit Slide Y",
-        min: -200,
-        max: 200,
-        step: 5,
-        defaultValue: 40,
-        unit: "px",
-    },
-    entryOffset: {
-        type: ControlType.Number,
-        title: "Entry Slide Y",
-        min: -200,
-        max: 200,
-        step: 5,
-        defaultValue: -40,
-        unit: "px",
-    },
-    blurAmount: {
-        type: ControlType.Number,
-        title: "Blur",
-        min: 0,
-        max: 30,
-        step: 1,
-        defaultValue: 8,
-        unit: "px",
-    },
-})
-```
-
----
-
-## Production-Ready Component Implementation
-
-Below is a complete, hydration-safe Framer Code Component for seamless shared element page transitions.
-
-```tsx
-import type { ComponentType } from "react"
-import { useEffect, useRef, useState, useCallback } from "react"
-import { addPropertyControls, ControlType, RenderTarget } from "framer"
-
-// Type definition for undocumented ScrollSectionRef
-interface ScrollSectionRef {
-    current: HTMLElement | null
-}
-
-interface TransitionProps {
-    section?: ScrollSectionRef
-    viewport?: "top" | "center" | "bottom"
-    sectionIdentifier?: string
-    transition?: any
-    exitOffset?: number
-    entryOffset?: number
-    blurAmount?: number
-    style?: React.CSSProperties
-}
-
-/**
- * @framerDisableUnlink
- * @framerIntrinsicWidth 100
- * @framerIntrinsicHeight 100
- * @framerSupportedLayoutWidth any-prefer-fixed
- * @framerSupportedLayoutHeight any-prefer-fixed
- */
-export default function SharedElementPageTransition(props: TransitionProps) {
-    const {
-        section,
-        viewport = "top",
-        sectionIdentifier = "shared-hero",
-        transition = { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
-        exitOffset = 40,
-        entryOffset = -40,
-        blurAmount = 8,
-        style,
-    } = props
-
-    const [isClient, setIsClient] = useState(false)
-    const isNavigating = useRef(false)
-
-    useEffect(() => {
-        setIsClient(true)
-    }, [])
-
-    // Find the target element on the current or new DOM
-    const resolveTargetElement = useCallback(
-        (doc: Document | HTMLElement = document): HTMLElement | null => {
-            if (section?.current && doc === document) {
-                return section.current
-            }
-            if (sectionIdentifier) {
-                return (
-                    doc.querySelector(`[data-framer-name="${sectionIdentifier}"]`) ||
-                    doc.querySelector(`[data-scroll-section="${sectionIdentifier}"]`) ||
-                    doc.querySelector(`#${sectionIdentifier}`)
-                )
-            }
-            return null
-        },
-        [section, sectionIdentifier]
-    )
-
-    // Execute the choreographed transition
-    const performPageTransition = useCallback(
-        async (destinationUrl: string) => {
-            if (isNavigating.current) return
-            isNavigating.current = true
-
-            const fromElement = resolveTargetElement(document)
-
-            try {
-                // Fetch destination HTML
-                const response = await fetch(destinationUrl)
-                const htmlText = await response.text()
-                const parser = new DOMParser()
-                const newDoc = parser.parseFromString(htmlText, "text/html")
-
-                // Helper to perform DOM swap
-                const swapDOM = async () => {
-                    const currentRoot = document.querySelector("[data-framer-root]") || document.body
-                    const newRoot = newDoc.querySelector("[data-framer-root]") || newDoc.body
-
-                    if (currentRoot && newRoot) {
-                        currentRoot.innerHTML = newRoot.innerHTML
-                    }
-
-                    // Update document title and history
-                    document.title = newDoc.title
-                    window.history.pushState({ path: destinationUrl }, "", destinationUrl)
-                    window.scrollTo(0, 0)
-                }
-
-                // Check for animateView or browser View Transition API
-                if (typeof (window as any).animateView === "function") {
-                    const updateTransition = (window as any).animateView(swapDOM, transition)
-
-                    if (fromElement) {
-                        const toElement = resolveTargetElement(document)
-                        if (toElement) {
-                            updateTransition.add(fromElement, toElement)
-                        }
-                    }
-
-                    updateTransition
-                        .old({
-                            opacity: 0,
-                            y: exitOffset,
-                            filter: `blur(${blurAmount}px)`,
-                        })
-                        .new({
-                            opacity: 1,
-                            y: 0,
-                            filter: "blur(0px)",
-                        })
-
-                    await updateTransition.finished
-                } else if (document.startViewTransition) {
-                    // Browser native View Transitions fallback
-                    if (fromElement) {
-                        fromElement.style.viewTransitionName = "shared-element-morph"
-                    }
-
-                    const viewTransition = document.startViewTransition(async () => {
-                        await swapDOM()
-                        const toElement = resolveTargetElement(document)
-                        if (toElement) {
-                            toElement.style.viewTransitionName = "shared-element-morph"
-                        }
-                    })
-
-                    await viewTransition.finished
-                    if (fromElement) fromElement.style.viewTransitionName = ""
-                } else {
-                    // Direct swap fallback
-                    await swapDOM()
-                }
-            } catch (error) {
-                console.error("[SharedElementTransition] Navigation failed:", error)
-                window.location.href = destinationUrl
-            } finally {
-                isNavigating.current = false
-            }
-        },
-        [resolveTargetElement, transition, exitOffset, entryOffset, blurAmount]
-    )
-
-    // Intercept internal link clicks and popstate events
-    useEffect(() => {
-        if (!isClient) return
-        if (RenderTarget.current() === RenderTarget.canvas) return // Skip inside Framer Canvas editor
-
-        const handleAnchorClick = (e: MouseEvent) => {
-            const anchor = (e.target as HTMLElement).closest("a")
-            if (!anchor) return
-
-            const href = anchor.getAttribute("href")
-            if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return
-            if (anchor.target === "_blank" || e.metaKey || e.ctrlKey || e.shiftKey) return
-
-            const targetUrl = new URL(anchor.href, window.location.origin)
-            if (targetUrl.origin !== window.location.origin) return
-            if (targetUrl.pathname === window.location.pathname) return
-
-            e.preventDefault()
-            performPageTransition(targetUrl.pathname + targetUrl.search)
-        }
-
-        const handlePopState = () => {
-            performPageTransition(window.location.pathname + window.location.search)
-        }
-
-        document.addEventListener("click", handleAnchorClick, { capture: true })
-        window.addEventListener("popstate", handlePopState)
-
-        return () => {
-            document.removeEventListener("click", handleAnchorClick, { capture: true })
-            window.removeEventListener("popstate", handlePopState)
-        }
-    }, [isClient, performPageTransition])
-
-    if (!isClient) {
-        return <div style={{ display: "none", ...style }} />
-    }
-
-    const isOnCanvas = RenderTarget.current() === RenderTarget.canvas
-
-    return (
-        <div
-            style={{
-                display: isOnCanvas ? "flex" : "none",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 12,
-                borderRadius: 8,
-                background: "rgba(0, 153, 255, 0.08)",
-                border: "1px dashed rgba(0, 153, 255, 0.4)",
-                color: "#0099ff",
-                fontSize: 12,
-                fontFamily: "Inter, sans-serif",
-                fontWeight: 500,
-                ...style,
-            }}
-        >
-            Shared Page Transition ({sectionIdentifier})
-        </div>
-    )
-}
-
-addPropertyControls(SharedElementPageTransition, {
-    section: {
-        // @ts-ignore
-        type: ControlType.ScrollSectionRef,
-        title: "Shared Section",
-    },
-    viewport: {
-        type: ControlType.Enum,
-        title: "Viewport",
-        displaySegmentedControl: true,
-        options: ["top", "center", "bottom"],
-        optionTitles: [
-            "Top (Viewport Top)",
-            "Center (Viewport Center)",
-            "Bottom (Viewport Bottom)",
-        ],
-        // @ts-ignore
-        optionIcons: ["align-top", "align-middle", "align-bottom"],
-        defaultValue: "top",
-    },
-    sectionIdentifier: {
-        type: ControlType.String,
-        title: "Identifier",
-        defaultValue: "shared-hero",
     },
     transition: {
         type: ControlType.Transition,
@@ -512,26 +100,404 @@ addPropertyControls(SharedElementPageTransition, {
 
 ---
 
-## Best Practices & Critical Rules
+## Step-by-Step Canvas Setup Guide
 
-### 1. Canvas vs. Published Behavior
-Never intercept links or execute `history.pushState` on the Framer canvas (`RenderTarget.current() === RenderTarget.canvas`). Show a subtle indicator box in the editor and activate the routing interceptor only on published or preview sites.
+Follow these steps to connect and configure shared element transitions between two Framer pages:
 
-### 2. Scroll Section Reference Resolution
-Always check `section?.current` first. If the component instance is duplicated or loaded across separate canvas page trees where the ref is not directly bound, fall back to matching `data-framer-name` or `data-scroll-section`.
+### Step 1: Assign Scroll Section Names on the Canvas
+1. Select the container/section on **Page A** (e.g. the product card or hero image).
+2. In Framer's right-hand sidebar under **Scroll Section**, name the section (e.g., `"HeroCard"`).
+3. Select the matching target element on **Page B** (e.g. the expanded header or hero card).
+4. Give it the exact same **Scroll Section** name (`"HeroCard"`).
 
-### 3. Coordinate Space & Snapshot Stability
-`animateView` captures snapshot bitmaps in **viewport coordinate space**. Do not apply document-scroll offsets (`window.scrollY`) to snapshot layer styles.
+### Step 2: Insert the `SharedElementTransition` Code Component
+1. Drag `SharedElementTransition` from the Assets / Code panel onto **Page A**.
+2. Set its **Shared Section** property control to point to `"HeroCard"`.
+3. Set **Mode** to `"Old Page (Outgoing)"` (or leave as `"Auto Detect"`).
+4. Tune the **Exit Slide Y** (e.g., `40px`) and **Blur** (e.g., `8px`).
 
-### 4. Hydration Safety
-Ensure all DOM event listeners and `window.history` operations are initialized inside `useEffect` under the `isClient` guard.
+### Step 3: Configure the Destination Page
+1. Drag `SharedElementTransition` onto **Page B**.
+2. Set its **Shared Section** property control to point to `"HeroCard"`.
+3. Set **Mode** to `"New Page (Incoming)"` (or leave as `"Auto Detect"`).
+4. Set **Entry Slide Y** (e.g., `-40px`) to match the incoming directional choreography.
+
+### Step 4: Preview & Publish
+- On the Framer Canvas, each instance renders an interactive status badge showing its configured mode.
+- In Preview or on published URLs, link clicks (`<a href="/project-b">`) seamlessly morph the shared hero while cross-fading the surrounding layout.
 
 ---
 
-## Agent Rule
+## The 6-Step Transition Lifecycle
 
-When building or updating page transition components in Framer:
-1. Always use `ControlType.ScrollSectionRef` alongside a `viewport` enum control for selecting shared elements on the canvas.
-2. Structure page transitions using `animateView(update).add(fromElement, toElement)` for shared elements, `.old({ opacity: 0, y: exitOffset, filter: "blur(...) "})` for exit, and `.new({ opacity: 1, y: 0, filter: "blur(0px)" })` for entry.
-3. Pass Framer `ControlType.Transition` configuration directly to `animateView`.
-4. Keep navigation listeners gated behind `isClient` and `RenderTarget.current() !== RenderTarget.canvas`.
+```
+1. Detect Navigation (Click / popstate interception)
+               │
+               ▼
+2. Identify Shared Elements (Match ScrollSectionRef / section ID)
+               │
+               ▼
+3. Morph Shared Elements (animateView(update).add(fromEl, toEl))
+               │
+               ▼
+4. Exit Non-Shared Content (Fade out + blur + slide down translateY)
+               │
+               ▼
+5. Enter Non-Shared Content (Fade in + de-blur + slide up translateY)
+               │
+               ▼
+6. Update History & State (history.pushState without full reload)
+```
+
+1. **Detect Navigation**: Intercepts internal link clicks (`<a href="...">`) or `popstate` events without full browser reloads.
+2. **Identify Shared Elements**: Queries the DOM for the element bound to `ScrollSectionRef` and captures viewport geometry.
+3. **Morph Shared Elements**: Passes `fromElement` and `toElement` into `animateView(swapDOM).add(fromElement, toElement)`.
+4. **Exit Non-Shared Content**: Outgoing non-shared elements are animated with `.old({ opacity: 0, y: exitOffset, filter: 'blur(...)' })`.
+5. **Enter Non-Shared Content**: Incoming non-shared elements are animated with `.new({ opacity: 1, y: 0, filter: 'blur(0px)' })`.
+6. **Update Browser History**: Calls `window.history.pushState` and resets scroll position cleanly.
+
+---
+
+## Complete Production Component (`SharedElementTransition.tsx`)
+
+```tsx
+import React, { useRef, useState, useEffect, useCallback } from "react"
+import { addPropertyControls, ControlType, RenderTarget } from "framer"
+
+export interface ScrollSectionRef {
+    current: HTMLElement | null
+}
+
+export interface SharedElementTransitionProps {
+    mode?: "auto" | "old page" | "new page"
+    section?: ScrollSectionRef
+    sectionIdentifier?: string
+    transition?: any
+    exitOffset?: number
+    entryOffset?: number
+    blurAmount?: number
+    style?: React.CSSProperties
+}
+
+interface SharedElementRegistry {
+    lastOutgoingRect: DOMRect | null
+    lastOutgoingPath: string
+    activeIdentifier: string
+    snapshotTimestamp: number
+}
+
+const globalRegistry: SharedElementRegistry = {
+    lastOutgoingRect: null,
+    lastOutgoingPath: "",
+    activeIdentifier: "shared-section",
+    snapshotTimestamp: 0,
+}
+
+/**
+ * @framerDisableUnlink
+ * @framerIntrinsicWidth 260
+ * @framerIntrinsicHeight 52
+ * @framerSupportedLayoutWidth any-prefer-fixed
+ * @framerSupportedLayoutHeight any-prefer-fixed
+ */
+export default function SharedElementTransition(props: SharedElementTransitionProps) {
+    const {
+        mode = "auto",
+        section,
+        sectionIdentifier = "shared-section",
+        transition = {
+            type: "spring",
+            stiffness: 300,
+            damping: 30,
+            duration: 0.6,
+        },
+        exitOffset = 40,
+        entryOffset = -40,
+        blurAmount = 8,
+        style,
+    } = props
+
+    const [isClient, setIsClient] = useState(false)
+    const isNavigating = useRef(false)
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        setIsClient(true)
+    }, [])
+
+    const resolveTargetElement = useCallback(
+        (doc: Document | HTMLElement = document): HTMLElement | null => {
+            if (section?.current && doc === document) {
+                return section.current
+            }
+
+            const identifier = sectionIdentifier || "shared-section"
+            const queried =
+                doc.querySelector(`[data-scroll-section="${identifier}"]`) ||
+                doc.querySelector(`[data-framer-name="${identifier}"]`) ||
+                doc.querySelector(`[data-section-name="${identifier}"]`) ||
+                doc.querySelector(`#${identifier}`)
+
+            if (queried) return queried as HTMLElement
+
+            const fallbackSection = doc.querySelector("main section, [data-framer-component-type='Section']")
+            return fallbackSection as HTMLElement | null
+        },
+        [section, sectionIdentifier]
+    )
+
+    useEffect(() => {
+        if (!isClient) return
+
+        const currentTarget = resolveTargetElement(document)
+        if (currentTarget) {
+            const rect = currentTarget.getBoundingClientRect()
+            if (mode === "old page" || (mode === "auto" && !globalRegistry.lastOutgoingRect)) {
+                globalRegistry.lastOutgoingRect = rect
+                globalRegistry.lastOutgoingPath = window.location.pathname
+                globalRegistry.snapshotTimestamp = Date.now()
+            }
+        }
+    }, [isClient, mode, resolveTargetElement])
+
+    const performPageTransition = useCallback(
+        async (destinationUrl: string) => {
+            if (isNavigating.current) return
+            isNavigating.current = true
+
+            const fromElement = resolveTargetElement(document)
+            if (fromElement) {
+                globalRegistry.lastOutgoingRect = fromElement.getBoundingClientRect()
+                globalRegistry.lastOutgoingPath = window.location.pathname
+                globalRegistry.snapshotTimestamp = Date.now()
+            }
+
+            try {
+                const response = await fetch(destinationUrl)
+                if (!response.ok) throw new Error(`HTTP ${response.status} loading ${destinationUrl}`)
+                const htmlText = await response.text()
+                const parser = new DOMParser()
+                const newDoc = parser.parseFromString(htmlText, "text/html")
+
+                const swapDOM = async () => {
+                    const currentRoot =
+                        document.querySelector("[data-framer-root]") ||
+                        document.querySelector("#main") ||
+                        document.body
+                    const newRoot =
+                        newDoc.querySelector("[data-framer-root]") ||
+                        newDoc.querySelector("#main") ||
+                        newDoc.body
+
+                    if (currentRoot && newRoot) {
+                        currentRoot.innerHTML = newRoot.innerHTML
+                    }
+
+                    document.title = newDoc.title
+                    window.history.pushState({ path: destinationUrl }, "", destinationUrl)
+                    window.scrollTo(0, 0)
+                }
+
+                if (typeof (window as any).animateView === "function") {
+                    const updateTransition = (window as any).animateView(swapDOM, transition)
+
+                    if (fromElement) {
+                        const toElement = resolveTargetElement(document)
+                        if (toElement) {
+                            updateTransition.add(fromElement, toElement)
+                        }
+                    }
+
+                    updateTransition
+                        .old({
+                            opacity: 0,
+                            y: exitOffset,
+                            filter: `blur(${blurAmount}px)`,
+                        })
+                        .new({
+                            opacity: 1,
+                            y: 0,
+                            filter: "blur(0px)",
+                        })
+
+                    await updateTransition.finished
+                } else if (typeof (document as any).startViewTransition === "function") {
+                    if (fromElement) {
+                        fromElement.style.viewTransitionName = "shared-element-morph"
+                    }
+
+                    const viewTransition = (document as any).startViewTransition(async () => {
+                        await swapDOM()
+                        const toElement = resolveTargetElement(document)
+                        if (toElement) {
+                            toElement.style.viewTransitionName = "shared-element-morph"
+                        }
+                    })
+
+                    await viewTransition.finished
+                    if (fromElement) fromElement.style.viewTransitionName = ""
+                } else {
+                    await swapDOM()
+                }
+            } catch (error) {
+                console.warn("[SharedElementTransition] Falling back to direct navigation:", error)
+                window.location.href = destinationUrl
+            } finally {
+                isNavigating.current = false
+            }
+        },
+        [resolveTargetElement, transition, exitOffset, blurAmount]
+    )
+
+    useEffect(() => {
+        if (!isClient) return
+        if (RenderTarget.current() === RenderTarget.canvas) return
+
+        const handleAnchorClick = (e: MouseEvent) => {
+            if (mode === "new page") return
+
+            const anchor = (e.target as HTMLElement).closest("a")
+            if (!anchor) return
+
+            const href = anchor.getAttribute("href")
+            if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) return
+            if (anchor.target === "_blank" || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+
+            const targetUrl = new URL(anchor.href, window.location.origin)
+            if (targetUrl.origin !== window.location.origin) return
+            if (targetUrl.pathname === window.location.pathname) return
+
+            e.preventDefault()
+            performPageTransition(targetUrl.pathname + targetUrl.search)
+        }
+
+        const handlePopState = () => {
+            performPageTransition(window.location.pathname + window.location.search)
+        }
+
+        document.addEventListener("click", handleAnchorClick, { capture: true })
+        window.addEventListener("popstate", handlePopState)
+
+        return () => {
+            document.removeEventListener("click", handleAnchorClick, { capture: true })
+            window.removeEventListener("popstate", handlePopState)
+        }
+    }, [isClient, mode, performPageTransition])
+
+    if (!isClient) {
+        return <div style={{ display: "none", ...style }} />
+    }
+
+    const isOnCanvas = RenderTarget.current() === RenderTarget.canvas
+
+    return (
+        <div
+            ref={containerRef}
+            style={{
+                display: isOnCanvas ? "flex" : "none",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "8px 14px",
+                borderRadius: 8,
+                background: "rgba(0, 153, 255, 0.08)",
+                border: "1px dashed rgba(0, 153, 255, 0.4)",
+                color: "#0099ff",
+                fontSize: 12,
+                fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+                fontWeight: 500,
+                userSelect: "none",
+                ...style,
+            }}
+        >
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 13 }}>✦</span>
+                <span>Shared Transition</span>
+            </div>
+            <span
+                style={{
+                    fontSize: 10,
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    background: "rgba(0, 153, 255, 0.15)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    fontWeight: 600,
+                }}
+            >
+                {mode === "auto" ? "Auto" : mode === "old page" ? "Old Page" : "New Page"}
+            </span>
+        </div>
+    )
+}
+
+addPropertyControls(SharedElementTransition, {
+    mode: {
+        type: ControlType.Enum,
+        title: "Mode",
+        options: ["auto", "old page", "new page"],
+        optionTitles: ["Auto Detect", "Old Page (Outgoing)", "New Page (Incoming)"],
+        defaultValue: "auto",
+        description: "Observe prop change between component instance between two pages.",
+    },
+    section: {
+        // @ts-ignore
+        type: ControlType.ScrollSectionRef,
+        title: "Shared Section",
+        description: "Select the scroll section to preserve and morph across pages",
+    },
+    transition: {
+        type: ControlType.Transition,
+        title: "Transition",
+        defaultValue: {
+            type: "spring",
+            stiffness: 300,
+            damping: 30,
+            duration: 0.6,
+        },
+    },
+    exitOffset: {
+        type: ControlType.Number,
+        title: "Exit Slide Y",
+        min: -150,
+        max: 150,
+        step: 5,
+        defaultValue: 40,
+        unit: "px",
+    },
+    entryOffset: {
+        type: ControlType.Number,
+        title: "Entry Slide Y",
+        min: -150,
+        max: 150,
+        step: 5,
+        defaultValue: -40,
+        unit: "px",
+    },
+    blurAmount: {
+        type: ControlType.Number,
+        title: "Blur",
+        min: 0,
+        max: 24,
+        step: 1,
+        defaultValue: 8,
+        unit: "px",
+    },
+})
+```
+
+---
+
+## Best Practices & Troubleshooting
+
+1. **Hydration & SSR Safety**:
+   Always initialize all DOM event listeners and browser APIs inside `useEffect` guarded by `isClient`. Return a hidden element during server render.
+
+2. **Canvas vs. Published Behavior**:
+   Never intercept clicks or trigger `pushState` on the Framer canvas (`RenderTarget.current() === RenderTarget.canvas`). Render a clean canvas indicator in the editor.
+
+3. **Section Matching Priority**:
+   `resolveTargetElement` prioritizes `section?.current` first, followed by `[data-scroll-section]`, `[data-framer-name]`, and finally generic section fallbacks.
+
+4. **Multi-Layer Fallback Grace**:
+   If `animateView` is not present, the component automatically falls back to browser-native `document.startViewTransition` with `viewTransitionName`, followed by pure DOM swap to prevent navigation lockups.
