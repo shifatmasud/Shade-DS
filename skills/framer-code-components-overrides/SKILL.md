@@ -170,6 +170,12 @@ Treat props as the single source of truth for animation.
 
 See [references/props-driven-animation.md](references/props-driven-animation.md) for implementation details.
 
+### Shared Element Page Transitions with animateView
+
+Use `animateView()` and parasitic DOM binding to morph shared elements across pages while applying crossfade, blur, and slide transitions to non-shared content.
+
+See [references/animateview-shared-element-transitions.md](references/animateview-shared-element-transitions.md) for complete implementation details.
+
 ## Common Patterns
 
 See [references/patterns.md](references/patterns.md) for implementations: shared state, keyboard detection, show-once logic, scroll effects, magnetic hover, animation triggers.
