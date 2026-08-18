@@ -583,9 +583,9 @@ addPropertyControls(ArticleTransition, {
         optionTitles: ["Capture (Link Source)", "Play (Page Destination)"],
         defaultValue: "Capture",
     },
-    layoutId: {
+    STORAGE_KEY: {
         type: ControlType.String,
-        title: "Layout ID",
+        title: "STORAGE_KEY",
         defaultValue: "article-hero",
         description: "Shared ID between source card and destination page.",
     },
