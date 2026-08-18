@@ -6,35 +6,78 @@ import {
     useEffect,
     useRef,
 } from "react"
-import { animate } from "framer-motion"
+import { animate, animateView } from "framer-motion"
 
 const STORAGE_KEY = "ait"
-const MAX_SNAPSHOT_AGE_MS = 15000
+const MAX_SNAPSHOT_AGE_MS = 6000
 const READINESS_TIMEOUT_MS = 1400
 const FALLBACK_CLEANUP_MS = 1400
 
 type Snapshot = {
-    src: string
+    direction?: "forward" | "backward"
+    cardIndex?: number
+    originCardIndex?: number
+    originUrl?: string
+    title?: string
+    href?: string
+    imageSrc?: string
+    type?: "div"
+    src?: string
+    html?: string
+    bg?: string
+    backgroundImage?: string
+    backgroundSize?: string
+    backgroundPosition?: string
+    color?: string
+    boxShadow?: string
+    border?: string
+    borderColor?: string
+    borderWidth?: string
+    borderStyle?: string
+    radius?: string
+    overflow?: string
+    padding?: string
+    display?: string
+    flexDirection?: string
+    alignItems?: string
+    justifyContent?: string
+    gap?: string
     x: number // Document-relative x
     y: number // Document-relative y
     width: number
     height: number
-    fit: string
-    radius: string
+    fit?: string
     ts: number
 }
 
 type VisualCandidate = {
+    type: "div"
     src: string
+    title?: string
+    href?: string
+    imageSrc?: string
     rect: DOMRect
     fit: string
     radius: string
-    imageEl: HTMLImageElement | null
-}
-
-function parseBackgroundImage(bg: string): string {
-    const match = bg.match(/url\((['"]?)(.*?)\1\)/i)
-    return match?.[2] ?? ""
+    bg?: string
+    backgroundImage?: string
+    backgroundSize?: string
+    backgroundPosition?: string
+    color?: string
+    boxShadow?: string
+    border?: string
+    borderColor?: string
+    borderWidth?: string
+    borderStyle?: string
+    overflow?: string
+    padding?: string
+    display?: string
+    flexDirection?: string
+    alignItems?: string
+    justifyContent?: string
+    gap?: string
+    html?: string
+    imageEl: HTMLElement | null
 }
 
 function normalizeUrl(url: string): string {
@@ -45,20 +88,6 @@ function normalizeUrl(url: string): string {
         return url
     } catch (_error) {
         return url
-    }
-}
-
-// Strip Framer's responsive image parameters or general query parameters
-function getBaseImageUrl(url: string): string {
-    if (!url) return ""
-    try {
-        const u = new URL(
-            url,
-            typeof window !== "undefined" ? window.location.href : undefined
-        )
-        return u.origin + u.pathname
-    } catch (_error) {
-        return url.split("?")[0]
     }
 }
 
@@ -85,10 +114,134 @@ function isModifiedOrNonPrimaryClick(event: any): boolean {
     return false
 }
 
-// Find the root-most container for page transitions (usually #root or body)
+// Find safe container for page fade transitions (blur, opacity only)
 function getPageTransitionTarget(el: HTMLElement | null): HTMLElement | null {
     if (typeof document === "undefined") return el
-    return document.getElementById("root") || document.body || el
+    const root =
+        document.getElementById("root") ||
+        document.querySelector("main") ||
+        document.querySelector("[data-framer-root]") ||
+        document.getElementById("__next")
+
+    if (root && root !== document.body) {
+        return root as HTMLElement
+    }
+    return el && el.parentElement && el.parentElement !== document.body
+        ? el.parentElement
+        : null
+}
+
+function extractElementTitle(el: HTMLElement): string {
+    const heading = el.querySelector(
+        "h1, h2, h3, h4, h5, h6, [data-framer-name*='Title'], [data-framer-name*='Heading']"
+    )
+    if (heading && heading.textContent) {
+        return heading.textContent.trim()
+    }
+    const text = el.innerText || el.textContent || ""
+    const lines = text
+        .split("\n")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 2)
+    return lines[0] || ""
+}
+
+function extractElementHref(el: HTMLElement): string {
+    const link =
+        (el.closest("a[href]") as HTMLAnchorElement | null) ||
+        (el.querySelector("a[href]") as HTMLAnchorElement | null)
+    if (link) {
+        const href = link.getAttribute("href")
+        if (href) return normalizeUrl(href)
+    }
+    return ""
+}
+
+function extractElementImageSrc(el: HTMLElement): string {
+    const img = el.querySelector("img[src]") as HTMLImageElement | null
+    if (img && img.src) return normalizeUrl(img.src)
+
+    const style = window.getComputedStyle(el)
+    if (style.backgroundImage && style.backgroundImage !== "none") {
+        const match = style.backgroundImage.match(/url\((['"]?)(.*?)\1\)/i)
+        if (match && match[2]) return normalizeUrl(match[2])
+    }
+
+    const childWithBg = el.querySelector(
+        "[style*='background-image']"
+    ) as HTMLElement | null
+    if (childWithBg) {
+        const childStyle = window.getComputedStyle(childWithBg)
+        const match = childStyle.backgroundImage.match(
+            /url\((['"]?)(.*?)\1\)/i
+        )
+        if (match && match[2]) return normalizeUrl(match[2])
+    }
+
+    return ""
+}
+
+function findSemanticMatch(
+    visibleList: HTMLElement[],
+    snapshot: Snapshot
+): HTMLElement | null {
+    if (visibleList.length === 0) return null
+
+    // Priority 1: Href matching (e.g. card links directly to article slug/URL or matches snapshot's href)
+    if (snapshot.href) {
+        const cleanSnapHref = snapshot.href.split("?")[0].split("#")[0]
+        for (const el of visibleList) {
+            const elHref = extractElementHref(el)
+            if (elHref) {
+                const cleanElHref = elHref.split("?")[0].split("#")[0]
+                if (cleanElHref === cleanSnapHref) {
+                    return el
+                }
+            }
+        }
+    }
+
+    // Priority 2: Origin URL matching against card's href
+    if (snapshot.originUrl) {
+        const cleanOriginUrl = snapshot.originUrl.split("?")[0].split("#")[0]
+        for (const el of visibleList) {
+            const elHref = extractElementHref(el)
+            if (elHref) {
+                const cleanElHref = elHref.split("?")[0].split("#")[0]
+                if (cleanElHref === cleanOriginUrl) {
+                    return el
+                }
+            }
+        }
+    }
+
+    // Priority 3: Image source matching (exact image asset match across pages)
+    if (snapshot.imageSrc) {
+        for (const el of visibleList) {
+            const elImg = extractElementImageSrc(el)
+            if (elImg && elImg === snapshot.imageSrc) {
+                return el
+            }
+        }
+    }
+
+    // Priority 4: Title / Heading text fingerprinting
+    if (snapshot.title && snapshot.title.length > 2) {
+        const normSnapTitle = snapshot.title.toLowerCase().trim()
+        for (const el of visibleList) {
+            const elTitle = extractElementTitle(el).toLowerCase().trim()
+            if (
+                elTitle &&
+                (elTitle === normSnapTitle ||
+                    elTitle.includes(normSnapTitle) ||
+                    normSnapTitle.includes(elTitle))
+            ) {
+                return el
+            }
+        }
+    }
+
+    return null
 }
 
 function readSnapshot(key: string = STORAGE_KEY): Snapshot | null {
@@ -99,7 +252,6 @@ function readSnapshot(key: string = STORAGE_KEY): Snapshot | null {
         const parsed = JSON.parse(raw) as Snapshot
         if (!parsed) return null
         if (
-            typeof parsed.src !== "string" ||
             typeof parsed.x !== "number" ||
             typeof parsed.y !== "number" ||
             typeof parsed.width !== "number" ||
@@ -109,7 +261,68 @@ function readSnapshot(key: string = STORAGE_KEY): Snapshot | null {
             return null
         }
         return {
-            src: normalizeUrl(parsed.src),
+            direction: parsed.direction === "backward" ? "backward" : "forward",
+            cardIndex:
+                typeof parsed.cardIndex === "number" ? parsed.cardIndex : 0,
+            originCardIndex:
+                typeof parsed.originCardIndex === "number"
+                    ? parsed.originCardIndex
+                    : typeof parsed.cardIndex === "number"
+                    ? parsed.cardIndex
+                    : 0,
+            originUrl:
+                typeof parsed.originUrl === "string" ? parsed.originUrl : "",
+            title: typeof parsed.title === "string" ? parsed.title : "",
+            href: typeof parsed.href === "string" ? parsed.href : "",
+            imageSrc:
+                typeof parsed.imageSrc === "string" ? parsed.imageSrc : "",
+            type: "div",
+            src: parsed.src ? normalizeUrl(parsed.src) : "",
+            html: typeof parsed.html === "string" ? parsed.html : "",
+            bg: typeof parsed.bg === "string" ? parsed.bg : "",
+            backgroundImage:
+                typeof parsed.backgroundImage === "string"
+                    ? parsed.backgroundImage
+                    : "",
+            backgroundSize:
+                typeof parsed.backgroundSize === "string"
+                    ? parsed.backgroundSize
+                    : "",
+            backgroundPosition:
+                typeof parsed.backgroundPosition === "string"
+                    ? parsed.backgroundPosition
+                    : "",
+            color: typeof parsed.color === "string" ? parsed.color : "",
+            boxShadow:
+                typeof parsed.boxShadow === "string" ? parsed.boxShadow : "",
+            border: typeof parsed.border === "string" ? parsed.border : "",
+            borderColor:
+                typeof parsed.borderColor === "string"
+                    ? parsed.borderColor
+                    : "",
+            borderWidth:
+                typeof parsed.borderWidth === "string"
+                    ? parsed.borderWidth
+                    : "",
+            borderStyle:
+                typeof parsed.borderStyle === "string"
+                    ? parsed.borderStyle
+                    : "",
+            overflow:
+                typeof parsed.overflow === "string" ? parsed.overflow : "",
+            padding: typeof parsed.padding === "string" ? parsed.padding : "",
+            display: typeof parsed.display === "string" ? parsed.display : "",
+            flexDirection:
+                typeof parsed.flexDirection === "string"
+                    ? parsed.flexDirection
+                    : "",
+            alignItems:
+                typeof parsed.alignItems === "string" ? parsed.alignItems : "",
+            justifyContent:
+                typeof parsed.justifyContent === "string"
+                    ? parsed.justifyContent
+                    : "",
+            gap: typeof parsed.gap === "string" ? parsed.gap : "",
             x: parsed.x,
             y: parsed.y,
             width: parsed.width,
@@ -130,88 +343,353 @@ function clearSnapshot(key: string = STORAGE_KEY): void {
     } catch (_error) {}
 }
 
-function getRectArea(rect: DOMRect): number {
-    return Math.max(0, rect.width) * Math.max(0, rect.height)
-}
-
 function getVisualCandidateFromElement(
     el: HTMLElement
 ): VisualCandidate | null {
+    if (!el || typeof window === "undefined") return null
     const style = window.getComputedStyle(el)
     const rect = el.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) return null
-    const bgSrc = parseBackgroundImage(style.backgroundImage)
-    if (bgSrc) {
-        return {
-            src: normalizeUrl(bgSrc),
-            rect,
-            fit:
-                style.backgroundSize && style.backgroundSize !== "auto"
-                    ? style.backgroundSize
-                    : "cover",
-            radius: style.borderRadius || "0px",
-            imageEl: null,
-        }
+
+    return {
+        type: "div",
+        src: "",
+        title: extractElementTitle(el),
+        href: extractElementHref(el),
+        imageSrc: extractElementImageSrc(el),
+        rect,
+        fit:
+            style.backgroundSize && style.backgroundSize !== "auto"
+                ? style.backgroundSize
+                : "cover",
+        radius: style.borderRadius || "0px",
+        bg: style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        backgroundSize: style.backgroundSize,
+        backgroundPosition: style.backgroundPosition,
+        color: style.color,
+        boxShadow: style.boxShadow,
+        border: style.border,
+        borderColor: style.borderColor,
+        borderWidth: style.borderWidth,
+        borderStyle: style.borderStyle,
+        overflow: style.overflow,
+        padding: style.padding,
+        display: style.display,
+        flexDirection: style.flexDirection,
+        alignItems: style.alignItems,
+        justifyContent: style.justifyContent,
+        gap: style.gap,
+        html: el.innerHTML,
+        imageEl: el,
     }
-    if (el instanceof HTMLImageElement) {
-        const src = normalizeUrl(el.currentSrc || el.src || "")
-        if (!src) return null
-        return {
-            src,
-            rect,
-            fit: style.objectFit || "cover",
-            radius: style.borderRadius || "0px",
-            imageEl: el,
+}
+
+function isElementVisible(el: HTMLElement | null): boolean {
+    if (!el || typeof window === "undefined") return false
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 1 || rect.height <= 1) return false
+    try {
+        const style = window.getComputedStyle(el)
+        if (
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            style.visibility === "collapse" ||
+            style.opacity === "0"
+        ) {
+            return false
         }
+    } catch (_e) {
+        return false
     }
-    return null
+    return true
+}
+
+function resolveBestTargetElement(
+    elements: HTMLElement[],
+    snapshot: Snapshot
+): HTMLElement | null {
+    // 1. Filter strictly visible elements with layout geometry
+    const visible = elements.filter(isElementVisible)
+    if (visible.length === 0) return null
+
+    // 2. If single matching element, return it directly
+    if (visible.length === 1) return visible[0]
+
+    // 3. Multi-signal semantic search (Href, Image, Title)
+    // Allows index 1 on Page A to match index 2 (or any other position) on Page B!
+    const semanticMatch = findSemanticMatch(visible, snapshot)
+    if (semanticMatch) {
+        return semanticMatch
+    }
+
+    // 4. Direction-aware target resolution fallback:
+    if (snapshot.direction === "forward") {
+        // Forward navigation entering destination page:
+        // Prioritize the primary Hero section (top-most in document, then largest visible area)
+        return visible.slice().sort((a, b) => {
+            const rectA = a.getBoundingClientRect()
+            const rectB = b.getBoundingClientRect()
+            const docTopA = rectA.top + window.scrollY
+            const docTopB = rectB.top + window.scrollY
+            if (Math.abs(docTopA - docTopB) > 5) {
+                return docTopA - docTopB
+            }
+            const areaA = rectA.width * rectA.height
+            const areaB = rectB.width * rectB.height
+            return areaB - areaA
+        })[0]
+    } else {
+        // Backward navigation returning to list/grid:
+        // Use preserved cardIndex among visible elements
+        const index =
+            typeof snapshot.cardIndex === "number"
+                ? snapshot.cardIndex
+                : typeof snapshot.originCardIndex === "number"
+                ? snapshot.originCardIndex
+                : 0
+        if (index >= 0 && index < visible.length) {
+            return visible[index]
+        }
+        return visible[0]
+    }
 }
 
 function findBestVisualCandidate(
     root: HTMLElement | null,
-    eventTarget?: EventTarget | null,
-    matchingSrc?: string
+    eventTarget?: EventTarget | null
 ): VisualCandidate | null {
     if (typeof window === "undefined" || !root) return null
     const rootRect = root.getBoundingClientRect()
     if (rootRect.width <= 0 || rootRect.height <= 0) return null
 
-    const candidates: VisualCandidate[] = []
+    // Target the full div container (root) directly
+    return getVisualCandidateFromElement(root)
+}
 
-    const targetElement =
-        eventTarget instanceof HTMLElement ? eventTarget : null
-    let walker: HTMLElement | null = targetElement
-    while (walker && root.contains(walker)) {
-        const candidate = getVisualCandidateFromElement(walker)
-        if (candidate) candidates.push(candidate)
-        walker = walker.parentElement
+function captureCandidateSnapshot(
+    candidate: VisualCandidate,
+    direction: "forward" | "backward",
+    storageKey: string,
+    cardIndex: number = 0,
+    transition?: any,
+    hrefOverride?: string
+): boolean {
+    const rect = candidate.rect
+    if (rect.width <= 0 || rect.height <= 0) return false
+
+    const existingSnap = readSnapshot(storageKey)
+    const originCardIndex =
+        direction === "backward"
+            ? existingSnap?.originCardIndex ??
+              existingSnap?.cardIndex ??
+              cardIndex
+            : cardIndex
+
+    const snapshot: Snapshot = {
+        direction,
+        cardIndex,
+        originCardIndex,
+        originUrl:
+            typeof window !== "undefined" ? window.location.href : "",
+        title:
+            candidate.title ||
+            (candidate.imageEl
+                ? extractElementTitle(candidate.imageEl)
+                : ""),
+        href:
+            hrefOverride ||
+            candidate.href ||
+            (candidate.imageEl ? extractElementHref(candidate.imageEl) : ""),
+        imageSrc:
+            candidate.imageSrc ||
+            (candidate.imageEl
+                ? extractElementImageSrc(candidate.imageEl)
+                : ""),
+        type: "div",
+        src: candidate.src || "",
+        html: candidate.html || "",
+        bg: candidate.bg || "",
+        backgroundImage: candidate.backgroundImage || "",
+        backgroundSize: candidate.backgroundSize || "",
+        backgroundPosition: candidate.backgroundPosition || "",
+        color: candidate.color || "",
+        boxShadow: candidate.boxShadow || "",
+        border: candidate.border || "",
+        borderColor: candidate.borderColor || "",
+        borderWidth: candidate.borderWidth || "",
+        borderStyle: candidate.borderStyle || "",
+        overflow: candidate.overflow || "",
+        padding: candidate.padding || "",
+        display: candidate.display || "",
+        flexDirection: candidate.flexDirection || "",
+        alignItems: candidate.alignItems || "",
+        justifyContent: candidate.justifyContent || "",
+        gap: candidate.gap || "",
+        x: rect.left + window.scrollX,
+        y: rect.top + window.scrollY,
+        width: rect.width,
+        height: rect.height,
+        fit: candidate.fit || "cover",
+        radius: candidate.radius || "0px",
+        ts: Date.now(),
     }
 
-    const imgElements = Array.from(root.querySelectorAll("img"))
-    for (const img of imgElements) {
-        const candidate = getVisualCandidateFromElement(img)
-        if (candidate) candidates.push(candidate)
-    }
+    try {
+        window.sessionStorage.setItem(storageKey, JSON.stringify(snapshot))
 
-    const rootCandidate = getVisualCandidateFromElement(root)
-    if (rootCandidate) candidates.push(rootCandidate)
-
-    if (candidates.length === 0) return null
-
-    // If we have a matching source URL, prioritize candidates matching the base URL
-    if (matchingSrc) {
-        const baseTarget = getBaseImageUrl(matchingSrc)
-        const matched = candidates.filter(
-            (c) => getBaseImageUrl(c.src) === baseTarget
-        )
-        if (matched.length > 0) {
-            matched.sort((a, b) => getRectArea(b.rect) - getRectArea(a.rect))
-            return matched[0]
+        // Page exit transition: animate is scoped strictly to opacity and blur
+        const pageTarget = getPageTransitionTarget(candidate.imageEl)
+        if (pageTarget) {
+            animate(
+                pageTarget,
+                {
+                    opacity: 0,
+                    filter: "blur(20px)",
+                },
+                transition || {
+                    duration: 0.35,
+                    ease: [0.4, 0, 1, 1],
+                }
+            )
         }
+        return true
+    } catch (_error) {
+        return false
+    }
+}
+
+/**
+ * Executes the morph animation using animateView(update, transition).add(fromElement, toElement)
+ * Scopes animate() solely to page transition blur & opacity.
+ */
+function executeMorphWithAnimateView(
+    target: VisualCandidate,
+    snapshot: Snapshot,
+    currentSnapshotId: string,
+    transition: any,
+    activeAnimations: any[],
+    onFinished?: () => void
+) {
+    const destinationElement = target.imageEl
+    if (!destinationElement) return
+
+    // 1. Create the source element with origin snapshot geometry and styles
+    const fromElement = document.createElement("div")
+    fromElement.setAttribute("data-view-transition-source", "true")
+    fromElement.setAttribute("aria-hidden", "true")
+    fromElement.innerHTML = snapshot.html || ""
+
+    if (
+        snapshot.bg &&
+        snapshot.bg !== "rgba(0, 0, 0, 0)" &&
+        snapshot.bg !== "transparent"
+    ) {
+        fromElement.style.backgroundColor = snapshot.bg
+    }
+    if (snapshot.backgroundImage && snapshot.backgroundImage !== "none") {
+        fromElement.style.backgroundImage = snapshot.backgroundImage
+        fromElement.style.backgroundSize = snapshot.backgroundSize || "cover"
+        fromElement.style.backgroundPosition =
+            snapshot.backgroundPosition || "center"
+    }
+    if (snapshot.color) fromElement.style.color = snapshot.color
+    if (snapshot.boxShadow && snapshot.boxShadow !== "none") {
+        fromElement.style.boxShadow = snapshot.boxShadow
+    }
+    if (
+        snapshot.border &&
+        snapshot.border !== "none" &&
+        !snapshot.border.startsWith("0px")
+    ) {
+        fromElement.style.border = snapshot.border
+    }
+    if (snapshot.display) fromElement.style.display = snapshot.display
+    if (snapshot.flexDirection)
+        fromElement.style.flexDirection = snapshot.flexDirection
+    if (snapshot.alignItems) fromElement.style.alignItems = snapshot.alignItems
+    if (snapshot.justifyContent)
+        fromElement.style.justifyContent = snapshot.justifyContent
+    if (snapshot.gap) fromElement.style.gap = snapshot.gap
+    if (snapshot.padding) fromElement.style.padding = snapshot.padding
+
+    fromElement.style.boxSizing = "border-box"
+    fromElement.style.overflow = "hidden"
+    fromElement.style.position = "absolute"
+    fromElement.style.left = `${snapshot.x}px`
+    fromElement.style.top = `${snapshot.y}px`
+    fromElement.style.width = `${snapshot.width}px`
+    fromElement.style.height = `${snapshot.height}px`
+    fromElement.style.borderRadius = snapshot.radius || "0px"
+    fromElement.style.pointerEvents = "none"
+    fromElement.style.zIndex = "2147483647"
+
+    document.body.appendChild(fromElement)
+
+    // Prepare destination element visibility for the view transition update
+    const previousOpacity = destinationElement.style.opacity
+    const previousVisibility = destinationElement.style.visibility
+    destinationElement.style.opacity = "0"
+    destinationElement.style.visibility = "hidden"
+
+    const toElement = destinationElement
+    const pageTarget = getPageTransitionTarget(toElement)
+
+    let cleaned = false
+    const cleanup = () => {
+        if (cleaned) return
+        cleaned = true
+        toElement.style.opacity = previousOpacity
+        toElement.style.visibility = previousVisibility
+        if (fromElement.parentNode) {
+            fromElement.parentNode.removeChild(fromElement)
+        }
+        clearSnapshot(currentSnapshotId)
+        if (onFinished) onFinished()
     }
 
-    candidates.sort((a, b) => getRectArea(b.rect) - getRectArea(a.rect))
-    return candidates[0]
+    try {
+        const transitionOptions = transition || {
+            duration: 0.5,
+            ease: [0.22, 1, 0.36, 1],
+        }
+
+        // DOM mutation callback executed within animateView
+        const update = () => {
+            fromElement.style.display = "none"
+            toElement.style.visibility = "visible"
+            toElement.style.opacity = "1"
+        }
+
+        // Morph animation MUST be executed via animateView(update, transition).add(fromElement, toElement)
+        const viewTransition = animateView(update, transitionOptions).add(
+            fromElement,
+            toElement
+        )
+
+        // Animate function scope is STRICTLY page transition blur & opacity ONLY
+        if (pageTarget) {
+            const pageAnimation = animate(
+                pageTarget,
+                {
+                    opacity: [0, 1],
+                    filter: ["blur(20px)", "blur(0px)"],
+                },
+                transitionOptions
+            )
+            activeAnimations.push(pageAnimation)
+        }
+
+        if (
+            viewTransition &&
+            typeof (viewTransition as any).then === "function"
+        ) {
+            ;(viewTransition as any).then(cleanup).catch(cleanup)
+        }
+        window.setTimeout(cleanup, FALLBACK_CLEANUP_MS)
+    } catch (_error) {
+        cleanup()
+    }
 }
 
 /**
@@ -220,342 +698,290 @@ function findBestVisualCandidate(
  * @framerIntrinsicHeight 1
  */
 export default function ArticleTransition(props: any) {
-    const { mode, layoutId, targetName, transition } = props
+    const {
+        snapshotId,
+        STORAGE_KEY: propStorageKey,
+        targetName,
+        transition,
+    } = props
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
     const activeAnimationsRef = useRef<any[]>([])
     const hasPlayedRef = useRef(false)
     const lastPlayedUrlRef = useRef<string>("")
-    const currentUrl =
-        typeof window !== "undefined" ? window.location.href : ""
+    const currentUrl = typeof window !== "undefined" ? window.location.href : ""
 
     useEffect(() => {
         if (isCanvas || typeof document === "undefined") return
 
-        if (mode === "Capture") {
-            const elements = document.querySelectorAll<HTMLElement>(
+        const currentSnapshotId = snapshotId || propStorageKey || STORAGE_KEY
+
+        // Reset played state if URL has changed to handle single-page dynamic app routing
+        if (window.location.href !== lastPlayedUrlRef.current) {
+            hasPlayedRef.current = false
+            lastPlayedUrlRef.current = window.location.href
+        }
+
+        let cancelled = false
+        let rafId = 0
+        let timeoutId = 0
+        let stableFrames = 0
+        let lastRectKey = ""
+        const startAt = Date.now()
+
+        // 1. AUTO-PLAY: Check if a valid incoming snapshot exists and execute morph
+        const snapshot = readSnapshot(currentSnapshotId)
+
+        if (
+            snapshot &&
+            !hasPlayedRef.current &&
+            !isReducedMotion()
+        ) {
+            const age = Date.now() - snapshot.ts
+            if (age >= 0 && age <= MAX_SNAPSHOT_AGE_MS) {
+                const checkReady = () => {
+                    if (cancelled || hasPlayedRef.current) return
+                    const elapsed = Date.now() - startAt
+                    if (elapsed > READINESS_TIMEOUT_MS) {
+                        clearSnapshot(currentSnapshotId)
+                        return
+                    }
+
+                    const targetElements = Array.from(
+                        document.querySelectorAll<HTMLElement>(
+                            `[data-framer-name="${CSS.escape(targetName)}"]`
+                        )
+                    )
+
+                    if (targetElements.length === 0) {
+                        rafId = window.requestAnimationFrame(checkReady)
+                        return
+                    }
+
+                    // Resolve the single correct element (hero for forward, indexed visible card for backward)
+                    const targetEl = resolveBestTargetElement(
+                        targetElements,
+                        snapshot
+                    )
+
+                    if (!targetEl) {
+                        rafId = window.requestAnimationFrame(checkReady)
+                        return
+                    }
+
+                    const bestTarget = findBestVisualCandidate(targetEl, null)
+
+                    if (
+                        !bestTarget ||
+                        bestTarget.rect.width <= 0 ||
+                        bestTarget.rect.height <= 0
+                    ) {
+                        rafId = window.requestAnimationFrame(checkReady)
+                        return
+                    }
+
+                    const targetPageX =
+                        bestTarget.rect.left + window.scrollX
+                    const targetPageY = bestTarget.rect.top + window.scrollY
+                    const rectKey = `${Math.round(targetPageX)}:${Math.round(
+                        targetPageY
+                    )}:${Math.round(bestTarget.rect.width)}:${Math.round(
+                        bestTarget.rect.height
+                    )}`
+
+                    stableFrames =
+                        rectKey === lastRectKey ? stableFrames + 1 : 1
+                    lastRectKey = rectKey
+                    if (stableFrames < 2) {
+                        rafId = window.requestAnimationFrame(checkReady)
+                        return
+                    }
+
+                    hasPlayedRef.current = true
+                    // Consume snapshot immediately to prevent duplicate runs on re-render/refresh
+                    clearSnapshot(currentSnapshotId)
+                    executeMorphWithAnimateView(
+                        bestTarget,
+                        snapshot,
+                        currentSnapshotId,
+                        transition,
+                        activeAnimationsRef.current
+                    )
+                }
+
+                rafId = window.requestAnimationFrame(checkReady)
+                timeoutId = window.setTimeout(() => {
+                    cancelled = true
+                    if (rafId) window.cancelAnimationFrame(rafId)
+                    clearSnapshot(currentSnapshotId)
+                }, READINESS_TIMEOUT_MS + 80)
+            } else {
+                clearSnapshot(currentSnapshotId)
+            }
+        } else {
+            clearSnapshot(currentSnapshotId)
+        }
+
+        // 2. AUTO-CAPTURE: Listen for clicks/pointerdowns on source cards or targets
+        const getElements = () =>
+            document.querySelectorAll<HTMLElement>(
                 `[data-framer-name="${CSS.escape(targetName)}"]`
             )
 
-            const tryCaptureSnapshot = (event: any) => {
-                if (isModifiedOrNonPrimaryClick(event)) return
+        const tryCaptureSnapshot = (event: any) => {
+            if (isModifiedOrNonPrimaryClick(event)) return
 
-                const container = event.currentTarget as HTMLElement | null
-                const candidate = findBestVisualCandidate(
-                    container,
-                    event.target
-                )
-                if (!candidate || !candidate.src) return
-                const rect = candidate.rect
-                if (rect.width <= 0 || rect.height <= 0) return
+            const allElements = Array.from(getElements())
+            const visibleElements = allElements.filter(isElementVisible)
 
-                // Capture document-relative coordinates to protect against scroll offsets
-                const snapshot: Snapshot = {
-                    src: candidate.src,
-                    x: rect.left + window.scrollX,
-                    y: rect.top + window.scrollY,
-                    width: rect.width,
-                    height: rect.height,
-                    fit: candidate.fit || "cover",
-                    radius: candidate.radius || "0px",
-                    ts: Date.now(),
-                }
+            const container =
+                (event.currentTarget as HTMLElement | null) ||
+                (event.target as HTMLElement)?.closest(
+                    `[data-framer-name="${CSS.escape(targetName)}"]`
+                ) ||
+                (event.target as HTMLElement)
 
-                try {
-                    window.sessionStorage.setItem(
-                        layoutId || STORAGE_KEY,
-                        JSON.stringify(snapshot)
+            const cardIndex = container
+                ? visibleElements.indexOf(container as HTMLElement)
+                : 0
+
+            const candidate = findBestVisualCandidate(
+                container,
+                event.target
+            )
+            if (!candidate) return
+
+            captureCandidateSnapshot(
+                candidate,
+                "forward",
+                currentSnapshotId,
+                cardIndex >= 0 ? cardIndex : 0,
+                transition
+            )
+        }
+
+        const handlePointerDown = (event: any) => tryCaptureSnapshot(event)
+        const handleClick = (event: any) => tryCaptureSnapshot(event)
+
+        const elements = getElements()
+        elements.forEach((el) => {
+            el.addEventListener("pointerdown", handlePointerDown, {
+                capture: true,
+            })
+            el.addEventListener("click", handleClick, { capture: true })
+        })
+
+        // 3. EXIT / BACK NAVIGATION CAPTURE: Trigger reverse transition when clicking back buttons or navigation
+        const handleExitPointerDown = (event: any) => {
+            if (isModifiedOrNonPrimaryClick(event)) return
+            const target = event.target as HTMLElement | null
+            if (!target) return
+
+            // Never treat clicking inside a source card / target container as an exit trigger
+            const isInsideCard = target.closest(
+                `[data-framer-name="${CSS.escape(targetName)}"]`
+            )
+            if (isInsideCard) return
+
+            // Trigger reverse transition on clicking any link, back button, nav item, or header
+            const isExitTrigger =
+                target.closest("a") ||
+                target.closest("button") ||
+                target.closest('[data-framer-name*="Back"]') ||
+                target.closest('[data-framer-name*="Close"]') ||
+                target.closest('[data-framer-name*="Nav"]') ||
+                target.closest("nav") ||
+                target.closest("header")
+
+            if (isExitTrigger) {
+                const targetElements = Array.from(
+                    document.querySelectorAll<HTMLElement>(
+                        `[data-framer-name="${CSS.escape(targetName)}"]`
                     )
+                )
+                const heroRoot =
+                    resolveBestTargetElement(targetElements, {
+                        direction: "forward",
+                    } as Snapshot) ||
+                    document.querySelector<HTMLElement>(
+                        `[data-framer-name="${CSS.escape(targetName)}"]`
+                    ) ||
+                    document.body
 
-                    // Exit animation for the whole page
-                    const pageTarget = getPageTransitionTarget(container)
-                    if (pageTarget) {
-                        animate(
-                            pageTarget,
-                            {
-                                filter: "blur(20px)",
-                                opacity: 0,
-                                y: -10,
-                                scale: 0.98,
-                            },
-                            {
-                                duration: 0.4,
-                                ease: [0.4, 0, 1, 1],
-                            }
-                        )
-                    }
-                } catch (_error) {}
+                const heroCandidate = findBestVisualCandidate(heroRoot, null)
+                if (
+                    heroCandidate &&
+                    heroCandidate.rect.width > 0 &&
+                    heroCandidate.rect.height > 0
+                ) {
+                    const exitLink = target.closest("a[href]") as HTMLAnchorElement | null
+                    const exitHref = exitLink?.getAttribute("href")
+                        ? normalizeUrl(exitLink.getAttribute("href")!)
+                        : ""
+
+                    const existingSnap = readSnapshot(currentSnapshotId)
+                    const preservedIndex =
+                        typeof existingSnap?.cardIndex === "number"
+                            ? existingSnap.cardIndex
+                            : typeof existingSnap?.originCardIndex === "number"
+                            ? existingSnap.originCardIndex
+                            : 0
+
+                    captureCandidateSnapshot(
+                        heroCandidate,
+                        "backward",
+                        currentSnapshotId,
+                        preservedIndex,
+                        transition,
+                        exitHref || undefined
+                    )
+                }
             }
+        }
 
-            const handlePointerDown = (event: any) => tryCaptureSnapshot(event)
-            const handleClick = (event: any) => tryCaptureSnapshot(event)
+        document.addEventListener("pointerdown", handleExitPointerDown, {
+            capture: true,
+        })
+        document.addEventListener("click", handleExitPointerDown, {
+            capture: true,
+        })
 
+        return () => {
+            cancelled = true
+            if (rafId) window.cancelAnimationFrame(rafId)
+            if (timeoutId) window.clearTimeout(timeoutId)
             elements.forEach((el) => {
-                el.addEventListener("pointerdown", handlePointerDown, {
+                el.removeEventListener("pointerdown", handlePointerDown, {
                     capture: true,
                 })
-                el.addEventListener("click", handleClick, { capture: true })
+                el.removeEventListener("click", handleClick, {
+                    capture: true,
+                })
             })
-
-            return () => {
-                elements.forEach((el) => {
-                    el.removeEventListener("pointerdown", handlePointerDown, {
-                        capture: true,
-                    })
-                    el.removeEventListener("click", handleClick, {
-                        capture: true,
-                    })
-                })
-            }
-        }
-
-        if (mode === "Play") {
-            // Reset played state if URL has changed to handle single-page dynamic app routing
-            if (window.location.href !== lastPlayedUrlRef.current) {
-                hasPlayedRef.current = false
-                lastPlayedUrlRef.current = window.location.href
-            }
-
-            const currentLayoutId = layoutId || STORAGE_KEY
-            const snapshot = readSnapshot(currentLayoutId)
-            if (!snapshot) return
-            if (hasPlayedRef.current) return
-            if (isReducedMotion()) return
-
-            const age = Date.now() - snapshot.ts
-            if (age < 0 || age > MAX_SNAPSHOT_AGE_MS) {
-                clearSnapshot(currentLayoutId)
-                return
-            }
-
-            let cancelled = false
-            let rafId = 0
-            let timeoutId = 0
-            let stableFrames = 0
-            let lastRectKey = ""
-
-            const startAt = Date.now()
-
-            const startAnimation = (target: VisualCandidate) => {
-                if (cancelled) return
-                if (hasPlayedRef.current) return
-
-                const destinationRadius = target.radius || "0px"
-                const destinationElement = target.imageEl
-                if (!destinationElement) return
-
-                // Get absolute target coordinates relative to the page document
-                const destRect = target.rect
-                const destPageX = destRect.left + window.scrollX
-                const destPageY = destRect.top + window.scrollY
-
-                const overlay = document.createElement("img")
-                overlay.src = snapshot.src
-                overlay.alt = ""
-                overlay.setAttribute("aria-hidden", "true")
-
-                // Using position: absolute locked to document scroll context to eliminate scroll jitter
-                overlay.style.position = "absolute"
-                overlay.style.left = `${snapshot.x}px`
-                overlay.style.top = `${snapshot.y}px`
-                overlay.style.width = `${snapshot.width}px`
-                overlay.style.height = `${snapshot.height}px`
-                overlay.style.objectFit = snapshot.fit || "cover"
-                overlay.style.borderRadius = snapshot.radius || "0px"
-                overlay.style.transformOrigin = "top left"
-                overlay.style.transform =
-                    "translate3d(0px, 0px, 0px) scale(1, 1)"
-                overlay.style.opacity = "1"
-                overlay.style.pointerEvents = "none"
-                overlay.style.zIndex = "2147483647"
-                overlay.style.willChange = "transform, opacity, border-radius"
-
-                document.body.appendChild(overlay)
-
-                const previousOpacity = destinationElement.style.opacity
-                destinationElement.style.opacity = "0"
-
-                const pageTarget = getPageTransitionTarget(destinationElement)
-                const previousPageOpacity = pageTarget
-                    ? pageTarget.style.opacity
-                    : ""
-                const previousPageFilter = pageTarget
-                    ? pageTarget.style.filter
-                    : ""
-                const previousPageTransform = pageTarget
-                    ? pageTarget.style.transform
-                    : ""
-
-                let cleaned = false
-                const cleanup = () => {
-                    if (cleaned) return
-                    cleaned = true
-                    destinationElement.style.opacity = previousOpacity
-                    if (pageTarget) {
-                        pageTarget.style.opacity = previousPageOpacity
-                        pageTarget.style.filter = previousPageFilter
-                        pageTarget.style.transform = previousPageTransform
-                    }
-                    if (overlay.parentNode) {
-                        overlay.parentNode.removeChild(overlay)
-                    }
+            document.removeEventListener(
+                "pointerdown",
+                handleExitPointerDown,
+                {
+                    capture: true,
                 }
-
-                // Initial state for page transition to avoid flash
-                if (pageTarget) {
-                    pageTarget.style.opacity = "0"
-                    pageTarget.style.filter = "blur(20px)"
-                }
-
-                // Compute exact deltas and scales in document coordinates
-                const deltaX = destPageX - snapshot.x
-                const deltaY = destPageY - snapshot.y
-                const scaleX = destRect.width / snapshot.width
-                const scaleY = destRect.height / snapshot.height
-
+            )
+            document.removeEventListener("click", handleExitPointerDown, {
+                capture: true,
+            })
+            activeAnimationsRef.current.forEach((anim) => {
                 try {
-                    // Shared image morph animation using Framer Motion
-                    const morphAnimation = animate(
-                        overlay,
-                        {
-                            x: deltaX,
-                            y: deltaY,
-                            scaleX: scaleX,
-                            scaleY: scaleY,
-                            borderRadius: destinationRadius,
-                        },
-                        transition || {
-                            duration: 0.5,
-                            ease: [0.22, 1, 0.36, 1],
-                        }
-                    )
-
-                    // Page entrance animation using Framer Motion
-                    const pageAnimation = pageTarget
-                        ? animate(
-                              pageTarget,
-                              {
-                                  opacity: 1,
-                                  filter: "blur(0px)",
-                                  y: 0,
-                                  scale: 1,
-                              },
-                              {
-                                  duration: 0.8,
-                                  delay: 0.05,
-                                  ease: [0.22, 1, 0.36, 1],
-                              }
-                          )
-                        : null
-
-                    // Destination image fade-in
-                    const destAnimation = animate(
-                        destinationElement,
-                        { opacity: 1 },
-                        {
-                            duration: 0.3,
-                            delay: 0.3,
-                            ease: "easeOut",
-                        }
-                    )
-
-                    activeAnimationsRef.current.push(morphAnimation)
-                    if (pageAnimation)
-                        activeAnimationsRef.current.push(pageAnimation)
-                    activeAnimationsRef.current.push(destAnimation)
-
-                    const finish = () => {
-                        cleanup()
-                        clearSnapshot(currentLayoutId)
-                    }
-
-                    morphAnimation.then(finish).catch(finish)
-                    window.setTimeout(finish, FALLBACK_CLEANUP_MS)
-                    hasPlayedRef.current = true
-                } catch (_error) {
-                    cleanup()
-                }
-            }
-
-            const checkReady = () => {
-                if (cancelled) return
-                const elapsed = Date.now() - startAt
-                const liveSnapshot = readSnapshot(currentLayoutId)
-                if (!liveSnapshot) return
-                if (Date.now() - liveSnapshot.ts > MAX_SNAPSHOT_AGE_MS) {
-                    clearSnapshot(currentLayoutId)
-                    return
-                }
-                if (elapsed > READINESS_TIMEOUT_MS) return
-
-                // Retrieve the matching target element based on data-framer-name
-                const targetRoot = document.querySelector<HTMLElement>(
-                    `[data-framer-name="${CSS.escape(targetName)}"]`
-                )
-                const target = findBestVisualCandidate(
-                    targetRoot,
-                    null,
-                    liveSnapshot.src
-                )
-                if (
-                    !target ||
-                    target.rect.width <= 0 ||
-                    target.rect.height <= 0
-                ) {
-                    rafId = window.requestAnimationFrame(checkReady)
-                    return
-                }
-
-                const targetSrc = normalizeUrl(target.src || "")
-                if (!targetSrc) {
-                    rafId = window.requestAnimationFrame(checkReady)
-                    return
-                }
-
-                // Verify base image match to resolve responsive CMS image sizes
-                if (
-                    getBaseImageUrl(targetSrc) !==
-                    getBaseImageUrl(liveSnapshot.src)
-                ) {
-                    rafId = window.requestAnimationFrame(checkReady)
-                    return
-                }
-
-                // Use document-relative coordinates for layout stability checks to make it scroll-agnostic
-                const targetPageX = target.rect.left + window.scrollX
-                const targetPageY = target.rect.top + window.scrollY
-                const rectKey = `${Math.round(targetPageX)}:${Math.round(targetPageY)}:${Math.round(
-                    target.rect.width
-                )}:${Math.round(target.rect.height)}`
-
-                stableFrames = rectKey === lastRectKey ? stableFrames + 1 : 1
-                lastRectKey = rectKey
-                if (stableFrames < 2) {
-                    rafId = window.requestAnimationFrame(checkReady)
-                    return
-                }
-
-                startAnimation(target)
-            }
-
-            rafId = window.requestAnimationFrame(checkReady)
-            timeoutId = window.setTimeout(() => {
-                cancelled = true
-                if (rafId) window.cancelAnimationFrame(rafId)
-            }, READINESS_TIMEOUT_MS + 80)
-
-            return () => {
-                cancelled = true
-                if (rafId) window.cancelAnimationFrame(rafId)
-                if (timeoutId) window.clearTimeout(timeoutId)
-                activeAnimationsRef.current.forEach((anim) => {
-                    try {
-                        anim.stop()
-                    } catch (_e) {}
-                })
-                activeAnimationsRef.current = []
-            }
+                    anim.stop()
+                } catch (_e) {}
+            })
+            activeAnimationsRef.current = []
         }
-    }, [mode, targetName, layoutId, currentUrl, isCanvas, transition])
+    }, [
+        targetName,
+        snapshotId,
+        propStorageKey,
+        currentUrl,
+        isCanvas,
+        transition,
+    ])
 
     return (
         <div
@@ -571,33 +997,27 @@ export default function ArticleTransition(props: any) {
 }
 
 ArticleTransition.defaultProps = {
-    mode: "Capture",
-    layoutId: "article-hero",
-    targetName: "Hero Image",
+    snapshotId: "article-card",
+    targetName: "Card",
 }
 
 addPropertyControls(ArticleTransition, {
-    mode: {
-        type: ControlType.Enum,
-        options: ["Capture", "Play"],
-        optionTitles: ["Capture (Link Source)", "Play (Page Destination)"],
-        defaultValue: "Capture",
-    },
-    STORAGE_KEY: {
+    snapshotId: {
         type: ControlType.String,
-        title: "STORAGE_KEY",
-        defaultValue: "article-hero",
+        title: "SNAPSHOT ID",
+        defaultValue: "article-card",
         description: "Shared ID between source card and destination page.",
     },
     targetName: {
         type: ControlType.String,
-        title: "Target Name",
-        defaultValue: "Hero Image",
-        description: "data-framer-name of the element to capture or animate.",
+        title: "Target Div Name",
+        defaultValue: "Card",
+        description: "data-framer-name of the div container to capture or animate.",
     },
     transition: {
         type: ControlType.Transition,
         title: "Transition",
     },
 })
+
 
