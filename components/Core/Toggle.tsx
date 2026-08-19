@@ -19,14 +19,13 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
   const activeColor = theme.Color.Active.Content[1];
 
   const motionX = useMotionValue(isOn ? 16 : 0);
-  const springX = useSpring(motionX, { stiffness: 400, damping: 30, mass: 1 });
+  const springX = useSpring(motionX, { stiffness: 220, damping: 22, mass: 1 });
 
   useEffect(() => {
     motionX.set(isOn ? 16 : 0);
   }, [isOn, motionX]);
 
-  const scaleX = useTransform(springX, [0, 8, 16], [1, 1.25, 1]);
-  const scaleY = useTransform(springX, [0, 8, 16], [1, 0.75, 1]);
+  const scaleX = useTransform(springX, [0, 8, 16], [1, 1.75, 1]);
 
   const trackStyle: React.CSSProperties = {
     width: '40px',
@@ -71,7 +70,7 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
               initial={{ clipPath: 'inset(0 100% 0 0)' }}
               animate={{ clipPath: 'inset(0 0% 0 0)' }}
               exit={{ clipPath: 'inset(0 0 0 100%)' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 22 }}
               style={{
                 position: 'absolute',
                 inset: 0,
@@ -82,11 +81,12 @@ const Toggle: React.FC<ToggleProps> = ({ label, isOn, onToggle }) => {
           )}
         </AnimatePresence>
         <motion.div
+          layout="size"
+          transition={{ type: 'spring', stiffness: 220, damping: 22 }}
           style={{ 
             ...thumbStyle, 
             x: springX,
             scaleX,
-            scaleY,
             originX: 0.5, 
             originY: 0.5 
           }}
