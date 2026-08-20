@@ -43,6 +43,7 @@ This is not just another component library. It is a **structural methodology** f
 
 ## 📜 Recent Changelogs
 
+-   **`AUG 20, 2026`** · **Changelog Maintenance Permission**: Updated AGENTS.md and README immunity protocols to explicitly grant continuous maintenance and documentation permissions for the Recent Changelogs section.
 -   **`JUL 28, 2026`** · **Fluid Shader & Global Controls**: Integrated liquid fluid distortion pipeline, organic trailing logic, and a global shader control system with real-time parameter tuning.
 -   **`JUL 28, 2026`** · **3D & Mobile Optimization**: Optimized mobile 3D rendering performance and refined interactive button shader logic.
 -   **`JUL 27, 2026`** · **Staged Component Config**: Expanded staged component configuration support and optimized environment floor rendering.

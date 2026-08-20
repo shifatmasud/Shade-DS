@@ -47,7 +47,7 @@ You MUST activate and read the matching skill immediately when a user request al
 ## CRITICAL RESTRAINTS & IMMUNITY
 - **Dock Immunity [STRICTLY FORBIDDEN]**: You are strictly forbidden from modifying `/components/Section/Dock.tsx` or any logic directly contained within the Dock component. This file is managed exclusively by the user. If a request involves Dock changes, you MUST report that the Dock is protected and ask for explicit "Override Dock Immunity" permission.
 - **Dock Icon Immunity**: Never modify or add icons to the dock mapping without explicit permission.
-- **README Immunity [STRICTLY FORBIDDEN]**: You are strictly forbidden from modifying the structural layout, visual styling, or core value propositions of `README.md`. This file serves as the definitive source of truth for the project's identity. Any requested updates to the README must be treated as high-risk and require explicit "Override README Immunity" permission.
+- **README Immunity**: You are strictly forbidden from modifying the structural layout, visual styling, or core value propositions of `README.md` without explicit permission, **except** that continuous permission is explicitly granted to document, update, and maintain the Recent Changelogs section of `README.md` as features and milestones evolve. Any other requested updates to the README must be treated as high-risk and require explicit "Override README Immunity" permission.
 
 ## Component Hierarchy
 You MUST adhere to the following hierarchy when organizing components:
