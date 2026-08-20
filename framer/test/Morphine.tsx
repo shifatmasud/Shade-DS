@@ -1,5 +1,12 @@
+
+//remix https://framer.com/remix/gyJob0goCsTUoyrEeUya
+
+//live https://little-network-752783.framer.app/
+
+//component https://framer.com/m/Share-rxr5D4.js@ub2LeGEbSISMcXGLkeBm
+
 import { addPropertyControls, ControlType, RenderTarget } from "framer"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { animateView } from "framer-motion"
 
 const generateUID = () => "m-" + Math.random().toString(36).substring(2, 7)
@@ -64,7 +71,18 @@ function tagActiveOriginCardInNewDOM(
     const destList = parseNameList(targetFromNames, "Card")
     const primaryName = destList[0] || "Card"
     const escaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(primaryName) : primaryName
-    const allCards = Array.from(document.querySelectorAll<HTMLElement>(`[data-framer-name="${escaped}"]`))
+    let allCards = Array.from(document.querySelectorAll<HTMLElement>(`[data-framer-name="${escaped}"]`))
+
+    if (allCards.length === 0) {
+        for (const altName of destList) {
+            const altEscaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(altName) : altName
+            const found = Array.from(document.querySelectorAll<HTMLElement>(`[data-framer-name="${altEscaped}"]`))
+            if (found.length > 0) {
+                allCards = found
+                break
+            }
+        }
+    }
 
     if (allCards.length === 0) return
 
@@ -174,6 +192,32 @@ function cleanupActiveOriginTags() {
 /* END LOCKED: REVERSE NAVIGATION PIPELINE                                   */
 /* ========================================================================= */
 
+const ROOT_VIEW_TRANSITION_STYLE_ID = "morphine-root-view-transition-style"
+const ROOT_VIEW_TRANSITION_CSS = `
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-group(root) {
+    animation: none !important;
+}
+`
+
+function injectRootViewTransitionStyles() {
+    if (typeof document === "undefined") return
+    if (document.getElementById(ROOT_VIEW_TRANSITION_STYLE_ID)) return
+    const style = document.createElement("style")
+    style.id = ROOT_VIEW_TRANSITION_STYLE_ID
+    style.textContent = ROOT_VIEW_TRANSITION_CSS
+    document.head.appendChild(style)
+}
+
+function removeRootViewTransitionStyles() {
+    if (typeof document === "undefined") return
+    const style = document.getElementById(ROOT_VIEW_TRANSITION_STYLE_ID)
+    if (style && style.parentNode) {
+        style.parentNode.removeChild(style)
+    }
+}
+
 /**
  * Normalizes and deduplicates repeated path segments (e.g. "/articles/articles/item" -> "/articles/item")
  * to ensure injected route URLs match Framer's original canonical route URLs without triggering a reload.
@@ -237,10 +281,38 @@ const tagElements = (names: string[], attr: string, uid: string) => {
     })
 }
 
+/**
+ * Creates explicit keyframe arrays for the outgoing non-shared root view transition.
+ * Pure opacity and gaussian blur ensures smooth exit without viewport scale pops.
+ */
+const createExitAnimation = (blurPx: number = 20) => ({
+    opacity: [1, 0],
+    filter: ["blur(0px)", `blur(${blurPx}px)`],
+})
+
+/**
+ * Creates explicit keyframe arrays for the incoming non-shared root view transition.
+ * Starts in clean gaussian blur and settles smoothly into crystal clear focus (blur 0px).
+ */
+const createEnterAnimation = (blurPx: number = 20) => ({
+    opacity: [0, 1],
+    filter: [`blur(${blurPx}px)`, "blur(0px)"],
+})
+
+const DEFAULT_EXIT_ANIMATION = createExitAnimation(20)
+const DEFAULT_ENTER_ANIMATION = createEnterAnimation(20)
+
 export interface MorphineProps {
     targetFromNames?: string
     targetToNames?: string
     transition?: any
+    enableEnterExit?: boolean
+    disableEnterExit?: boolean
+    stopEnterExitAnim?: boolean
+    blurAmount?: number
+    exitAnimation?: any
+    enterAnimation?: any
+    showDebugOverlay?: boolean
     style?: React.CSSProperties
     className?: string
 }
@@ -302,29 +374,6 @@ function saveOriginMemory(memory: OriginMemory | null) {
             }
         } catch (_e) {}
     }
-}
-
-const ROOT_VIEW_TRANSITION_RESET_ID = "morphine-vt-root-reset"
-const ROOT_VIEW_TRANSITION_CSS = `
-::view-transition-old(root),
-::view-transition-new(root),
-::view-transition-group(root) {
-    animation: none !important;
-}
-`
-
-function injectRootTransitionReset(): () => void {
-    if (typeof document === "undefined") return () => {}
-
-    let styleEl = document.getElementById(ROOT_VIEW_TRANSITION_RESET_ID) as HTMLStyleElement | null
-    if (!styleEl) {
-        styleEl = document.createElement("style")
-        styleEl.id = ROOT_VIEW_TRANSITION_RESET_ID
-        styleEl.textContent = ROOT_VIEW_TRANSITION_CSS
-        document.head.appendChild(styleEl)
-    }
-
-    return () => {}
 }
 
 function isModifiedOrNonPrimaryClick(event: MouseEvent): boolean {
@@ -403,6 +452,13 @@ function parseNameList(raw?: string, fallback: string = "Card"): string[] {
     return list
 }
 
+let lastKnownUrl: string = typeof window !== "undefined" ? window.location.href : ""
+
+function updateLastKnownUrl(url?: string) {
+    if (typeof window === "undefined") return
+    lastKnownUrl = url || window.location.href
+}
+
 /**
  * Detects whether current navigation is Forward (From -> To)
  * or Reverse (To -> From) based on existing DOM elements, URL route depth, origin memory, and user interaction.
@@ -411,13 +467,21 @@ function detectNavigationDirection(
     fromList: string[],
     toList: string[],
     clickRef?: HTMLElement | null,
-    clickLink?: HTMLAnchorElement | null
+    clickLink?: HTMLAnchorElement | null,
+    fromUrl?: string,
+    toUrl?: string
 ): Direction {
     if (typeof document === "undefined") return "forward"
 
     const memory = getStoredOriginMemory()
-    const currentUrl = typeof window !== "undefined" ? window.location.href : ""
-    const currentPath = typeof window !== "undefined" ? window.location.pathname : ""
+    const currentUrl = fromUrl || (typeof window !== "undefined" ? window.location.href : "")
+    const destinationUrl = toUrl || ""
+    let currentPath = ""
+    let targetPath = ""
+    try {
+        if (currentUrl) currentPath = new URL(currentUrl, "https://framer.app").pathname
+        if (destinationUrl) targetPath = new URL(destinationUrl, "https://framer.app").pathname
+    } catch (_e) {}
 
     // 1. Check if click target or link indicates a Back / Return action
     const interactiveEl = clickLink || clickRef
@@ -446,18 +510,38 @@ function detectNavigationDirection(
     if (clickLink && clickLink.href && typeof window !== "undefined") {
         try {
             const targetUrl = new URL(clickLink.href, window.location.href)
-            const targetPath = targetUrl.pathname.replace(/\/+$/, "")
-            const curPath = currentPath.replace(/\/+$/, "")
+            const cleanTargetPath = targetUrl.pathname.replace(/\/+$/, "")
+            const cleanCurPath = currentPath.replace(/\/+$/, "")
             if (
-                targetPath.length < curPath.length &&
-                (curPath.startsWith(targetPath) || targetPath === "" || targetPath === "/")
+                cleanTargetPath.length < cleanCurPath.length &&
+                (cleanCurPath.startsWith(cleanTargetPath) || cleanTargetPath === "" || cleanTargetPath === "/")
             ) {
                 return "reverse"
             }
         } catch (_e) {}
     }
 
-    // 3. Check if current URL matches the recorded detail memory and we are navigating away
+    // 3. History traversal / URL comparison (e.g. going from /product-2 back to /)
+    if (currentUrl && destinationUrl) {
+        if (memory) {
+            const memSlug = memory.slug || extractSlug(memory.url || memory.pathname)
+            if (memSlug && currentUrl.includes(memSlug) && !destinationUrl.includes(memSlug)) {
+                return "reverse"
+            }
+        }
+        if (targetPath && currentPath) {
+            const cleanTarget = targetPath.replace(/\/+$/, "")
+            const cleanCur = currentPath.replace(/\/+$/, "")
+            if (
+                cleanTarget.length < cleanCur.length &&
+                (cleanCur.startsWith(cleanTarget) || cleanTarget === "" || cleanTarget === "/")
+            ) {
+                return "reverse"
+            }
+        }
+    }
+
+    // 4. Check if current URL matches the recorded detail memory and we are navigating away
     if (memory) {
         const memSlug = memory.slug || extractSlug(memory.url || memory.pathname)
         if (memSlug && (currentUrl.includes(memSlug) || currentPath.includes(memSlug))) {
@@ -465,7 +549,7 @@ function detectNavigationDirection(
         }
     }
 
-    // 4. If click is explicitly inside an element matching targetToNames, it's a reverse transition
+    // 5. If click is explicitly inside an element matching targetToNames, it's a reverse transition
     if (clickRef) {
         for (const toName of toList) {
             const toEscaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(toName) : toName
@@ -635,7 +719,10 @@ function resolveBidirectionalPairs(
             const sourceEscaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(sourceName) : sourceName
             const destEscaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(destName) : destName
 
-            const allDiscovered = Array.from(document.querySelectorAll<HTMLElement>(`[data-framer-name="${sourceEscaped}"]`))
+            let allDiscovered = Array.from(document.querySelectorAll<HTMLElement>(`[data-framer-name="${sourceEscaped}"]`))
+            if (allDiscovered.length === 0 && sourceName !== destName) {
+                allDiscovered = Array.from(document.querySelectorAll<HTMLElement>(`[data-framer-name="${destEscaped}"]`))
+            }
             let fromElement: HTMLElement | null = null
 
             if (activeContainer) {
@@ -741,31 +828,204 @@ function resolveBidirectionalPairs(
  * @framerIntrinsicWidth 10
  * @framerIntrinsicHeight 10
  */
+interface GlobalMorphineState {
+    isTransitioning: boolean
+    lastTransitionEndTime: number
+    debugInfo?: {
+        direction: Direction
+        pairsCount: number
+        navType: string
+        fromUrl: string
+        toUrl: string
+        originMemory: OriginMemory | null
+        timestamp: number
+    }
+}
+
+function getGlobalState(): GlobalMorphineState {
+    if (typeof window === "undefined") {
+        return { isTransitioning: false, lastTransitionEndTime: 0 }
+    }
+    if (!(window as any).__MORPHINE_STATE__) {
+        ;(window as any).__MORPHINE_STATE__ = {
+            isTransitioning: false,
+            lastTransitionEndTime: 0,
+        }
+    }
+    return (window as any).__MORPHINE_STATE__
+}
+
+function waitForDomChange(maxWaitMs: number = 350): Promise<void> {
+    return new Promise((resolve) => {
+        let resolved = false
+        const done = () => {
+            if (!resolved) {
+                resolved = true
+                if (observer) observer.disconnect()
+                resolve()
+            }
+        }
+        let observer: MutationObserver | null = null
+        if (typeof MutationObserver !== "undefined" && typeof document !== "undefined" && document.body) {
+            observer = new MutationObserver(() => {
+                done()
+            })
+            observer.observe(document.body, { childList: true, subtree: true })
+        }
+        if (typeof requestAnimationFrame !== "undefined") {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    done()
+                })
+            })
+        }
+        setTimeout(done, maxWaitMs)
+    })
+}
+
+/**
+ * Deterministically waits until at least one element matching any of the specified framer names
+ * exists in the DOM. Eliminates race conditions between React SPA routing/unmounting and Morphine's tagging.
+ */
+function waitForTargetElements(
+    names: string[] | string,
+    timeoutMs: number = 400
+): Promise<HTMLElement[]> {
+    if (typeof document === "undefined") return Promise.resolve([])
+    const nameList = Array.isArray(names) ? names : parseNameList(names, "Card")
+
+    const queryElements = (): HTMLElement[] => {
+        for (const name of nameList) {
+            const escaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(name) : name
+            const found = Array.from(document.querySelectorAll<HTMLElement>(`[data-framer-name="${escaped}"]`))
+            if (found.length > 0) return found
+        }
+        return []
+    }
+
+    const immediate = queryElements()
+    if (immediate.length > 0) {
+        return Promise.resolve(immediate)
+    }
+
+    return new Promise((resolve) => {
+        let isDone = false
+        let observer: MutationObserver | null = null
+        let rafId: number | null = null
+        let timerId: any = null
+
+        const cleanup = () => {
+            if (observer) {
+                observer.disconnect()
+                observer = null
+            }
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId)
+                rafId = null
+            }
+            if (timerId !== null) {
+                clearTimeout(timerId)
+                timerId = null
+            }
+        }
+
+        const check = () => {
+            if (isDone) return
+            const found = queryElements()
+            if (found.length > 0) {
+                isDone = true
+                cleanup()
+                resolve(found)
+            }
+        }
+
+        if (typeof MutationObserver !== "undefined" && document.body) {
+            observer = new MutationObserver(() => {
+                check()
+            })
+            observer.observe(document.body, { childList: true, subtree: true })
+        }
+
+        const pollRaf = () => {
+            if (isDone) return
+            check()
+            if (!isDone) {
+                rafId = requestAnimationFrame(pollRaf)
+            }
+        }
+        rafId = requestAnimationFrame(pollRaf)
+
+        timerId = setTimeout(() => {
+            if (!isDone) {
+                isDone = true
+                cleanup()
+                resolve(queryElements())
+            }
+        }, timeoutMs)
+    })
+}
+
 export default function Morphine(props: MorphineProps) {
     const {
         targetFromNames = "Card",
         targetToNames = "Card",
         transition,
+        enableEnterExit = true,
+        disableEnterExit = false,
+        stopEnterExitAnim = false,
+        blurAmount = 20,
+        exitAnimation,
+        enterAnimation,
+        showDebugOverlay = false,
         style,
         className,
     } = props
 
+    const [debugState, setDebugState] = useState<any>(null)
+
     const transitionRef = useRef(transition)
     transitionRef.current = transition
 
-    const propsRef = useRef({ targetFromNames, targetToNames })
-    propsRef.current = { targetFromNames, targetToNames }
+    const isEnterExitActive = enableEnterExit !== false && !disableEnterExit && !stopEnterExitAnim
+    const propsRef = useRef({
+        targetFromNames,
+        targetToNames,
+        isEnterExitActive,
+        blurAmount,
+        exitAnimation,
+        enterAnimation,
+    })
+    propsRef.current = {
+        targetFromNames,
+        targetToNames,
+        isEnterExitActive,
+        blurAmount,
+        exitAnimation,
+        enterAnimation,
+    }
 
     useEffect(() => {
         if (typeof window === "undefined" || typeof document === "undefined") return
 
-        // Suppress default root-level page view transition crossfades
-        injectRootTransitionReset()
-
         // Bypass view transition interception inside Framer canvas editor
         if (RenderTarget.current() === RenderTarget.canvas) return
 
-        let isNavigating = false
+        // Disable root view-transition CSS crossfade when enter/exit animations are disabled
+        if (!isEnterExitActive) {
+            injectRootViewTransitionStyles()
+        } else {
+            removeRootViewTransitionStyles()
+        }
+
+        updateLastKnownUrl(window.location.href)
+
+        const globalState = getGlobalState()
+
+        const isBusy = () => {
+            if (globalState.isTransitioning) return true
+            if (Date.now() - globalState.lastTransitionEndTime < 350) return true
+            return false
+        }
 
         // Executes Motion's animateView wrapping the navigation and active target binding
         const performViewTransition = async (
@@ -773,67 +1033,139 @@ export default function Morphine(props: MorphineProps) {
             direction: Direction,
             currentUrlBeforeNav: string,
             performNavigation: () => Promise<void> | void,
-            uid: string = ""
+            uid: string = "",
+            navType: string = "navigate"
         ) => {
+            if (globalState.isTransitioning) return
+            globalState.isTransitioning = true
+
             const currentTransition = transitionRef.current
             const toNames = parseNameList(propsRef.current.targetToNames)
+            const {
+                isEnterExitActive: enterExitActive,
+                blurAmount: customBlur,
+                exitAnimation: customExit,
+                enterAnimation: customEnter,
+            } = propsRef.current
 
-            let animation = (animateView as any)(
-                async () => {
-                    // 1. Perform navigation / DOM update
-                    await performNavigation()
+            const blurPx = typeof customBlur === "number" ? customBlur : 20
+            const defaultTransition = {
+                duration: 0.45,
+                ease: [0.4, 0, 0.2, 1],
+            }
+            const effectiveTransition = {
+                ...defaultTransition,
+                ...currentTransition,
+            }
 
-                    // Synchronize canonical route URL in address bar without reload
-                    syncCanonicalRouteUrl()
+            const info = {
+                direction,
+                pairsCount: pairs.length,
+                navType,
+                fromUrl: currentUrlBeforeNav,
+                toUrl: window.location.href,
+                originMemory: getStoredOriginMemory(),
+                timestamp: Date.now(),
+            }
+            globalState.debugInfo = info
+            setDebugState(info)
 
-                    // 2. Tag newly mounted elements based on navigation mode
-                    if (direction === "forward") {
-                        // Tag destination elements on Detail page for the active item [LOCKED]
-                        tagForwardDestinationElements(toNames, uid)
-                    } else if (direction === "reverse") {
-                        // Tag the exact originating card (e.g. product-2) in the List page
-                        tagActiveOriginCardInNewDOM(
-                            getStoredOriginMemory(),
-                            propsRef.current.targetFromNames,
-                            currentUrlBeforeNav,
-                            uid
-                        )
-                    } else if (uid) {
-                        // Multi-element fallback tagging
-                        tagElements(toNames, "data-morphine-id", uid)
+            try {
+                let animation = (animateView as any)(
+                    async () => {
+                        // 1. Perform navigation / DOM update
+                        await performNavigation()
+
+                        // Synchronize canonical route URL in address bar without reload
+                        syncCanonicalRouteUrl()
+
+                        // 2. Tag newly mounted elements based on navigation mode
+                        if (direction === "forward") {
+                            // Ensure destination elements exist in the DOM
+                            await waitForTargetElements(toNames, 400)
+                            // Tag destination elements on Detail page for the active item [LOCKED]
+                            tagForwardDestinationElements(toNames, uid)
+                        } else if (direction === "reverse") {
+                            // Ensure list card elements exist in the DOM
+                            await waitForTargetElements(propsRef.current.targetFromNames, 400)
+                            // Tag the exact originating card (e.g. product-2) in the List page
+                            tagActiveOriginCardInNewDOM(
+                                getStoredOriginMemory(),
+                                propsRef.current.targetFromNames,
+                                currentUrlBeforeNav,
+                                uid
+                            )
+                        } else if (uid) {
+                            // Multi-element fallback tagging
+                            await waitForTargetElements(toNames, 400)
+                            tagElements(toNames, "data-morphine-id", uid)
+                        }
+                    },
+                    effectiveTransition
+                )
+
+                // Framer Motion Page Transition: Animate outgoing (.old) and incoming (.new) root snapshot layers ONLY when enabled
+                if (enterExitActive) {
+                    const exitKeyframes = customExit || {
+                        opacity: [1, 0],
+                        filter: ["blur(0px)", `blur(${blurPx}px)`],
                     }
-                },
-                currentTransition
-            )
-
-            // Pass the isolated HTMLElement / unique selector for each pair
-            pairs.forEach(({ fromTarget, toSelector }) => {
-                animation = animation.add(fromTarget, toSelector)
-            })
-
-            if (animation && typeof animation.finished !== "undefined") {
-                try {
-                    await animation.finished
-                } catch (_err) {
-                } finally {
-                    cleanupActiveOriginTags()
-                    syncCanonicalRouteUrl()
+                    const enterKeyframes = customEnter || {
+                        opacity: [0, 1],
+                        filter: [`blur(${blurPx}px)`, "blur(0px)"],
+                    }
+                    if (typeof animation.old === "function") {
+                        animation = animation.old(exitKeyframes)
+                    }
+                    if (typeof animation.new === "function") {
+                        animation = animation.new(enterKeyframes)
+                    }
                 }
+
+                // Pass the isolated HTMLElement / unique selector for each shared morph pair via Framer Motion's .add()
+                pairs.forEach(({ fromTarget, toSelector }) => {
+                    if (typeof animation.add === "function") {
+                        animation = animation.add(fromTarget, toSelector)
+                    } else if (typeof animation.get === "function") {
+                        animation = animation.get(fromTarget)
+                    }
+                })
+
+                if (animation && typeof animation.finished !== "undefined") {
+                    try {
+                        await animation.finished
+                    } catch (_err) {
+                    }
+                }
+            } catch (_err) {
+            } finally {
+                cleanupActiveOriginTags()
+                syncCanonicalRouteUrl()
+                updateLastKnownUrl(window.location.href)
+                globalState.isTransitioning = false
+                globalState.lastTransitionEndTime = Date.now()
             }
         }
 
-        // 1. Navigation API: Standard browser & SPA route lifecycle (forward & history traversal)
+        // 1. Navigation API: Standard browser & SPA route lifecycle for in-page navigation & history traversal
         const nav = (window as any).navigation
         const hasNavApi = Boolean(nav && typeof nav.addEventListener === "function")
 
         const handleNavigate = (event: any) => {
-            if (!event || !event.canIntercept || event.downloadRequest || event.formData || event.hashChange) {
+            if (
+                !event ||
+                !event.canIntercept ||
+                event.downloadRequest ||
+                event.formData ||
+                event.hashChange
+            ) {
                 return
             }
-            if (isNavigating) return
+            if (isBusy()) return
 
+            let destinationUrl: URL | null = null
             try {
-                const destinationUrl = new URL(event.destination.url)
+                destinationUrl = new URL(event.destination.url)
                 if (destinationUrl.origin !== window.location.origin) return
                 if (destinationUrl.href === window.location.href) return
             } catch (_e) {
@@ -841,23 +1173,34 @@ export default function Morphine(props: MorphineProps) {
             }
 
             const { targetFromNames: fromNames, targetToNames: toNames } = propsRef.current
-            const isTraverse = event.navigationType === "traverse"
-            const forcedDir: Direction | undefined = isTraverse ? "reverse" : undefined
+            const fromList = parseNameList(fromNames, "Card")
+            const toList = parseNameList(toNames, "Card")
+            const currentUrl = window.location.href
+            const targetUrlStr = destinationUrl ? destinationUrl.href : ""
+
+            // If navigationType is traverse (back/forward history), prioritize reverse when navigating back
+            let forcedDir: Direction
+            if (event.navigationType === "traverse") {
+                forcedDir = "reverse"
+            } else {
+                forcedDir = detectNavigationDirection(fromList, toList, null, null, currentUrl, targetUrlStr)
+            }
 
             const uid = generateUID()
             const pairs = resolveBidirectionalPairs(fromNames, toNames, null, null, forcedDir, uid)
             const hasDiscoveredElements = pairs.some((p) => p.hasDiscovered)
             if (!hasDiscoveredElements) return
 
-            const direction = pairs[0]?.direction || "forward"
-            const currentUrl = window.location.href
+            const direction = pairs[0]?.direction || forcedDir
+            updateLastKnownUrl(currentUrl)
 
             // Wrap the navigation handler inside animateView
             event.intercept({
                 async handler() {
                     await performViewTransition(pairs, direction, currentUrl, async () => {
-                        // The intercepted navigation commits and renders the destination page
-                    }, uid)
+                        await waitForDomChange(350)
+                    }, uid, event.navigationType || "navigate")
+                    updateLastKnownUrl(window.location.href)
                     syncCanonicalRouteUrl()
                 },
             })
@@ -867,10 +1210,44 @@ export default function Morphine(props: MorphineProps) {
             nav.addEventListener("navigate", handleNavigate)
         }
 
-        // 2. Link click interception: Integrates with Framer's client-side link router (bidirectional)
+        // 2. History popstate listener: Universal fallback & standard browser Back/Forward button support
+        const handlePopState = (_event: PopStateEvent) => {
+            // Guard against transitions already running or within the cooldown period
+            if (isBusy()) return
+
+            const previousUrl = lastKnownUrl || window.location.href
+            const targetUrl = window.location.href
+            updateLastKnownUrl(targetUrl)
+
+            const { targetFromNames: fromNames, targetToNames: toNames } = propsRef.current
+            const fromList = parseNameList(fromNames, "Card")
+            const toList = parseNameList(toNames, "Card")
+
+            // Popstate is triggered by back/forward button, default to reverse if memory or detection matches
+            let direction = detectNavigationDirection(fromList, toList, null, null, previousUrl, targetUrl)
+            if (direction !== "forward") {
+                direction = "reverse"
+            } else if (getStoredOriginMemory()) {
+                direction = "reverse"
+            }
+
+            const uid = generateUID()
+            const pairs = resolveBidirectionalPairs(fromNames, toNames, null, null, direction, uid)
+            const hasDiscoveredElements = pairs.some((p) => p.hasDiscovered)
+            if (!hasDiscoveredElements) return
+
+            performViewTransition(pairs, direction, previousUrl, async () => {
+                await waitForDomChange(350)
+                syncCanonicalRouteUrl()
+            }, uid, "popstate")
+        }
+
+        window.addEventListener("popstate", handlePopState, { capture: true })
+
+        // 3. Link click interception: Integrates with Framer's client-side link router (bidirectional)
         const handleClick = (event: MouseEvent) => {
             if (isModifiedOrNonPrimaryClick(event)) return
-            if (isNavigating) return
+            if (isBusy()) return
 
             const target = event.target as HTMLElement | null
             if (!target) return
@@ -900,12 +1277,12 @@ export default function Morphine(props: MorphineProps) {
 
             const direction = pairs[0]?.direction || "forward"
             const currentUrl = window.location.href
+            updateLastKnownUrl(currentUrl)
 
             // Intercept initial click and execute the existing navigation inside animateView
             event.preventDefault()
 
             performViewTransition(pairs, direction, currentUrl, async () => {
-                isNavigating = true
                 try {
                     if (hasNavApi && typeof nav.navigate === "function") {
                         const navPromise = nav.navigate(targetUrl)
@@ -915,27 +1292,27 @@ export default function Morphine(props: MorphineProps) {
                     } else {
                         // Invoke Framer's native router handler on the link
                         link.click()
+                        await waitForDomChange(350)
                     }
                     syncCanonicalRouteUrl()
-                } finally {
-                    isNavigating = false
-                }
-            }, uid)
+                } catch (_err) {}
+            }, uid, "click")
         }
 
         document.addEventListener("click", handleClick, { capture: true })
 
         return () => {
+            removeRootViewTransitionStyles()
             if (hasNavApi) {
                 nav.removeEventListener("navigate", handleNavigate)
             }
+            window.removeEventListener("popstate", handlePopState, { capture: true })
             document.removeEventListener("click", handleClick, { capture: true })
         }
-    }, [])
+    }, [isEnterExitActive])
 
     return (
         <>
-            <style dangerouslySetInnerHTML={{ __html: ROOT_VIEW_TRANSITION_CSS }} />
             <div
                 style={{
                     display: "none",
@@ -949,6 +1326,70 @@ export default function Morphine(props: MorphineProps) {
                 aria-hidden="true"
                 data-framer-name="MorphineController"
             />
+            {showDebugOverlay && (
+                <div
+                    id="morphine-debug-hud"
+                    style={{
+                        position: "fixed",
+                        bottom: 16,
+                        right: 16,
+                        zIndex: 999999,
+                        background: "rgba(15, 23, 42, 0.85)",
+                        backdropFilter: "blur(12px)",
+                        border: "1px solid rgba(255, 255, 255, 0.12)",
+                        borderRadius: 12,
+                        padding: "12px 16px",
+                        color: "#f8fafc",
+                        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                        fontSize: 11,
+                        lineHeight: 1.5,
+                        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35)",
+                        maxWidth: 320,
+                        pointerEvents: "none",
+                        userSelect: "none",
+                    }}
+                >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, borderBottom: "1px solid rgba(255, 255, 255, 0.1)", paddingBottom: 4 }}>
+                        <span style={{ fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Morphine HUD</span>
+                        <span style={{ fontSize: 9, background: isEnterExitActive ? "#10b98133" : "#ef444433", color: isEnterExitActive ? "#34d399" : "#f87171", padding: "2px 6px", borderRadius: 4 }}>
+                            {isEnterExitActive ? "EnterExit ON" : "EnterExit OFF"}
+                        </span>
+                    </div>
+                    {debugState ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                            <div>
+                                <span style={{ color: "#94a3b8" }}>Direction: </span>
+                                <strong style={{ color: debugState.direction === "forward" ? "#a7f3d0" : "#fed7aa" }}>
+                                    {debugState.direction.toUpperCase()}
+                                </strong>
+                            </div>
+                            <div>
+                                <span style={{ color: "#94a3b8" }}>Nav Type: </span>
+                                <span style={{ color: "#e2e8f0" }}>{debugState.navType}</span>
+                            </div>
+                            <div>
+                                <span style={{ color: "#94a3b8" }}>Pairs Matched: </span>
+                                <span style={{ color: "#e2e8f0" }}>{debugState.pairsCount}</span>
+                            </div>
+                            {debugState.originMemory && (
+                                <div style={{ borderTop: "1px dashed rgba(255,255,255,0.1)", paddingTop: 3, marginTop: 2 }}>
+                                    <span style={{ color: "#94a3b8" }}>Origin Memory: </span>
+                                    <div style={{ color: "#cbd5e1", fontSize: 10 }}>
+                                        card: {debugState.originMemory.cardName || "none"} [idx: {debugState.originMemory.index}]
+                                    </div>
+                                    <div style={{ color: "#94a3b8", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        slug: {debugState.originMemory.slug || "none"}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div style={{ color: "#64748b", fontStyle: "italic" }}>
+                            Idle (Ready for transition)
+                        </div>
+                    )}
+                </div>
+            )}
         </>
     )
 }
@@ -958,6 +1399,9 @@ Morphine.displayName = "Morphine"
 Morphine.defaultProps = {
     targetFromNames: "Card",
     targetToNames: "Card",
+    enableEnterExit: true,
+    blurAmount: 20,
+    showDebugOverlay: false,
 }
 
 addPropertyControls(Morphine, {
@@ -972,6 +1416,31 @@ addPropertyControls(Morphine, {
         title: "Target To",
         defaultValue: "Card",
         description: "data-framer-name of the destination element (e.g. DetailCard, DetailImage).",
+    },
+    enableEnterExit: {
+        type: ControlType.Boolean,
+        title: "Enter/Exit Anim",
+        defaultValue: true,
+        description: "Enable fade & blur animations on non-shared surrounding elements during transition.",
+    },
+    blurAmount: {
+        type: ControlType.Number,
+        title: "Blur Amount",
+        defaultValue: 20,
+        min: 0,
+        max: 60,
+        step: 2,
+        unit: "px",
+        hidden(props) {
+            return props.enableEnterExit === false
+        },
+        description: "Pixel radius for the fade & blur transition (e.g. 20px).",
+    },
+    showDebugOverlay: {
+        type: ControlType.Boolean,
+        title: "Debug Overlay",
+        defaultValue: false,
+        description: "Displays a floating HUD in the bottom right corner with real-time transition diagnostics.",
     },
     transition: {
         type: ControlType.Transition,

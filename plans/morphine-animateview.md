@@ -1,86 +1,65 @@
-# Tech Spec - Bidirectional Morphine View Transition Controller with Active Origin Tagging
+# Tech Spec - Morphine View Transition Controller with Fade-Blur Enter/Exit Animations & Smooth Settling
 
 1. **Objective**
 - **Problem Statement**: 
-  1. In reverse transitions (Detail &rarr; List), the destination List view contains multiple elements sharing the same `data-framer-name` (e.g. 10 items named `Card`). Motion's `animateView().add(fromElement, toSelector)` resolves `toSelector = '[data-framer-name="Card"]'` by querying all matching elements in the new DOM. The first element (`elements[0]`) always receives the primary transition snapshot name (`forcedNames[0]`), causing the Detail view to erroneously morph into the first item in the grid instead of the user's originating card.
-  2. Nested child elements (`DetailImage &rarr; Image`, `DetailTitle &rarr; Title`) also default to the first image/title in the list rather than the matching card's children.
+  1. Default root transition crossfades or raw `opacity: [1, 0]` animations can cause blur filters on view transitions to be invisible or washed out due to browser additive `mix-blend-mode: plus-lighter` blending.
+  2. Competing CSS `@keyframes` and snapshot `transform: scale(...)` resulted in a post-morph "blur burst / pop / jump" when the browser tore down the view transition pseudo-elements.
 - **Solution Overview**: 
-  1. Implement **Active Origin Tagging & Target Disambiguation**:
-     - On Forward navigation (List &rarr; Detail), capture and persist the active card's metadata: `pathname`, URL `slug`, element index, and parent hierarchy in a lightweight memory cache (`activeOriginMemory`).
-     - On Reverse navigation (Detail &rarr; List), generate unique scoped target selectors (e.g. `[data-morphine-active-card]`) for the container and its nested children (`[data-morphine-active-card] [data-framer-name="Image"]`).
-     - Immediately after the DOM update callback renders the incoming List page, execute the **Active Target Binder**: query candidate cards, match against the origin URL/slug/index (or deep-link path), and tag the exact originating card with `data-morphine-active-card`.
-     - Motion resolves the selector to ONLY the originating card and its scoped children, guaranteeing 100% accurate reverse morphing into the correct grid slot.
-- **Scope**: Update `/framer/test/Morphine.tsx` and maintain technical spec in `/plans/morphine-animateview.md`.
-- **Context**: Framer templates with CMS collections, project grids, and catalog layouts.
+  1. Keep `mix-blend-mode: normal !important` on `::view-transition-old(root)` and `::view-transition-new(root)` to prevent white glare and washouts.
+  2. Drive root fade & blur purely through Motion's authoritative WAAPI pipeline (`animateView.exit().enter()`) with explicit opacity and filter keyframe arrays, avoiding conflicting CSS `@keyframes`.
+  3. Remove snapshot `transform: scale(...)` to eliminate full-viewport rescale jumps on transition completion.
+  4. Ensure enter animation ends exactly at `opacity: 1` and `filter: "blur(0px)"` with smooth easing (`ease: [0.4, 0, 0.2, 1]`) so the transition settles into the live DOM seamlessly without any burst or flicker.
+  5. Provide Framer Property Controls for `blurAmount`, `duration`, `ease`, and `enableEnterExit`.
+- **Scope**: Standalone component in `/framer/test/Morphine.tsx`.
+- **Context**: Framer CMS collections, project cards, and fluid page transitions.
 
 2. **Success Criteria**
 - **Key Results**:
-  - Reverse navigation (Detail &rarr; List) morphs directly into the originating card (e.g. Card #3), never defaulting to the first card.
-  - Scoped child elements (`Image`, `Title`, `Tag`) morph back into the matching card's specific child nodes.
-  - Deep-link back navigation (landing directly on `/detail/3` then clicking back to `/list`) correctly identifies Card #3 via pathname/slug matching.
-  - Zero duplicate `view-transition-name` errors in browser console.
-  - Root View Transition fade is completely suppressed (`animation: none !important`).
-- **Non-Negotiables**:
-  - Standalone Framer code component with zero unpublished external dependencies.
-  - Strictly use `animateView` from `framer-motion`.
-  - SSR safe, canvas editor safe (`RenderTarget.canvas`), and clean attribute cleanup.
+  - Outgoing and incoming non-shared elements exhibit a rich, cinematic gaussian fade & blur transition.
+  - Zero post-morph burst, snap, flash, or jump when the view transition completes.
+  - Smooth settling into the live DOM without any residual blur or transform pop.
+  - When `enableEnterExit` is toggled off, enter/exit animations are suppressed cleanly without breaking shared element morphing.
+  - Standalone build compiles without errors.
 
 3. **Project Requirements**
-- [x] Document Active Origin Tagging design in `/plans/morphine-animateview.md`.
-- [ ] Implement `activeOriginMemory` tracking with URL, pathname, slug, and index.
-- [ ] Implement `tagActiveOriginInNewDOM(originMemory, fallbackUrl, containerName)` helper.
-- [ ] Update `resolveBidirectionalPairs` to assign unique scoped selectors on reverse transitions.
-- [ ] Inject the DOM tagger directly inside the `update` handler of `performViewTransition`.
-- [ ] Clean up temporary tracking attributes after animation settles.
-- [ ] Verify standalone compilation and build stability.
+- [x] Document Root Cause Analysis in `/RCA/rca-blur-burst-after-morph.md`.
+- [x] Update `/plans/morphine-animateview.md` with single-source WAAPI architecture.
+- [x] Remove conflicting CSS `@keyframes` and root scaling transforms.
+- [x] Apply clean `opacity` and `filter` curves via Motion `animateView.exit()` and `.enter()`.
+- [x] Verify standalone build via `compile_applet`.
 
 4. **Architecture Decisions**
-- **Active Origin Tagging via Synchronous Post-DOM-Update Hook**:
-  - *Decision*: In `animateView(async () => { await performNavigation(); tagActiveOriginInNewDOM(); })`, tag the exact card instance in the incoming DOM before Motion resolves selectors and before browser snapshot capture occurs.
-  - *Why*: The browser View Transition API invokes the update callback, waits for its returned Promise to resolve, and *then* takes the snapshot of the new DOM. Tagging the specific card inside the update callback ensures `document.querySelectorAll('[data-morphine-active-card]')` returns exactly one element—the correct originating card.
-- **Multi-Level Card Matcher**:
-  - *Level 1 (Direct Link Match)*: Matches `a[href]` matching exact `pathname` or URL `slug` (works across SPA navigations and direct deep links).
-  - *Level 2 (Index Match)*: Uses stored click index among siblings if cards do not use standard `<a>` links.
-  - *Level 3 (Fallback)*: Safely falls back to index 0 if no match is found.
+- **Single-Source WAAPI via Motion**:
+  - *Decision*: Motion's `animateView.exit()` and `.enter()` directly manage the WAAPI `KeyframeEffect` on `::view-transition-old(root)` and `::view-transition-new(root)`.
+  - *Why*: Eliminates CSS vs JS timing desynchronization and teardown bursts.
+- **Pure Opacity + Gaussian Filter without Transform Scaling**:
+  - *Decision*: Keep `transform` out of the root snapshot animation.
+  - *Why*: Scaling the entire root snapshot causes full-page zoom/shift discrepancies against the live unscaled DOM. Pure blur and opacity smoothly crossfade into the live DOM.
 
 5. **Pseudo Code**
 ```shade
 Component Morphine:
   Data:
-    props: { targetFromNames: "Card", targetToNames: "DetailCard", transition }
-    memory: { cardName, url, pathname, slug, index, timestamp }
+    blurPx = props.blurAmount ?? 20
+    effectiveTransition = {
+      duration: props.duration ?? transition?.duration ?? 0.45,
+      ease: transition?.ease ?? [0.4, 0, 0.2, 1]
+    }
 
   Logic:
-    onForwardClick(cardEl, linkEl):
-      record origin memory:
-        url = linkEl.href
-        slug = extractSlug(linkEl.href)
-        index = indexOf(cardEl, allCards)
+    exitAnim = {
+      opacity: [1, 0.8, 0],
+      filter: ["blur(0px)", `blur(${blurPx * 0.5}px)`, `blur(${blurPx}px)`]
+    }
+    enterAnim = {
+      opacity: [0, 0.7, 1],
+      filter: [`blur(${blurPx}px)`, `blur(${blurPx * 0.3}px)`, "blur(0px)"]
+    }
 
-    tagActiveOriginInNewDOM(memory, currentUrl):
-      allCards = queryAll('[data-framer-name="' + memory.cardName + '"]')
-      targetCard = null
-      
-      // Match by slug or href
-      for card in allCards:
-        if card contains a[href*="slug"]: targetCard = card; break
-      
-      if not targetCard and memory.index != null:
-        targetCard = allCards[memory.index]
-
-      if targetCard:
-        targetCard.setAttribute("data-morphine-active-card", "true")
-
-    performViewTransition(pairs, navFn):
-      animateView(async () => {
-        await navFn()
-        if isReverse:
-          tagActiveOriginInNewDOM(originMemory, prevUrl)
-      }, transition).add(pair.fromTarget, pair.toSelector)
-
-  Render:
-    <style dangerouslySetInnerHTML={{ __html: ROOT_VIEW_TRANSITION_CSS }} />
-    <div style={{ display: "none" }} aria-hidden="true" />
+    animateView(async () => {
+      await performNavigation()
+      tagElements()
+    }, effectiveTransition)
+    .exit(isEnterExitActive ? exitAnim : { opacity: 0 })
+    .enter(isEnterExitActive ? enterAnim : { opacity: 1 })
 ```
-
-

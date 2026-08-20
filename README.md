@@ -43,6 +43,8 @@ This is not just another component library. It is a **structural methodology** f
 
 ## 📜 Recent Changelogs
 
+-   **`AUG 20, 2026`** · **Transition Control Consolidation**: Streamlined `Morphine.tsx` property controls by removing the redundant `duration` number control in favor of Framer's native `ControlType.Transition` (`transition` prop) which encapsulates duration, easing curves, and physics parameters directly.
+-   **`AUG 20, 2026`** · **Pure Framer Motion `animateView` Migration**: Refactored `Morphine.tsx` to strictly use Framer Motion's native `animateView` API (`.old()`, `.new()`, and `.add()`) for root page snapshot transitions and shared-element morphs without any CSS or stylesheet injections.
 -   **`AUG 20, 2026`** · **Changelog Maintenance Permission**: Updated AGENTS.md and README immunity protocols to explicitly grant continuous maintenance and documentation permissions for the Recent Changelogs section.
 -   **`JUL 28, 2026`** · **Fluid Shader & Global Controls**: Integrated liquid fluid distortion pipeline, organic trailing logic, and a global shader control system with real-time parameter tuning.
 -   **`JUL 28, 2026`** · **3D & Mobile Optimization**: Optimized mobile 3D rendering performance and refined interactive button shader logic.
