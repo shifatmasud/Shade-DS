@@ -29,124 +29,122 @@ export default function ScrollScale(props: Props) {
     const width = useRef(0)
     const height = useRef(0)
 
-    const scale = useTransform(progress, [0, 0.5, 1], [0, 1, 0])
-
-    const x = useTransform(progress, () => {
-        const p = progress.get()
-
-        if (p <= 0.5) return 0
-
-        const s = 2 * (1 - p)
-
-        return width.current * (1 - s)
-    })
-
-    const y = useTransform(progress, () => {
-        const p = progress.get()
-
-        if (p <= 0.5) return 0
-
-        const s = 2 * (1 - p)
-
-        return -height.current * (1 - s)
-    })
-
     useEffect(() => {
         if (!dataFramerName) return
 
         const selector = `[data-framer-name="${CSS.escape(dataFramerName)}"]`
 
-        const wrappers = new WeakMap<Element, HTMLElement>()
+        const target = document.querySelector(selector) as HTMLElement | null
 
-        const setup = () => {
-            document.querySelectorAll(selector).forEach((target) => {
-                if (wrappers.has(target)) return
+        if (!target) return
 
-                const parent = target.parentNode
-                if (!parent) return
+        /*
+         * Fixed pivot.
+         *
+         * We NEVER change transform-origin.
+         */
+        target.style.setProperty("transform-origin", "0% 100%", "important")
 
-                const wrapper = document.createElement("div")
-
-                wrapper.dataset.scrollScaleWrapper = "true"
-                wrapper.style.position = "relative"
-                wrapper.style.width = "100%"
-                wrapper.style.height = "100%"
-
-                // Permanent pivot.
-                wrapper.style.transformOrigin = "0% 100%"
-                wrapper.style.willChange = "transform"
-
-                parent.insertBefore(wrapper, target)
-                wrapper.appendChild(target)
-
-                wrappers.set(target, wrapper)
-
-                const resizeObserver = new ResizeObserver(([entry]) => {
-                    width.current = entry.contentRect.width
-                    height.current = entry.contentRect.height
-                })
-
-                resizeObserver.observe(target)
-
-                const rect = target.getBoundingClientRect()
-
-                width.current = rect.width
-                height.current = rect.height
-                ;(
-                    wrapper as HTMLElement & {
-                        __resizeObserver?: ResizeObserver
-                    }
-                ).__resizeObserver = resizeObserver
-            })
+        const measure = () => {
+            width.current = target.offsetWidth
+            height.current = target.offsetHeight
         }
 
-        setup()
+        measure()
 
-        const unsubscribeScale = scale.on("change", update)
+        const resizeObserver = new ResizeObserver(measure)
+        resizeObserver.observe(target)
 
-        const unsubscribeX = x.on("change", update)
+        /*
+         * Keep whatever transform Framer already has.
+         */
+        const originalTransform = getComputedStyle(target).transform
 
-        const unsubscribeY = y.on("change", update)
+        const base =
+            originalTransform === "none"
+                ? new DOMMatrix()
+                : new DOMMatrix(originalTransform)
 
-        function update() {
-            document.querySelectorAll(selector).forEach((target) => {
-                const wrapper = wrappers.get(target)
+        const update = (rawProgress: number) => {
+            const p = Math.max(0, Math.min(1, rawProgress))
 
-                if (!wrapper) return
+            let scale = 0
+            let x = 0
+            let y = 0
 
-                wrapper.style.transform = `translate3d(${x.get()}px, ${y.get()}px, 0) scale(${scale.get()})`
-            })
+            if (p <= 0.5) {
+                /*
+                 * HALF 1
+                 *
+                 * bottom-left pivot
+                 *
+                 * 0 → 1
+                 */
+                const t = p / 0.5
+
+                scale = t
+            } else {
+                /*
+                 * HALF 2
+                 *
+                 * top-right pivot
+                 *
+                 * 1 → 0
+                 */
+                const t = (p - 0.5) / 0.5
+
+                /*
+                 * t:
+                 * 0 → 1
+                 *
+                 * scale:
+                 * 1 → 0
+                 */
+                scale = 1 - t
+
+                /*
+                 * Pivot compensation.
+                 *
+                 * bottom-left → top-right
+                 */
+                const amount = t
+
+                x = width.current * amount
+                y = -height.current * amount
+            }
+
+            /*
+             * This matrix is:
+             *
+             * translate(x, y)
+             * scale(scale)
+             *
+             * with transform-origin fixed at bottom-left.
+             */
+            const animation = new DOMMatrix().translate(x, y).scale(scale)
+
+            /*
+             * Apply the animation in local space.
+             */
+            const finalMatrix = base.multiply(animation)
+
+            target.style.transform = `matrix3d(${Array.from(
+                finalMatrix.toFloat64Array()
+            ).join(",")})`
         }
 
-        update()
+        const unsubscribe = progress.on("change", update)
+
+        update(progress.get())
 
         return () => {
-            unsubscribeScale()
-            unsubscribeX()
-            unsubscribeY()
+            unsubscribe()
+            resizeObserver.disconnect()
 
-            document
-                .querySelectorAll('[data-scroll-scale-wrapper="true"]')
-                .forEach((wrapper) => {
-                    const observer = (
-                        wrapper as HTMLElement & {
-                            __resizeObserver?: ResizeObserver
-                        }
-                    ).__resizeObserver
-
-                    observer?.disconnect()
-
-                    const target = wrapper.firstElementChild
-
-                    const parent = wrapper.parentNode
-
-                    if (target && parent) {
-                        parent.insertBefore(target, wrapper)
-                        wrapper.remove()
-                    }
-                })
+            target.style.transform = ""
+            target.style.removeProperty("transform-origin")
         }
-    }, [dataFramerName, scale, x, y])
+    }, [dataFramerName, offsetStart, offsetEnd, transition, progress])
 
     return <div />
 }
@@ -154,8 +152,10 @@ export default function ScrollScale(props: Props) {
 ScrollScale.defaultProps = {
     dataFramerName: "",
     scrollSection: undefined,
+
     offsetStart: "start end",
     offsetEnd: "end start",
+
     transition: {
         type: "spring",
         stiffness: 400,
@@ -171,8 +171,7 @@ addPropertyControls(ScrollScale, {
     },
 
     scrollSection: {
-      //@ts-ignore
-        type: ControlType.ScrollSectionRef,
+        type: ControlType.ScrollSectionRef as any,
         title: "Scroll Section",
     },
 
