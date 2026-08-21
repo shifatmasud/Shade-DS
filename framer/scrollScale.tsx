@@ -171,6 +171,7 @@ addPropertyControls(ScrollScale, {
     },
 
     scrollSection: {
+      //@ts-ignore
         type: ControlType.ScrollSectionRef,
         title: "Scroll Section",
     },
