@@ -83,11 +83,14 @@ if (host) {
 }
 ```
 
-### 2. Targeting Stable Attributes
-Avoid dynamic class names (`framer-1hu7...`). Use `[data-framer-component-type]` to identify siblings:
-- `RichTextContainer`: Contains `p`, `span`, or `h1-h6`.
-- `SVG`: Contains the semantic `svg` node.
-- `Frame`: Layout containers.
+### 2. Targeting Stable Attributes & Framer Component Types
+Avoid dynamic class names (`framer-1hu7...`). Use `[data-framer-component-type]` and DOM structure to identify Framer canvas component types:
+1. **Path (SVG component)**: `div[data-framer-component-type="SVG"][data-framer-name="..."]` > `div.svgContainer` > `svg` > `use[href="#..."]`
+2. **Vector Set**: `svg[data-framer-name="..."]` > `use[href="#..."]`
+3. **Image**: `div[data-framer-name="..."]` > `div[data-framer-background-image-wrapper]` > `img[src="..."]`
+4. **Video**: `div[data-framer-name="..."]` > `video[src="...mp4"]`
+5. **Text (Rich Text Container)**: `div[data-framer-name="..."][data-framer-component-type="RichTextContainer"]` > `p` > `#text`, `span`
+- `Frame`: Layout containers without specific component-type attributes.
 
 ### 3. Deep Semantic Manipulation
 Once the container is found, use `querySelector` to find the actual element for manipulation:

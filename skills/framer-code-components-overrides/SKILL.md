@@ -363,7 +363,34 @@ function resolvePlainText(props: any): string {
 
 ## Framer DOM and Layer Tree References
 
+Detailed reference: See [Framer Canvas Component Types Reference](references/framer-canvas-component-types.md) for full DOM hierarchies, selectors, mapping tables, and TypeScript identification helpers.
+
 Use these structural maps to understand how Framer projects layer trees onto the DOM, especially when targeting elements via selectors, DOM traversal, or parsing children.
+
+### Framer Component Types
+
+1. **Path (SVG component)**
+    - `div[data-framer-component-type="SVG"][data-framer-name="Child 1"]`
+        - `div.svgContainer`
+            - `svg`
+                - `use[href="#svg-1414304237_256"]`
+2. **Vector Set**
+    - `svg[data-framer-name="Child 2"]`
+        - `use[href="#1697384173"]`
+3. **Image**
+    - `div[data-framer-name="Child 3"]`
+        - `div[data-framer-background-image-wrapper]`
+            - `img[src="…"]`
+4. **Video**
+    - `div[data-framer-name="Child 5"]`
+        - `video[src="…mp4"]`
+5. **Text (Rich Text Container)**
+    - `div[data-framer-name="Child 4"][data-framer-component-type="RichTextContainer"]`
+        - `p`
+            - `#text "T"`
+            - `span` → `#text "e"`
+            - `span` → `#text "x"`
+            - `span` → `#text "t"`
 
 ### Framer DOM Tree
 ```text
@@ -371,14 +398,16 @@ div [data-framer-root]
 └── div [data-framer-name="Grand Parent"]
     └── div [data-framer-name="Parent"]
         ├── div [data-framer-component-type="SVG"][data-framer-name="Child 1"]
-        │   └── div
+        │   └── div.svgContainer
         │       └── svg
         │           └── use [href="#svg-1414304237_256"]
-        ├── svg [data-framer-name="Child 2"] //This is called Vector Set in Framer
+        ├── svg [data-framer-name="Child 2"] // This is called Vector Set in Framer
         │   └── use [href="#1697384173"]
         ├── div [data-framer-name="Child 3"]
         │   └── div [data-framer-background-image-wrapper]
-        │       └── img [src="https://framerusercontent.com/images/GoOc6vfVj66FffhqEdI1l63h5Q.png?width=2048&amp;height=2048"]
+        │       └── img [src="https://framerusercontent.com/images/GoOc6vfVj66FffhqEdI1l63h5Q.png?width=2048&height=2048"]
+        ├── div [data-framer-name="Child 5"]
+        │   └── video [src="...mp4"]
         └── div [data-framer-name="Child 4"][data-framer-component-type="RichTextContainer"]
             └── p
                 ├── #text "T"
@@ -398,6 +427,7 @@ Desktop
         ├── Child 1 - Path
         ├── Child 2 - Vector Set
         ├── Child 3 - Image
+        ├── Child 5 - Video
         └── Child 4 - Text
 ```
 
