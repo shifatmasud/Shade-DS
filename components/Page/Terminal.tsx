@@ -254,14 +254,8 @@ export const TerminalPage: React.FC = () => {
     const containerEl = terminalContainerRef.current;
     resizeObserver.observe(containerEl);
 
-    // Mobile touch drag-to-select: only initiates after a deliberate onpress (press & hold ~250ms)
-    const PRESS_DELAY_MS = 250;
-    const JITTER_CANCEL_THRESHOLD_PX = 10;
-    let pressTimer: any = null;
-    let isPressActive = false;
-    let touchStartPos: { x: number; y: number } | null = null;
+    // Mobile touch drag-to-select support
     let touchStartCell: { col: number; row: number } | null = null;
-
     const getCellFromTouch = (touch: Touch) => {
       if (!containerEl || !term) return null;
       const rect = containerEl.getBoundingClientRect();
@@ -276,46 +270,13 @@ export const TerminalPage: React.FC = () => {
 
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 1) {
-        if (pressTimer) clearTimeout(pressTimer);
-        isPressActive = false;
-        const touch = e.touches[0];
-        touchStartPos = { x: touch.clientX, y: touch.clientY };
-        touchStartCell = getCellFromTouch(touch);
-
-        if (touchStartCell) {
-          const initialCell = touchStartCell;
-          pressTimer = setTimeout(() => {
-            isPressActive = true;
-            const buffer = term.buffer.active;
-            const startBufferRow = buffer.viewportY + initialCell.row;
-            // Select single character at press position and trigger subtle haptic pulse
-            term.select(initialCell.col, startBufferRow, 1);
-            if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-              try { navigator.vibrate?.(25); } catch (_) {}
-            }
-          }, PRESS_DELAY_MS);
-        }
+        touchStartCell = getCellFromTouch(e.touches[0]);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length !== 1 || !touchStartPos || !touchStartCell) return;
-      const touch = e.touches[0];
-
-      if (!isPressActive) {
-        // If moved beyond jitter threshold before press duration completed, cancel press to allow native scrolling
-        const dist = Math.hypot(touch.clientX - touchStartPos.x, touch.clientY - touchStartPos.y);
-        if (dist > JITTER_CANCEL_THRESHOLD_PX) {
-          if (pressTimer) {
-            clearTimeout(pressTimer);
-            pressTimer = null;
-          }
-        }
-        return;
-      }
-
-      // Selection mode is active: expand selection range
-      const currentCell = getCellFromTouch(touch);
+      if (!touchStartCell || e.touches.length !== 1) return;
+      const currentCell = getCellFromTouch(e.touches[0]);
       if (!currentCell) return;
 
       const buffer = term.buffer.active;
@@ -334,27 +295,18 @@ export const TerminalPage: React.FC = () => {
     };
 
     const handleTouchEnd = () => {
-      if (pressTimer) {
-        clearTimeout(pressTimer);
-        pressTimer = null;
-      }
-      isPressActive = false;
-      touchStartPos = null;
       touchStartCell = null;
     };
 
     containerEl.addEventListener('touchstart', handleTouchStart, { passive: true });
     containerEl.addEventListener('touchmove', handleTouchMove, { passive: true });
     containerEl.addEventListener('touchend', handleTouchEnd, { passive: true });
-    containerEl.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
     return () => {
-      if (pressTimer) clearTimeout(pressTimer);
       csiHandler.dispose();
       containerEl.removeEventListener('touchstart', handleTouchStart);
       containerEl.removeEventListener('touchmove', handleTouchMove);
       containerEl.removeEventListener('touchend', handleTouchEnd);
-      containerEl.removeEventListener('touchcancel', handleTouchEnd);
       dataDisposable.dispose();
       selectionDisposable.dispose();
       resizeObserver.disconnect();
