@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from 'url';
-import { exec, execSync } from 'child_process';
+import { exec, execSync, spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import https from "https";
@@ -27,6 +27,163 @@ try {
 }
 
 const GH_BINARY_PATH = path.join(process.cwd(), 'bin', 'gh');
+const AGENT_LOG_PATH = '/tmp/agent_terminal.log';
+
+// Ensure /tmp/agent_terminal.log exists with initial content if missing
+try {
+  if (!fs.existsSync(AGENT_LOG_PATH)) {
+    fs.writeFileSync(AGENT_LOG_PATH, `[${new Date().toISOString()}] Agent Terminal Audit Log Initialized.\n`, 'utf-8');
+  }
+} catch (e) {
+  console.error("Failed to initialize /tmp/agent_terminal.log:", e);
+}
+
+// Global Terminal State & SSE Client Management (Same environment as AI agent)
+let terminalCwd = process.cwd();
+const shellClients: Set<any> = new Set();
+const auditClients: Set<any> = new Set();
+const terminalHistory: Array<{ type: string; data: string; cwd?: string }> = [
+  { type: 'output', data: '=== Interactive Workspace Shell Connected (/bin/bash) ===\r\n' }
+];
+
+function broadcastToTerminal(payload: { type: string; data: string; cwd?: string }) {
+  terminalHistory.push(payload);
+  if (terminalHistory.length > 600) terminalHistory.shift();
+  const msg = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const client of shellClients) {
+    try {
+      client.write(msg);
+    } catch (e) {}
+  }
+}
+
+// Execute command in bash with full environment matching agent terminal
+function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number; cwd: string }> {
+  return new Promise((resolve) => {
+    const trimmed = cmd.trim();
+    if (!trimmed) {
+      resolve({ stdout: '', stderr: '', exitCode: 0, cwd: terminalCwd });
+      return;
+    }
+
+    // Broadcast the command execution prompt header
+    broadcastToTerminal({ type: 'output', data: `\r\n\x1b[32m❯\x1b[0m ${trimmed}\r\n`, cwd: terminalCwd });
+
+    const sentinel = `__TERM_CWD_MARKER_${Date.now()}_${Math.random().toString(36).substring(2, 7)}__`;
+    // We execute the command, capture exit code, print sentinel, print current working directory, and exit with status
+    const script = `${trimmed}\n__EC=$?\necho -n "${sentinel}"\npwd -P\nexit $__EC`;
+
+    const customEnv = {
+      ...process.env,
+      TERM: 'xterm-256color',
+      COLORTERM: 'truecolor',
+      PATH: `${process.env.PATH || ''}:/usr/local/bin:/usr/bin:/bin`,
+      PAGER: 'cat',
+      GH_TOKEN: process.env.GH_TOKEN || '',
+      VERCEL_TOKEN: process.env.VERCEL_TOKEN || '',
+      SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN || '',
+      NOTION_API_TOKEN: process.env.NOTION_API_TOKEN || '',
+      NOTION_WORKSPACE_ID: process.env.NOTION_WORKSPACE_ID || ''
+    };
+
+    const proc = spawn('/bin/bash', ['-c', script], {
+      cwd: terminalCwd,
+      env: customEnv
+    });
+
+    let rawStdout = '';
+    let rawStderr = '';
+
+    proc.stdout.on('data', (data) => {
+      const text = data.toString();
+      rawStdout += text;
+      // If the text contains the sentinel, only broadcast up to the sentinel
+      if (text.includes(sentinel)) {
+        const pre = text.split(sentinel)[0];
+        if (pre) broadcastToTerminal({ type: 'output', data: pre });
+      } else {
+        broadcastToTerminal({ type: 'output', data: text });
+      }
+    });
+
+    proc.stderr.on('data', (data) => {
+      const text = data.toString();
+      rawStderr += text;
+      broadcastToTerminal({ type: 'output', data: text });
+    });
+
+    proc.on('close', (code) => {
+      const exitCode = code ?? 0;
+      let newCwd = terminalCwd;
+
+      if (rawStdout.includes(sentinel)) {
+        const parts = rawStdout.split(sentinel);
+        const candidateCwd = parts[1]?.trim();
+        if (candidateCwd && fs.existsSync(candidateCwd)) {
+          newCwd = candidateCwd;
+          terminalCwd = newCwd;
+        }
+      }
+
+      broadcastToTerminal({
+        type: 'output',
+        data: exitCode !== 0 ? `\r\n\x1b[31m[exit code ${exitCode}]\x1b[0m\r\n` : `\r\n`,
+        cwd: terminalCwd
+      });
+
+      resolve({
+        stdout: rawStdout.split(sentinel)[0] || '',
+        stderr: rawStderr,
+        exitCode,
+        cwd: terminalCwd
+      });
+    });
+
+    proc.on('error', (err) => {
+      const errMsg = `\r\n[Shell execution error: ${err.message}]\r\n`;
+      broadcastToTerminal({ type: 'output', data: errMsg });
+      resolve({ stdout: '', stderr: err.message, exitCode: 1, cwd: terminalCwd });
+    });
+  });
+}
+
+// Watch /tmp/agent_terminal.log for rolling log streaming
+let lastLogSize = 0;
+try {
+  if (fs.existsSync(AGENT_LOG_PATH)) {
+    lastLogSize = fs.statSync(AGENT_LOG_PATH).size;
+  }
+} catch (e) {}
+
+fs.watchFile(AGENT_LOG_PATH, { interval: 250 }, (curr, prev) => {
+  try {
+    if (curr.size < prev.size) {
+      // Log was truncated or rotated
+      lastLogSize = 0;
+    }
+    if (curr.size > lastLogSize) {
+      const stream = fs.createReadStream(AGENT_LOG_PATH, {
+        start: lastLogSize,
+        end: curr.size - 1,
+        encoding: 'utf-8'
+      });
+      let chunkData = '';
+      stream.on('data', (chunk) => {
+        chunkData += chunk;
+      });
+      stream.on('end', () => {
+        lastLogSize = curr.size;
+        if (chunkData) {
+          for (const client of auditClients) {
+            client.write(`data: ${JSON.stringify({ type: 'log', data: chunkData })}\n\n`);
+          }
+        }
+      });
+    }
+  } catch (e) {
+    console.error("Error reading agent log update:", e);
+  }
+});
 
 async function downloadGithubCliIfNotExists() {
   const BIN_DIR = path.join(process.cwd(), 'bin');
@@ -289,6 +446,103 @@ async function startServer() {
     }
   });
 
+  // --- TERMINAL & AUDIT SSE & INPUT ENDPOINTS ---
+
+  // 1. /api/terminal/stream - SSE endpoint for interactive shell session output
+  app.get("/api/terminal/stream", (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    // Replay recent history to new connection so terminal content is preserved across page navigations
+    for (const item of terminalHistory) {
+      res.write(`data: ${JSON.stringify(item)}\n\n`);
+    }
+
+    shellClients.add(res);
+
+    req.on('close', () => {
+      shellClients.delete(res);
+    });
+  });
+
+  // 2. /api/terminal/run & /api/terminal/input - Command execution in the agent's bash workspace environment
+  app.post("/api/terminal/run", async (req, res) => {
+    const { command } = req.body;
+    if (typeof command !== 'string') {
+      return res.status(400).json({ success: false, error: "Invalid command payload. Expected string." });
+    }
+    try {
+      const result = await executeTerminalCommand(command);
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/terminal/input", async (req, res) => {
+    const { input } = req.body;
+    if (typeof input !== 'string') {
+      return res.status(400).json({ success: false, error: "Invalid input payload. Expected string." });
+    }
+    try {
+      const result = await executeTerminalCommand(input);
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 3. /api/terminal/info - Workspace environment facts and active working directory
+  app.get("/api/terminal/info", (req, res) => {
+    res.json({
+      cwd: terminalCwd,
+      user: process.env.USER || 'developer',
+      hostname: 'ai-studio',
+      nodeVersion: process.version,
+      platform: process.platform
+    });
+  });
+
+  // 4. /api/terminal/clear - Clear terminal history buffer
+  app.post("/api/terminal/clear", (req, res) => {
+    terminalHistory.length = 0;
+    terminalHistory.push({ type: 'output', data: '=== Interactive Workspace Shell Connected (/bin/bash) ===\r\n' });
+    for (const client of shellClients) {
+      try {
+        client.write(`data: ${JSON.stringify({ type: 'clear' })}\n\n`);
+      } catch (e) {}
+    }
+    res.json({ success: true });
+  });
+
+  // 3. /api/terminal/log - SSE endpoint for agent audit logging from /tmp/agent_terminal.log
+  app.get("/api/terminal/log", (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    // Send existing log history upon connection
+    try {
+      if (fs.existsSync(AGENT_LOG_PATH)) {
+        const history = fs.readFileSync(AGENT_LOG_PATH, 'utf-8');
+        res.write(`data: ${JSON.stringify({ type: 'log', data: history })}\n\n`);
+      } else {
+        res.write(`data: ${JSON.stringify({ type: 'log', data: `[${new Date().toISOString()}] Agent audit log stream connected.\n` })}\n\n`);
+      }
+    } catch (e: any) {
+      res.write(`data: ${JSON.stringify({ type: 'log', data: `[Error reading log history: ${e.message}]\n` })}\n\n`);
+    }
+
+    auditClients.add(res);
+
+    req.on('close', () => {
+      auditClients.delete(res);
+    });
+  });
+
   // Standard health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
@@ -320,4 +574,3 @@ async function startServer() {
 }
 
 startServer();
-

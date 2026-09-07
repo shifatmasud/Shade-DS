@@ -12,7 +12,7 @@ if (!apiKey) {
 }
 
 // Default model for sub-agents (Planner, Analyzers, Coordinator, Workers, Reviewer, Fix Agent)
-const DEFAULT_MODEL = process.env.SUB_AGENT_MODEL || "gemini-3.5-flash-lite";
+const DEFAULT_MODEL = process.env.SUB_AGENT_MODEL || "gemini-flash-lite-latest";
 const MAX_REVIEW_RETRIES = 3;
 
 const ai = new GoogleGenAI({
@@ -870,7 +870,18 @@ Please execute your assigned code modifications using workspace tools. When comp
   try {
     const jsonMatch = rawResponseText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      contract = JSON.parse(jsonMatch[0]) as WorkerOutputContract;
+      const parsed = JSON.parse(jsonMatch[0]);
+      contract = {
+        taskId: parsed.taskId || task.id,
+        agentName: parsed.agentName || task.name,
+        status: parsed.status || (workerModified.size > 0 ? "COMPLETED" : "PARTIAL"),
+        modifiedFiles: Array.isArray(parsed.modifiedFiles) ? parsed.modifiedFiles : Array.from(workerModified),
+        readFiles: Array.isArray(parsed.readFiles) ? parsed.readFiles : Array.from(workerRead),
+        rationale: parsed.rationale || rawResponseText.slice(0, 300) || "Executed code changes.",
+        assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : ["Code conforms to workspace standard."],
+        risks: Array.isArray(parsed.risks) ? parsed.risks : ["Requires lint and build validation."],
+        summaryText: parsed.summaryText || rawResponseText || "Worker finished execution."
+      };
     } else {
       throw new Error("No JSON block in output");
     }
@@ -888,8 +899,8 @@ Please execute your assigned code modifications using workspace tools. When comp
     };
   }
 
-  contract.modifiedFiles = Array.from(new Set([...contract.modifiedFiles, ...Array.from(workerModified)]));
-  contract.readFiles = Array.from(new Set([...contract.readFiles, ...Array.from(workerRead)]));
+  contract.modifiedFiles = Array.from(new Set([...(Array.isArray(contract.modifiedFiles) ? contract.modifiedFiles : []), ...Array.from(workerModified)]));
+  contract.readFiles = Array.from(new Set([...(Array.isArray(contract.readFiles) ? contract.readFiles : []), ...Array.from(workerRead)]));
 
   console.log(`\x1b[32m[Worker ${task.name}] Completed execution. Status: ${contract.status}. Modified ${contract.modifiedFiles.length} files.\x1b[0m\n`);
   return contract;

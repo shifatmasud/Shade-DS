@@ -43,6 +43,7 @@ This is not just another component library. It is a **structural methodology** f
 
 ## 📜 Recent Changelogs
 
+-   **`SEP 07, 2026`** · **Dual-Session Terminal & Agent Inspection TUI**: Added route-isolated `/terminal` and `/tui` interfaces featuring an interactive `/bin/bash` shell session and real-time agent audit log streaming (`/tmp/agent_terminal.log`), built strictly with `Theme.tsx` tokens, procedural 1px borders, and 100% preservation of Dock immunity.
 -   **`AUG 20, 2026`** · **Transition Control Consolidation**: Streamlined `Morphine.tsx` property controls by removing the redundant `duration` number control in favor of Framer's native `ControlType.Transition` (`transition` prop) which encapsulates duration, easing curves, and physics parameters directly.
 -   **`AUG 20, 2026`** · **Pure Framer Motion `animateView` Migration**: Refactored `Morphine.tsx` to strictly use Framer Motion's native `animateView` API (`.old()`, `.new()`, and `.add()`) for root page snapshot transitions and shared-element morphs without any CSS or stylesheet injections.
 -   **`AUG 20, 2026`** · **Changelog Maintenance Permission**: Updated AGENTS.md and README immunity protocols to explicitly grant continuous maintenance and documentation permissions for the Recent Changelogs section.
