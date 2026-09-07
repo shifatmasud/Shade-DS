@@ -149,7 +149,36 @@ def main():
                 try:
                     user_input = os.read(stdin_fd, 4096)
                     if user_input:
-                        os.write(master, user_input)
+                        # Check for in-band resize packet
+                        if b'__PTY_RESIZE__:' in user_input:
+                            parts = user_input.split(b'__PTY_RESIZE__:')
+                            # Write any preceding bytes
+                            if parts[0]:
+                                os.write(master, parts[0])
+                            for p in parts[1:]:
+                                line_end = p.find(b'\n')
+                                if line_end != -1:
+                                    dim_str = p[:line_end].decode('utf-8', errors='ignore')
+                                    dim_parts = dim_str.split(':')
+                                    if len(dim_parts) == 2:
+                                        try:
+                                            new_cols = int(dim_parts[0])
+                                            new_rows = int(dim_parts[1])
+                                            set_window_size(master, new_rows, new_cols)
+                                            try:
+                                                os.killpg(os.getpgid(proc.pid), signal.SIGWINCH)
+                                            except Exception:
+                                                pass
+                                        except Exception:
+                                            pass
+                                    rem = p[line_end+1:]
+                                    if rem:
+                                        os.write(master, rem)
+                                else:
+                                    # Incomplete resize packet, skip or wait
+                                    pass
+                        else:
+                            os.write(master, user_input)
                     else:
                         # EOF reached on stdin
                         stdin_open = False

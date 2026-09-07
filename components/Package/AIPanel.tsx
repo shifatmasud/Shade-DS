@@ -276,9 +276,9 @@ const AIPanel: React.FC<AIPanelProps> = ({ stagedProps, onUpdateState, apiKey })
             ))}
             {isLoading && (
               <div style={{ display: 'flex', gap: theme.space['Space.XS'], padding: theme.space['Space.2XS'] }}>
-                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8], filter: ['blur(2px)', 'blur(0px)', 'blur(2px)'] }} transition={{ repeat: Infinity, duration: 1.5 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8], filter: ['blur(2px)', 'blur(0px)', 'blur(2px)'] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.2 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8], filter: ['blur(2px)', 'blur(0px)', 'blur(2px)'] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.4 }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
+                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8], filter: ['blur(2px)', 'blur(0px)', 'blur(2px)'] }} transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
+                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8], filter: ['blur(2px)', 'blur(0px)', 'blur(2px)'] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.2, ease: 'easeInOut' }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
+                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8], filter: ['blur(2px)', 'blur(0px)', 'blur(2px)'] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.4, ease: 'easeInOut' }} style={{ width: theme.space['Space.XS'], height: theme.space['Space.XS'], borderRadius: '50%', backgroundColor: theme.Color.Base.Content[3] }} />
               </div>
             )}
           </div>

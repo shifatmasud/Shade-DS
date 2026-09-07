@@ -24,3 +24,20 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Binary executables, archives and caches
+bin/gh
+bin/git
+bin/agy-bin
+bin/*.tar.gz
+bin/*.gz
+bin/*.zip
+*.bin
+*.exe
+*.so
+*.dylib
+*.tar
+*.gz
+*.zip
+.gemini
+

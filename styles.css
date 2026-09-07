@@ -1,5 +1,6 @@
 @import url('https://rsms.me/inter/inter.css');
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cause:wght@100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+@import '@xterm/xterm/css/xterm.css';
 
 body {
   margin: 0;
@@ -15,3 +16,31 @@ body {
   -webkit-font-feature-settings: "cv01" 1, "cv02" 1, "cv03" 1, "cv04" 1, "cv05" 1, "cv06" 1, "cv11" 1, "cv12" 1, "cv13" 1 !important;
   font-feature-settings: "cv01" 1, "cv02" 1, "cv03" 1, "cv04" 1, "cv05" 1, "cv06" 1, "cv11" 1, "cv12" 1, "cv13" 1 !important;
 }
+
+/* Touch device & Universal text selection for Terminal xterm UI */
+.xterm {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+}
+
+.xterm .xterm-screen,
+.xterm .xterm-rows,
+.xterm .xterm-rows > div,
+.xterm .xterm-rows span {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+  cursor: text !important;
+}
+
+.xterm-viewport {
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.xterm-helper-textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+

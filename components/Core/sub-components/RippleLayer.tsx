@@ -62,6 +62,18 @@ export default function RippleLayer({
     pointerEvents: 'none',
   };
 
+  const effectiveTransition = useMemo(() => {
+    const base = typeof transition === 'object' && transition !== null ? transition : {};
+    return {
+      ...base,
+      opacity: {
+        duration: typeof base.duration === 'number' ? base.duration : 0.7,
+        ease: 'easeOut',
+        times: [0, 0.2, 1],
+      },
+    };
+  }, [transition]);
+
   if (forced) {
     return (
       <div style={containerStyle}>
@@ -93,7 +105,7 @@ export default function RippleLayer({
               borderColor: color as any,
               borderStyle: 'solid',
             }}
-            transition={transition}
+            transition={effectiveTransition}
             onAnimationComplete={() => setRipples(prev => prev.filter(r => r.id !== ripple.id))}
           />
         ))}

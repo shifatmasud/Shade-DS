@@ -1,10 +1,40 @@
 #!/bin/bash
 # Wrapper for Antigravity CLI ensuring GEMINI_API_KEY auth, auto-approval, and optimal default model
-export GEMINI_API_KEY="${GEMINI_API_KEY:-AQ.Ab8RN6I08K-B8G06ZPxTEdx3aunQhRjOglpgENZuxhQ6xs1tAA}"
+if [ -z "$GEMINI_API_KEY" ] && [ -f "/app/applet/.env" ]; then
+  ENV_KEY=$(grep "^GEMINI_API_KEY=" "/app/applet/.env" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ')
+  if [ -n "$ENV_KEY" ]; then
+    export GEMINI_API_KEY="$ENV_KEY"
+  fi
+fi
+
+# Ensure Antigravity CLI settings file has modelProvider: "gemini" to authenticate via API key instead of OAuth
+CONFIG_DIR="${HOME:-/root}/.gemini/antigravity-cli"
+mkdir -p "$CONFIG_DIR"
+if [ ! -f "$CONFIG_DIR/settings.json" ] || ! grep -q '"modelProvider"' "$CONFIG_DIR/settings.json" 2>/dev/null; then
+  cat << 'EOF' > "$CONFIG_DIR/settings.json"
+{
+  "modelProvider": "gemini",
+  "toolPermission": "always-proceed",
+  "autoExecPolicy": "always-proceed",
+  "enableTerminalSandbox": false,
+  "allowNonWorkspaceAccess": true
+}
+EOF
+fi
+
+# Ensure Playwright driver cache stub exists so browser tool initialization does not fail offline
+PW_DIR="${HOME:-/root}/.cache/ms-playwright-go/1.57.0"
+if [ ! -f "$PW_DIR/driver/playwright.sh" ]; then
+  mkdir -p "$PW_DIR/driver" "$PW_DIR/package"
+  echo '#!/bin/bash' > "$PW_DIR/driver/playwright.sh"
+  echo 'exit 0' >> "$PW_DIR/driver/playwright.sh"
+  chmod +x "$PW_DIR/driver/playwright.sh"
+  cp "$PW_DIR/driver/playwright.sh" "$PW_DIR/playwright.sh"
+fi
 
 EXTRA_FLAGS=()
 
-# If --model is not already specified, default to gemini-3.8-flash-medium
+# If --model is not already specified, default to gemini-3.7-flash-medium
 has_model=0
 has_skip_perm=0
 
@@ -18,7 +48,7 @@ for arg in "$@"; do
 done
 
 if [ "$has_model" -eq 0 ]; then
-  EXTRA_FLAGS+=(--model gemini-3.8-flash-medium)
+  EXTRA_FLAGS+=(--model gemini-3.7-flash-medium)
 fi
 
 # Always grant full tool permissions so prompts and tasks just work without blocking
@@ -26,10 +56,30 @@ if [ "$has_skip_perm" -eq 0 ]; then
   EXTRA_FLAGS+=(--dangerously-skip-permissions)
 fi
 
-REAL_BIN="$(dirname "$0")/agy-bin"
-if [ ! -f "$REAL_BIN" ]; then
-  REAL_BIN="/app/applet/bin/agy-bin"
+# Locate the actual executable in root system storage (outside git tracking)
+REAL_BIN="/root/.local/bin/agy-real"
+
+if [ ! -x "$REAL_BIN" ]; then
+  if [ -f "/root/.local/bin/agy" ] && [ ! -L "/root/.local/bin/agy" ] && [ -x "/root/.local/bin/agy" ]; then
+    cp "/root/.local/bin/agy" "$REAL_BIN" 2>/dev/null || true
+    chmod +x "$REAL_BIN" 2>/dev/null || true
+  else
+    # Auto-install binary to system path
+    echo "[agy] Initializing Antigravity CLI binary..."
+    rm -f /root/.local/bin/agy 2>/dev/null || true
+    curl -fsSL https://antigravity.google/cli/install.sh | bash >/dev/null 2>&1 || true
+    if [ -f "/root/.local/bin/agy" ]; then
+      cp "/root/.local/bin/agy" "$REAL_BIN" 2>/dev/null || true
+      chmod +x "$REAL_BIN" 2>/dev/null || true
+    fi
+  fi
+fi
+
+if [ ! -x "$REAL_BIN" ]; then
+  echo "Error: agy binary not found at $REAL_BIN. Run 'curl -fsSL https://antigravity.google/cli/install.sh | bash' to install."
+  exit 1
 fi
 
 exec "$REAL_BIN" "${EXTRA_FLAGS[@]}" "$@"
+
 
