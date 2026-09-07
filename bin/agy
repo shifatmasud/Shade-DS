@@ -1,0 +1,35 @@
+#!/bin/bash
+# Wrapper for Antigravity CLI ensuring GEMINI_API_KEY auth, auto-approval, and optimal default model
+export GEMINI_API_KEY="${GEMINI_API_KEY:-AQ.Ab8RN6I08K-B8G06ZPxTEdx3aunQhRjOglpgENZuxhQ6xs1tAA}"
+
+EXTRA_FLAGS=()
+
+# If --model is not already specified, default to gemini-3.8-flash-medium
+has_model=0
+has_skip_perm=0
+
+for arg in "$@"; do
+  if [ "$arg" = "--model" ] || [[ "$arg" == --model=* ]]; then
+    has_model=1
+  fi
+  if [ "$arg" = "--dangerously-skip-permissions" ]; then
+    has_skip_perm=1
+  fi
+done
+
+if [ "$has_model" -eq 0 ]; then
+  EXTRA_FLAGS+=(--model gemini-3.8-flash-medium)
+fi
+
+# Always grant full tool permissions so prompts and tasks just work without blocking
+if [ "$has_skip_perm" -eq 0 ]; then
+  EXTRA_FLAGS+=(--dangerously-skip-permissions)
+fi
+
+REAL_BIN="$(dirname "$0")/agy-bin"
+if [ ! -f "$REAL_BIN" ]; then
+  REAL_BIN="/app/applet/bin/agy-bin"
+fi
+
+exec "$REAL_BIN" "${EXTRA_FLAGS[@]}" "$@"
+

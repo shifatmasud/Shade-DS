@@ -49,20 +49,52 @@ try {
     fs.copyFileSync('/usr/bin/git', binGit);
     fs.chmodSync(binGit, 0o755);
   }
+
+  // Ensure ./bin/agy is executable and symlinked to system bin paths
+  const binAgy = path.join(binDir, 'agy');
+  if (fs.existsSync(binAgy)) {
+    try { fs.chmodSync(binAgy, 0o755); } catch (_) {}
+    
+    // Symlink into /usr/local/bin so any subshell finds agy immediately
+    try {
+      if (fs.existsSync('/usr/local/bin')) {
+        const usrAgy = '/usr/local/bin/agy';
+        if (!fs.existsSync(usrAgy) || fs.readlinkSync(usrAgy) !== binAgy) {
+          try { fs.unlinkSync(usrAgy); } catch (_) {}
+          fs.symlinkSync(binAgy, usrAgy);
+        }
+      }
+    } catch (_) {}
+
+    // Symlink into /root/.local/bin
+    try {
+      const rootLocalBin = '/root/.local/bin';
+      if (!fs.existsSync(rootLocalBin)) {
+        fs.mkdirSync(rootLocalBin, { recursive: true });
+      }
+      const rootAgy = path.join(rootLocalBin, 'agy');
+      if (!fs.existsSync(rootAgy) || fs.readlinkSync(rootAgy) !== binAgy) {
+        try { fs.unlinkSync(rootAgy); } catch (_) {}
+        fs.symlinkSync(binAgy, rootAgy);
+      }
+    } catch (_) {}
+  }
 } catch (e) {
   console.error("Failed to ensure git in ./bin:", e);
 }
 
 // Global Terminal State & SSE Client Management (Same environment as AI agent)
 let terminalCwd = process.cwd();
+let activeTerminalProcess: any = null;
+let activeCommandName: string | null = null;
 const shellClients: Set<any> = new Set();
 const auditClients: Set<any> = new Set();
-const terminalHistory: Array<{ type: string; data: string; cwd?: string }> = [
+const terminalHistory: Array<{ type: string; data: string; cwd?: string; activeProcess?: string | null }> = [
   { type: 'output', data: '=== Interactive Workspace Shell Connected (/bin/bash) ===\r\n' }
 ];
 
-function broadcastToTerminal(payload: { type: string; data: string; cwd?: string }) {
-  terminalHistory.push(payload);
+function broadcastToTerminal(payload: { type: string; data?: string; cwd?: string; activeProcess?: string | null }) {
+  terminalHistory.push(payload as any);
   if (terminalHistory.length > 600) terminalHistory.shift();
   const msg = `data: ${JSON.stringify(payload)}\n\n`;
   for (const client of shellClients) {
@@ -89,11 +121,12 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
     const script = `${trimmed}\n__EC=$?\necho -n "${sentinel}"\npwd -P\nexit $__EC`;
 
     const binDir = path.join(process.cwd(), 'bin');
+    const ptyRunnerPath = path.join(process.cwd(), 'scripts', 'pty_runner.py');
     const customEnv = {
       ...process.env,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
-      PATH: `${binDir}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${process.env.PATH || ''}`,
+      PATH: `${binDir}:/root/.local/bin:${process.env.HOME || '/root'}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${process.env.PATH || ''}`,
       PAGER: 'cat',
       GH_TOKEN: process.env.GH_TOKEN || '',
       VERCEL_TOKEN: process.env.VERCEL_TOKEN || '',
@@ -102,15 +135,25 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
       NOTION_WORKSPACE_ID: process.env.NOTION_WORKSPACE_ID || ''
     };
 
-    const proc = spawn('/bin/bash', ['-c', script], {
+    const hasPtyRunner = fs.existsSync(ptyRunnerPath);
+    const spawnFile = hasPtyRunner ? 'python3' : '/bin/bash';
+    const spawnArgs = hasPtyRunner
+      ? [ptyRunnerPath, '--cwd', terminalCwd, '--cols', '100', '--rows', '30', '/bin/bash', '-c', script]
+      : ['-c', script];
+
+    const proc = spawn(spawnFile, spawnArgs as any, {
       cwd: terminalCwd,
       env: customEnv
     });
 
+    activeTerminalProcess = proc;
+    activeCommandName = trimmed.split(' ')[0] || 'process';
+    broadcastToTerminal({ type: 'status', activeProcess: activeCommandName, cwd: terminalCwd });
+
     let rawStdout = '';
     let rawStderr = '';
 
-    proc.stdout.on('data', (data) => {
+    proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
       rawStdout += text;
       // If the text contains the sentinel, only broadcast up to the sentinel
@@ -122,13 +165,18 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
       }
     });
 
-    proc.stderr.on('data', (data) => {
+    proc.stderr?.on('data', (data: Buffer) => {
       const text = data.toString();
       rawStderr += text;
       broadcastToTerminal({ type: 'output', data: text });
     });
 
-    proc.on('close', (code) => {
+    const cleanupAndFinish = (code: number | null) => {
+      if (activeTerminalProcess === proc) {
+        activeTerminalProcess = null;
+        activeCommandName = null;
+        broadcastToTerminal({ type: 'status', activeProcess: null, cwd: terminalCwd });
+      }
       const exitCode = code ?? 0;
       let newCwd = terminalCwd;
 
@@ -144,7 +192,8 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
       broadcastToTerminal({
         type: 'output',
         data: exitCode !== 0 ? `\r\n\x1b[31m[exit code ${exitCode}]\x1b[0m\r\n` : `\r\n`,
-        cwd: terminalCwd
+        cwd: terminalCwd,
+        activeProcess: null
       });
 
       resolve({
@@ -153,9 +202,16 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
         exitCode,
         cwd: terminalCwd
       });
-    });
+    };
+
+    proc.on('close', cleanupAndFinish);
 
     proc.on('error', (err) => {
+      if (activeTerminalProcess === proc) {
+        activeTerminalProcess = null;
+        activeCommandName = null;
+        broadcastToTerminal({ type: 'status', activeProcess: null, cwd: terminalCwd });
+      }
       const errMsg = `\r\n[Shell execution error: ${err.message}]\r\n`;
       broadcastToTerminal({ type: 'output', data: errMsg });
       resolve({ stdout: '', stderr: err.message, exitCode: 1, cwd: terminalCwd });
@@ -347,10 +403,12 @@ async function startServer() {
   // API Route: Verify CLI connections live
   app.post("/api/cli/status", async (req, res) => {
     const { cliName } = req.body;
+    const binDir = path.join(process.cwd(), 'bin');
     
     // Inject correct runtime credentials directly to standard child process env
     const customEnv = {
       ...process.env,
+      PATH: `${binDir}:/root/.local/bin:${process.env.HOME || '/root'}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${process.env.PATH || ''}`,
       GH_TOKEN: process.env.GH_TOKEN || '',
       VERCEL_TOKEN: process.env.VERCEL_TOKEN || '',
       SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN || '',
@@ -396,6 +454,13 @@ async function startServer() {
         });
         res.json({ connected: true, output: `Notion workspace verified dynamically:\n${stdout || stderr}` });
       }
+      else if (cliName === 'antigravity' || cliName === 'agy') {
+        const { stdout, stderr } = await execAsync('agy -h', { env: customEnv });
+        res.json({ 
+          connected: true, 
+          output: `Antigravity CLI (agy) is operational in workspace PTY:\n${(stdout || stderr).split('\n').slice(0, 8).join('\n')}` 
+        });
+      }
       else {
         res.status(400).json({ error: "Invalid CLI target specified." });
       }
@@ -407,8 +472,10 @@ async function startServer() {
   // API Route: Trigger action test commands
   app.post("/api/cli/action", async (req, res) => {
     const { cliName, actionName } = req.body;
+    const binDir = path.join(process.cwd(), 'bin');
     const customEnv = {
       ...process.env,
+      PATH: `${binDir}:/root/.local/bin:${process.env.HOME || '/root'}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${process.env.PATH || ''}`,
       GH_TOKEN: process.env.GH_TOKEN || '',
       VERCEL_TOKEN: process.env.VERCEL_TOKEN || '',
       SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN || '',
@@ -448,6 +515,15 @@ async function startServer() {
           command = 'npx -y cross-env NOTION_KEYRING=0 npx ntn workspaces';
         } else {
           command = 'npx -y cross-env NOTION_KEYRING=0 npx ntn whoami';
+        }
+      }
+      else if (cliName === 'antigravity' || cliName === 'agy') {
+        if (actionName === 'models') {
+          command = 'agy models';
+        } else if (actionName === 'version') {
+          command = 'agy -v';
+        } else {
+          command = 'agy -h';
         }
       }
 
@@ -505,6 +581,23 @@ async function startServer() {
     if (typeof input !== 'string') {
       return res.status(400).json({ success: false, error: "Invalid input payload. Expected string." });
     }
+
+    // If an interactive process is active, forward keystrokes/data to its stdin
+    if (activeTerminalProcess && !activeTerminalProcess.killed) {
+      try {
+        // In raw PTY modes (such as Bubbletea / agy), trailing \n must be translated to \r
+        // so that the raw terminal slave detects Enter / select rather than discarding
+        let payload = input;
+        if (payload.endsWith('\n') && !payload.endsWith('\r\n') && !payload.endsWith('\r')) {
+          payload = payload.slice(0, -1) + '\r';
+        }
+        activeTerminalProcess.stdin?.write(payload);
+        return res.json({ success: true, forwardedToActiveProcess: true });
+      } catch (e: any) {
+        return res.status(500).json({ success: false, error: e.message });
+      }
+    }
+
     try {
       const result = await executeTerminalCommand(input);
       return res.json({ success: true, ...result });
@@ -513,10 +606,42 @@ async function startServer() {
     }
   });
 
+  // Interrupt active process (send SIGINT / Ctrl+C)
+  app.post("/api/terminal/interrupt", (req, res) => {
+    if (activeTerminalProcess && !activeTerminalProcess.killed) {
+      try {
+        const proc = activeTerminalProcess;
+        // Kill the process group if possible
+        try {
+          if (proc.pid) {
+            process.kill(-proc.pid, 'SIGINT');
+          }
+        } catch (e) {}
+        proc.kill('SIGINT');
+
+        setTimeout(() => {
+          if (activeTerminalProcess && !activeTerminalProcess.killed) {
+            try {
+              if (proc.pid) process.kill(-proc.pid, 'SIGTERM');
+            } catch (e) {}
+            try { proc.kill('SIGTERM'); } catch (e) {}
+          }
+        }, 300);
+
+        broadcastToTerminal({ type: 'output', data: `^C\r\n` });
+        return res.json({ success: true, message: "Interrupt signal sent to active process." });
+      } catch (err: any) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+    return res.json({ success: false, message: "No active process running to interrupt." });
+  });
+
   // 3. /api/terminal/info - Workspace environment facts and active working directory
   app.get("/api/terminal/info", (req, res) => {
     res.json({
       cwd: terminalCwd,
+      activeProcess: activeCommandName,
       user: process.env.USER || 'developer',
       hostname: 'ai-studio',
       nodeVersion: process.version,

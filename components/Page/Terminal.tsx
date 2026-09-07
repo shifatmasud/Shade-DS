@@ -18,10 +18,15 @@ import {
   Trash, 
   ArrowDown, 
   CircleNotch,
-  CaretLeft
+  CaretLeft,
+  Stop,
+  PaperPlaneRight
 } from 'phosphor-react';
 
 const QUICK_COMMANDS = [
+  { value: 'agy', label: 'agy (Antigravity CLI)' },
+  { value: 'agy -h', label: 'agy --help' },
+  { value: 'agy models', label: 'agy models' },
   { value: 'git status', label: 'git status' },
   { value: 'git log -n 5 --oneline', label: 'git log (recent)' },
   { value: 'git diff', label: 'git diff' },
@@ -44,6 +49,7 @@ export const TerminalPage: React.FC = () => {
   const [inputCommand, setInputCommand] = useState('');
   const [cwd, setCwd] = useState<string>('/app/applet');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [activeProcess, setActiveProcess] = useState<string | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
   const [selectedSnippet, setSelectedSnippet] = useState('');
@@ -67,6 +73,12 @@ export const TerminalPage: React.FC = () => {
         const data = await res.json();
         if (isMounted && data?.cwd) {
           setCwd(data.cwd);
+        }
+        if (isMounted && data?.activeProcess !== undefined) {
+          setActiveProcess(data.activeProcess);
+          if (data.activeProcess) {
+            setIsExecuting(true);
+          }
         }
       } catch (err: any) {
         if (err?.name === 'AbortError') return;
@@ -98,6 +110,13 @@ export const TerminalPage: React.FC = () => {
         } else if (payload.type === 'init') {
           if (payload.cwd) {
             setCwd(payload.cwd);
+          }
+        } else if (payload.type === 'status') {
+          setActiveProcess(payload.activeProcess);
+          if (payload.activeProcess) {
+            setIsExecuting(true);
+          } else {
+            setIsExecuting(false);
           }
         } else if (payload.data) {
           setLogs(prev => [...prev.slice(-600), payload.data]);
@@ -158,13 +177,67 @@ export const TerminalPage: React.FC = () => {
     }
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    runCommand(inputCommand);
+  // Forward interactive input (keystrokes, responses) to active process
+  const sendInputToProcess = async (text: string) => {
+    try {
+      await fetch('/api/terminal/input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: text })
+      });
+      setInputCommand('');
+    } catch (err: any) {
+      setLogs(prev => [...prev, `\r\n[Input network error: ${err.message}]\r\n`]);
+    }
   };
 
-  // Keyboard navigation for command history
+  // Send SIGINT / interrupt to active process
+  const handleInterrupt = async () => {
+    try {
+      await fetch('/api/terminal/interrupt', { method: 'POST' });
+    } catch (err: any) {
+      setLogs(prev => [...prev, `\r\n[Interrupt error: ${err.message}]\r\n`]);
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isExecuting) {
+      sendInputToProcess(inputCommand ? `${inputCommand}\n` : '\n');
+    } else {
+      runCommand(inputCommand);
+    }
+  };
+
+  // Keyboard navigation for command history and interactive process navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Intercept Ctrl+C to send interrupt to active command
+    if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleInterrupt();
+      return;
+    }
+
+    if (isExecuting) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        sendInputToProcess('\x1b[A');
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        sendInputToProcess('\x1b[B');
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        sendInputToProcess('\x1b[C');
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        sendInputToProcess('\x1b[D');
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        sendInputToProcess('\x1b');
+      }
+      return;
+    }
+
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (commandHistory.length === 0) return;
@@ -275,8 +348,11 @@ export const TerminalPage: React.FC = () => {
 
   // Parse ANSI escape sequences and map them to semantic Theme.tsx tokens
   const renderAnsiLogs = (logList: string[]) => {
-    const text = logList.join('');
+    let text = logList.join('');
     if (!text) return null;
+
+    // Clean non-color ANSI CSI sequences (cursor positioning, screen clears, private modes)
+    text = text.replace(/(?:\u001b|\x1b)\[\??[0-9;]*[A-LN-Za-ln-z]/g, '');
 
     const ansiRegex = /(?:\u001b\[|\x1b\[|\[(?=[0-9;]+m))([0-9;]*)m/g;
     const nodes: React.ReactNode[] = [];
@@ -301,28 +377,34 @@ export const TerminalPage: React.FC = () => {
       }
 
       const rawCodes = match[1] ? match[1].split(';').map(Number) : [0];
-      for (const code of rawCodes) {
-        if (code === 0) {
-          currentColor = theme.Color.Base.Content[1];
-          isBold = false;
-        } else if (code === 1) {
-          isBold = true;
-        } else if (code === 22) {
-          isBold = false;
-        } else if (code === 31 || code === 91) {
-          currentColor = theme.Color.Error.Content[1];
-        } else if (code === 32 || code === 92) {
-          currentColor = theme.Color.Success.Content[1];
-        } else if (code === 33 || code === 93) {
-          currentColor = theme.Color.Warning.Content[1];
-        } else if (code === 34 || code === 94 || code === 36 || code === 96) {
-          currentColor = theme.Color.Focus.Content[1];
-        } else if (code === 35 || code === 95) {
-          currentColor = theme.Color.Active.Content[1];
-        } else if (code === 30 || code === 90) {
-          currentColor = theme.Color.Base.Content[3];
-        } else if (code === 37 || code === 97 || code === 39) {
-          currentColor = theme.Color.Base.Content[1];
+      if (rawCodes[0] === 38 && rawCodes[1] === 2 && rawCodes.length >= 5) {
+        currentColor = `rgb(${rawCodes[2]}, ${rawCodes[3]}, ${rawCodes[4]})`;
+      } else if (rawCodes[0] === 48 && rawCodes[1] === 2 && rawCodes.length >= 5) {
+        // Background color support if needed, otherwise ignore background escape
+      } else {
+        for (const code of rawCodes) {
+          if (code === 0) {
+            currentColor = theme.Color.Base.Content[1];
+            isBold = false;
+          } else if (code === 1) {
+            isBold = true;
+          } else if (code === 22) {
+            isBold = false;
+          } else if (code === 31 || code === 91) {
+            currentColor = theme.Color.Error.Content[1];
+          } else if (code === 32 || code === 92) {
+            currentColor = theme.Color.Success.Content[1];
+          } else if (code === 33 || code === 93) {
+            currentColor = theme.Color.Warning.Content[1];
+          } else if (code === 34 || code === 94 || code === 36 || code === 96) {
+            currentColor = theme.Color.Focus.Content[1];
+          } else if (code === 35 || code === 95) {
+            currentColor = theme.Color.Active.Content[1];
+          } else if (code === 30 || code === 90) {
+            currentColor = theme.Color.Base.Content[3];
+          } else if (code === 37 || code === 97 || code === 39) {
+            currentColor = theme.Color.Base.Content[1];
+          }
         }
       }
 
@@ -383,12 +465,26 @@ export const TerminalPage: React.FC = () => {
                 width: theme.space['Space.S'], 
                 height: theme.space['Space.S'], 
                 borderRadius: theme.radius['Radius.Full'], 
-                backgroundColor: theme.Color.Success.Content[1], 
+                backgroundColor: isExecuting ? theme.Color.Warning.Content[1] : theme.Color.Success.Content[1], 
                 flexShrink: 0,
                 aspectRatio: '1 / 1'
               }} 
-              title="Workspace bash daemon connected"
+              title={activeProcess ? `Process running: ${activeProcess}` : "Workspace bash daemon connected"}
             />
+            {activeProcess && (
+              <span style={{
+                ...theme.Type.Readable.Label.S,
+                backgroundColor: theme.Color.Warning.Surface[1],
+                color: theme.Color.Warning.Content[1],
+                padding: `2px ${theme.space['Space.XS']}`,
+                borderRadius: theme.radius['Radius.S'],
+                ...theme.border.getBorder1px(theme.Color.Warning.Content[1]),
+                whiteSpace: 'nowrap',
+                lineHeight: 1
+              }} id="terminal-active-process-badge">
+                {activeProcess}
+              </span>
+            )}
           </div>
         </div>
 
@@ -491,52 +587,130 @@ export const TerminalPage: React.FC = () => {
         </CustomScrollbar>
       </div>
 
-      {/* Interactive Command Prompt Bar */}
-      <form onSubmit={handleFormSubmit} style={promptBarStyle} id="terminal-prompt-form">
-        <span style={{ 
-          color: theme.Color.Success.Content[1], 
-          fontWeight: 700, 
-          ...theme.Type.Expressive.Data,
-          fontSize: isMobile ? '15px' : '14px', 
-          flexShrink: 0,
-          lineHeight: 1,
-          userSelect: 'none'
-        }}>
-          ❯
-        </span>
+      {/* Interactive Command Prompt Bar & Quick Touch Response Chips */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: theme.space['Space.S'], width: '100%' }}>
+        {isExecuting && (
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              flexWrap: 'wrap',
+              gap: theme.space['Space.XS'], 
+              padding: `0 ${theme.space['Space.XS']}`,
+              userSelect: 'none'
+            }}
+            id="terminal-quick-response-chips"
+          >
+            <span style={{ 
+              ...theme.Type.Readable.Label.S, 
+              color: theme.Color.Base.Content[3],
+              whiteSpace: 'nowrap',
+              marginRight: theme.space['Space.XS'],
+              fontSize: '11px'
+            }}>
+              Quick Keys:
+            </span>
+            {[
+              { label: '↑', val: '\x1b[A' },
+              { label: '↓', val: '\x1b[B' },
+              { label: '←', val: '\x1b[D' },
+              { label: '→', val: '\x1b[C' },
+              { label: 'Esc', val: '\x1b' },
+              { label: 'Enter ↵', val: '\r' },
+            ].map(item => (
+              <Button
+                key={item.label}
+                type="button"
+                variant="secondary"
+                size="S"
+                label={item.label}
+                onClick={() => sendInputToProcess(item.val)}
+                style={{
+                  width: 'auto',
+                  minWidth: '28px',
+                  height: '24px',
+                  padding: `0 ${theme.space['Space.S']}`,
+                  ...theme.Type.Readable.Label.S,
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  letterSpacing: '-0.01em',
+                  borderRadius: theme.radius['Radius.S'],
+                  flexShrink: 0,
+                  ...theme.border.getBorder1px(theme.Color.Base.Surface[3])
+                }}
+              />
+            ))}
+          </div>
+        )}
 
-        <input
-          ref={inputRef}
-          type="text"
-          style={promptInputStyle}
-          value={inputCommand}
-          onChange={(e) => setInputCommand(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="enter bash command (e.g. ls, git status, npm test)..."
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="none"
-          spellCheck="false"
-          disabled={isExecuting}
-          id="terminal-command-input"
-        />
+        <form onSubmit={handleFormSubmit} style={promptBarStyle} id="terminal-prompt-form">
+          <span style={{ 
+            color: isExecuting ? theme.Color.Warning.Content[1] : theme.Color.Success.Content[1], 
+            fontWeight: 700, 
+            ...theme.Type.Expressive.Data,
+            fontSize: isMobile ? '15px' : '14px', 
+            flexShrink: 0,
+            lineHeight: 1,
+            userSelect: 'none'
+          }}>
+            {isExecuting ? '●' : '❯'}
+          </span>
 
-        <Button
-          type="submit"
-          variant="primary"
-          size="S"
-          disabled={isExecuting || !inputCommand.trim()}
-          icon={isExecuting ? <CircleNotch size={14} className="fa-spin" /> : <Play size={13} weight="fill" />}
-          style={{ 
-            width: theme.height['Height.XS'], 
-            height: theme.height['Height.XS'], 
-            minWidth: theme.height['Height.XS'], 
-            padding: 0 
-          }}
-          title="Run Command (Enter)"
-          id="terminal-run-button"
-        />
-      </form>
+          <input
+            ref={inputRef}
+            type="text"
+            style={promptInputStyle}
+            value={inputCommand}
+            onChange={(e) => setInputCommand(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isExecuting 
+              ? (activeProcess 
+                  ? `[${activeProcess}] interactive mode... type response or click quick keys`
+                  : "Process active... type response (e.g. 1, 2) or press Ctrl+C to interrupt")
+              : "enter bash command (e.g. agy, ls, git status)..."
+            }
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck="false"
+            id="terminal-command-input"
+          />
+
+          {isExecuting && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="S"
+              icon={<Stop size={13} weight="fill" />}
+              onClick={handleInterrupt}
+              style={{ 
+                width: theme.height['Height.XS'], 
+                height: theme.height['Height.XS'], 
+                minWidth: theme.height['Height.XS'], 
+                padding: 0 
+              }}
+              title="Interrupt Running Process (Ctrl+C)"
+              id="terminal-interrupt-button"
+            />
+          )}
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="S"
+            disabled={!isExecuting && !inputCommand.trim()}
+            icon={isExecuting ? <PaperPlaneRight size={13} weight="bold" /> : <Play size={13} weight="fill" />}
+            style={{ 
+              width: theme.height['Height.XS'], 
+              height: theme.height['Height.XS'], 
+              minWidth: theme.height['Height.XS'], 
+              padding: 0 
+            }}
+            title={isExecuting ? "Send Input to Process (Enter)" : "Run Command (Enter)"}
+            id="terminal-run-button"
+          />
+        </form>
+      </div>
     </div>
   );
 };
