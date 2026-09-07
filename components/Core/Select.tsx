@@ -33,12 +33,14 @@ import { playSound } from '../../services/soundService';
  */
 
 interface SelectProps<T extends string = string> {
-  label: string;
+  label?: string;
   value: T;
   onChange: (e: { target: { value: T } }) => void;
   options: { value: T; label: string; icon?: string }[];
   style?: React.CSSProperties;
+  triggerStyle?: React.CSSProperties;
   variant?: 'default' | 'icon-grid';
+  size?: 'S' | 'M';
 }
 
 interface SelectOverlayProps {
@@ -407,7 +409,7 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
   );
 };
 
-const Select = <T extends string = string>({ label, value, onChange, options, style, variant = 'default' }: SelectProps<T>) => {
+const Select = <T extends string = string>({ label, value, onChange, options, style, triggerStyle, variant = 'default', size = 'M' }: SelectProps<T>) => {
   const { theme } = useTheme();
   const instanceId = useId();
   const [isOpen, setIsOpen] = useState(false);
@@ -454,6 +456,8 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
     setIsOpen(false);
   };
 
+  const isCompact = size === 'S';
+
   const styles = {
     container: {
       position: 'relative' as const,
@@ -470,13 +474,13 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
     },
     trigger: {
       width: '100%',
-      height: theme.height['Height.M'],
-      padding: `0 ${theme.space['Space.M']}`,
+      height: isCompact ? theme.height['Height.XS'] : theme.height['Height.M'],
+      padding: isCompact ? `0 ${theme.space['Space.S']}` : `0 ${theme.space['Space.M']}`,
       borderRadius: theme.radius['Radius.S'],
       ...theme.border.getBorder1px(isOpen ? theme.Color.Base.Content[1] : theme.Color.Base.Surface[3]),
       backgroundColor: theme.Color.Base.Surface[1],
       color: theme.Color.Base.Content[1],
-      ...theme.Type.Readable.Body.M,
+      ...(isCompact ? theme.Type.Readable.Body.S : theme.Type.Readable.Body.M),
       cursor: 'pointer',
       display: 'flex',
       justifyContent: 'space-between',
@@ -484,12 +488,13 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
       outline: 'none',
       transition: `box-shadow ${theme.time['Time.2x']} ease, transform ${theme.time['Time.2x']} ease`,
       fontWeight: 500,
+      ...triggerStyle,
     }
   };
 
   return (
     <motion.div layout="size" ref={containerRef} style={styles.container}>
-      <div style={styles.label}>{label}</div>
+      {label ? <div style={styles.label}>{label}</div> : null}
       
       <motion.button
         layout="size"

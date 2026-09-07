@@ -3,37 +3,39 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useTheme } from '../../Theme.tsx';
 import { useBreakpoint } from '../../hooks/useBreakpoint.tsx';
+import { 
+  Button, 
+  Select, 
+  AnimatedCopyIcon, 
+  CustomScrollbar 
+} from '../Core/index.tsx';
 import { 
   Terminal as TerminalIcon, 
   Play, 
   Trash, 
   ArrowDown, 
-  Copy, 
-  Check, 
   CircleNotch,
-  CaretLeft,
-  CaretDown,
-  Code
+  CaretLeft
 } from 'phosphor-react';
 
 const QUICK_COMMANDS = [
-  { label: 'Quick Snippets...', cmd: '' },
-  { label: 'git status', cmd: 'git status' },
-  { label: 'git log -n 5 --oneline', cmd: 'git log -n 5 --oneline' },
-  { label: 'git diff', cmd: 'git diff' },
-  { label: 'ls -la', cmd: 'ls -la' },
-  { label: 'node -v && npm -v', cmd: 'node -v && npm -v' },
-  { label: 'pwd && whoami', cmd: 'pwd && whoami' },
-  { label: 'ps aux | head -n 10', cmd: 'ps aux | head -n 10' },
-  { label: 'df -h', cmd: 'df -h' },
-  { label: 'cat package.json', cmd: 'cat package.json' },
-  { label: 'npm run lint', cmd: 'npm run lint' }
+  { value: 'git status', label: 'git status' },
+  { value: 'git log -n 5 --oneline', label: 'git log (recent)' },
+  { value: 'git diff', label: 'git diff' },
+  { value: 'ls -la', label: 'ls -la' },
+  { value: 'node -v && npm -v', label: 'node & npm -v' },
+  { value: 'pwd && whoami', label: 'pwd & whoami' },
+  { value: 'ps aux | head -n 10', label: 'ps aux' },
+  { value: 'df -h', label: 'df -h' },
+  { value: 'cat package.json', label: 'cat package.json' },
+  { value: 'npm run lint', label: 'npm run lint' }
 ];
 
 export const TerminalPage: React.FC = () => {
-  const { theme, themeName } = useTheme();
+  const { theme } = useTheme();
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === 'mobile';
 
@@ -44,6 +46,7 @@ export const TerminalPage: React.FC = () => {
   const [isExecuting, setIsExecuting] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [selectedSnippet, setSelectedSnippet] = useState('');
 
   // Command history for ArrowUp / ArrowDown navigation
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -52,14 +55,35 @@ export const TerminalPage: React.FC = () => {
   const logContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch initial terminal info on mount
+  // Fetch initial terminal info on mount with resilient retry
   useEffect(() => {
-    fetch('/api/terminal/info')
-      .then(res => res.json())
-      .then(data => {
-        if (data.cwd) setCwd(data.cwd);
-      })
-      .catch(err => console.error("Failed to load terminal info:", err));
+    let isMounted = true;
+    const controller = new AbortController();
+
+    const fetchInfo = async (retries = 3, delay = 800) => {
+      try {
+        const res = await fetch('/api/terminal/info', { signal: controller.signal });
+        if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+        const data = await res.json();
+        if (isMounted && data?.cwd) {
+          setCwd(data.cwd);
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+        if (retries > 0 && isMounted) {
+          setTimeout(() => {
+            if (isMounted) fetchInfo(retries - 1, delay * 1.5);
+          }, delay);
+        }
+      }
+    };
+
+    fetchInfo();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
   }, []);
 
   // Connect SSE stream for live real-time output
@@ -71,6 +95,10 @@ export const TerminalPage: React.FC = () => {
         const payload = JSON.parse(event.data);
         if (payload.type === 'clear') {
           setLogs([]);
+        } else if (payload.type === 'init') {
+          if (payload.cwd) {
+            setCwd(payload.cwd);
+          }
         } else if (payload.data) {
           setLogs(prev => [...prev.slice(-600), payload.data]);
         }
@@ -175,16 +203,16 @@ export const TerminalPage: React.FC = () => {
     ? cwd.replace('/app/applet', '~') || '~'
     : cwd.split('/').slice(-2).join('/') || cwd;
 
-  // --- STYLING USING THEME TOKENS ---
+  // --- STYLING USING PURE THEME.TSX DESIGN TOKENS ---
   const containerStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     height: '100dvh',
     width: '100vw',
     maxWidth: '100vw',
-    backgroundColor: '#09090b',
-    color: '#e4e4e7',
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    backgroundColor: theme.Color.Base.Surface[1],
+    color: theme.Color.Base.Content[1],
+    ...theme.Type.Expressive.Data,
     overflow: 'hidden',
     position: 'fixed',
     top: 0,
@@ -193,77 +221,43 @@ export const TerminalPage: React.FC = () => {
     boxSizing: 'border-box',
   };
 
-  // Compact Single Header Bar (~40px)
+  // Compact Single Header Bar (~32-40px)
   const headerStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: isMobile ? '0 8px' : '0 14px',
-    height: isMobile ? '42px' : '40px',
-    backgroundColor: '#121215',
-    borderBottom: '1px solid #222226',
+    padding: isMobile ? `0 ${theme.space['Space.S']}` : `0 ${theme.space['Space.M']}`,
+    height: isMobile ? theme.height['Height.M'] : theme.height['Height.S'],
+    backgroundColor: theme.Color.Base.Surface[2],
+    ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
     flexShrink: 0,
     boxSizing: 'border-box',
-    gap: '8px',
-  };
-
-  const iconBtnStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '30px',
-    height: '30px',
-    borderRadius: theme.radius['Radius.S'],
-    backgroundColor: '#1c1c21',
-    color: '#a1a1aa',
-    border: '1px solid #2a2a32',
-    cursor: 'pointer',
-    flexShrink: 0,
-    aspectRatio: '1 / 1',
-    textDecoration: 'none',
-    boxSizing: 'border-box',
-  };
-
-  const selectStyle: React.CSSProperties = {
-    appearance: 'none',
-    WebkitAppearance: 'none',
-    backgroundColor: '#18181c',
-    color: '#a1a1aa',
-    border: '1px solid #2a2a32',
-    borderRadius: theme.radius['Radius.S'],
-    padding: isMobile ? '6px 26px 6px 8px' : '5px 26px 5px 8px',
-    fontSize: isMobile ? '16px' : '12px', // 16px strictly prevents iOS Safari zoom
-    fontFamily: 'inherit',
-    outline: 'none',
-    cursor: 'pointer',
-    boxSizing: 'border-box',
-    width: '100%',
-    maxWidth: isMobile ? '135px' : '170px',
+    gap: theme.space['Space.S'],
+    zIndex: 10,
   };
 
   const logViewerStyle: React.CSSProperties = {
-    flex: 1,
-    overflowY: 'auto',
-    overflowX: 'hidden',
-    padding: isMobile ? '10px 10px' : '14px 18px',
+    height: '100%',
+    width: '100%',
+    padding: isMobile ? `${theme.space['Space.S']} ${theme.space['Space.S']}` : `${theme.space['Space.M']} ${theme.space['Space.L']}`,
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
-    fontSize: isMobile ? '12px' : '13px',
-    lineHeight: '1.55',
-    color: '#34d399',
-    backgroundColor: '#09090b',
+    ...theme.Type.Expressive.Data,
+    lineHeight: '1.6',
+    color: theme.Color.Base.Content[1],
+    backgroundColor: theme.Color.Base.Surface[1],
     boxSizing: 'border-box',
   };
 
   const promptBarStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    backgroundColor: '#111114',
-    padding: isMobile ? '0 8px 0 10px' : '0 14px',
-    height: isMobile ? '44px' : '42px',
-    borderTop: '1px solid #222226',
+    backgroundColor: theme.Color.Base.Surface[2],
+    padding: isMobile ? `0 ${theme.space['Space.S']}` : `0 ${theme.space['Space.M']}`,
+    height: isMobile ? theme.height['Height.M'] : theme.height['Height.S'],
+    ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
     flexShrink: 0,
-    gap: '8px',
+    gap: theme.space['Space.S'],
     boxSizing: 'border-box',
   };
 
@@ -272,11 +266,84 @@ export const TerminalPage: React.FC = () => {
     minWidth: 0,
     background: 'transparent',
     border: 'none',
-    color: '#f4f4f5',
-    fontFamily: 'inherit',
-    fontSize: isMobile ? '16px' : '13px',
+    color: theme.Color.Base.Content[1],
+    ...theme.Type.Expressive.Data,
+    fontSize: isMobile ? '16px' : (theme.Type.Expressive.Data as any)?.fontSize || '12px',
     outline: 'none',
     boxSizing: 'border-box',
+  };
+
+  // Parse ANSI escape sequences and map them to semantic Theme.tsx tokens
+  const renderAnsiLogs = (logList: string[]) => {
+    const text = logList.join('');
+    if (!text) return null;
+
+    const ansiRegex = /(?:\u001b\[|\x1b\[|\[(?=[0-9;]+m))([0-9;]*)m/g;
+    const nodes: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let currentColor: string = theme.Color.Base.Content[1];
+    let isBold = false;
+    let match: RegExpExecArray | null;
+
+    while ((match = ansiRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        nodes.push(
+          <span
+            key={nodes.length}
+            style={{
+              color: currentColor,
+              fontWeight: isBold ? 600 : 400,
+            }}
+          >
+            {text.substring(lastIndex, match.index)}
+          </span>
+        );
+      }
+
+      const rawCodes = match[1] ? match[1].split(';').map(Number) : [0];
+      for (const code of rawCodes) {
+        if (code === 0) {
+          currentColor = theme.Color.Base.Content[1];
+          isBold = false;
+        } else if (code === 1) {
+          isBold = true;
+        } else if (code === 22) {
+          isBold = false;
+        } else if (code === 31 || code === 91) {
+          currentColor = theme.Color.Error.Content[1];
+        } else if (code === 32 || code === 92) {
+          currentColor = theme.Color.Success.Content[1];
+        } else if (code === 33 || code === 93) {
+          currentColor = theme.Color.Warning.Content[1];
+        } else if (code === 34 || code === 94 || code === 36 || code === 96) {
+          currentColor = theme.Color.Focus.Content[1];
+        } else if (code === 35 || code === 95) {
+          currentColor = theme.Color.Active.Content[1];
+        } else if (code === 30 || code === 90) {
+          currentColor = theme.Color.Base.Content[3];
+        } else if (code === 37 || code === 97 || code === 39) {
+          currentColor = theme.Color.Base.Content[1];
+        }
+      }
+
+      lastIndex = ansiRegex.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+      nodes.push(
+        <span
+          key={nodes.length}
+          style={{
+            color: currentColor,
+            fontWeight: isBold ? 600 : 400,
+          }}
+        >
+          {text.substring(lastIndex)}
+        </span>
+      );
+    }
+
+    return nodes;
   };
 
   return (
@@ -284,17 +351,26 @@ export const TerminalPage: React.FC = () => {
       {/* Compact Single Header Bar */}
       <header style={headerStyle} id="terminal-compact-header">
         {/* Left: Back Link & Active Workspace Path */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexShrink: 1 }}>
-          <a href="/" style={iconBtnStyle} title="Back to Application" id="terminal-back-btn">
-            <CaretLeft size={16} weight="bold" style={{ flexShrink: 0 }} />
-          </a>
+        <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], minWidth: 0, flexShrink: 1 }}>
+          <Link to="/" style={{ textDecoration: 'none', display: 'flex' }} id="terminal-back-btn" title="Back to Application">
+            <Button
+              variant="secondary"
+              size="S"
+              icon={<CaretLeft size={16} weight="bold" />}
+              style={{ 
+                width: theme.height['Height.XS'], 
+                height: theme.height['Height.XS'], 
+                minWidth: theme.height['Height.XS'], 
+                padding: 0 
+              }}
+            />
+          </Link>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-            <TerminalIcon size={14} color="#10b981" style={{ flexShrink: 0 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'], minWidth: 0 }}>
+            <TerminalIcon size={16} color={theme.Color.Success.Content[1]} style={{ flexShrink: 0 }} />
             <span style={{ 
-              fontSize: isMobile ? '12px' : '13px', 
-              fontWeight: 600,
-              color: '#e4e4e7',
+              ...theme.Type.Readable.Label.M,
+              color: theme.Color.Base.Content[1],
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -304,10 +380,10 @@ export const TerminalPage: React.FC = () => {
             </span>
             <div 
               style={{ 
-                width: '6px', 
-                height: '6px', 
-                borderRadius: '50%', 
-                backgroundColor: '#10b981', 
+                width: theme.space['Space.S'], 
+                height: theme.space['Space.S'], 
+                borderRadius: theme.radius['Radius.Full'], 
+                backgroundColor: theme.Color.Success.Content[1], 
                 flexShrink: 0,
                 aspectRatio: '1 / 1'
               }} 
@@ -316,105 +392,111 @@ export const TerminalPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Quick Snippets Dropdown & Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-          {/* Quick Snippets Dropdown */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <select
-              style={selectStyle}
+        {/* Right: Quick Snippets Dropdown & Core Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'], flexShrink: 0 }}>
+          {/* Quick Snippets Dropdown using Core Select */}
+          <div style={{ width: isMobile ? '130px' : '160px' }} id="terminal-quick-snippets-select">
+            <Select
+              size="S"
+              value={selectedSnippet}
               onChange={(e) => {
-                if (e.target.value) {
-                  runCommand(e.target.value);
-                  e.target.value = '';
+                const cmd = e.target.value;
+                if (cmd) {
+                  setSelectedSnippet(cmd);
+                  runCommand(cmd);
+                  // Reset selection back after run
+                  setTimeout(() => setSelectedSnippet(''), 300);
                 }
               }}
-              defaultValue=""
-              id="terminal-quick-snippets-select"
-            >
-              {QUICK_COMMANDS.map((qc, i) => (
-                <option key={i} value={qc.cmd} disabled={!qc.cmd}>
-                  {qc.label}
-                </option>
-              ))}
-            </select>
-            <CaretDown 
-              size={12} 
-              color="#71717a" 
-              style={{ 
-                position: 'absolute', 
-                right: '8px', 
-                top: '50%', 
-                transform: 'translateY(-50%)', 
-                pointerEvents: 'none', 
-                flexShrink: 0 
-              }} 
+              options={QUICK_COMMANDS}
+              style={{ width: '100%' }}
+              triggerStyle={{
+                height: theme.height['Height.XS'],
+                padding: `0 ${theme.space['Space.S']}`,
+                ...theme.Type.Readable.Label.S,
+                backgroundColor: theme.Color.Base.Surface[1],
+              }}
             />
           </div>
 
-          {/* Auto-scroll Toggle */}
-          <button
+          {/* Auto-scroll Toggle - Pure Variant-driven styling */}
+          <Button
             type="button"
-            style={{
-              ...iconBtnStyle,
-              backgroundColor: autoScroll ? '#064e3b' : '#1c1c21',
-              color: autoScroll ? '#34d399' : '#71717a',
-              borderColor: autoScroll ? '#059669' : '#2a2a32',
-            }}
+            variant={autoScroll ? "primary" : "secondary"}
+            size="S"
+            icon={<ArrowDown size={14} weight={autoScroll ? 'bold' : 'regular'} />}
             onClick={() => setAutoScroll(!autoScroll)}
+            style={{ 
+              width: theme.height['Height.XS'], 
+              height: theme.height['Height.XS'], 
+              minWidth: theme.height['Height.XS'], 
+              padding: 0
+            }}
             title={autoScroll ? 'Auto-scroll: Enabled' : 'Auto-scroll: Disabled'}
             id="btn-auto-scroll"
-          >
-            <ArrowDown size={14} weight={autoScroll ? 'bold' : 'regular'} style={{ flexShrink: 0 }} />
-          </button>
+          />
 
-          {/* Copy Logs */}
-          <button
+          {/* Copy Logs with Core AnimatedCopyIcon */}
+          <Button
             type="button"
-            style={iconBtnStyle}
+            variant="secondary"
+            size="S"
+            icon={<AnimatedCopyIcon isCopied={copied} />}
             onClick={handleCopyLogs}
+            style={{ 
+              width: theme.height['Height.XS'], 
+              height: theme.height['Height.XS'], 
+              minWidth: theme.height['Height.XS'], 
+              padding: 0 
+            }}
             title={copied ? 'Copied Output!' : 'Copy Terminal Output'}
             id="btn-copy-output"
-          >
-            {copied ? (
-              <Check size={14} color="#10b981" weight="bold" style={{ flexShrink: 0 }} />
-            ) : (
-              <Copy size={14} style={{ flexShrink: 0 }} />
-            )}
-          </button>
+          />
 
           {/* Clear Logs */}
-          <button
+          <Button
             type="button"
-            style={iconBtnStyle}
+            variant="secondary"
+            size="S"
+            icon={<Trash size={14} />}
             onClick={handleClearLogs}
+            style={{ 
+              width: theme.height['Height.XS'], 
+              height: theme.height['Height.XS'], 
+              minWidth: theme.height['Height.XS'], 
+              padding: 0 
+            }}
             title="Clear Terminal Output"
             id="btn-clear-output"
-          >
-            <Trash size={14} style={{ flexShrink: 0 }} />
-          </button>
+          />
         </div>
       </header>
 
-      {/* Terminal Screen Stream Viewer */}
-      <main 
-        ref={logContainerRef} 
-        style={logViewerStyle} 
-        id="terminal-screen-log"
-      >
-        {logs.length === 0 ? (
-          <span style={{ color: '#52525b' }}>
-            $ Ready. Type any bash command below or pick a quick snippet from the header...
-          </span>
-        ) : (
-          logs.join('')
-        )}
-      </main>
+      {/* Terminal Screen Stream Viewer with Core CustomScrollbar */}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <CustomScrollbar>
+          <main 
+            ref={logContainerRef} 
+            style={logViewerStyle} 
+            id="terminal-screen-log"
+          >
+            {logs.length === 0 ? (
+              <span style={{ color: theme.Color.Base.Content[3] }}>
+                $ Ready. Type any bash command below or pick a quick snippet from the header...
+              </span>
+            ) : (
+              renderAnsiLogs(logs)
+            )}
+          </main>
+        </CustomScrollbar>
+      </div>
 
       {/* Interactive Command Prompt Bar */}
       <form onSubmit={handleFormSubmit} style={promptBarStyle} id="terminal-prompt-form">
         <span style={{ 
-          color: '#10b981', 
+          color: theme.Color.Success.Content[1], 
           fontWeight: 700, 
+          ...theme.Type.Expressive.Data,
           fontSize: isMobile ? '15px' : '14px', 
           flexShrink: 0,
           lineHeight: 1,
@@ -439,28 +521,21 @@ export const TerminalPage: React.FC = () => {
           id="terminal-command-input"
         />
 
-        <button
+        <Button
           type="submit"
+          variant="primary"
+          size="S"
           disabled={isExecuting || !inputCommand.trim()}
-          style={{
-            ...iconBtnStyle,
-            width: isMobile ? '32px' : '30px',
-            height: isMobile ? '32px' : '30px',
-            backgroundColor: isExecuting ? '#1f1f23' : '#10b981',
-            color: isExecuting ? '#71717a' : '#09090b',
-            borderColor: isExecuting ? '#2a2a32' : '#059669',
-            opacity: isExecuting || !inputCommand.trim() ? 0.6 : 1,
-            cursor: isExecuting || !inputCommand.trim() ? 'not-allowed' : 'pointer',
+          icon={isExecuting ? <CircleNotch size={14} className="fa-spin" /> : <Play size={13} weight="fill" />}
+          style={{ 
+            width: theme.height['Height.XS'], 
+            height: theme.height['Height.XS'], 
+            minWidth: theme.height['Height.XS'], 
+            padding: 0 
           }}
           title="Run Command (Enter)"
           id="terminal-run-button"
-        >
-          {isExecuting ? (
-            <CircleNotch size={14} className="fa-spin" style={{ flexShrink: 0 }} />
-          ) : (
-            <Play size={13} weight="fill" style={{ flexShrink: 0 }} />
-          )}
-        </button>
+        />
       </form>
     </div>
   );

@@ -38,6 +38,21 @@ try {
   console.error("Failed to initialize /tmp/agent_terminal.log:", e);
 }
 
+// Ensure ./bin/git is valid and executable
+try {
+  const binDir = path.join(process.cwd(), 'bin');
+  if (!fs.existsSync(binDir)) {
+    fs.mkdirSync(binDir, { recursive: true });
+  }
+  const binGit = path.join(binDir, 'git');
+  if (!fs.existsSync(binGit) && fs.existsSync('/usr/bin/git')) {
+    fs.copyFileSync('/usr/bin/git', binGit);
+    fs.chmodSync(binGit, 0o755);
+  }
+} catch (e) {
+  console.error("Failed to ensure git in ./bin:", e);
+}
+
 // Global Terminal State & SSE Client Management (Same environment as AI agent)
 let terminalCwd = process.cwd();
 const shellClients: Set<any> = new Set();
@@ -73,11 +88,12 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
     // We execute the command, capture exit code, print sentinel, print current working directory, and exit with status
     const script = `${trimmed}\n__EC=$?\necho -n "${sentinel}"\npwd -P\nexit $__EC`;
 
+    const binDir = path.join(process.cwd(), 'bin');
     const customEnv = {
       ...process.env,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
-      PATH: `${process.env.PATH || ''}:/usr/local/bin:/usr/bin:/bin`,
+      PATH: `${binDir}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${process.env.PATH || ''}`,
       PAGER: 'cat',
       GH_TOKEN: process.env.GH_TOKEN || '',
       VERCEL_TOKEN: process.env.VERCEL_TOKEN || '',
@@ -454,6 +470,9 @@ async function startServer() {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders?.();
+
+    // Send initial working directory status to newly connected client
+    res.write(`data: ${JSON.stringify({ type: 'init', cwd: terminalCwd })}\n\n`);
 
     // Replay recent history to new connection so terminal content is preserved across page navigations
     for (const item of terminalHistory) {

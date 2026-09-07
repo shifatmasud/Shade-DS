@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React from 'react';
+import { Routes, Route } from 'react-router-dom';
 import Home from '../Page/Home.tsx';
+import TerminalPage from '../Page/Terminal.tsx';
 import CustomScrollbar from '../Core/CustomScrollbar.tsx';
 import { useTheme } from '../../Theme.tsx';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const App = () => {
-  const { themeName, theme } = useTheme();
+  const { theme } = useTheme();
 
   return (
     <div style={{ 
@@ -20,9 +21,18 @@ const App = () => {
       backgroundColor: theme.Color.Base.Surface[1],
     }}>
       <div style={{ position: 'relative', zIndex: 1, height: '100%', width: '100%', backgroundColor: 'transparent' }}>
-        <CustomScrollbar>
-          <Home />
-        </CustomScrollbar>
+        <Routes>
+          <Route path="/terminal/*" element={<TerminalPage />} />
+          <Route path="/tui/*" element={<TerminalPage />} />
+          <Route
+            path="*"
+            element={
+              <CustomScrollbar>
+                <Home />
+              </CustomScrollbar>
+            }
+          />
+        </Routes>
       </div>
     </div>
   );
