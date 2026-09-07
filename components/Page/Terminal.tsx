@@ -139,8 +139,11 @@ export const TerminalPage: React.FC = () => {
     const term = new XTerminal({
       cursorBlink: true,
       cursorStyle: 'block',
+      cursorInactiveStyle: 'block',
+      cursorWidth: 2,
       convertEol: true,
       rightClickSelectsWord: true,
+      macOptionClickForcesSelection: true,
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', 'Courier New', monospace",
       fontSize: isMobile ? 12 : 13,
       lineHeight: 1.25,
@@ -151,8 +154,9 @@ export const TerminalPage: React.FC = () => {
         foreground: theme.Color.Base.Content[1],
         cursor: theme.Color.Focus.Content[1],
         cursorAccent: theme.Color.Base.Surface[1],
-        selectionBackground: theme.Color.Focus.Surface[2],
-        selectionForeground: theme.Color.Focus.Content[1],
+        selectionBackground: themeName === 'dark' ? 'rgba(100, 181, 246, 0.35)' : 'rgba(21, 101, 192, 0.25)',
+        selectionInactiveBackground: themeName === 'dark' ? 'rgba(100, 181, 246, 0.20)' : 'rgba(21, 101, 192, 0.15)',
+        selectionForeground: theme.Color.Base.Content[1],
         black: theme.Color.Base.Surface[3],
         red: theme.Color.Error.Content[1],
         green: theme.Color.Success.Content[1],
@@ -174,6 +178,16 @@ export const TerminalPage: React.FC = () => {
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
+
+    // Suppress DEC private mouse tracking modes (1000, 1002, 1003, 1005, 1006, 1015)
+    // so TUI applications (like agy / Bubbletea, htop, vim) cannot block drag-to-select in the browser
+    const mouseModes = [1000, 1002, 1003, 1005, 1006, 1015];
+    const csiHandler = term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => {
+      if (params.some((p) => typeof p === 'number' && mouseModes.includes(p))) {
+        return true; // Handled / suppress mouse tracking to keep drag-to-select always active
+      }
+      return false;
+    });
 
     // Key handler to ensure Ctrl+C/Cmd+C copies selected text instead of sending interrupt
     term.attachCustomKeyEventHandler((e) => {
@@ -237,9 +251,110 @@ export const TerminalPage: React.FC = () => {
       } catch (_) {}
     });
 
-    resizeObserver.observe(terminalContainerRef.current);
+    const containerEl = terminalContainerRef.current;
+    resizeObserver.observe(containerEl);
+
+    // Mobile touch drag-to-select: only initiates after a deliberate onpress (press & hold ~250ms)
+    const PRESS_DELAY_MS = 250;
+    const JITTER_CANCEL_THRESHOLD_PX = 10;
+    let pressTimer: any = null;
+    let isPressActive = false;
+    let touchStartPos: { x: number; y: number } | null = null;
+    let touchStartCell: { col: number; row: number } | null = null;
+
+    const getCellFromTouch = (touch: Touch) => {
+      if (!containerEl || !term) return null;
+      const rect = containerEl.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      const cellWidth = rect.width / (term.cols || 80);
+      const cellHeight = rect.height / (term.rows || 24);
+      const col = Math.max(0, Math.min(term.cols - 1, Math.floor(x / cellWidth)));
+      const row = Math.max(0, Math.min(term.rows - 1, Math.floor(y / cellHeight)));
+      return { col, row };
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        if (pressTimer) clearTimeout(pressTimer);
+        isPressActive = false;
+        const touch = e.touches[0];
+        touchStartPos = { x: touch.clientX, y: touch.clientY };
+        touchStartCell = getCellFromTouch(touch);
+
+        if (touchStartCell) {
+          const initialCell = touchStartCell;
+          pressTimer = setTimeout(() => {
+            isPressActive = true;
+            const buffer = term.buffer.active;
+            const startBufferRow = buffer.viewportY + initialCell.row;
+            // Select single character at press position and trigger subtle haptic pulse
+            term.select(initialCell.col, startBufferRow, 1);
+            if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+              try { navigator.vibrate?.(25); } catch (_) {}
+            }
+          }, PRESS_DELAY_MS);
+        }
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1 || !touchStartPos || !touchStartCell) return;
+      const touch = e.touches[0];
+
+      if (!isPressActive) {
+        // If moved beyond jitter threshold before press duration completed, cancel press to allow native scrolling
+        const dist = Math.hypot(touch.clientX - touchStartPos.x, touch.clientY - touchStartPos.y);
+        if (dist > JITTER_CANCEL_THRESHOLD_PX) {
+          if (pressTimer) {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+          }
+        }
+        return;
+      }
+
+      // Selection mode is active: expand selection range
+      const currentCell = getCellFromTouch(touch);
+      if (!currentCell) return;
+
+      const buffer = term.buffer.active;
+      const startBufferRow = buffer.viewportY + touchStartCell.row;
+      const currentBufferRow = buffer.viewportY + currentCell.row;
+
+      if (startBufferRow < currentBufferRow || (startBufferRow === currentBufferRow && touchStartCell.col <= currentCell.col)) {
+        const rowDiff = currentBufferRow - startBufferRow;
+        const length = rowDiff * term.cols + (currentCell.col - touchStartCell.col) + 1;
+        term.select(touchStartCell.col, startBufferRow, length);
+      } else {
+        const rowDiff = startBufferRow - currentBufferRow;
+        const length = rowDiff * term.cols + (touchStartCell.col - currentCell.col) + 1;
+        term.select(currentCell.col, currentBufferRow, length);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+      isPressActive = false;
+      touchStartPos = null;
+      touchStartCell = null;
+    };
+
+    containerEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+    containerEl.addEventListener('touchmove', handleTouchMove, { passive: true });
+    containerEl.addEventListener('touchend', handleTouchEnd, { passive: true });
+    containerEl.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
     return () => {
+      if (pressTimer) clearTimeout(pressTimer);
+      csiHandler.dispose();
+      containerEl.removeEventListener('touchstart', handleTouchStart);
+      containerEl.removeEventListener('touchmove', handleTouchMove);
+      containerEl.removeEventListener('touchend', handleTouchEnd);
+      containerEl.removeEventListener('touchcancel', handleTouchEnd);
       dataDisposable.dispose();
       selectionDisposable.dispose();
       resizeObserver.disconnect();
@@ -257,8 +372,9 @@ export const TerminalPage: React.FC = () => {
         foreground: theme.Color.Base.Content[1],
         cursor: theme.Color.Focus.Content[1],
         cursorAccent: theme.Color.Base.Surface[1],
-        selectionBackground: theme.Color.Focus.Surface[2],
-        selectionForeground: theme.Color.Focus.Content[1],
+        selectionBackground: themeName === 'dark' ? 'rgba(100, 181, 246, 0.35)' : 'rgba(21, 101, 192, 0.25)',
+        selectionInactiveBackground: themeName === 'dark' ? 'rgba(100, 181, 246, 0.20)' : 'rgba(21, 101, 192, 0.15)',
+        selectionForeground: theme.Color.Base.Content[1],
         black: theme.Color.Base.Surface[3],
         red: theme.Color.Error.Content[1],
         green: theme.Color.Success.Content[1],
@@ -790,8 +906,6 @@ export const TerminalPage: React.FC = () => {
           padding: isMobile ? `4px ${theme.space['Space.S']}` : `8px ${theme.space['Space.M']}`,
           boxSizing: 'border-box',
           overflow: 'hidden',
-          userSelect: 'text',
-          WebkitUserSelect: 'text'
         }}
         id="terminal-viewport-wrapper"
         onClick={() => {
@@ -804,8 +918,6 @@ export const TerminalPage: React.FC = () => {
             width: '100%', 
             height: '100%', 
             overflow: 'hidden',
-            userSelect: 'text',
-            WebkitUserSelect: 'text'
           }} 
           id="terminal-xterm-canvas" 
         />
