@@ -4,7 +4,7 @@
  */
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import { playSound } from '../../services/soundService';
 
@@ -72,13 +72,6 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
   const globalMouseX = useMotionValue(0);
   const globalMouseY = useMotionValue(0);
 
-  // Motion Values for high-performance highlight
-  const hTop = useMotionValue(0);
-  const hLeft = useMotionValue(0);
-  const hWidth = useMotionValue(0);
-  const hHeight = useMotionValue(0);
-  const hOpacity = useMotionValue(0);
-
   const updateRect = useCallback(() => {
     if (triggerRef.current) {
       const newRect = triggerRef.current.getBoundingClientRect();
@@ -101,104 +94,24 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
   }, [updateRect]);
 
   const [hoveredIdx, setHoveredIdx] = useState(-1);
+  const [pillRect, setPillRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
 
-  // Selected indicator motion values
-  const sTop = useMotionValue(0);
-  const sLeft = useMotionValue(0);
-  const sOpacity = useMotionValue(0);
+  const handleItemHover = (idx: number, el: HTMLElement) => {
+    setHoveredIdx(idx);
+    setPillRect({
+      top: el.offsetTop,
+      left: el.offsetLeft,
+      width: el.offsetWidth,
+      height: el.offsetHeight,
+    });
+  };
 
-  const updateHighlight = useCallback(() => {
-    if (hoveredIdx === -1 || !dropdownRef.current || !scrollRef.current) {
-      animate(hOpacity, 0, { duration: 0.1 });
-      return;
-    }
-    const selector = isGrid ? '[data-grid-item]' : '[data-list-item]';
-    const items = scrollRef.current.querySelectorAll(selector);
-    const targetItem = items[hoveredIdx] as HTMLElement;
-    
-    if (targetItem) {
-      const sRect = scrollRef.current.getBoundingClientRect();
-      const iRect = targetItem.getBoundingClientRect();
-      
-      const target = {
-        top: iRect.top - sRect.top,
-        left: iRect.left - sRect.left,
-        width: iRect.width,
-        height: iRect.height,
-      };
-
-      animate(hTop, target.top, { type: 'spring', stiffness: 500, damping: 45, mass: 1 });
-      animate(hLeft, target.left, { type: 'spring', stiffness: 500, damping: 45, mass: 1 });
-      animate(hWidth, target.width, { type: 'spring', stiffness: 500, damping: 45, mass: 1 });
-      animate(hHeight, target.height, { type: 'spring', stiffness: 500, damping: 45, mass: 1 });
-      animate(hOpacity, 1, { duration: 0.1 });
-    } else {
-      animate(hOpacity, 0, { duration: 0.1 });
-    }
-  }, [hoveredIdx, isGrid, hTop, hLeft, hWidth, hHeight, hOpacity]);
-
-  const updateSelected = useCallback(() => {
-    if (!scrollRef.current || !isGrid) {
-      sOpacity.set(0);
-      return;
-    }
-    const idx = options.findIndex(o => o.value === value);
-    if (idx === -1) {
-      sOpacity.set(0);
-      return;
-    }
-    const items = scrollRef.current.querySelectorAll('[data-grid-item]');
-    const targetItem = items[idx] as HTMLElement;
-    
-    if (targetItem) {
-      const target = {
-        top: targetItem.offsetTop + targetItem.offsetHeight - 10,
-        left: targetItem.offsetLeft + targetItem.offsetWidth / 2 - 2,
-      };
-
-      if (sOpacity.get() > 0) {
-        animate(sTop, target.top, { type: 'spring', stiffness: 500, damping: 35 });
-        animate(sLeft, target.left, { type: 'spring', stiffness: 500, damping: 35 });
-      } else {
-        sTop.set(target.top);
-        sLeft.set(target.left);
-        animate(sOpacity, 1, { duration: 0.2 });
-      }
-    }
-  }, [value, options, isGrid, sTop, sLeft, sOpacity]);
-
-  useEffect(() => {
-    updateHighlight();
-  }, [updateHighlight]);
-
-  useEffect(() => {
-    updateSelected();
-    // Small delay to ensure layout is settled
-    const timer = setTimeout(updateSelected, 32);
-    return () => clearTimeout(timer);
-  }, [updateSelected]);
+  const handleMouseLeave = () => {
+    setHoveredIdx(-1);
+    setPillRect(null);
+  };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!scrollRef.current) return;
-    const selector = isGrid ? '[data-grid-item]' : '[data-list-item]';
-    const items = scrollRef.current.querySelectorAll(selector);
-    
-    let foundIndex = -1;
-    items.forEach((item, idx) => {
-      const rect = item.getBoundingClientRect();
-      if (
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom
-      ) {
-        foundIndex = idx;
-      }
-    });
-
-    if (foundIndex !== hoveredIdx) {
-      setHoveredIdx(foundIndex);
-    }
     globalMouseX.set(e.clientX);
     globalMouseY.set(e.clientY);
   };
@@ -206,23 +119,15 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (scrollRef.current) {
       const touch = e.touches[0];
-      const selector = isGrid ? '[data-grid-item]' : '[data-list-item]';
-      const items = scrollRef.current.querySelectorAll(selector);
-      let foundIndex = -1;
-      items.forEach((item, idx) => {
-        const itemRect = item.getBoundingClientRect();
-        if (
-          touch.clientX >= itemRect.left &&
-          touch.clientX <= itemRect.right &&
-          touch.clientY >= itemRect.top &&
-          touch.clientY <= itemRect.bottom
-        ) {
-          foundIndex = idx;
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const itemEl = target?.closest('[data-list-item], [data-grid-item]') as HTMLElement | null;
+      if (itemEl && scrollRef.current.contains(itemEl)) {
+        const selector = isGrid ? '[data-grid-item]' : '[data-list-item]';
+        const items = Array.from(scrollRef.current.querySelectorAll(selector));
+        const idx = items.indexOf(itemEl);
+        if (idx !== -1 && idx !== hoveredIdx) {
+          handleItemHover(idx, itemEl);
         }
-      });
-
-      if (foundIndex !== hoveredIdx) {
-        setHoveredIdx(foundIndex);
       }
       globalMouseX.set(touch.clientX);
       globalMouseY.set(touch.clientY);
@@ -317,44 +222,50 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
           onSelect(options[hoveredIdx].value);
         }
       }}
-      onMouseLeave={() => {
-          setHoveredIdx(-1);
-      }}
+      onMouseLeave={handleMouseLeave}
+      onPointerLeave={handleMouseLeave}
     >
       <div ref={scrollRef} style={{ maxHeight: '240px', overflowY: 'auto', position: 'relative' }}>
-        <motion.div
-          style={{
-            position: 'absolute',
-            pointerEvents: 'none',
-            zIndex: 0,
-            backgroundColor: theme.Color.Base.Surface[2],
-            borderRadius: theme.radius['Radius.S'],
-            top: hTop,
-            left: hLeft,
-            width: hWidth,
-            height: hHeight,
-            opacity: hOpacity,
-          }}
-        />
-
-        {/* Selected Indicator Dot */}
-        <motion.div
-          style={{
-            position: 'absolute',
-            pointerEvents: 'none',
-            zIndex: 2,
-            width: '4px',
-            height: '4px',
-            borderRadius: '50%',
-            backgroundColor: theme.Color.Base.Content[1],
-            top: sTop,
-            left: sLeft,
-            opacity: sOpacity,
-          }}
-        />
-
         {isGrid ? (
           <div style={styles.gridContainer}>
+            <AnimatePresence>
+              {pillRect && (
+                <motion.div
+                  key="select-hover-pill-grid"
+                  style={{
+                    position: 'absolute',
+                    pointerEvents: 'none',
+                    zIndex: 0,
+                    backgroundColor: theme.Color.Base.Surface[2],
+                    borderRadius: theme.radius['Radius.S'],
+                  }}
+                  initial={{
+                    top: pillRect.top + 2,
+                    left: pillRect.left + 2,
+                    width: Math.max(0, pillRect.width - 4),
+                    height: Math.max(0, pillRect.height - 4),
+                    opacity: 0,
+                  }}
+                  animate={{
+                    top: pillRect.top + 2,
+                    left: pillRect.left + 2,
+                    width: Math.max(0, pillRect.width - 4),
+                    height: Math.max(0, pillRect.height - 4),
+                    opacity: 1,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    transition: { duration: 0.15 },
+                  }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 500,
+                    damping: 38,
+                    opacity: { duration: 0.15 },
+                  }}
+                />
+              )}
+            </AnimatePresence>
             {options.map((option, idx) => (
               <motion.div
                 key={option.value}
@@ -362,41 +273,102 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
                 onClick={() => onSelect(option.value)}
                 animate={{ color: option.value === value ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2] }}
                 style={styles.gridItem(option.value === value)}
-                onMouseEnter={() => setHoveredIdx(idx)}
+                onPointerEnter={(e) => handleItemHover(idx, e.currentTarget)}
+                onMouseEnter={(e) => handleItemHover(idx, e.currentTarget)}
                 whileTap={{ scale: 0.95 }}
               >
-                {option.icon ? (
-                  <i className={`ph-bold ${option.icon}`} />
-                ) : (
-                  <span style={{ fontSize: '14px' }}>{option.label.slice(0, 2)}</span>
+                {option.value === value && (
+                  <motion.div
+                    layoutId={`select-active-dot-${instanceId}`}
+                    style={{
+                      position: 'absolute',
+                      bottom: '4px',
+                      left: 'calc(50% - 2px)',
+                      width: '4px',
+                      height: '4px',
+                      borderRadius: '50%',
+                      backgroundColor: theme.Color.Base.Content[1],
+                      zIndex: 2,
+                      pointerEvents: 'none',
+                    }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
                 )}
+                <span style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {option.icon ? (
+                    <i className={`ph-bold ${option.icon}`} />
+                  ) : (
+                    <span style={{ fontSize: '14px' }}>{option.label.slice(0, 2)}</span>
+                  )}
+                </span>
               </motion.div>
             ))}
           </div>
         ) : (
-          options.map((option, idx) => (
-            <motion.div
-              key={option.value}
-              data-list-item
-              onClick={() => onSelect(option.value)}
-              style={styles.option(option.value === value)}
-              onMouseEnter={() => setHoveredIdx(idx)}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span style={{ position: 'relative', zIndex: 1 }}>{option.label}</span>
-              {option.value === value && (
-                <motion.span 
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </motion.span>
+          <>
+            <AnimatePresence>
+              {pillRect && (
+                <motion.div
+                  key="select-hover-pill-list"
+                  style={{
+                    position: 'absolute',
+                    pointerEvents: 'none',
+                    zIndex: 0,
+                    backgroundColor: theme.Color.Base.Surface[2],
+                    borderRadius: theme.radius['Radius.S'],
+                  }}
+                  initial={{
+                    top: pillRect.top + 2,
+                    left: pillRect.left + 4,
+                    width: Math.max(0, pillRect.width - 8),
+                    height: Math.max(0, pillRect.height - 4),
+                    opacity: 0,
+                  }}
+                  animate={{
+                    top: pillRect.top + 2,
+                    left: pillRect.left + 4,
+                    width: Math.max(0, pillRect.width - 8),
+                    height: Math.max(0, pillRect.height - 4),
+                    opacity: 1,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    transition: { duration: 0.15 },
+                  }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 500,
+                    damping: 38,
+                    opacity: { duration: 0.15 },
+                  }}
+                />
               )}
-            </motion.div>
-          ))
+            </AnimatePresence>
+            {options.map((option, idx) => (
+              <motion.div
+                key={option.value}
+                data-list-item
+                onClick={() => onSelect(option.value)}
+                style={styles.option(option.value === value)}
+                onPointerEnter={(e) => handleItemHover(idx, e.currentTarget)}
+                onMouseEnter={(e) => handleItemHover(idx, e.currentTarget)}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span style={{ position: 'relative', zIndex: 1 }}>{option.label}</span>
+                {option.value === value && (
+                  <motion.span 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </motion.span>
+                )}
+              </motion.div>
+            ))}
+          </>
         )}
       </div>
 

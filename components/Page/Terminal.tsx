@@ -56,6 +56,10 @@ export const TerminalPage: React.FC = () => {
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
+  // Auto-scroll toggle state: true keeps terminal scrolled to the bottom on incoming output
+  const [autoScroll, setAutoScroll] = useState(true);
+  const autoScrollRef = useRef(true);
+
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const termRef = useRef<XTerminal | null>(null);
@@ -91,6 +95,13 @@ export const TerminalPage: React.FC = () => {
   const runCommand = useCallback(async (cmdToRun: string) => {
     const trimmed = cmdToRun.trim();
     if (!trimmed) return;
+
+    // Automatically re-enable auto-scroll when executing a command
+    setAutoScroll(true);
+    autoScrollRef.current = true;
+    if (termRef.current) {
+      termRef.current.scrollToBottom();
+    }
 
     // Track command in history
     setCommandHistory(prev => [...prev.filter(c => c !== trimmed), trimmed]);
@@ -254,56 +265,96 @@ export const TerminalPage: React.FC = () => {
     const containerEl = terminalContainerRef.current;
     resizeObserver.observe(containerEl);
 
-    // Mobile touch drag-to-select support
-    let touchStartCell: { col: number; row: number } | null = null;
-    const getCellFromTouch = (touch: Touch) => {
-      if (!containerEl || !term) return null;
-      const rect = containerEl.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
-      const cellWidth = rect.width / (term.cols || 80);
-      const cellHeight = rect.height / (term.rows || 24);
-      const col = Math.max(0, Math.min(term.cols - 1, Math.floor(x / cellWidth)));
-      const row = Math.max(0, Math.min(term.rows - 1, Math.floor(y / cellHeight)));
-      return { col, row };
+    // Track scroll position to update auto-scroll state
+    const scrollDisposable = term.onScroll(() => {
+      const buffer = term.buffer.active;
+      const isAtBottom = buffer.viewportY >= buffer.baseY;
+      if (!isAtBottom) {
+        if (autoScrollRef.current) {
+          autoScrollRef.current = false;
+          setAutoScroll(false);
+        }
+      } else {
+        if (!autoScrollRef.current) {
+          autoScrollRef.current = true;
+          setAutoScroll(true);
+        }
+      }
+    });
+
+    // Handle mouse wheel scrolling for both normal buffer and alternate TUI buffer
+    const handleWheel = (e: WheelEvent) => {
+      if (!term) return;
+      if (term.buffer.active.type === 'alternate') {
+        // In alternate buffer (such as interactive TUI like agy):
+        // Translate wheel into up/down arrow escape sequences
+        e.preventDefault();
+        const key = e.deltaY > 0 ? '\x1b[B' : '\x1b[A';
+        const steps = Math.max(1, Math.min(4, Math.abs(Math.round(e.deltaY / 30))));
+        for (let i = 0; i < steps; i++) {
+          sendInputToProcess(key);
+        }
+      }
     };
+
+    // Mobile touch scrolling support for both normal buffer and alternate TUI buffer
+    let touchStartY = 0;
+    let touchStartX = 0;
+    let lastTouchY = 0;
+    let isVerticalSwipe = false;
 
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 1) {
-        touchStartCell = getCellFromTouch(e.touches[0]);
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+        lastTouchY = e.touches[0].clientY;
+        isVerticalSwipe = false;
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!touchStartCell || e.touches.length !== 1) return;
-      const currentCell = getCellFromTouch(e.touches[0]);
-      if (!currentCell) return;
+      if (e.touches.length !== 1 || !term) return;
+      const currentY = e.touches[0].clientY;
+      const currentX = e.touches[0].clientX;
+      const deltaY = lastTouchY - currentY;
+      const totalDeltaY = Math.abs(currentY - touchStartY);
+      const totalDeltaX = Math.abs(currentX - touchStartX);
 
-      const buffer = term.buffer.active;
-      const startBufferRow = buffer.viewportY + touchStartCell.row;
-      const currentBufferRow = buffer.viewportY + currentCell.row;
+      if (!isVerticalSwipe && totalDeltaY > 8 && totalDeltaY > totalDeltaX) {
+        isVerticalSwipe = true;
+      }
 
-      if (startBufferRow < currentBufferRow || (startBufferRow === currentBufferRow && touchStartCell.col <= currentCell.col)) {
-        const rowDiff = currentBufferRow - startBufferRow;
-        const length = rowDiff * term.cols + (currentCell.col - touchStartCell.col) + 1;
-        term.select(touchStartCell.col, startBufferRow, length);
-      } else {
-        const rowDiff = startBufferRow - currentBufferRow;
-        const length = rowDiff * term.cols + (touchStartCell.col - currentCell.col) + 1;
-        term.select(currentCell.col, currentBufferRow, length);
+      if (isVerticalSwipe) {
+        const linePitch = 16;
+        const lines = Math.round(deltaY / linePitch);
+        if (Math.abs(lines) >= 1) {
+          if (term.buffer.active.type === 'alternate') {
+            const count = Math.min(3, Math.abs(lines));
+            const key = lines > 0 ? '\x1b[B' : '\x1b[A';
+            for (let i = 0; i < count; i++) {
+              sendInputToProcess(key);
+            }
+          } else {
+            term.scrollLines(lines);
+          }
+          lastTouchY = currentY;
+        }
       }
     };
 
     const handleTouchEnd = () => {
-      touchStartCell = null;
+      isVerticalSwipe = false;
     };
 
+    containerEl.addEventListener('wheel', handleWheel, { passive: false });
     containerEl.addEventListener('touchstart', handleTouchStart, { passive: true });
     containerEl.addEventListener('touchmove', handleTouchMove, { passive: true });
     containerEl.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
       csiHandler.dispose();
+      scrollDisposable.dispose();
+      containerEl.removeEventListener('wheel', handleWheel);
       containerEl.removeEventListener('touchstart', handleTouchStart);
       containerEl.removeEventListener('touchmove', handleTouchMove);
       containerEl.removeEventListener('touchend', handleTouchEnd);
@@ -402,6 +453,9 @@ export const TerminalPage: React.FC = () => {
           setIsExecuting(!!payload.activeProcess);
         } else if (payload.data && termRef.current) {
           termRef.current.write(payload.data);
+          if (autoScrollRef.current) {
+            termRef.current.scrollToBottom();
+          }
         }
         if (payload.cwd) {
           setCwd(payload.cwd);
@@ -409,6 +463,9 @@ export const TerminalPage: React.FC = () => {
       } catch (e) {
         if (termRef.current && event.data) {
           termRef.current.write(event.data);
+          if (autoScrollRef.current) {
+            termRef.current.scrollToBottom();
+          }
         }
       }
     };
@@ -609,6 +666,13 @@ export const TerminalPage: React.FC = () => {
     if (termRef.current) {
       termRef.current.scrollToBottom();
     }
+    setAutoScroll(prev => {
+      // If auto-scroll was paused/disabled, scrolling to bottom turns it ON
+      // If it was already active at bottom, clicking toggles it to allow reading older logs
+      const next = !prev;
+      autoScrollRef.current = next;
+      return next;
+    });
   };
 
   // Compute clean display path
@@ -714,22 +778,9 @@ export const TerminalPage: React.FC = () => {
       <header style={headerStyle} id="terminal-compact-header">
         {/* Left: Back Link & Active Workspace Path */}
         <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], minWidth: 0, flexShrink: 1 }}>
-          <Link to="/" style={{ textDecoration: 'none', display: 'flex' }} id="terminal-back-btn" title="Back to Application">
-            <Button
-              variant="secondary"
-              size="S"
-              icon={<CaretLeft size={16} weight="bold" />}
-              style={{ 
-                width: theme.height['Height.XS'], 
-                height: theme.height['Height.XS'], 
-                minWidth: theme.height['Height.XS'], 
-                padding: 0 
-              }}
-            />
-          </Link>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'], minWidth: 0 }}>
-            <TerminalIcon size={16} color={theme.Color.Success.Content[1]} style={{ flexShrink: 0 }} />
+            <TerminalIcon size={16} color={theme.Color.Base.Content[1]} style={{ flexShrink: 0 }} />
             <span style={{ 
               ...theme.Type.Readable.Label.M,
               color: theme.Color.Base.Content[1],
@@ -794,20 +845,22 @@ export const TerminalPage: React.FC = () => {
             />
           </div>
 
-          {/* Scroll to bottom */}
+          {/* Scroll to bottom with active auto-scroll state */}
           <Button
             type="button"
             variant="secondary"
             size="S"
-            icon={<ArrowDown size={14} weight="regular" />}
+            icon={<ArrowDown size={14} weight={autoScroll ? "bold" : "regular"} />}
             onClick={handleScrollToBottom}
             style={{ 
               width: theme.height['Height.XS'], 
               height: theme.height['Height.XS'], 
               minWidth: theme.height['Height.XS'], 
-              padding: 0
+              padding: 0,
+              color: autoScroll ? theme.Color.Active.Content[1] : theme.Color.Base.Content[1],
+           
             }}
-            title="Scroll to Bottom"
+            title={autoScroll ? "Auto-scroll: ON (Click to pause auto-scroll)" : "Auto-scroll: OFF (Click to scroll to bottom & resume auto-scroll)"}
             id="btn-scroll-bottom"
           />
 
@@ -877,16 +930,6 @@ export const TerminalPage: React.FC = () => {
 
       {/* ALWAYS PERSISTENT Quick Touch/Key Response Bar */}
       <section style={quickKeysBarStyle} id="terminal-persistent-quick-keys" aria-label="Quick Keys Toolbar">
-        <span style={{ 
-          ...theme.Type.Readable.Label.S, 
-          color: theme.Color.Base.Content[3],
-          whiteSpace: 'nowrap',
-          marginRight: '2px',
-          fontSize: '11px',
-          flexShrink: 0
-        }}>
-          Quick Keys:
-        </span>
         {QUICK_KEYS_ITEMS.map((item) => {
           const isHighlight = item.label === 'agy' || (isExecuting && item.label === 'Ctrl+C');
           return (
@@ -973,7 +1016,7 @@ export const TerminalPage: React.FC = () => {
           variant="primary"
           size="S"
           disabled={!isExecuting && !inputCommand.trim()}
-          icon={isExecuting ? <PaperPlaneRight size={13} weight="bold" /> : <Play size={13} weight="fill" />}
+          icon={isExecuting ? <PaperPlaneRight size={13} weight="bold" /> : <PaperPlaneRight size={13} weight="fill" />}
           style={{ 
             width: theme.height['Height.XS'], 
             height: theme.height['Height.XS'], 

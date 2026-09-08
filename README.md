@@ -102,3 +102,12 @@ Always apply typography via object spread: `style={{ ...theme.Type.Body1 }}`. Ne
 ```
 
 ---
+
+## 📝 Recent Changelogs
+
+- **Scroll-to-Bottom Button Transparent Purple Theme**: Updated `btn-scroll-bottom` to have a transparent background when active, utilizing `theme.Color.Active.Content[1]` for the icon color and border outline instead of blue focus styles.
+- **Select Component Hover Pill Motion Fix**: Eliminated visual flicker, z-fighting, and opacity cross-fade stutter in `<Select />` dropdowns by removing per-item `<AnimatePresence>` and `initial`/`exit` opacity animations on the shared `layoutId` pill. The indicator now glides continuously with solid opacity and spring physics.
+- **TUI Page Command Selector Fix**: Upgraded `<Select />` dropdown overlay to use Framer Motion's `layoutId` within option containers. Fixed offset calculation drift when scrolling the dropdown and ensured the hover background pill animates behind items.
+- **TUI & Terminal Scrollability**: Enhanced terminal viewport with bi-modal scrolling support for both normal buffer (`term.scrollLines`) and alternate buffer / interactive TUI applications (converting scroll gestures to arrow key escape sequences).
+- **Auto-Scroll to Bottom**: Implemented a sticky auto-scroll state on the "Scroll to Bottom" button (`variant="primary"` when active) that automatically tracks incoming SSE logs and pauses when reading earlier history.
+- **Streamlined Quick Keys Bar**: Removed the redundant `"Quick Keys:"` text label to maximize touch target space on mobile and compact displays.
