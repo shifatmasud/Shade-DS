@@ -17,6 +17,116 @@ const isInsideDefs = (el: HTMLElement | SVGElement): boolean => {
 }
 
 /**
+ * 🛠️ Helper to extract raw SVG XML from an <img> src data URI (handles raw XML, URI-encoded, HTML-entity-encoded, and base64)
+ */
+const extractSvgFromImgSrc = (src: string): string | null => {
+    if (!src) return null
+
+    // Check if it's an SVG data URI
+    if (!src.includes("image/svg+xml") && !src.startsWith("data:image/svg")) {
+        return null
+    }
+
+    // 1. Base64 encoded: data:image/svg+xml;base64,...
+    if (src.includes(";base64,")) {
+        try {
+            const base64Part = src.split(";base64,")[1]
+            if (typeof window !== "undefined" && typeof window.atob === "function") {
+                return window.atob(base64Part)
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    // 2. Data URI payload
+    const commaIndex = src.indexOf(",")
+    if (commaIndex !== -1) {
+        let raw = src.substring(commaIndex + 1)
+        try {
+            raw = decodeURIComponent(raw)
+        } catch (e) {
+            // ignore if malformed percent encoding
+        }
+        // Decode HTML entities if present (e.g. &lt;svg ... &gt;)
+        if (raw.includes("&lt;") || raw.includes("&gt;") || raw.includes("&quot;")) {
+            raw = raw
+                .replace(/&lt;/g, "<")
+                .replace(/&gt;/g, ">")
+                .replace(/&quot;/g, '"')
+                .replace(/&apos;/g, "'")
+                .replace(/&amp;/g, "&")
+        }
+        if (raw.includes("<svg") || raw.includes("<SVG")) {
+            return raw
+        }
+    }
+
+    return null
+}
+
+/**
+ * 🛠️ Helper to convert an <img> with SVG data URI into an inline <svg> element in the DOM
+ */
+const inlineSvgFromImg = (img: HTMLImageElement): SVGSVGElement | null => {
+    const parent = img.parentElement
+    if (parent) {
+        const existingInjected = parent.querySelector<SVGSVGElement>(`svg[data-injected-from-img-id="${img.id || 'default'}"]`)
+        if (existingInjected) {
+            return existingInjected
+        }
+    }
+
+    const src = img.getAttribute("src") || img.src || ""
+    const svgXml = extractSvgFromImgSrc(src)
+    if (!svgXml) return null
+
+    try {
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(svgXml, "image/svg+xml")
+        const parsedSvg = doc.querySelector("svg")
+        if (!parsedSvg || doc.querySelector("parsererror")) return null
+
+        // Clone/import into document
+        const importedSvg = document.importNode(parsedSvg, true) as SVGSVGElement
+
+        // Transfer classes and styles from <img> to <svg>
+        if (img.className) {
+            importedSvg.setAttribute("class", img.className)
+        }
+        if (img.id) {
+            importedSvg.setAttribute("data-source-img-id", img.id)
+        }
+        importedSvg.setAttribute("data-injected-from-img", "true")
+        importedSvg.setAttribute("data-injected-from-img-id", img.id || "default")
+
+        // Copy computed/inline styles where helpful
+        importedSvg.style.display = "block"
+        if (img.style.position) importedSvg.style.position = img.style.position
+        if (img.style.top) importedSvg.style.top = img.style.top
+        if (img.style.left) importedSvg.style.left = img.style.left
+        if (img.style.right) importedSvg.style.right = img.style.right
+        if (img.style.bottom) importedSvg.style.bottom = img.style.bottom
+        if (img.style.transform) importedSvg.style.transform = img.style.transform
+        if (img.style.width) importedSvg.style.width = img.style.width
+        if (img.style.height) importedSvg.style.height = img.style.height
+        if (img.style.zIndex) importedSvg.style.zIndex = img.style.zIndex
+
+        // Insert adjacent to img and hide original img
+        if (parent) {
+            parent.insertBefore(importedSvg, img)
+            img.style.display = "none"
+            img.setAttribute("data-svg-injected", "true")
+            return importedSvg
+        }
+    } catch (e) {
+        console.warn("[SVGPathInjector] Failed to inline SVG from img:", e)
+    }
+
+    return null
+}
+
+/**
  * 🛠️ Helper to detect if an element is a small anchor point or control handle
  */
 const isAnchorPoint = (el: HTMLElement | SVGElement): boolean => {
@@ -132,7 +242,27 @@ export default function SVGPathInjector(props: any) {
                 if ((type === "SVG" || isSvgElement || child.querySelector("svg")) && !foundSvg) {
                     foundSvg = isSvgElement ? (child as unknown as SVGSVGElement) : (child.querySelector("svg") as SVGSVGElement | null)
                 }
+
+                // Support Framer Vector Sets rendered as <img> with data:image/svg+xml src
+                if (!foundSvg) {
+                    const isImg = child.tagName.toLowerCase() === "img"
+                    const imgEl = isImg ? (child as HTMLImageElement) : (child.querySelector("img") as HTMLImageElement | null)
+                    if (imgEl) {
+                        const src = imgEl.getAttribute("src") || imgEl.src || ""
+                        if (src.includes("image/svg+xml") || src.startsWith("data:image/svg")) {
+                            foundSvg = inlineSvgFromImg(imgEl)
+                        }
+                    }
+                }
             })
+
+            // Fallback: check if an injected SVG already exists under sharedParent
+            if (!foundSvg) {
+                const injectedSvg = sharedParent.querySelector('svg[data-injected-from-img="true"]') as SVGSVGElement | null
+                if (injectedSvg && !el.contains(injectedSvg)) {
+                    foundSvg = injectedSvg
+                }
+            }
 
             if (foundSvg) {
                 // Resolve <use> tags to actual paths for animation
