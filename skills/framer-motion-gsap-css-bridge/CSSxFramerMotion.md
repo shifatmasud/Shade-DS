@@ -1,4 +1,4 @@
-import { spring } from "motion"
+import { spring } from "framer-motion"
 
 //You can set transition on an element at runtime, before changing its other values.
 
