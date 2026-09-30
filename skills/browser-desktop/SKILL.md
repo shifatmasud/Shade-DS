@@ -62,7 +62,7 @@ The manager script at `/scripts/desktop_service.sh` is completely self-healing a
 
 # Script Location & Invocation
 
-The primary script is located at `/scripts/desktop_service.sh` (with a backward-compatible symlink at `/app/applet/framer/test/desktop_service.sh`).
+The primary script is located at `/scripts/desktop_service.sh` .
 
 Always ensure execution permissions are set prior to running:
 ```bash
