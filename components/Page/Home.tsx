@@ -17,6 +17,7 @@ import StyleGuidePanel from '../Package/StyleGuidePanel.tsx';
 import TabbedPanel from '../Package/TabbedPanel.tsx';
 import SystemSpec from '../Package/SystemSpec.tsx';
 import AIPanel from '../Package/AIPanel.tsx';
+import MCPIntegrations from '../Package/MCPIntegrations.tsx';
 import UndoRedo from '../Package/UndoRedo.tsx';
 import Confetti from '../Core/Confetti.tsx';
 import { Sliders, Code, Terminal } from 'phosphor-react';
@@ -213,6 +214,7 @@ const Home = () => {
     systemSpec: { id: 'systemSpec', title: 'System Spec', isOpen: false, zIndex: 5, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
     ai: { id: 'ai', title: 'AI Agent', isOpen: false, zIndex: 6, x: 0, y: 0, height: 480 },
     settings: { id: 'settings', title: 'Settings', isOpen: false, zIndex: 7, x: 0, y: 0, height: CONTROL_PANEL_HEIGHT },
+    mcp: { id: 'mcp', title: 'MCP Integrations', isOpen: false, zIndex: 8, x: 0, y: 0, height: 600 },
   });
 
   // --- Router Synchronization ---
@@ -750,6 +752,8 @@ const Home = () => {
                   onToggleConfetti={handleToggleConfetti}
                   enableSound={enableSound}
                   onToggleSound={handleToggleSound}
+                  showMcp={windows.mcp.isOpen}
+                  onToggleMcp={() => toggleWindow('mcp')}
               />
             </FloatingWindow>
           )}
@@ -830,6 +834,18 @@ const Home = () => {
             </FloatingWindow>
           )}
 
+          {windows.mcp.isOpen && (
+            <FloatingWindow
+              key="mcp"
+              {...windows.mcp}
+              onClose={() => toggleWindow('mcp')}
+              onResize={(newHeight) => handleResize('mcp', newHeight)}
+              onFocus={() => bringToFront('mcp')}
+            >
+              <MCPIntegrations />
+            </FloatingWindow>
+          )}
+
           {/* --- LEAN MODE WINDOW --- */}
           {/* Moved inside AnimatePresence for exit transitions */}
           {uiMode === 'lean' && windows.control.isOpen && (
@@ -860,7 +876,9 @@ const Home = () => {
                     showConfetti={showConfetti}
                     onToggleConfetti={handleToggleConfetti}
                     enableSound={enableSound}
-                    onToggleSound={handleToggleSound} /> },
+                    onToggleSound={handleToggleSound}
+                    showMcp={windows.mcp.isOpen}
+                    onToggleMcp={() => toggleWindow('mcp')} /> },
                   { id: 'code', title: 'Code I/O', icon: <Code size={16} />, content: <CodePanel codeText={codeText} onCodeChange={handleCodeChange} onCopyCode={handleCopyCode} onFocus={() => setIsCodeFocused(true)} onBlur={() => setIsCodeFocused(false)} stagedProps={stagedProps} /> },
                   { id: 'console', title: 'Console', icon: <Terminal size={16} />, content: <ConsolePanel logs={logs} /> },
                 ]}

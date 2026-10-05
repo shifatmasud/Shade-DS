@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "raylight": {
+      "url": "https://api.raylight.app/mcp",
+      "type": "sse"
+    },
+    "upsy": {
+      "url": "https://upsy.ai/connect",
+      "type": "sse"
+    }
+  }
+}

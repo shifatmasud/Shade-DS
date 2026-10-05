@@ -42,6 +42,10 @@ This is not just another component library. It is a **structural methodology** f
 ---
 
 ## 📜 Recent Changelogs
+-   **`OCT 05, 2026`** · **Raylight & Upsy MCP Integration & Dynamic Client Architecture**:
+    1. **Integrated Raylight & Upsy MCP Servers**: Configured `raylight` (api.raylight.app) and `upsy` (upsy.ai) Model Context Protocol (MCP) servers in a centralized `mcp-config.json`.
+    2. **Refactored Universal MCP Client**: Upgraded `scripts/mcp-client.ts` to dynamically load multi-server configurations, supporting isolated Stdio, HTTP, and SSE transports.
+    3. **Automated Auth Verification**: Developed `scripts/auth_mcp.ts` to probe server health and retrieve authentication callback URLs (`https://raylight.app/auth` and `https://upsy.ai/connect`).
 
 -   **`OCT 05, 2026`** · **Shell Online (`shell.online`) Terminal Sharing Skill & CLI Integration**:
     1. **Integrated `shell.online` CLI**: Installed the official `shell.online` (v0.25.0) binary into `./bin/shell`, enabling live terminal sharing, background process monitoring, and remote mobile interaction via secure, end-to-end encrypted browser links.

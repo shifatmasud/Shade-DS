@@ -340,28 +340,11 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
       NOTION_WORKSPACE_ID: process.env.NOTION_WORKSPACE_ID || ''
     };
 
-    const ptyRunnerPath = path.join(process.cwd(), 'scripts', 'pty_runner.py');
-    const hasPtyRunner = fs.existsSync(ptyRunnerPath);
-
-    let spawnCmd = '';
-    let spawnArgs: string[] = [];
-
-    if (hasPtyRunner) {
-      spawnCmd = 'python3';
-      spawnArgs = [
-        ptyRunnerPath,
-        '--cwd', terminalCwd,
-        '--rows', String(termRows),
-        '--cols', String(termCols),
-        script
-      ];
-    } else {
-      const hasScriptPty = fs.existsSync('/usr/bin/script');
-      spawnCmd = hasScriptPty ? '/usr/bin/script' : '/bin/bash';
-      spawnArgs = hasScriptPty
-        ? ['-q', '-f', '-e', '-c', script, '/dev/null']
-        : ['-c', script];
-    }
+    const hasScriptPty = fs.existsSync('/usr/bin/script');
+    let spawnCmd = hasScriptPty ? '/usr/bin/script' : '/bin/bash';
+    let spawnArgs = hasScriptPty
+      ? ['-q', '-f', '-e', '-c', script, '/dev/null']
+      : ['-c', script];
 
     console.log(`[Terminal] Spawning process: ${spawnCmd} ${spawnArgs.join(' ')}`);
     const proc = spawn(spawnCmd, spawnArgs, {
