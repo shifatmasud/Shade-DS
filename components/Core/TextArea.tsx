@@ -1,0 +1,56 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import React from 'react';
+import { useTheme } from '../../Theme.tsx';
+import { playSound, playTypingSound } from '../../services/soundService';
+
+interface TextAreaProps {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  style?: React.CSSProperties;
+}
+
+const TextArea: React.FC<TextAreaProps> = ({ value, onChange, onFocus, onBlur, style }) => {
+  const { theme } = useTheme();
+
+  const baseStyle: React.CSSProperties = {
+    ...theme.Type.Expressive.Data,
+    width: '100%',
+    minHeight: theme.space['Space.12XL'],
+    backgroundColor: theme.Color.Base.Surface[3],
+    padding: theme.space['Space.M'],
+    borderRadius: theme.radius['Radius.M'],
+    border: 'none',
+    color: theme.Color.Base.Content[1],
+    resize: 'none',
+    outline: 'none',
+  };
+
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => {
+        onChange(e);
+        playTypingSound();
+      }}
+      onFocus={(e) => {
+        playSound('press');
+        if (onFocus) onFocus();
+      }}
+      onBlur={(e) => {
+        playSound('release');
+        if (onBlur) onBlur();
+      }}
+      spellCheck={false}
+      style={{ ...baseStyle, ...style }}
+    />
+  );
+};
+
+let lastTickTime = 0;
+
+export default TextArea;
