@@ -66,7 +66,7 @@ The primary script is located at `/scripts/desktop_service.sh` .
 
 Always ensure execution permissions are set prior to running:
 ```bash
-chmod +x /scripts/desktop_service.sh
+chmod +x scripts/desktop_service.sh
 ```
 
 ### CLI Command Reference
