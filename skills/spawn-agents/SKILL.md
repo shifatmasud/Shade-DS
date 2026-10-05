@@ -1,107 +1,131 @@
 ---
 name: spawn-agents
-description: Advanced multi-agent orchestrator system featuring separated Planner, Lead Coordinator, Task Dependency Graph, Worker Contracts, Authoritative Reviewer, and Rejection Feedback Loop. Triggers on `/spawnAgents`.
+description: Manager-Centric Multi-Agent CLI orchestration system in Node.js + TypeScript powered by Gemini flash. Features strict star topology, context-isolated sub-agents, least-privilege tool granting, durable state recovery, and complete communication ledger in chatGroup.yaml. Triggers on `/spawnAgents`.
 ---
 
-# Spawn Agents Orchestration Skill
+# Spawn Agents: Manager-Centric Multi-Agent Orchestration Skill
 
-This skill governs the execution of the upgraded multi-agent execution pipeline implemented in `/scripts/spawnAgents.ts`. It ensures any agent operating in this repository follows a dependency-aware, feedback-driven orchestration process:
+This skill governs the execution of the Manager-Centric Multi-Agent CLI runtime implemented in `/scripts/spawnAgents.ts`. It establishes the Manager as the sole central coordinator, isolates all sub-agent contexts, and maintains a complete, append-friendly communication ledger in `chatGroup.yaml`.
 
 ```
-User Request
-      │
-      ▼
-Planner Agent (Architectural Spec & Explicit Acceptance Criteria)
-      │
-      ▼
-Lead Coordinator Agent (Partitions Approved Plan into Task Dependency Graph)
-      │
-      ▼
-Parallel Analysis Agents (Read-Only Concurrent Briefings: Structural, Design System, Rules)
-      │
-      ▼
-Dependency-Ordered Worker Agents (Worker Contracts: Input → Execution → Output)
-      │
-      ▼
-Authoritative Reviewer Agent (Build/Lint + Architecture, Naming, Duplication, Security)
-      │
-      ├── PASS ──► Summary & Artifacts (/artifacts/)
-      │
-      └── FAIL ──► Fix Agent Loop ──► Re-Reviewer Audit (up to MAX_RETRIES)
+                         HUMAN / AI
+                             │
+                             ▼
+                       ┌───────────┐
+                       │  MANAGER  │
+                       │   Flash   │
+                       └─────┬─────┘
+                             │
+          ┌──────────────────┼──────────────────┐
+          │                  │                  │
+          ▼                  ▼                  ▼
+      STRATEGIST           BUILDER          RESEARCHER
+    (fresh context)    (fresh context)   (fresh context)
+          │                  │                  │
+          └──────────────────┼──────────────────┘
+                             │
+                          MANAGER
+                             │
+             ┌───────────────┼───────────────┐
+             ▼               ▼               ▼
+          ANALYST          TESTER          REVIEWER
+      (fresh context)  (fresh context)  (fresh context)
 ```
 
 ---
 
-## 1. Core Pipeline Roles & Responsibilities
+## 1. Core Architectural Invariants
 
-1. **Planner Agent**:
-   - Formulates or validates the Master Architectural Plan without executing code edits.
-   - Defines explicit **Acceptance Criteria** and **Non-Negotiable Quality Guardrails** (successful build, clean lint, Theme.tsx token compliance, no type errors).
-
-2. **Lead Coordinator Agent**:
-   - Takes the approved Master Plan and partitions it into a **Task Dependency Graph**.
-   - Assigns unique task IDs, explicit dependencies (e.g. `task_2` depends on `task_1`), target files, constraints, and acceptance criteria.
-   - Does NOT invent unapproved work.
-
-3. **Parallel Context Analysis Agents**:
-   - Concurrently executes read-only analysis agents (`StructuralAnalyzer`, `DesignSystemAnalyzer`, `RulesAnalyzer`) via `Promise.all` to inspect codebase state without write race conditions.
-
-4. **Dependency-Ordered Worker Agents**:
-   - Executed in topological dependency order.
-   - Operates under strict **Worker Contracts**:
-     - **Input Contract**: Task details, plan section, constraints, target files, and predecessor outputs (rationales, modified files, assumptions from completed dependent tasks).
-     - **Output Contract**: Structured result containing `modifiedFiles`, `readFiles`, `rationale`, `assumptions`, `risks`, and execution status (`COMPLETED`, `PARTIAL`, `FAILED`).
-
-5. **Authoritative Reviewer Agent**:
-   - Runs `npm run lint` and `npm run build` using `runCommand`.
-   - Inspects modified files for:
-     - Architectural & structural compliance
-     - Code duplication & anti-patterns
-     - Naming consistency & Theme.tsx design token usage
-     - Security, API safety, and edge cases
-     - Full compliance with Master Plan Acceptance Criteria
-   - Returns an authoritative `PASS` or `FAIL` status with structured `issues`.
-
-6. **Fix Agent Loop**:
-   - When the Reviewer returns `FAIL`, the **Fix Agent** is spawned with failing issue descriptions, compiler logs, and instructions.
-   - Systematically resolves compiler errors, broken imports, or missing tokens, then submits back to the Reviewer for re-audit (up to `MAX_REVIEW_RETRIES`).
+1. **Rule 1 — Manager is the Sole Coordinator**:
+   - Every interaction flows through the Manager (`Human ↔ Manager ↔ Sub-agent`).
+   - Workers never directly communicate unless the Manager explicitly creates a project/task-scoped collaboration group.
+2. **Rule 2 — Fresh Context for Every Sub-Agent**:
+   - Every sub-agent call creates a fresh, isolated Gemini context with `gemini-flash-latest`.
+   - Never leaks the Manager's or other workers' conversation history.
+   - Passes only explicit role, task, relevant project info, selected artifacts, and granted tools.
+3. **Rule 3 — Manager is Persistent Coordinator**:
+   - Maintains orchestration state on disk (`/artifacts/{project-id}/state/project.yaml`).
+   - Automatically recovers and resumes interrupted projects.
+4. **Rule 4 — Complete Communication Ledger (`chatGroup.yaml`)**:
+   - Every CLI-generated prompt, tool call, tool response, and agent response is recorded in `/artifacts/{project-id}/chatGroup.yaml`.
+   - The ledger acts as the complete, auditable communication history for the project.
+5. **Rule 5 — Least-Privilege Tool & Artifact Permissions**:
+   - Sub-agents only receive explicit tools (`filesystem_read`, `filesystem_write`, `terminal`) necessary for their task.
 
 ---
 
-## 2. CLI Command & Usage
+## 2. CLI Command Matrix
 
-To execute the multi-agent orchestrator:
+The CLI is terminal-native and runnable by both humans and AI agents. Supports structured text output and `--json` machine-readable output:
 
 ```bash
-npx tsx scripts/spawnAgents.ts "<task description>" [--plan <path_to_plan_spec>]
-```
+# 1. Run a task (starts manager orchestration loop)
+npx tsx scripts/spawnAgents.ts run "<task description>" [--plan <path>] [--project <id>] [--json]
 
-### Examples:
+# Direct shorthand invocation (equivalent to run):
+npx tsx scripts/spawnAgents.ts "<task description>" [--plan <path>]
 
-- **Without pre-written plan** (Planner Agent formulates spec automatically):
-```bash
-npx tsx scripts/spawnAgents.ts "Add real-time state synchronization engine"
-```
+# 2. Project management
+npx tsx scripts/spawnAgents.ts project list [--json]
+npx tsx scripts/spawnAgents.ts project create <id> [--json]
+npx tsx scripts/spawnAgents.ts project status <id> [--json]
 
-- **With pre-written plan** (Planner Agent validates and attaches criteria):
-```bash
-npx tsx scripts/spawnAgents.ts "Implement 3D Shader Stage Controls" --plan plans/shader_controls_spec.md
+# 3. Task inspection
+npx tsx scripts/spawnAgents.ts task list <id> [--json]
+
+# 4. Artifacts inspection
+npx tsx scripts/spawnAgents.ts artifacts <id> [--json]
+
+# 5. Communication ledger inspection
+npx tsx scripts/spawnAgents.ts chat <id> [--json]
+
+# 6. Resume interrupted project
+npx tsx scripts/spawnAgents.ts resume <id> [--json]
 ```
 
 ---
 
-## 3. Generated Artifacts & Reports in `/artifacts/`
+## 3. Persistent Artifact Directory Structure
 
-All execution reports, plans, logs, and artifacts are persisted in `/artifacts/`:
-- **Tech Spec**: `/artifacts/<task_slug>_spec.md` containing objective, architecture decisions, acceptance criteria, and task graph.
-- **Markdown Report**: `/artifacts/spawnAgents_output.md` containing analyzer briefings, worker contracts, fix loop history, and final auditor report.
-- **Structured JSON Logs**: `/artifacts/spawnAgents_output.json` tracking read/modified files, worker contracts, and review results.
+Every project manages durable state and outputs under `/artifacts/{project-id}/`:
+
+```
+/artifacts/
+└── {project-id}/
+    ├── research/          # Research findings & discovery briefs
+    ├── strategy/          # Architectural strategy documents
+    ├── plans/             # Master plans & acceptance criteria
+    ├── analysis/          # Parallel analysis briefs
+    ├── implementation/    # Code generation artifacts
+    ├── tests/             # Validation & test execution logs
+    ├── reviews/           # Authoritative reviewer audit reports
+    ├── decisions/         # Architectural decision records
+    ├── outputs/           # Worker output contracts
+    ├── state/             # Durable project state (project.yaml)
+    └── chatGroup.yaml     # Complete communication ledger
+```
 
 ---
 
-## 4. Best Practices for Sub-Agents
+## 4. Built-in Roles & Tool Access
 
-1. **Adhere to Approved Spec**: Workers must strictly implement the task defined in their contract without scope creep.
-2. **Context Pass-Forward**: Downstream workers must review predecessor outputs to maintain consistent abstractions and avoid duplicate logic.
-3. **Theme.tsx Token Usage**: Always use JS style objects and `Surface`/`Content` tokens from `Theme.tsx` rather than manual borders or Tailwind CSS.
-4. **Zero Compiler Regressions**: Reviewer and Fix Agent ensure 100% build and lint pass rates before final completion.
+| Role | Default Tools | Description |
+| :--- | :--- | :--- |
+| `strategist` | `filesystem_read` | High-level architectural trade-offs and direction |
+| `planner` | `filesystem_read` | Formulates master plan, task graph, and acceptance criteria |
+| `researcher` | `filesystem_read` | Inspects workspace code, patterns, and existing structures |
+| `analyst` | `filesystem_read` | Structural analysis, impact assessment, and risk auditing |
+| `builder` | `filesystem_read`, `filesystem_write`, `terminal` | Implementation engineer writing complete, clean code |
+| `tester` | `filesystem_read`, `terminal` | Verification, compilation, and runtime tests |
+| `reviewer` | `filesystem_read`, `filesystem_write`, `terminal` | Authoritative code auditor running lint/build and verifying criteria |
+| `fixer` | `filesystem_read`, `filesystem_write`, `terminal` | Targeted remediation engineer for reviewer-reported issues |
+
+---
+
+## 5. Authoritative Reviewer & Fix Agent Loop
+
+When the Reviewer returns `status: "FAIL"`, the Manager triggers the **Fix Agent Loop**:
+1. Spawns a fresh `fixer` agent with failing compiler logs and issue descriptions.
+2. Applies targeted fixes to the codebase.
+3. Re-runs the Authoritative Reviewer until `PASS` or `MAX_REVIEW_RETRIES` is reached.
+4. Ensures 100% build pass and clean lint validation.

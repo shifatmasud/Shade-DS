@@ -1,10 +1,15 @@
 #!/bin/bash
 # Wrapper for Antigravity CLI ensuring GEMINI_API_KEY auth, auto-approval, and optimal default model
-if [ -z "$GEMINI_API_KEY" ] && [ -f "/app/applet/.env" ]; then
-  ENV_KEY=$(grep "^GEMINI_API_KEY=" "/app/applet/.env" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ')
-  if [ -n "$ENV_KEY" ]; then
-    export GEMINI_API_KEY="$ENV_KEY"
-  fi
+if [ -z "$GEMINI_API_KEY" ]; then
+  for env_file in "/app/applet/.env" "./.env" "$HOME/.env" "/root/.env"; do
+    if [ -f "$env_file" ]; then
+      ENV_KEY=$(grep "^GEMINI_API_KEY=" "$env_file" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ')
+      if [ -n "$ENV_KEY" ]; then
+        export GEMINI_API_KEY="$ENV_KEY"
+        break
+      fi
+    fi
+  done
 fi
 
 # Ensure Antigravity CLI settings file has modelProvider: "gemini" to authenticate via API key instead of OAuth
