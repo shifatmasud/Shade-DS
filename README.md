@@ -43,6 +43,10 @@ This is not just another component library. It is a **structural methodology** f
 
 ## 📜 Recent Changelogs
 
+-   **`OCT 05, 2026`** · **Shell Online (`shell.online`) Terminal Sharing Skill & CLI Integration**:
+    1. **Integrated `shell.online` CLI**: Installed the official `shell.online` (v0.25.0) binary into `./bin/shell`, enabling live terminal sharing, background process monitoring, and remote mobile interaction via secure, end-to-end encrypted browser links.
+    2. **Created `shell-online` Skill**: Documented full architectural specifications, command matrix (sharing, listing, killing sessions), and AI Studio best practices in `/skills/shell-online/SKILL.md`.
+    3. **Verified Sharing Lifecycle**: Successfully tested the complete session lifecycle (Start → Share → Kill) with verified browser link generation (`https://shell.online/s/...`).
 -   **`OCT 05, 2026`** · **Semantic Project Directory Renaming (`/projects`) & spawnAgents.ts CLI Overhaul**:
     1. **Renamed `/artifacts` to `/projects`**: Migrated the primary orchestrator storage directory to `/projects` for better semantic alignment with project-scoped isolation and durable agent workflows.
     2. **`spawnAgents.ts` Path Unification**: Refactored `scripts/spawnAgents.ts` to use a global `BASE_STORAGE_DIR = "projects"` constant, updating all internal path resolution, tool sandboxing, and agent system instructions.
