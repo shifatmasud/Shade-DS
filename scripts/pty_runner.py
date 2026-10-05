@@ -35,8 +35,16 @@ def main():
         sys.exit(1)
 
     cmd = args.command
-    if len(cmd) == 1 and (' ' in cmd[0] or ';' in cmd[0] or '|' in cmd[0] or '\n' in cmd[0]):
-        cmd = ['/bin/bash', '-c', cmd[0]]
+    if len(cmd) == 1:
+        # If single argument, and looks like a shell string, bash it
+        if (' ' in cmd[0] or ';' in cmd[0] or '|' in cmd[0] or '\n' in cmd[0] or '>' in cmd[0]):
+             cmd = ['/bin/bash', '-c', cmd[0]]
+    elif len(cmd) > 1:
+        # If multiple arguments, check if we should join them back for bash -c
+        # or execute directly. For 'agy models', let's join and bash -c to ensure
+        # wrapper scripts and shell aliases work correctly.
+        full_cmd_str = ' '.join(cmd)
+        cmd = ['/bin/bash', '-c', full_cmd_str]
 
     master, slave = pty.openpty()
     set_window_size(slave, args.rows, args.cols)
@@ -67,6 +75,15 @@ def main():
         path_entries.append(current_path)
     env['PATH'] = ':'.join(list(dict.fromkeys(path_entries)))
 
+    def preexec():
+        os.setsid()
+        try:
+            # Set the slave as the controlling terminal
+            import fcntl, termios
+            fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
+        except Exception:
+            pass
+
     proc = subprocess.Popen(
         cmd,
         stdin=slave,
@@ -74,7 +91,7 @@ def main():
         stderr=slave,
         cwd=args.cwd,
         env=env,
-        preexec_fn=os.setsid,
+        preexec_fn=preexec,
         close_fds=True
     )
     os.close(slave)
@@ -197,7 +214,12 @@ def main():
             except Exception:
                 pass
 
-    sys.exit(return_code)
+    # Normalize return code if terminated by a signal (e.g., -13 SIGPIPE -> 141)
+    final_exit_code = return_code
+    if final_exit_code < 0:
+        final_exit_code = 128 + abs(final_exit_code)
+
+    sys.exit(final_exit_code)
 
 if __name__ == '__main__':
     main()

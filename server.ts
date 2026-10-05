@@ -38,49 +38,207 @@ try {
   console.error("Failed to initialize /tmp/agent_terminal.log:", e);
 }
 
-// Ensure CLI binaries and Antigravity CLI binary persistence
+// Unify filesystem paths: ensure /app/applet is available even in Cloud Run /workspace
 try {
-  const binDir = path.join(process.cwd(), 'bin');
-  if (!fs.existsSync(binDir)) {
-    fs.mkdirSync(binDir, { recursive: true });
-  }
-
-  // Ensure agy wrapper exists
-  const binAgy = path.join(binDir, 'agy');
-  const rootLocalBin = '/root/.local/bin';
-  if (!fs.existsSync(rootLocalBin)) {
-    fs.mkdirSync(rootLocalBin, { recursive: true });
-  }
-
-  if (fs.existsSync(binAgy)) {
-    try { fs.chmodSync(binAgy, 0o755); } catch (_) {}
-    
-    // Symlink into /usr/local/bin so any subshell finds agy immediately
+  if (!fs.existsSync('/app/applet')) {
     try {
-      if (fs.existsSync('/usr/local/bin')) {
-        const usrAgy = '/usr/local/bin/agy';
-        if (!fs.existsSync(usrAgy) || (fs.lstatSync(usrAgy).isSymbolicLink() && fs.readlinkSync(usrAgy) !== binAgy)) {
-          try { fs.unlinkSync(usrAgy); } catch (_) {}
-          fs.symlinkSync(binAgy, usrAgy);
-        }
-      }
-    } catch (_) {}
-
-    // Symlink into /root/.local/bin
-    try {
-      const rootAgy = path.join(rootLocalBin, 'agy');
-      if (!fs.existsSync(rootAgy) || (fs.lstatSync(rootAgy).isSymbolicLink() && fs.readlinkSync(rootAgy) !== binAgy)) {
-        try { fs.unlinkSync(rootAgy); } catch (_) {}
-        fs.symlinkSync(binAgy, rootAgy);
-      }
+      fs.mkdirSync('/app', { recursive: true });
+      fs.symlinkSync(process.cwd(), '/app/applet');
     } catch (_) {}
   }
-} catch (e) {
-  console.error("Failed to ensure CLI binaries:", e);
+} catch (_) {}
+
+if (fs.existsSync('/app/applet')) {
+  try {
+    process.chdir('/app/applet');
+  } catch (_) {}
 }
 
-// Global Terminal State & SSE Client Management (Same environment as AI agent)
-let terminalCwd = process.cwd();
+// Multi-tier binary resolution: resolves /app/applet/.bin/agy or /workspace/.bin/agy or /tmp/bin/agy
+function getAgyBinaryPath(): string {
+  const localBinAgy = path.join(process.cwd(), '.bin', 'agy');
+  const candidates = [
+    '/app/applet/.bin/agy',
+    localBinAgy,
+    '/tmp/bin/agy',
+    path.join(process.cwd(), 'bin', 'agy'),
+    '/usr/local/bin/agy',
+    '/usr/bin/agy'
+  ];
+  for (const c of candidates) {
+    try {
+      if (fs.existsSync(c) && !fs.lstatSync(c).isSymbolicLink() && fs.statSync(c).size > 50000000) {
+        return c;
+      }
+    } catch (_) {}
+  }
+  return localBinAgy;
+}
+
+let cachedWorkingModel = "gemini-3.8-flash-low";
+let isScanningModel = false;
+
+async function findWorkingModel(): Promise<string> {
+  if (isScanningModel) return cachedWorkingModel;
+  isScanningModel = true;
+  const candidates = [
+    "gemini-3.8-flash-low",
+    "gemini-3.7-flash-low",
+    "gemini-3.6-flash-low",
+    "gemini-3.8-flash-medium",
+    "gemini-3.7-flash-medium",
+    "gemini-3.5-flash"
+  ];
+  
+  const realBin = getAgyBinaryPath();
+  if (!realBin || !fs.existsSync(realBin)) {
+    isScanningModel = false;
+    return cachedWorkingModel;
+  }
+
+  const binDir = path.join(process.cwd(), 'bin');
+  const dotBinDir = path.join(process.cwd(), '.bin');
+  const customEnv = {
+    ...process.env,
+    PATH: `/app/applet/.bin:${dotBinDir}:/tmp/bin:${binDir}:/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ''}`,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY || ''
+  };
+
+  for (const model of candidates) {
+    try {
+      const checkCmd = `"${realBin}" --model ${model} --print "ping"`;
+      const { stdout, stderr } = await execAsync(checkCmd, { env: customEnv, timeout: 6000 });
+      if (stdout.includes("ping") || stdout.trim().length > 0 || (stderr && !stderr.includes("Quota exceeded") && !stderr.includes("RESOURCE_EXHAUSTED"))) {
+        console.log(`[Antigravity] Model preflight success: ${model}`);
+        cachedWorkingModel = model;
+        isScanningModel = false;
+        return model;
+      }
+    } catch (e: any) {
+      console.warn(`[Antigravity] Model preflight failed or exhausted for ${model}: ${e.message || e}`);
+    }
+  }
+
+  isScanningModel = false;
+  return cachedWorkingModel;
+}
+
+let agyDownloadPromise: Promise<string | null> | null = null;
+
+async function ensureAntigravityBinary(): Promise<string | null> {
+  const localBinDir = path.join(process.cwd(), '.bin');
+  const localBinAgy = path.join(localBinDir, 'agy');
+  const tmpBinAgy = '/tmp/bin/agy';
+
+  // 1. Ensure local .bin and /tmp/bin directories exist (safe across all environments)
+  try { fs.mkdirSync(localBinDir, { recursive: true }); } catch (_) {}
+  try { fs.mkdirSync('/tmp/bin', { recursive: true }); } catch (_) {}
+  try {
+    if (!fs.existsSync('/app/applet') && fs.existsSync('/workspace')) {
+      try {
+        fs.mkdirSync('/app', { recursive: true });
+        fs.symlinkSync('/workspace', '/app/applet');
+      } catch (_) {}
+    }
+    if (fs.existsSync('/app/applet')) {
+      fs.mkdirSync('/app/applet/.bin', { recursive: true });
+    }
+  } catch (_) {}
+
+  // 2. Check if a real binary already exists in candidate paths
+  const existing = getAgyBinaryPath();
+  if (existing && fs.existsSync(existing) && fs.statSync(existing).size > 50000000) {
+    // Mirror binary to other standard locations if possible
+    try {
+      if (!fs.existsSync(localBinAgy)) {
+        fs.copyFileSync(existing, localBinAgy);
+        fs.chmodSync(localBinAgy, 0o755);
+      }
+    } catch (_) {}
+    try {
+      if (!fs.existsSync(tmpBinAgy)) {
+        fs.copyFileSync(existing, tmpBinAgy);
+        fs.chmodSync(tmpBinAgy, 0o755);
+      }
+    } catch (_) {}
+    try {
+      if (fs.existsSync('/app/applet/.bin') && !fs.existsSync('/app/applet/.bin/agy')) {
+        fs.copyFileSync(existing, '/app/applet/.bin/agy');
+        fs.chmodSync('/app/applet/.bin/agy', 0o755);
+      }
+    } catch (_) {}
+    return existing;
+  }
+
+  // 3. If currently downloading, await the active promise
+  if (agyDownloadPromise) {
+    return agyDownloadPromise;
+  }
+
+  // 4. Download directly into /tmp/bin/agy and copy to .bin/agy and /app/applet/.bin/agy
+  agyDownloadPromise = new Promise((resolve) => {
+    const downloadCmd = `curl -fsSL https://storage.googleapis.com/antigravity-public/antigravity-cli/1.2.16-5594158052802560/linux-x64/cli_linux_x64.tar.gz -o /tmp/cli.tar.gz && tar -xzf /tmp/cli.tar.gz -C /tmp && mv /tmp/antigravity "${tmpBinAgy}" && chmod 755 "${tmpBinAgy}" && cp "${tmpBinAgy}" "${localBinAgy}" 2>/dev/null && chmod 755 "${localBinAgy}" 2>/dev/null && (cp "${tmpBinAgy}" /app/applet/.bin/agy 2>/dev/null && chmod 755 /app/applet/.bin/agy 2>/dev/null || true); rm -f /tmp/cli.tar.gz`;
+
+    const proc = spawn('sh', ['-c', downloadCmd], { stdio: 'ignore' });
+    proc.on('close', () => {
+      agyDownloadPromise = null;
+      const ready = getAgyBinaryPath();
+      if (ready && fs.existsSync(ready) && fs.statSync(ready).size > 50000000) {
+        try {
+          const home = process.env.HOME || '/root';
+          const cfgDir = path.join(home, '.gemini', 'antigravity-cli');
+          fs.mkdirSync(cfgDir, { recursive: true });
+          const cfgFile = path.join(cfgDir, 'settings.json');
+          if (!fs.existsSync(cfgFile)) {
+            fs.writeFileSync(cfgFile, JSON.stringify({
+              modelProvider: "gemini",
+              defaultModel: cachedWorkingModel,
+              toolPermission: "always-proceed",
+              autoExecPolicy: "always-proceed"
+            }, null, 2), 'utf-8');
+          } else {
+            try {
+              const content = fs.readFileSync(cfgFile, 'utf-8');
+              const data = JSON.parse(content);
+              if (data.defaultModel === 'gemini-3.7-flash-medium' || !data.defaultModel) {
+                data.defaultModel = cachedWorkingModel;
+                fs.writeFileSync(cfgFile, JSON.stringify(data, null, 2), 'utf-8');
+              }
+            } catch (_) {}
+          }
+        } catch (_) {}
+        // Also trigger background scanner to verify the best available model
+        findWorkingModel().then((working) => {
+          try {
+            const home = process.env.HOME || '/root';
+            const cfgFile = path.join(home, '.gemini', 'antigravity-cli', 'settings.json');
+            if (fs.existsSync(cfgFile)) {
+              const content = fs.readFileSync(cfgFile, 'utf-8');
+              const data = JSON.parse(content);
+              data.defaultModel = working;
+              fs.writeFileSync(cfgFile, JSON.stringify(data, null, 2), 'utf-8');
+            }
+          } catch (_) {}
+        }).catch(() => {});
+        resolve(ready);
+      } else {
+        resolve(null);
+      }
+    });
+    proc.on('error', () => {
+      agyDownloadPromise = null;
+      resolve(null);
+    });
+  });
+
+  return agyDownloadPromise;
+}
+
+// Trigger background provisioning on startup
+ensureAntigravityBinary().catch(() => {});
+
+// Global Terminal State & SSE Client Management (Standardized to /app/applet)
+let terminalCwd = fs.existsSync('/app/applet') ? '/app/applet' : process.cwd();
 let activeTerminalProcess: any = null;
 let activeCommandName: string | null = null;
 let currentTerminalCols = 100;
@@ -104,7 +262,7 @@ function broadcastToTerminal(payload: { type: string; data?: string; cwd?: strin
 
 // Execute command in bash with full environment matching agent terminal
 function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number; cwd: string }> {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     const trimmed = cmd.trim();
     if (!trimmed) {
       resolve({ stdout: '', stderr: '', exitCode: 0, cwd: terminalCwd });
@@ -114,18 +272,66 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
     // Broadcast the command execution prompt header
     broadcastToTerminal({ type: 'output', data: `\r\n\x1b[32m❯\x1b[0m ${trimmed}\r\n`, cwd: terminalCwd });
 
-    const sentinel = `__TERM_CWD_MARKER_${Date.now()}_${Math.random().toString(36).substring(2, 7)}__`;
-    // We execute the command, capture exit code, print sentinel, print current working directory, and exit with status
-    const script = `${trimmed}\n__EC=$?\necho -n "${sentinel}"\npwd -P\nexit $__EC`;
+    // Kill any existing active process before starting a new one
+    if (activeTerminalProcess && !activeTerminalProcess.killed) {
+      try {
+        activeTerminalProcess.kill('SIGKILL');
+      } catch (e) {}
+      activeTerminalProcess = null;
+    }
+
+    // Ensure binary is ready across candidate paths
+    if (trimmed === 'agy' || trimmed.startsWith('agy ') || trimmed.startsWith('agy=') || trimmed.startsWith('/app/applet/.bin/agy')) {
+      let agyPath = await ensureAntigravityBinary();
+      if (!agyPath) {
+        broadcastToTerminal({
+          type: 'output',
+          data: `\r\n\x1b[33m⠋ Initializing Antigravity CLI binary in workspace... please wait\x1b[0m\r\n`
+        });
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, 500));
+          const candidate = getAgyBinaryPath();
+          if (candidate && fs.existsSync(candidate) && fs.statSync(candidate).size > 50000000) {
+            agyPath = candidate;
+            break;
+          }
+        }
+      }
+    }
+
+    const realAgyBin = getAgyBinaryPath();
+    let commandToRun = trimmed;
+    if (trimmed === 'agy') {
+      commandToRun = `"${realAgyBin}" --model ${cachedWorkingModel}`;
+    } else if (trimmed.startsWith('agy ')) {
+      const args = trimmed.substring(4).trim();
+      const hasModel = args.includes('--model') || args.includes('-m ') || args.includes('-m=') || args.startsWith('-m');
+      const isSubcommand = ['models', 'agents', 'agent', 'help', 'changelog', 'install', 'mcp', 'mic-serve', 'plugin', 'plugins', 'remote-control', 'update', '-h', '--help', '-v', '--version'].some(sub => args === sub || args.startsWith(sub + ' '));
+      if (!hasModel && !isSubcommand) {
+        commandToRun = `"${realAgyBin}" --model ${cachedWorkingModel} ${trimmed.substring(4)}`;
+      } else {
+        commandToRun = `"${realAgyBin}" ${trimmed.substring(4)}`;
+      }
+    } else if (trimmed.startsWith('/app/applet/.bin/agy') && !fs.existsSync('/app/applet/.bin/agy')) {
+      commandToRun = `"${realAgyBin}"${trimmed.substring('/app/applet/.bin/agy'.length)}`;
+    }
+
+    const cwdFile = `/tmp/term_cwd_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const termRows = currentTerminalRows && currentTerminalRows > 5 ? currentTerminalRows : 24;
+    const termCols = currentTerminalCols && currentTerminalCols > 20 ? currentTerminalCols : 80;
+    // Run command in terminalCwd with stty rows and cols to guarantee Bubbletea / lipgloss TUI window dimensions
+    const script = `cd "${terminalCwd}" 2>/dev/null; stty rows ${termRows} cols ${termCols} 2>/dev/null; ${commandToRun}; __EC=$?; pwd > "${cwdFile}" 2>/dev/null; exit $__EC;`;
 
     const binDir = path.join(process.cwd(), 'bin');
-    const ptyRunnerPath = path.join(process.cwd(), 'scripts', 'pty_runner.py');
+    const dotBinDir = path.join(process.cwd(), '.bin');
     const customEnv = {
       ...process.env,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
-      PATH: `${binDir}:/root/.local/bin:${process.env.HOME || '/root'}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${process.env.PATH || ''}`,
+      PATH: `/app/applet/.bin:${dotBinDir}:/tmp/bin:${binDir}:/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ''}`,
       PAGER: 'cat',
+      LANG: 'C.UTF-8',
+      LC_ALL: 'C.UTF-8',
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
       GH_TOKEN: process.env.GH_TOKEN || '',
       VERCEL_TOKEN: process.env.VERCEL_TOKEN || '',
@@ -134,15 +340,37 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
       NOTION_WORKSPACE_ID: process.env.NOTION_WORKSPACE_ID || ''
     };
 
+    const ptyRunnerPath = path.join(process.cwd(), 'scripts', 'pty_runner.py');
     const hasPtyRunner = fs.existsSync(ptyRunnerPath);
-    const spawnFile = hasPtyRunner ? 'python3' : '/bin/bash';
-    const spawnArgs = hasPtyRunner
-      ? [ptyRunnerPath, '--cwd', terminalCwd, '--cols', String(currentTerminalCols || 100), '--rows', String(currentTerminalRows || 30), '/bin/bash', '-c', script]
-      : ['-c', script];
 
-    const proc = spawn(spawnFile, spawnArgs as any, {
+    let spawnCmd = '';
+    let spawnArgs: string[] = [];
+
+    if (hasPtyRunner) {
+      spawnCmd = 'python3';
+      spawnArgs = [
+        ptyRunnerPath,
+        '--cwd', terminalCwd,
+        '--rows', String(termRows),
+        '--cols', String(termCols),
+        script
+      ];
+    } else {
+      const hasScriptPty = fs.existsSync('/usr/bin/script');
+      spawnCmd = hasScriptPty ? '/usr/bin/script' : '/bin/bash';
+      spawnArgs = hasScriptPty
+        ? ['-q', '-f', '-e', '-c', script, '/dev/null']
+        : ['-c', script];
+    }
+
+    console.log(`[Terminal] Spawning process: ${spawnCmd} ${spawnArgs.join(' ')}`);
+    const proc = spawn(spawnCmd, spawnArgs, {
       cwd: terminalCwd,
-      env: customEnv
+      env: {
+        ...customEnv,
+        LINES: String(currentTerminalRows),
+        COLUMNS: String(currentTerminalCols)
+      }
     });
 
     activeTerminalProcess = proc;
@@ -154,23 +382,29 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
+      console.log(`[Terminal] STDOUT: ${text.length} chars`);
       rawStdout += text;
-      // If the text contains the sentinel, only broadcast up to the sentinel
-      if (text.includes(sentinel)) {
-        const pre = text.split(sentinel)[0];
-        if (pre) broadcastToTerminal({ type: 'output', data: pre });
-      } else {
-        broadcastToTerminal({ type: 'output', data: text });
+      broadcastToTerminal({ type: 'output', data: text });
+      // If TUI queries background color (OSC 11), respond immediately to prevent query stall
+      if (text.includes('\x1b]11;?')) {
+        console.log(`[Terminal] OSC 11 detected, responding...`);
+        try {
+          proc.stdin?.write('\x1b]11;rgb:0000/0000/0000\x07');
+        } catch (e: any) {
+          console.error(`[Terminal] Failed to write OSC 11 response: ${e.message}`);
+        }
       }
     });
 
     proc.stderr?.on('data', (data: Buffer) => {
       const text = data.toString();
+      console.log(`[Terminal] STDERR: ${text}`);
       rawStderr += text;
       broadcastToTerminal({ type: 'output', data: text });
     });
 
     const cleanupAndFinish = (code: number | null) => {
+      console.log(`[Terminal] Process exited with code ${code}`);
       if (activeTerminalProcess === proc) {
         activeTerminalProcess = null;
         activeCommandName = null;
@@ -179,13 +413,15 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
       const exitCode = code ?? 0;
       let newCwd = terminalCwd;
 
-      if (rawStdout.includes(sentinel)) {
-        const parts = rawStdout.split(sentinel);
-        const candidateCwd = parts[1]?.trim();
-        if (candidateCwd && fs.existsSync(candidateCwd)) {
-          newCwd = candidateCwd;
-          terminalCwd = newCwd;
-        }
+      if (fs.existsSync(cwdFile)) {
+        try {
+          const candidateCwd = fs.readFileSync(cwdFile, 'utf-8').trim();
+          if (candidateCwd && fs.existsSync(candidateCwd)) {
+            newCwd = candidateCwd;
+            terminalCwd = newCwd;
+          }
+          fs.unlinkSync(cwdFile);
+        } catch (_) {}
       }
 
       broadcastToTerminal({
@@ -196,7 +432,7 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
       });
 
       resolve({
-        stdout: rawStdout.split(sentinel)[0] || '',
+        stdout: rawStdout,
         stderr: rawStderr,
         exitCode,
         cwd: terminalCwd
@@ -205,7 +441,7 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
 
     proc.on('close', cleanupAndFinish);
 
-    proc.on('error', (err) => {
+    proc.on('error', (err: any) => {
       if (activeTerminalProcess === proc) {
         activeTerminalProcess = null;
         activeCommandName = null;
@@ -336,6 +572,7 @@ function ensureAntigravityCliSettings() {
     const settingsPath = path.join(configDir, 'settings.json');
     const settings = {
       modelProvider: "gemini",
+      defaultModel: cachedWorkingModel,
       toolPermission: "always-proceed",
       autoExecPolicy: "always-proceed",
       enableTerminalSandbox: false,
@@ -365,7 +602,13 @@ async function startServer() {
   // Pre-configure Antigravity CLI settings for direct Gemini API key authentication
   ensureAntigravityCliSettings();
 
-  // Pre-download and setup official GitHub CLI binary if needed
+  // Trigger dynamic pre-flight model scanner in the background to detect the optimal working model
+  findWorkingModel().then((working) => {
+    console.log(`[Antigravity] Startup model scan concluded. Optimal model: ${working}`);
+    ensureAntigravityCliSettings(); // update file with discovered model
+  }).catch(console.error);
+
+  // Pre-download and setup official GitHub CLI if needed
   downloadGithubCliIfNotExists().catch(console.error);
 
   const app = express();
@@ -595,8 +838,10 @@ async function startServer() {
   // 1. /api/terminal/stream - SSE endpoint for interactive shell session output
   app.get("/api/terminal/stream", (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('Content-Encoding', 'none');
     res.flushHeaders?.();
 
     // Send initial working directory status to newly connected client
@@ -720,10 +965,13 @@ async function startServer() {
       currentTerminalCols = Math.min(240, Math.max(20, Math.floor(cols)));
       currentTerminalRows = Math.min(100, Math.max(5, Math.floor(rows)));
 
-      // If a process is actively running, write the in-band resize packet to its stdin
+      // If a process is actively running, signal window size change
       if (activeTerminalProcess && !activeTerminalProcess.killed) {
         try {
           activeTerminalProcess.stdin?.write(`__PTY_RESIZE__:${currentTerminalCols}:${currentTerminalRows}\n`);
+        } catch (e) {}
+        try {
+          activeTerminalProcess.kill('SIGWINCH');
         } catch (e) {}
       }
 
@@ -735,8 +983,10 @@ async function startServer() {
   // 3. /api/terminal/log - SSE endpoint for agent audit logging from /tmp/agent_terminal.log
   app.get("/api/terminal/log", (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('Content-Encoding', 'none');
     res.flushHeaders?.();
 
     // Send existing log history upon connection
@@ -756,6 +1006,18 @@ async function startServer() {
     req.on('close', () => {
       auditClients.delete(res);
     });
+  });
+
+  // Get currently resolved optimal working model
+  app.get("/api/terminal/working-model", (req, res) => {
+    res.json({ model: cachedWorkingModel });
+  });
+
+  // Manually trigger pre-flight model scan
+  app.post("/api/terminal/scan-model", async (req, res) => {
+    const working = await findWorkingModel();
+    ensureAntigravityCliSettings();
+    res.json({ success: true, model: working });
   });
 
   // Standard health check

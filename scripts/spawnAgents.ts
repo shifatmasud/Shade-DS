@@ -84,50 +84,67 @@ export async function generateContentWithRetry(params: any, retries: number = 8,
 }
 
 // ============================================================================
-// CLEAN EXECUTIVE TERMINAL UX & STYLING ENGINE
+// CLEAN EXECUTIVE TERMINAL UX & STYLING ENGINE (ANTIGRAVITY CLI AESTHETIC)
 // ============================================================================
 
 export class CLITheme {
+  static readonly PURPLE = "\x1b[38;5;141m";
+  static readonly CYAN = "\x1b[38;5;45m";
+  static readonly GREEN = "\x1b[38;5;84m";
+  static readonly YELLOW = "\x1b[38;5;220m";
+  static readonly RED = "\x1b[38;5;196m";
+  static readonly MAGENTA = "\x1b[38;5;213m";
+  static readonly BLUE = "\x1b[38;5;75m";
+  static readonly MUTED = "\x1b[38;5;244m";
+  static readonly DIM = "\x1b[38;5;238m";
+  static readonly WHITE = "\x1b[1;37m";
+  static readonly BOLD = "\x1b[1m";
+  static readonly RESET = "\x1b[0m";
+
   static banner(title: string, subtitle?: string): void {
-    const width = 68;
-    const border = "─".repeat(width);
-    console.log(`\n\x1b[38;5;141m┌${border}┐\x1b[0m`);
-    console.log(`\x1b[38;5;141m│\x1b[0m \x1b[1;37m${title.padEnd(width - 2)}\x1b[0m \x1b[38;5;141m│\x1b[0m`);
+    const width = 72;
+    const border = "─".repeat(width - 2);
+    console.log(`\n${this.PURPLE}╭${border}╮${this.RESET}`);
+    console.log(`${this.PURPLE}│${this.RESET}  ${this.CYAN}✦${this.RESET} ${this.WHITE}${title.padEnd(width - 7)}${this.RESET} ${this.PURPLE}│${this.RESET}`);
     if (subtitle) {
-      console.log(`\x1b[38;5;141m│\x1b[0m \x1b[38;5;111m${subtitle.slice(0, width - 2).padEnd(width - 2)}\x1b[0m \x1b[38;5;141m│\x1b[0m`);
+      console.log(`${this.PURPLE}│${this.RESET}  ${this.MUTED}${subtitle.slice(0, width - 6).padEnd(width - 6)}${this.RESET} ${this.PURPLE}│${this.RESET}`);
     }
-    console.log(`\x1b[38;5;141m└${border}┘\x1b[0m\n`);
+    console.log(`${this.PURPLE}╰${border}╯${this.RESET}\n`);
   }
 
   static stage(step: number, total: number, title: string, status: "RUNNING" | "DONE" | "WARN" | "FAIL" = "RUNNING"): void {
-    const statusMap = {
-      RUNNING: "\x1b[38;5;45m● IN PROGRESS\x1b[0m",
-      DONE: "\x1b[38;5;84m✔ COMPLETE\x1b[0m",
-      WARN: "\x1b[38;5;220m▲ AUTO-HEALING\x1b[0m",
-      FAIL: "\x1b[38;5;196m✖ FAILED\x1b[0m",
+    const statusBadges = {
+      RUNNING: `${this.CYAN}● IN PROGRESS${this.RESET}`,
+      DONE: `${this.GREEN}✔ COMPLETE${this.RESET}`,
+      WARN: `${this.YELLOW}▲ AUTO-HEALING${this.RESET}`,
+      FAIL: `${this.RED}✖ FAILED${this.RESET}`,
     };
-    console.log(`\x1b[1;38;5;141m[${step}/${total}]\x1b[0m \x1b[1;37m${title}\x1b[0m  ${statusMap[status]}`);
+    const stepBadge = `${this.PURPLE}[${step}/${total}]${this.RESET}`;
+    const formattedTitle = status === "DONE" ? `${this.GREEN}${title}${this.RESET}` : `${this.WHITE}${title}${this.RESET}`;
+    console.log(`${this.BOLD}${stepBadge}${this.RESET} ${formattedTitle}  ${statusBadges[status]}`);
   }
 
   static detail(label: string, value: string): void {
-    console.log(`    \x1b[2;37m├─\x1b[0m \x1b[38;5;111m${label}:\x1b[0m \x1b[37m${value}\x1b[0m`);
+    console.log(`    ${this.DIM}├──${this.RESET} ${this.CYAN}◈${this.RESET} ${this.MUTED}${label}:${this.RESET} ${this.WHITE}${value}${this.RESET}`);
   }
 
   static detailLast(label: string, value: string): void {
-    console.log(`    \x1b[2;37m└─\x1b[0m \x1b[38;5;111m${label}:\x1b[0m \x1b[37m${value}\x1b[0m`);
+    console.log(`    ${this.DIM}└──${this.RESET} ${this.CYAN}◈${this.RESET} ${this.MUTED}${label}:${this.RESET} ${this.WHITE}${value}${this.RESET}`);
   }
 
   static executiveCard(title: string, metrics: Array<[string, string]>): void {
-    const width = 68;
-    const border = "─".repeat(width);
-    console.log(`\n\x1b[38;5;84m┌${border}┐\x1b[0m`);
-    console.log(`\x1b[38;5;84m│\x1b[0m \x1b[1;38;5;84m✔ ${title.padEnd(width - 4)}\x1b[0m \x1b[38;5;84m│\x1b[0m`);
-    console.log(`\x1b[38;5;84m├${border}┤\x1b[0m`);
+    const width = 72;
+    const border = "─".repeat(width - 2);
+    console.log(`\n${this.GREEN}╭${border}╮${this.RESET}`);
+    console.log(`${this.GREEN}│${this.RESET}  ${this.GREEN}✔${this.RESET} ${this.WHITE}${this.BOLD}${title.padEnd(width - 7)}${this.RESET} ${this.GREEN}│${this.RESET}`);
+    console.log(`${this.GREEN}├${border}┤${this.RESET}`);
     for (const [k, v] of metrics) {
-      const line = ` ${k.padEnd(22)}: ${v}`;
-      console.log(`\x1b[38;5;84m│\x1b[0m \x1b[37m${line.slice(0, width - 2).padEnd(width - 2)}\x1b[0m \x1b[38;5;84m│\x1b[0m`);
+      const line = `  ${this.CYAN}◈${this.RESET} ${k.padEnd(20)}: ${this.WHITE}${v}${this.RESET}`;
+      const plainLen = k.length + v.length + 25;
+      const padLen = Math.max(0, width - plainLen);
+      console.log(`${this.GREEN}│${this.RESET}${line}${" ".repeat(padLen)}${this.GREEN}│${this.RESET}`);
     }
-    console.log(`\x1b[38;5;84m└${border}┘\x1b[0m\n`);
+    console.log(`${this.GREEN}╰${border}╯${this.RESET}\n`);
   }
 }
 
@@ -1621,26 +1638,54 @@ export async function handleCLI(): Promise<void> {
 
   const command = filteredArgs[0] || "";
 
-  // Helper for printing help
+  // Helper for printing help with full Antigravity CLI aesthetic
   const printHelp = () => {
-    console.log(`\x1b[35m=== Manager-Centric Multi-Agent CLI ===\x1b[0m
-Usage:
-  npx tsx scripts/spawnAgents.ts run "<task>" [--plan <path>] [--project <id>] [--json]
-  npx tsx scripts/spawnAgents.ts project list [--json]
-  npx tsx scripts/spawnAgents.ts project create <id> [--json]
-  npx tsx scripts/spawnAgents.ts project status <id> [--json]
-  npx tsx scripts/spawnAgents.ts task list <id> [--json]
-  npx tsx scripts/spawnAgents.ts artifacts <id> [--json]
-  npx tsx scripts/spawnAgents.ts chat <id> [--limit <n>] [--json]
-  npx tsx scripts/spawnAgents.ts messenger list [--json]
-  npx tsx scripts/spawnAgents.ts messenger read <agent-name> [--json]
-  npx tsx scripts/spawnAgents.ts messenger send <from-agent> <to-agent> "<message>" [--project <id>] [--json]
-  npx tsx scripts/spawnAgents.ts resume <id> [--json]
-  npx tsx scripts/spawnAgents.ts manager [--project <id>]
-  
-Direct shorthand:
-  npx tsx scripts/spawnAgents.ts "<task description>" [--plan <path>]
-`);
+    const P = CLITheme.PURPLE;
+    const C = CLITheme.CYAN;
+    const G = CLITheme.GREEN;
+    const Y = CLITheme.YELLOW;
+    const M = CLITheme.MUTED;
+    const W = CLITheme.WHITE;
+    const B = CLITheme.BOLD;
+    const R = CLITheme.RESET;
+
+    const width = 72;
+    const border = "─".repeat(width - 2);
+
+    console.log(`\n${P}╭${border}╮${R}`);
+    console.log(`${P}│${R}  ${C}✦${R} ${W}${B}SPAWN AGENTS${R}  ${M}◈${R}  ${C}Autonomous Multi-Agent Orchestrator CLI${R}       ${P}│${R}`);
+    console.log(`${P}│${R}  ${M}Zero-Touch Manager Topology · Powered by Gemini Flash (${DEFAULT_MODEL})${R}  ${P}│${R}`);
+    console.log(`${P}╰${border}╯${R}\n`);
+
+    console.log(`${B}${C}⚡ CORE AUTONOMOUS EXECUTION${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts "<task>"${R}`);
+    console.log(`  ${M}└─ Executes 5-stage pipeline: Plan → Discovery → Workers → Review → Self-Heal${R}\n`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts run "<task>" [--plan <path>] [--project <id>]${R}`);
+    console.log(`  ${M}└─ Explicit run with custom architectural plan spec or explicit project ID${R}\n`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts resume <project-id>${R}`);
+    console.log(`  ${M}└─ Resumes execution of an existing or interrupted project sandbox${R}\n`);
+
+    console.log(`${B}${P}📂 PROJECT & ARTIFACT MANAGEMENT${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts project list${R}       ${M}List all registered project sandboxes${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts project create <id>${R}  ${M}Initialize a new project sandbox${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts project status <id>${R}  ${M}Inspect project tasks, state, and outputs${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts task list <id>${R}        ${M}Inspect active and completed worker tasks${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts artifacts <id>${R}        ${M}List all files in artifacts/{project-id}/${R}\n`);
+
+    console.log(`${B}${G}💬 DIRECT 1:1 AGENT MESSENGER & AUDIT LEDGER${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts messenger list [--project <id>]${R}`);
+    console.log(`  ${M}└─ View all 1:1 agent communication streams for a project${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts messenger read <agent-name> [--project <id>]${R}`);
+    console.log(`  ${M}└─ Read chronological 1:1 conversation ledger for specific agent${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts messenger send <from> <to> "<msg>" [--project <id>]${R}`);
+    console.log(`  ${M}└─ Dispatch direct 1:1 message to an isolated sub-agent context${R}`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts chat <project-id>${R}`);
+    console.log(`  ${M}└─ Stream global chronological ledger (artifacts/{project-id}/chatRoom.md)${R}\n`);
+
+    console.log(`${B}${Y}🎯 COMMON EXAMPLES${R}`);
+    console.log(`  ${M}$${R} ${W}npx tsx scripts/spawnAgents.ts "Audit Theme.tsx and verify Button styles"${R}`);
+    console.log(`  ${M}$${R} ${W}npx tsx scripts/spawnAgents.ts run "Build HUD widget" --plan plans/my_plan.md${R}`);
+    console.log(`  ${M}$${R} ${W}npx tsx scripts/spawnAgents.ts messenger send human builder "Check responsive layout"${R}\n`);
   };
 
   if (command === "--help" || command === "-h" || (!command && filteredArgs.length === 0)) {

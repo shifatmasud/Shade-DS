@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Terminal as XTerminal } from '@xterm/xterm';
+import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
 import { useTheme } from '../../Theme.tsx';
 import { useBreakpoint } from '../../hooks/useBreakpoint.tsx';
@@ -20,7 +21,8 @@ import {
   ArrowDown, 
   CaretLeft,
   Stop,
-  PaperPlaneRight
+  PaperPlaneRight,
+  X
 } from 'phosphor-react';
 
 const QUICK_COMMANDS = [
@@ -41,11 +43,17 @@ const QUICK_COMMANDS = [
 
 export const TerminalPage: React.FC = () => {
   const { theme, themeName } = useTheme();
+  const location = useLocation();
+  const navigate = useNavigate();
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === 'mobile';
 
+  // Detect if we are in specialized TUI mode based on the route
+  const isTuiMode = location.pathname.startsWith('/tui');
+
   // Terminal state
   const [inputCommand, setInputCommand] = useState('');
+  const [isAltActive, setIsAltActive] = useState(false);
   const [cwd, setCwd] = useState<string>('/app/applet');
   const [isExecuting, setIsExecuting] = useState(false);
   const [activeProcess, setActiveProcess] = useState<string | null>(null);
@@ -64,14 +72,21 @@ export const TerminalPage: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const termRef = useRef<XTerminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const isAltActiveRef = useRef(false);
 
   // Send raw input to server PTY runner or active process
   const sendInputToProcess = useCallback(async (text: string) => {
     try {
+      let finalInput = text;
+      if (isAltActiveRef.current) {
+        finalInput = '\x1b' + text;
+        setIsAltActive(false);
+        isAltActiveRef.current = false;
+      }
       await fetch('/api/terminal/input', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: text })
+        body: JSON.stringify({ input: finalInput })
       });
     } catch (err: any) {
       if (termRef.current) {
@@ -107,6 +122,13 @@ export const TerminalPage: React.FC = () => {
     setCommandHistory(prev => [...prev.filter(c => c !== trimmed), trimmed]);
     setHistoryIndex(-1);
     setInputCommand('');
+
+    // If command is 'agy' and we are not in TUI mode, navigate to /tui first
+    if (trimmed === 'agy' && !isTuiMode) {
+      navigate('/tui');
+      return;
+    }
+
     setIsExecuting(true);
 
     try {
@@ -190,19 +212,13 @@ export const TerminalPage: React.FC = () => {
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
 
-    // Suppress DEC private mouse tracking modes (1000, 1002, 1003, 1005, 1006, 1015)
-    // so TUI applications (like agy / Bubbletea, htop, vim) cannot block drag-to-select in the browser
-    const mouseModes = [1000, 1002, 1003, 1005, 1006, 1015];
-    const csiHandler = term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => {
-      if (params.some((p) => typeof p === 'number' && mouseModes.includes(p))) {
-        return true; // Handled / suppress mouse tracking to keep drag-to-select always active
-      }
-      return false;
+    // Forward raw keystrokes directly to backend process
+    const dataDisposable = term.onData((data) => {
+      sendInputToProcess(data);
     });
 
-    // Key handler to ensure Ctrl+C/Cmd+C copies selected text instead of sending interrupt
+    // Key handler to ensure Ctrl+C/Cmd+C copies selected text when there is a selection
     term.attachCustomKeyEventHandler((e) => {
-      // Ctrl+C or Cmd+C with active text selection: copy selected text
       if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C') && e.type === 'keydown') {
         if (term.hasSelection()) {
           const sel = term.getSelection();
@@ -211,11 +227,10 @@ export const TerminalPage: React.FC = () => {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
           }
-          return false; // Prevent sending SIGINT when user intends to copy text
+          return false;
         }
       }
 
-      // Ctrl+V or Cmd+V: paste clipboard text into terminal process
       if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V') && e.type === 'keydown') {
         navigator.clipboard?.readText().then((clipText) => {
           if (clipText) {
@@ -233,6 +248,9 @@ export const TerminalPage: React.FC = () => {
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
+    term.write('\x1b[32m=== Antigravity Terminal System Initialized ===\x1b[0m\r\n');
+    term.write(`\x1b[90m[Mode: ${isTuiMode ? 'TUI' : 'Standard'}] [Viewport: ${window.innerWidth}x${window.innerHeight}]\x1b[0m\r\n`);
+
     // Auto-copy on text selection change when text is highlighted
     const selectionDisposable = term.onSelectionChange(() => {
       const sel = term.getSelection();
@@ -242,24 +260,20 @@ export const TerminalPage: React.FC = () => {
     });
 
     // Initial fit
-    try {
-      fitAddon.fit();
-      notifyResize(term.cols, term.rows);
-    } catch (_) {}
-
-    // When user types inside xterm canvas directly, forward raw keystroke bytes to PTY
-    const dataDisposable = term.onData((data) => {
-      sendInputToProcess(data);
-    });
-
-    // Resize observer to keep xterm perfectly fitted to container
-    const resizeObserver = new ResizeObserver(() => {
+    const performFit = () => {
       try {
         if (fitAddonRef.current && termRef.current) {
           fitAddonRef.current.fit();
           notifyResize(termRef.current.cols, termRef.current.rows);
         }
       } catch (_) {}
+    };
+
+    setTimeout(performFit, 100);
+
+    // Resize observer to keep xterm perfectly fitted to container
+    const resizeObserver = new ResizeObserver(() => {
+      performFit();
     });
 
     const containerEl = terminalContainerRef.current;
@@ -286,8 +300,6 @@ export const TerminalPage: React.FC = () => {
     const handleWheel = (e: WheelEvent) => {
       if (!term) return;
       if (term.buffer.active.type === 'alternate') {
-        // In alternate buffer (such as interactive TUI like agy):
-        // Translate wheel into up/down arrow escape sequences
         e.preventDefault();
         const key = e.deltaY > 0 ? '\x1b[B' : '\x1b[A';
         const steps = Math.max(1, Math.min(4, Math.abs(Math.round(e.deltaY / 30))));
@@ -352,13 +364,12 @@ export const TerminalPage: React.FC = () => {
     containerEl.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
-      csiHandler.dispose();
+      try { dataDisposable.dispose(); } catch (_) {}
       scrollDisposable.dispose();
       containerEl.removeEventListener('wheel', handleWheel);
       containerEl.removeEventListener('touchstart', handleTouchStart);
       containerEl.removeEventListener('touchmove', handleTouchMove);
       containerEl.removeEventListener('touchend', handleTouchEnd);
-      dataDisposable.dispose();
       selectionDisposable.dispose();
       resizeObserver.disconnect();
       term.dispose();
@@ -397,6 +408,13 @@ export const TerminalPage: React.FC = () => {
       };
     }
   }, [theme, themeName]);
+
+  // Automatically trigger 'agy' if we land on the specialized /tui route and no process is running
+  useEffect(() => {
+    if (isTuiMode && !isExecuting && !activeProcess) {
+      runCommand('agy');
+    }
+  }, [isTuiMode, isExecuting, activeProcess, runCommand]);
 
   // Fetch initial terminal info on mount with resilient retry
   useEffect(() => {
@@ -499,12 +517,7 @@ export const TerminalPage: React.FC = () => {
     }
 
     if (isExecuting) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        sendInputToProcess(inputCommand ? `${inputCommand}\r` : '\r');
-        setInputCommand('');
-        return;
-      } else if (e.key === 'ArrowUp') {
+      if (e.key === 'ArrowUp') {
         e.preventDefault();
         sendInputToProcess('\x1b[A');
         return;
@@ -553,6 +566,15 @@ export const TerminalPage: React.FC = () => {
 
   // Persistent Quick Keys action handler
   const handleQuickKeyClick = (keyItem: { label: string; val: string; action?: string }) => {
+    if (keyItem.action === 'alt') {
+      setIsAltActive(prev => {
+        const next = !prev;
+        isAltActiveRef.current = next;
+        return next;
+      });
+      return;
+    }
+
     if (keyItem.action === 'interrupt' || keyItem.val === '__INTERRUPT__') {
       handleInterrupt();
       if (!isExecuting) {
@@ -675,16 +697,14 @@ export const TerminalPage: React.FC = () => {
     });
   };
 
-  // Compute clean display path
-  const displayCwd = cwd.startsWith('/app/applet')
-    ? cwd.replace('/app/applet', '~') || '~'
-    : cwd.split('/').slice(-2).join('/') || cwd;
+  // Display current working directory path explicitly
+  const displayCwd = cwd || '/app/applet';
 
   // --- STYLING USING PURE THEME.TSX DESIGN TOKENS ---
   const containerStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
-    height: '100dvh',
+    height: '100vh',
     width: '100vw',
     maxWidth: '100vw',
     backgroundColor: theme.Color.Base.Surface[1],
@@ -767,6 +787,7 @@ export const TerminalPage: React.FC = () => {
     { label: '3', val: '3\r', title: 'Option 3' },
     { label: 'y', val: 'y\r', title: 'Confirm Yes (y)' },
     { label: 'n', val: 'n\r', title: 'Decline No (n)' },
+    { label: 'Alt', val: '__ALT__', action: 'alt', title: 'Alt Key Modifier' },
     { label: 'Space', val: ' ', title: 'Spacebar' },
     { label: 'Tab', val: '\t', title: 'Tab (Auto-complete)' },
     { label: 'Ctrl+C', val: '__INTERRUPT__', action: 'interrupt', title: 'Interrupt / Cancel (Ctrl+C)' },
@@ -774,131 +795,150 @@ export const TerminalPage: React.FC = () => {
 
   return (
     <div style={containerStyle} id="terminal-page-root">
-      {/* Compact Single Header Bar */}
-      <header style={headerStyle} id="terminal-compact-header">
-        {/* Left: Back Link & Active Workspace Path */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], minWidth: 0, flexShrink: 1 }}>
+      {/* Compact Single Header Bar - Hidden in TUI mode */}
+      {!isTuiMode && (
+        <header style={headerStyle} id="terminal-compact-header">
+          {/* Left: Back Link & Active Workspace Path */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.S'], minWidth: 0, flexShrink: 1 }}>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'], minWidth: 0 }}>
-            <TerminalIcon size={16} color={theme.Color.Base.Content[1]} style={{ flexShrink: 0 }} />
-            <span style={{ 
-              ...theme.Type.Readable.Label.M,
-              color: theme.Color.Base.Content[1],
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              maxWidth: isMobile ? '100px' : '220px'
-            }} title={cwd}>
-              {displayCwd}
-            </span>
-            <div 
-              style={{ 
-                width: theme.space['Space.S'], 
-                height: theme.space['Space.S'], 
-                borderRadius: theme.radius['Radius.Full'], 
-                backgroundColor: isExecuting ? theme.Color.Warning.Content[1] : theme.Color.Success.Content[1], 
-                flexShrink: 0,
-                aspectRatio: '1 / 1'
-              }} 
-              title={activeProcess ? `Process running: ${activeProcess}` : "Workspace PTY connected"}
-            />
-            {activeProcess && (
-              <span style={{
-                ...theme.Type.Readable.Label.S,
-                backgroundColor: theme.Color.Warning.Surface[1],
-                color: theme.Color.Warning.Content[1],
-                padding: `2px ${theme.space['Space.XS']}`,
-                borderRadius: theme.radius['Radius.S'],
-                ...theme.border.getBorder1px(theme.Color.Warning.Content[1]),
+            <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'], minWidth: 0 }}>
+              <TerminalIcon size={16} color={theme.Color.Base.Content[1]} style={{ flexShrink: 0 }} />
+              <span style={{ 
+                ...theme.Type.Readable.Label.M,
+                color: theme.Color.Base.Content[1],
                 whiteSpace: 'nowrap',
-                lineHeight: 1
-              }} id="terminal-active-process-badge">
-                {activeProcess}
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: isMobile ? '100px' : '220px'
+              }} title={cwd}>
+                {displayCwd}
               </span>
-            )}
+              <div 
+                style={{ 
+                  width: theme.space['Space.S'], 
+                  height: theme.space['Space.S'], 
+                  borderRadius: theme.radius['Radius.Full'], 
+                  backgroundColor: isExecuting ? theme.Color.Warning.Content[1] : theme.Color.Success.Content[1], 
+                  flexShrink: 0,
+                  aspectRatio: '1 / 1'
+                }} 
+                title={activeProcess ? `Process running: ${activeProcess}` : "Workspace PTY connected"}
+              />
+              {activeProcess && (
+                <span style={{
+                  ...theme.Type.Readable.Label.S,
+                  backgroundColor: theme.Color.Warning.Surface[1],
+                  color: theme.Color.Warning.Content[1],
+                  padding: `2px ${theme.space['Space.XS']}`,
+                  borderRadius: theme.radius['Radius.S'],
+                  ...theme.border.getBorder1px(theme.Color.Warning.Content[1]),
+                  whiteSpace: 'nowrap',
+                  lineHeight: 1
+                }} id="terminal-active-process-badge">
+                  {activeProcess}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Right: Quick Snippets Dropdown & Core Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'], flexShrink: 0 }}>
-          {/* Quick Snippets Dropdown using Core Select */}
-          <div style={{ width: isMobile ? '130px' : '160px' }} id="terminal-quick-snippets-select">
-            <Select
+          {/* Right: Quick Snippets Dropdown & Core Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: theme.space['Space.XS'], flexShrink: 0 }}>
+            {/* Quick Snippets Dropdown using Core Select */}
+            <div style={{ width: isMobile ? '130px' : '160px' }} id="terminal-quick-snippets-select">
+              <Select
+                size="S"
+                value={selectedSnippet}
+                onChange={(e) => {
+                  const cmd = e.target.value;
+                  if (cmd) {
+                    setSelectedSnippet(cmd);
+                    runCommand(cmd);
+                    setTimeout(() => setSelectedSnippet(''), 300);
+                  }
+                }}
+                options={QUICK_COMMANDS}
+                style={{ width: '100%' }}
+                triggerStyle={{
+                  height: theme.height['Height.XS'],
+                  padding: `0 ${theme.space['Space.S']}`,
+                  ...theme.Type.Readable.Label.S,
+                  backgroundColor: theme.Color.Base.Surface[1],
+                }}
+              />
+            </div>
+
+            {/* TUI Mode Toggle */}
+            <Button
+              type="button"
+              variant="secondary"
               size="S"
-              value={selectedSnippet}
-              onChange={(e) => {
-                const cmd = e.target.value;
-                if (cmd) {
-                  setSelectedSnippet(cmd);
-                  runCommand(cmd);
-                  setTimeout(() => setSelectedSnippet(''), 300);
-                }
+              icon={<Play size={14} />}
+              onClick={() => navigate('/tui')}
+              style={{ 
+                width: theme.height['Height.XS'], 
+                height: theme.height['Height.XS'], 
+                minWidth: theme.height['Height.XS'], 
+                padding: 0 
               }}
-              options={QUICK_COMMANDS}
-              style={{ width: '100%' }}
-              triggerStyle={{
-                height: theme.height['Height.XS'],
-                padding: `0 ${theme.space['Space.S']}`,
-                ...theme.Type.Readable.Label.S,
-                backgroundColor: theme.Color.Base.Surface[1],
+              title="Switch to Full-Screen TUI Mode"
+              id="btn-switch-tui"
+            />
+
+            {/* Scroll to bottom with active auto-scroll state */}
+            <Button
+              type="button"
+              variant="secondary"
+              size="S"
+              icon={<ArrowDown size={14} weight={autoScroll ? "bold" : "regular"} />}
+              onClick={handleScrollToBottom}
+              style={{ 
+                width: theme.height['Height.XS'], 
+                height: theme.height['Height.XS'], 
+                minWidth: theme.height['Height.XS'], 
+                padding: 0,
+                color: autoScroll ? theme.Color.Active.Content[1] : theme.Color.Base.Content[1],
+            
               }}
+              title={autoScroll ? "Auto-scroll: ON (Click to pause auto-scroll)" : "Auto-scroll: OFF (Click to scroll to bottom & resume auto-scroll)"}
+              id="btn-scroll-bottom"
+            />
+
+            {/* Copy Logs with Core AnimatedCopyIcon */}
+            <Button
+              type="button"
+              variant="secondary"
+              size="S"
+              icon={<AnimatedCopyIcon isCopied={copied} />}
+              onClick={handleCopyLogs}
+              style={{ 
+                width: theme.height['Height.XS'], 
+                height: theme.height['Height.XS'], 
+                minWidth: theme.height['Height.XS'], 
+                padding: 0 
+              }}
+              title={copied ? 'Copied Output!' : 'Copy Terminal Output'}
+              id="btn-copy-output"
+            />
+
+            {/* Clear Logs */}
+            <Button
+              type="button"
+              variant="secondary"
+              size="S"
+              icon={<Trash size={14} />}
+              onClick={handleClearLogs}
+              style={{ 
+                width: theme.height['Height.XS'], 
+                height: theme.height['Height.XS'], 
+                minWidth: theme.height['Height.XS'], 
+                padding: 0 
+              }}
+              title="Clear Terminal Output"
+              id="btn-clear-output"
             />
           </div>
-
-          {/* Scroll to bottom with active auto-scroll state */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="S"
-            icon={<ArrowDown size={14} weight={autoScroll ? "bold" : "regular"} />}
-            onClick={handleScrollToBottom}
-            style={{ 
-              width: theme.height['Height.XS'], 
-              height: theme.height['Height.XS'], 
-              minWidth: theme.height['Height.XS'], 
-              padding: 0,
-              color: autoScroll ? theme.Color.Active.Content[1] : theme.Color.Base.Content[1],
-           
-            }}
-            title={autoScroll ? "Auto-scroll: ON (Click to pause auto-scroll)" : "Auto-scroll: OFF (Click to scroll to bottom & resume auto-scroll)"}
-            id="btn-scroll-bottom"
-          />
-
-          {/* Copy Logs with Core AnimatedCopyIcon */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="S"
-            icon={<AnimatedCopyIcon isCopied={copied} />}
-            onClick={handleCopyLogs}
-            style={{ 
-              width: theme.height['Height.XS'], 
-              height: theme.height['Height.XS'], 
-              minWidth: theme.height['Height.XS'], 
-              padding: 0 
-            }}
-            title={copied ? 'Copied Output!' : 'Copy Terminal Output'}
-            id="btn-copy-output"
-          />
-
-          {/* Clear Logs */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="S"
-            icon={<Trash size={14} />}
-            onClick={handleClearLogs}
-            style={{ 
-              width: theme.height['Height.XS'], 
-              height: theme.height['Height.XS'], 
-              minWidth: theme.height['Height.XS'], 
-              padding: 0 
-            }}
-            title="Clear Terminal Output"
-            id="btn-clear-output"
-          />
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* Authentic VT100 / Xterm PTY Viewport */}
       <main 
@@ -908,125 +948,156 @@ export const TerminalPage: React.FC = () => {
           width: '100%', 
           backgroundColor: theme.Color.Base.Surface[1],
           position: 'relative',
-          padding: isMobile ? `4px ${theme.space['Space.S']}` : `8px ${theme.space['Space.M']}`,
+          padding: isTuiMode ? 0 : (isMobile ? `4px ${theme.space['Space.S']}` : `8px ${theme.space['Space.M']}`),
           boxSizing: 'border-box',
           overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
         }}
         id="terminal-viewport-wrapper"
         onClick={() => {
           if (termRef.current) termRef.current.focus();
         }}
       >
+        {isTuiMode && (
+          <div style={{ position: 'absolute', top: theme.space['Space.S'], right: theme.space['Space.S'], zIndex: 1000 }}>
+             <Button
+                type="button"
+                variant="secondary"
+                size="S"
+                icon={<X size={14} />}
+                onClick={() => navigate('/terminal')}
+                title="Exit TUI Mode"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  minWidth: '32px',
+                  borderRadius: theme.radius['Radius.Full'],
+                  backgroundColor: `${theme.Color.Base.Surface[1]}cc`,
+                  backdropFilter: 'blur(8px)',
+                  opacity: 0.5,
+                  transition: 'opacity 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+             />
+          </div>
+        )}
         <div 
           ref={terminalContainerRef} 
           style={{ 
             width: '100%', 
-            height: '100%', 
+            flex: 1,
+            minHeight: 0,
             overflow: 'hidden',
           }} 
           id="terminal-xterm-canvas" 
         />
       </main>
 
-      {/* ALWAYS PERSISTENT Quick Touch/Key Response Bar */}
-      <section style={quickKeysBarStyle} id="terminal-persistent-quick-keys" aria-label="Quick Keys Toolbar">
-        {QUICK_KEYS_ITEMS.map((item) => {
-          const isHighlight = item.label === 'agy' || (isExecuting && item.label === 'Ctrl+C');
-          return (
+      {/* ALWAYS PERSISTENT Quick Touch/Key Response Bar - Hidden in TUI mode */}
+      {!isTuiMode && (
+        <section style={quickKeysBarStyle} id="terminal-persistent-quick-keys" aria-label="Quick Keys Toolbar">
+          {QUICK_KEYS_ITEMS.map((item) => {
+            const isHighlight = item.label === 'agy' || (isExecuting && item.label === 'Ctrl+C') || (item.label === 'Alt' && isAltActive);
+            return (
+              <Button
+                key={item.label}
+                type="button"
+                variant={isHighlight ? "primary" : "secondary"}
+                size="S"
+                label={item.label}
+                onClick={() => handleQuickKeyClick(item)}
+                title={item.title}
+                style={{
+                  width: 'auto',
+                  minWidth: '28px',
+                  height: '24px',
+                  padding: `0 ${theme.space['Space.S']}`,
+                  ...theme.Type.Readable.Label.S,
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  letterSpacing: '-0.01em',
+                  borderRadius: theme.radius['Radius.S'],
+                  flexShrink: 0,
+                  ...theme.border.getBorder1px(isHighlight ? theme.Color.Focus.Content[1] : theme.Color.Base.Surface[3])
+                }}
+              />
+            );
+          })}
+        </section>
+      )}
+
+      {/* Command Prompt Form Bar - Hidden in TUI mode */}
+      {!isTuiMode && (
+        <form onSubmit={handleFormSubmit} style={promptBarStyle} id="terminal-prompt-form">
+          <span style={{ 
+            color: isExecuting ? theme.Color.Warning.Content[1] : theme.Color.Success.Content[1], 
+            fontWeight: 700, 
+            ...theme.Type.Expressive.Data,
+            fontSize: isMobile ? '15px' : '14px', 
+            flexShrink: 0,
+            lineHeight: 1,
+            userSelect: 'none'
+          }}>
+            {isExecuting ? '●' : '❯'}
+          </span>
+
+          <input
+            ref={inputRef}
+            type="text"
+            style={promptInputStyle}
+            value={inputCommand}
+            onChange={(e) => setInputCommand(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isExecuting 
+              ? (activeProcess 
+                  ? `[${activeProcess}] running... type response, click quick keys, or press Ctrl+C`
+                  : "Process active... type response, click quick keys, or press Ctrl+C")
+              : "enter bash command (e.g. agy, ls -la, git status)..."
+            }
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck="false"
+            id="terminal-command-input"
+          />
+
+          {isExecuting && (
             <Button
-              key={item.label}
               type="button"
-              variant={isHighlight ? "primary" : "secondary"}
+              variant="destructive"
               size="S"
-              label={item.label}
-              onClick={() => handleQuickKeyClick(item)}
-              title={item.title}
-              style={{
-                width: 'auto',
-                minWidth: '28px',
-                height: '24px',
-                padding: `0 ${theme.space['Space.S']}`,
-                ...theme.Type.Readable.Label.S,
-                fontSize: '11px',
-                fontFamily: 'monospace',
-                letterSpacing: '-0.01em',
-                borderRadius: theme.radius['Radius.S'],
-                flexShrink: 0,
-                ...theme.border.getBorder1px(isHighlight ? theme.Color.Focus.Content[1] : theme.Color.Base.Surface[3])
+              icon={<Stop size={13} weight="fill" />}
+              onClick={handleInterrupt}
+              style={{ 
+                width: theme.height['Height.XS'], 
+                height: theme.height['Height.XS'], 
+                minWidth: theme.height['Height.XS'], 
+                padding: 0 
               }}
+              title="Interrupt Running Process (Ctrl+C)"
+              id="terminal-interrupt-button"
             />
-          );
-        })}
-      </section>
+          )}
 
-      {/* Command Prompt Form Bar */}
-      <form onSubmit={handleFormSubmit} style={promptBarStyle} id="terminal-prompt-form">
-        <span style={{ 
-          color: isExecuting ? theme.Color.Warning.Content[1] : theme.Color.Success.Content[1], 
-          fontWeight: 700, 
-          ...theme.Type.Expressive.Data,
-          fontSize: isMobile ? '15px' : '14px', 
-          flexShrink: 0,
-          lineHeight: 1,
-          userSelect: 'none'
-        }}>
-          {isExecuting ? '●' : '❯'}
-        </span>
-
-        <input
-          ref={inputRef}
-          type="text"
-          style={promptInputStyle}
-          value={inputCommand}
-          onChange={(e) => setInputCommand(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={isExecuting 
-            ? (activeProcess 
-                ? `[${activeProcess}] running... type response, click quick keys, or press Ctrl+C`
-                : "Process active... type response, click quick keys, or press Ctrl+C")
-            : "enter bash command (e.g. agy, ls -la, git status)..."
-          }
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="none"
-          spellCheck="false"
-          id="terminal-command-input"
-        />
-
-        {isExecuting && (
           <Button
-            type="button"
-            variant="destructive"
+            type="submit"
+            variant="primary"
             size="S"
-            icon={<Stop size={13} weight="fill" />}
-            onClick={handleInterrupt}
+            disabled={!isExecuting && !inputCommand.trim()}
+            icon={isExecuting ? <PaperPlaneRight size={13} weight="bold" /> : <PaperPlaneRight size={13} weight="fill" />}
             style={{ 
               width: theme.height['Height.XS'], 
               height: theme.height['Height.XS'], 
               minWidth: theme.height['Height.XS'], 
               padding: 0 
             }}
-            title="Interrupt Running Process (Ctrl+C)"
-            id="terminal-interrupt-button"
+            title={isExecuting ? "Send Input to Process (Enter)" : "Run Command (Enter)"}
+            id="terminal-run-button"
           />
-        )}
-
-        <Button
-          type="submit"
-          variant="primary"
-          size="S"
-          disabled={!isExecuting && !inputCommand.trim()}
-          icon={isExecuting ? <PaperPlaneRight size={13} weight="bold" /> : <PaperPlaneRight size={13} weight="fill" />}
-          style={{ 
-            width: theme.height['Height.XS'], 
-            height: theme.height['Height.XS'], 
-            minWidth: theme.height['Height.XS'], 
-            padding: 0 
-          }}
-          title={isExecuting ? "Send Input to Process (Enter)" : "Run Command (Enter)"}
-          id="terminal-run-button"
-        />
-      </form>
+        </form>
+      )}
     </div>
   );
 };
