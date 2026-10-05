@@ -62,23 +62,23 @@ The manager script at `/scripts/desktop_service.sh` is completely self-healing a
 
 # Script Location & Invocation
 
-The primary script is located at `/scripts/desktop_service.sh` .
+The primary script is located at `scripts/desktop_service.sh`.
 
 Always ensure execution permissions are set prior to running:
 ```bash
-chmod +x /scripts/desktop_service.sh
+chmod +x scripts/desktop_service.sh
 ```
 
 ### CLI Command Reference
 
 | Action | Command | Description |
 | :--- | :--- | :--- |
-| **Status** | `/scripts/desktop_service.sh status` | Inspects process health for all 5 tiers and prints active tunnel URL. |
-| **Start** | `/scripts/desktop_service.sh start` | Verifies packages, cleans locks, starts TigerVNC, XFCE, WebSockify, and Tunnel. |
-| **Stop** | `/scripts/desktop_service.sh stop` | Gracefully terminates all desktop processes and clears X11 socket locks. |
-| **Restart** | `/scripts/desktop_service.sh restart` | Performs a clean stop, waits 2 seconds, and launches the entire stack fresh. |
-| **Get URL** | `/scripts/desktop_service.sh url` | Extracts and displays the active Cloudflare Tunnel URL. |
-| **Screenshot** | `/scripts/desktop_service.sh screenshot [path]` | Captures root window of display `:1` (defaults to `/tmp/desktop_screenshot.png`). |
+| **Status** | `bash scripts/desktop_service.sh status` | Inspects process health for all 5 tiers and prints active tunnel URL. |
+| **Start** | `bash scripts/desktop_service.sh start` | Verifies packages, cleans locks, starts TigerVNC, XFCE, WebSockify, and Tunnel. |
+| **Stop** | `bash scripts/desktop_service.sh stop` | Gracefully terminates all desktop processes and clears X11 socket locks. |
+| **Restart** | `bash scripts/desktop_service.sh restart` | Performs a clean stop, waits 2 seconds, and launches the entire stack fresh. |
+| **Get URL** | `bash scripts/desktop_service.sh url` | Extracts and displays the active Cloudflare Tunnel URL. |
+| **Screenshot** | `bash scripts/desktop_service.sh screenshot [path]` | Captures root window of display `:1` (defaults to `/tmp/desktop_screenshot.png`). |
 
 ---
 
@@ -144,7 +144,7 @@ Whenever making modifications, restarting, or diagnosing user-reported issues:
 ### Step 1: Check Process Health
 Run:
 ```bash
-/scripts/desktop_service.sh status
+bash scripts/desktop_service.sh status
 ```
 Verify that all 5 components report healthy:
 * `Xtigervnc`: RUNNING
@@ -157,7 +157,7 @@ Verify that all 5 components report healthy:
 ### Step 2: Visual Framebuffer Capture
 Capture the display to rule out black screen regressions:
 ```bash
-/scripts/desktop_service.sh screenshot /tmp/verify.png
+bash scripts/desktop_service.sh screenshot /tmp/verify.png
 identify /tmp/verify.png
 ```
 A healthy XFCE desktop image file will typically be between `300 KB` and `600 KB` with active sRGB color variance. A solid black screen or uninitialized canvas is usually `< 10 KB`.
@@ -165,7 +165,7 @@ A healthy XFCE desktop image file will typically be between `300 KB` and `600 KB
 ### Step 3: Public Edge Probe
 Verify public edge reachability using `curl`:
 ```bash
-url=$(/scripts/desktop_service.sh url | grep -o 'https://[-a-zA-Z0-9\.]*\.trycloudflare\.com' | head -n 1)
+url=$(bash scripts/desktop_service.sh url | grep -o 'https://[-a-zA-Z0-9\.]*\.trycloudflare\.com' | head -n 1)
 curl -s -o /dev/null -w "%{http_code}\n" "$url/vnc.html"
 ```
 Expect HTTP `200`.
@@ -176,7 +176,7 @@ Expect HTTP `200`.
 
 ### 1. Screen Appears Pure Black in Browser
 * **Cause**: `dbus-launch` was missing when XFCE started, causing `xfwm4` and `xfdesktop` to fail.
-* **Fix**: Ensure `dbus-x11` is installed, then run `/scripts/desktop_service.sh restart`.
+* **Fix**: Ensure `dbus-x11` is installed, then run `bash scripts/desktop_service.sh restart`.
 
 ### 2. "Display :1 Already in Use" or Stale Lock
 * **Cause**: Previous X11 process crashed leaving `/tmp/.X1-lock`.
@@ -187,4 +187,4 @@ Expect HTTP `200`.
 
 ### 3. Tunnel URL Not Showing
 * **Cause**: Cloudflare rate-limiting or slow edge negotiation.
-* **Fix**: Check `/tmp/desktop_logs/cloudflared.log` for edge connection logs or restart with `/scripts/desktop_service.sh restart`.
+* **Fix**: Check `/tmp/desktop_logs/cloudflared.log` for edge connection logs or restart with `bash scripts/desktop_service.sh restart`.
