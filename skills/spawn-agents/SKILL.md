@@ -1,11 +1,11 @@
 ---
 name: spawn-agents
-description: Manager-Centric Multi-Agent CLI orchestration system in Node.js + TypeScript powered by Gemini flash. Features strict star topology, context-isolated sub-agents, least-privilege tool granting, durable state recovery, and complete communication ledger in chatGroup.yaml. Triggers on `/spawnAgents`.
+description: Manager-Centric Multi-Agent CLI orchestration system in Node.js + TypeScript powered by Gemini flash. Features strict star topology, context-isolated sub-agents, least-privilege tool granting, durable state recovery, and complete communication ledger in chatRoom.md. Triggers on `/spawnAgents`.
 ---
 
 # Spawn Agents: Manager-Centric Multi-Agent Orchestration Skill
 
-This skill governs the execution of the Manager-Centric Multi-Agent CLI runtime implemented in `/scripts/spawnAgents.ts`. It establishes the Manager as the sole central coordinator, isolates all sub-agent contexts, and maintains a complete, append-friendly communication ledger in `chatGroup.yaml`.
+This skill governs the execution of the Manager-Centric Multi-Agent CLI runtime implemented in `/scripts/spawnAgents.ts`. It establishes the Manager as the sole central coordinator, isolates all sub-agent contexts, and maintains a complete, append-friendly communication ledger in `chatRoom.md`.
 
 ```
                          HUMAN / AI
@@ -46,8 +46,8 @@ This skill governs the execution of the Manager-Centric Multi-Agent CLI runtime 
 3. **Rule 3 — Manager is Persistent Coordinator**:
    - Maintains orchestration state on disk (`/artifacts/{project-id}/state/project.yaml`).
    - Automatically recovers and resumes interrupted projects.
-4. **Rule 4 — Complete Communication Ledger (`chatGroup.yaml`)**:
-   - Every CLI-generated prompt, tool call, tool response, and agent response is recorded in `/artifacts/{project-id}/chatGroup.yaml`.
+4. **Rule 4 — Complete Communication Ledger (`chatRoom.md`)**:
+   - Every CLI-generated prompt, tool call, tool response, and agent response is recorded in `/artifacts/{project-id}/chatRoom.md`.
    - The ledger acts as the complete, auditable communication history for the project.
 5. **Rule 5 — Least-Privilege Tool & Artifact Permissions**:
    - Sub-agents only receive explicit tools (`filesystem_read`, `filesystem_write`, `terminal`) necessary for their task.
@@ -102,7 +102,7 @@ Every project manages durable state and outputs under `/artifacts/{project-id}/`
     ├── decisions/         # Architectural decision records
     ├── outputs/           # Worker output contracts
     ├── state/             # Durable project state (project.yaml)
-    └── chatGroup.yaml     # Complete communication ledger
+    └── chatRoom.md        # Complete communication ledger
 ```
 
 ---

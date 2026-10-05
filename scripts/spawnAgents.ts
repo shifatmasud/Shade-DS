@@ -323,15 +323,15 @@ export interface ReviewResult {
 }
 
 // ============================================================================
-// CHAT GROUP & AUDIT LEDGER (chatGroup.yaml)
+// CHAT ROOM & AUDIT LEDGER (chatRoom.md)
 // ============================================================================
 
-export class ChatGroupLedger {
-  private filePath: string;
+export class ChatRoomLedger {
+  public filePath: string;
   private messageCount: number = 0;
 
   constructor(private projectDir: string, private projectName: string) {
-    this.filePath = path.join(projectDir, "chatGroup.yaml");
+    this.filePath = path.join(projectDir, "chatRoom.md");
     this.initialize();
   }
 
@@ -340,13 +340,20 @@ export class ChatGroupLedger {
       fs.mkdirSync(this.projectDir, { recursive: true });
     }
     if (!fs.existsSync(this.filePath)) {
-      const header = `project: ${this.projectName}\nversion: 1\ncreated_at: "${new Date().toISOString()}"\nmessages:\n`;
+      const header = `# ChatRoom: ${this.projectName}
+- **Project**: \`${this.projectName}\`
+- **Version**: 1
+- **Created**: "${new Date().toISOString()}"
+- **Ledger**: Manager-Centric Multi-Agent Execution Stream
+
+---
+`;
       fs.writeFileSync(this.filePath, header, "utf8");
     } else {
       // Calculate existing message count
       try {
         const content = fs.readFileSync(this.filePath, "utf8");
-        const matches = content.match(/id:\s*msg_/g);
+        const matches = content.match(/##\s*\[msg_\d+\]/g) || content.match(/id:\s*msg_/g);
         this.messageCount = matches ? matches.length : 0;
       } catch {
         this.messageCount = 0;
@@ -360,72 +367,124 @@ export class ChatGroupLedger {
   }
 
   public appendMessage(message: ChatMessage): void {
-    const formatted = `
-  - id: ${message.id}
-    timestamp: "${message.timestamp}"
-    sender:
-      type: ${message.sender.type}
-      id: ${message.sender.id}${message.sender.role ? `\n      role: ${message.sender.role}` : ""}
-    recipient:
-      type: ${message.recipient.type}
-      id: ${message.recipient.id}${message.recipient.role ? `\n      role: ${message.recipient.role}` : ""}
-    channel: ${message.channel || "manager"}
-    type: ${message.type}
-    content: |
-${message.content.split("\n").map((line) => `      ${line}`).join("\n")}${
-      message.context
-        ? `\n    context:\n${message.context.artifacts ? `      artifacts:\n${message.context.artifacts.map((a) => `        - ${a}`).join("\n")}\n` : ""}${
-            message.context.tools ? `      tools:\n${message.context.tools.map((t) => `        - ${t}`).join("\n")}\n` : ""
-          }`
-        : ""
-    }${
-      message.artifacts && message.artifacts.length > 0
-        ? `\n    artifacts:\n${message.artifacts.map((a) => `      - ${a}`).join("\n")}`
-        : ""
-    }${message.task ? `\n    task: ${message.task}` : ""}
-`;
-    fs.appendFileSync(this.filePath, formatted, "utf8");
+    const lines: string[] = [];
+    lines.push(`\n## [${message.id}] ${message.timestamp} | ${message.sender.id} → ${message.recipient.id} (${message.type.toUpperCase()})`);
+    lines.push(`- **Channel**: \`${message.channel || "manager"}\``);
+    lines.push(`- **Sender**: \`${message.sender.type}\` (${message.sender.id}${message.sender.role ? `, role: ${message.sender.role}` : ""})`);
+    lines.push(`- **Recipient**: \`${message.recipient.type}\` (${message.recipient.id}${message.recipient.role ? `, role: ${message.recipient.role}` : ""})`);
+    lines.push(`- **Type**: \`${message.type}\``);
+    if (message.task) {
+      lines.push(`- **Task**: \`${message.task}\``);
+    }
+    if (message.context?.tools && message.context.tools.length > 0) {
+      lines.push(`- **Tools**: ${message.context.tools.map((t) => `\`${t}\``).join(", ")}`);
+    }
+    if (message.context?.artifacts && message.context.artifacts.length > 0) {
+      lines.push(`- **Context Artifacts**: ${message.context.artifacts.map((a) => `\`${a}\``).join(", ")}`);
+    }
+    if (message.artifacts && message.artifacts.length > 0) {
+      lines.push(`- **Artifacts**: ${message.artifacts.map((a) => `\`${a}\``).join(", ")}`);
+    }
+    lines.push("\n### Content:\n");
+    lines.push(message.content);
+    lines.push("\n---\n");
+
+    fs.appendFileSync(this.filePath, lines.join("\n"), "utf8");
   }
 
   public getMessages(): ChatMessage[] {
-    if (!fs.existsSync(this.filePath)) return [];
+    // Check chatRoom.md first, or fall back to legacy chatGroup.yaml if present
+    if (!fs.existsSync(this.filePath)) {
+      const yamlPath = path.join(this.projectDir, "chatGroup.yaml");
+      if (fs.existsSync(yamlPath)) {
+        return this.parseLegacyYaml(yamlPath);
+      }
+      return [];
+    }
+
     const content = fs.readFileSync(this.filePath, "utf8");
-    const rawBlocks = content.split(/\n\s*-\s*id:\s*/);
+    const blocks = content.split(/\n(?=##\s*\[msg_)/);
     const messages: ChatMessage[] = [];
 
-    for (let i = 1; i < rawBlocks.length; i++) {
-      const block = "id: " + rawBlocks[i];
-      const idMatch = block.match(/id:\s*([^\n]+)/);
-      const tsMatch = block.match(/timestamp:\s*"?([^"\n]+)"?/);
-      const senderTypeMatch = block.match(/sender:\s*[\r\n]+\s*type:\s*([^\n]+)/);
-      const senderIdMatch = block.match(/sender:\s*[\r\n]+(?:\s*type:[^\n]+[\r\n]+)?\s*id:\s*([^\n]+)/);
-      const recTypeMatch = block.match(/recipient:\s*[\r\n]+\s*type:\s*([^\n]+)/);
-      const recIdMatch = block.match(/recipient:\s*[\r\n]+(?:\s*type:[^\n]+[\r\n]+)?\s*id:\s*([^\n]+)/);
-      const channelMatch = block.match(/channel:\s*([^\n]+)/);
-      const typeMatch = block.match(/type:\s*([^\n]+)/);
-      const contentMatch = block.match(/content:\s*\|([\s\S]*?)(?=\n\s*(?:context|artifacts|task|$))/);
+    for (const block of blocks) {
+      if (!block.trim().startsWith("## [msg_")) continue;
+      const headerMatch = block.match(/##\s*\[(msg_\d+)\]\s*([^|\n]+)\s*\|\s*([^→\n]+)\s*→\s*([^\s(]+)(?:\s*\(([^)]+)\))?/);
+      const channelMatch = block.match(/- \*\*Channel\*\*:\s*`([^`]+)`/);
+      const senderMatch = block.match(/- \*\*Sender\*\*:\s*`([^`]+)`\s*\(([^,)]+)(?:,\s*role:\s*([^)]+))?\)/);
+      const recMatch = block.match(/- \*\*Recipient\*\*:\s*`([^`]+)`\s*\(([^,)]+)(?:,\s*role:\s*([^)]+))?\)/);
+      const typeMatch = block.match(/- \*\*Type\*\*:\s*`([^`]+)`/);
+      const taskMatch = block.match(/- \*\*Task\*\*:\s*`([^`]+)`/);
+      const contentMatch = block.match(/### Content:\s*\n([\s\S]*?)(?=\n---\s*$|\n##\s*\[msg_|$)/);
 
-      if (idMatch) {
+      if (headerMatch) {
         messages.push({
-          id: idMatch[1].trim(),
-          timestamp: tsMatch ? tsMatch[1].trim() : "",
+          id: headerMatch[1].trim(),
+          timestamp: headerMatch[2].trim(),
           sender: {
-            type: (senderTypeMatch ? senderTypeMatch[1].trim() : "manager") as any,
-            id: senderIdMatch ? senderIdMatch[1].trim() : "manager",
+            type: (senderMatch ? senderMatch[1].trim() : "manager") as any,
+            id: senderMatch ? senderMatch[2].trim() : headerMatch[3].trim(),
+            role: senderMatch && senderMatch[3] ? senderMatch[3].trim() : undefined,
           },
           recipient: {
-            type: (recTypeMatch ? recTypeMatch[1].trim() : "agent") as any,
-            id: recIdMatch ? recIdMatch[1].trim() : "agent",
+            type: (recMatch ? recMatch[1].trim() : "agent") as any,
+            id: recMatch ? recMatch[2].trim() : headerMatch[4].trim(),
+            role: recMatch && recMatch[3] ? recMatch[3].trim() : undefined,
           },
           channel: channelMatch ? channelMatch[1].trim() : "manager",
-          type: (typeMatch ? typeMatch[1].trim() : "agent_prompt") as any,
-          content: contentMatch ? contentMatch[1].replace(/^\s{6}/gm, "").trim() : "",
+          type: (typeMatch ? typeMatch[1].trim() : headerMatch[5]?.toLowerCase() || "agent_prompt") as any,
+          content: contentMatch ? contentMatch[1].trim() : "",
+          task: taskMatch ? taskMatch[1].trim() : undefined,
         });
       }
     }
+
     return messages;
   }
+
+  private parseLegacyYaml(yamlPath: string): ChatMessage[] {
+    try {
+      const content = fs.readFileSync(yamlPath, "utf8");
+      const rawBlocks = content.split(/\n\s*-\s*id:\s*/);
+      const messages: ChatMessage[] = [];
+      for (let i = 1; i < rawBlocks.length; i++) {
+        const block = "id: " + rawBlocks[i];
+        const idMatch = block.match(/id:\s*([^\n]+)/);
+        const tsMatch = block.match(/timestamp:\s*"?([^"\n]+)"?/);
+        const senderTypeMatch = block.match(/sender:\s*[\r\n]+\s*type:\s*([^\n]+)/);
+        const senderIdMatch = block.match(/sender:\s*[\r\n]+(?:\s*type:[^\n]+[\r\n]+)?\s*id:\s*([^\n]+)/);
+        const recTypeMatch = block.match(/recipient:\s*[\r\n]+\s*type:\s*([^\n]+)/);
+        const recIdMatch = block.match(/recipient:\s*[\r\n]+(?:\s*type:[^\n]+[\r\n]+)?\s*id:\s*([^\n]+)/);
+        const channelMatch = block.match(/channel:\s*([^\n]+)/);
+        const typeMatch = block.match(/type:\s*([^\n]+)/);
+        const contentMatch = block.match(/content:\s*\|([\s\S]*?)(?=\n\s*(?:context|artifacts|task|$))/);
+
+        if (idMatch) {
+          messages.push({
+            id: idMatch[1].trim(),
+            timestamp: tsMatch ? tsMatch[1].trim() : "",
+            sender: {
+              type: (senderTypeMatch ? senderTypeMatch[1].trim() : "manager") as any,
+              id: senderIdMatch ? senderIdMatch[1].trim() : "manager",
+            },
+            recipient: {
+              type: (recTypeMatch ? recTypeMatch[1].trim() : "agent") as any,
+              id: recIdMatch ? recIdMatch[1].trim() : "agent",
+            },
+            channel: channelMatch ? channelMatch[1].trim() : "manager",
+            type: (typeMatch ? typeMatch[1].trim() : "agent_prompt") as any,
+            content: contentMatch ? contentMatch[1].replace(/^\s{6}/gm, "").trim() : "",
+          });
+        }
+      }
+      return messages;
+    } catch {
+      return [];
+    }
+  }
 }
+
+// Backward-compatible alias
+export const ChatGroupLedger = ChatRoomLedger;
 
 // ============================================================================
 // ARTIFACTS & PROJECT REPOSITORY MANAGER
@@ -775,7 +834,7 @@ export interface SpawnAgentOptions {
 
 /**
  * Spawns a fresh, isolated agent.
- * Every sub-agent creates a brand-new Gemini context and records all prompts and responses to chatGroup.yaml.
+ * Every sub-agent creates a brand-new Gemini context and records all prompts and responses to chatRoom.md.
  */
 export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
   text: string;
@@ -796,7 +855,7 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
 
   const finalSystemInstruction = `${roleDef.systemInstruction}\n\n${opts.systemInstruction || ""}`.trim();
 
-  // 1. Log prompt to chatGroup.yaml
+  // 1. Log prompt to chatRoom.md
   const promptMsgId = opts.ledger.nextMessageId();
   opts.ledger.appendMessage({
     id: promptMsgId,
@@ -853,7 +912,7 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
 
     const toolParts: any[] = [];
     for (const call of functionCalls) {
-      // Log tool call to chatGroup.yaml
+      // Log tool call to chatRoom.md
       const toolCallId = opts.ledger.nextMessageId();
       opts.ledger.appendMessage({
         id: toolCallId,
@@ -868,7 +927,7 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
 
       const result = toolEngine.executeTool(call.name, call.args, toolsGranted);
 
-      // Log tool response to chatGroup.yaml
+      // Log tool response to chatRoom.md
       const toolRespId = opts.ledger.nextMessageId();
       opts.ledger.appendMessage({
         id: toolRespId,
@@ -892,7 +951,7 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
     contents.push({ role: "user", parts: toolParts });
   }
 
-  // Log agent response to chatGroup.yaml
+  // Log agent response to chatRoom.md
   const responseMsgId = opts.ledger.nextMessageId();
   opts.ledger.appendMessage({
     id: responseMsgId,
@@ -1197,7 +1256,7 @@ Inspect failing files, execute 'runCommand' ('npm run lint' or 'npm run build') 
     this.saveCompatibilityArtifacts(masterPlan, combinedAnalysis, workerOutputs, reviewResult);
 
     console.log(`\n\x1b[32m✔ Project execution complete! Status: ${this.state.status.toUpperCase()}\x1b[0m`);
-    console.log(`\x1b[36mCommunication Ledger:\x1b[0m \x1b[1martifacts/${this.projectId}/chatGroup.yaml\x1b[0m`);
+    console.log(`\x1b[36mCommunication Ledger:\x1b[0m \x1b[1martifacts/${this.projectId}/chatRoom.md\x1b[0m`);
     console.log(`\x1b[36mProject State:\x1b[0m \x1b[1martifacts/${this.projectId}/state/project.yaml\x1b[0m\n`);
 
     return {
@@ -1497,12 +1556,12 @@ Direct shorthand:
       return;
     }
     const mgr = new ProjectArtifactsManager(pid);
-    const ledger = new ChatGroupLedger(mgr.projectDir, pid);
+    const ledger = new ChatRoomLedger(mgr.projectDir, pid);
     const messages = ledger.getMessages();
     if (isJson) {
-      console.log(JSON.stringify({ project: pid, count: messages.length, messages }, null, 2));
+      console.log(JSON.stringify({ project: pid, count: messages.length, ledgerFile: ledger.filePath, messages }, null, 2));
     } else {
-      console.log(`\x1b[35m=== Communication Ledger (${pid}): ${messages.length} messages ===\x1b[0m\n`);
+      console.log(`\x1b[35m=== Communication Ledger (${pid}): ${messages.length} messages [chatRoom.md] ===\x1b[0m\n`);
       for (const m of messages) {
         console.log(`\x1b[36m[${m.id}] ${m.timestamp} | ${m.sender.id} -> ${m.recipient.id} (${m.type})\x1b[0m`);
         console.log(m.content.slice(0, 400) + (m.content.length > 400 ? "..." : ""));
