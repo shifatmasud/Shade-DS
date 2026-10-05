@@ -1,12 +1,11 @@
 ---
 name: "mcp-cli"
 description: |
-  Connect to, discover, and execute tools on any Model Context Protocol (MCP) server. Supports Stdio, HTTP, SSE, and custom MCP server transports with OAuth support.
+  Connect to, discover, and execute tools on any Model Context Protocol (MCP) server. Supports Stdio, HTTP, SSE, and custom MCP server transports.
   
-Use this skill in the following scenarios:
-  * MCP Integration: Connecting AI Studio as an MCP client to external or local MCP servers (e.g., Figma, GitHub, Postgres, Raylight, Upsy).
+  Use this skill in the following scenarios:
+  * MCP Integration: Connecting AI Studio as an MCP client to external or local MCP servers (e.g., Figma, GitHub, Postgres, Custom APIs).
   * MCP Transport Setup: Configuring Stdio process streams or HTTP/SSE network endpoints with authentication headers.
-  * OAuth for MCP: Implementing popup-based OAuth flows for remote MCP servers that require authentication.
   * Tool Orchestration: Querying available tool definitions, schemas, and executing JSON-RPC 2.0 tool calls non-interactively.
 ---
 
@@ -22,26 +21,22 @@ AI Studio includes a built-in TypeScript MCP client (`/scripts/mcp-client.ts`) p
 
 ### Features
 * **Multi-Transport Support**: Connects via Stdio processes (`child_process`) or HTTP/SSE streams.
-* **Header & Auth Proxying**: Automatically injects API keys and Bearer / Custom tokens.
-* **Dynamic Configuration**: Loads server definitions from `mcp-config.json`.
+* **Header & Auth Proxying**: Automatically injects API keys and Bearer / Custom tokens (e.g., `X-Figma-Token`, `Authorization`).
 * **Tool Discovery**: Introspects server capabilities and JSON schemas via `ListToolsRequestSchema`.
 * **RPC Execution**: Calls tools safely with structured parameter validation and JSON-RPC 2.0 error handling.
 
 ---
 
-## 2. Server Configuration Format (`mcp-config.json`)
+## 2. Server Configuration Format
 
 MCP server configurations use standard JSON schemas:
 
 ```json
 {
   "servers": {
-    "raylight": {
-      "url": "https://api.raylight.app/mcp",
-      "type": "sse",
-      "headers": {
-        "Authorization": "Bearer <TOKEN>"
-      }
+    "figma": {
+      "url": "https://mcp.figma.com/mcp",
+      "type": "http"
     },
     "local_figma": {
       "type": "stdio",
@@ -60,33 +55,24 @@ Use `scripts/mcp-client.ts` to inspect and execute tools on configured MCP serve
 
 ### A. List Tools & Run Sanity Test
 ```bash
-npx tsx scripts/mcp-client.ts test <server_name>
+npx tsx scripts/mcp-client.ts test
 ```
 
 ### B. Execute a Specific MCP Tool
 ```bash
-npx tsx scripts/mcp-client.ts call <server_name> <tool_name> '<json_arguments>'
+npx tsx scripts/mcp-client.ts call <tool_name> '<json_arguments>'
 ```
 
 Example:
 ```bash
-npx tsx scripts/mcp-client.ts call raylight list_scenes '{}'
+npx tsx scripts/mcp-client.ts call figma_get_me '{}'
 ```
 
 ---
 
-## 4. Third-Party OAuth for MCP
+## 4. Programmatic Client Usage in TypeScript
 
-Remote MCP servers (like Raylight or Upsy) often require OAuth.
-
-1.  **Initiate Auth**: Create a backend route that redirects to the provider's authorize endpoint.
-2.  **Callback**: Handle the code exchange and store the `access_token` in `tokens.json`.
-3.  **Config Sync**: Automatically update `mcp-config.json` with the new Bearer token in the `headers` object.
-4.  **Client Usage**: The `UniversalMCPClient` will automatically use these headers in subsequent connections.
-
----
-
-## 5. Programmatic Client Usage in TypeScript
+You can import `UniversalMCPClient` into any server script or tool:
 
 ```typescript
 import { UniversalMCPClient } from "./scripts/mcp-client.js";
@@ -94,16 +80,37 @@ import { UniversalMCPClient } from "./scripts/mcp-client.js";
 async function run() {
   const client = new UniversalMCPClient("my-app-agent", "1.0.0");
   
-  // Connect to a configured server from mcp-config.json
-  await client.connectToHTTP("https://api.raylight.app/mcp", {
-    "Authorization": "Bearer YOUR_ACCESS_TOKEN"
-  });
+  // 1. Connect over Stdio to local script
+  await client.connectToStdio("npx", ["tsx", "scripts/figma-mcp-server.ts"]);
 
+  // 2. Query tools
   const { tools } = await client.listTools();
   console.log("Available tools:", tools.map(t => t.name));
+
+  // 3. Execute tool call
+  const result = await client.callTool("figma_get_me", {});
+  console.log("Result:", result);
 
   await client.close();
 }
 
 run();
 ```
+
+---
+
+## 5. Connecting Remote HTTP / SSE Servers
+
+When connecting to remote servers (like `https://mcp.figma.com/mcp`):
+1. **Pass Auth Headers**: Pass environment variables like `X-Figma-Token` or `Authorization: Bearer <TOKEN>`.
+2. **Fallback to Stdio Proxy**: If a remote server requires OAuth browser redirection, use a local Stdio proxy script (`scripts/figma-mcp-server.ts`) that handles API authentication under the hood using your API token.
+
+---
+
+## 6. Creating Custom MCP Servers
+
+To create a new MCP server for a service:
+1. Initialize `@modelcontextprotocol/sdk/server/index.js`.
+2. Define tool schemas in `ListToolsRequestSchema`.
+3. Handle execution in `CallToolRequestSchema`.
+4. Connect via `StdioServerTransport` and test via `UniversalMCPClient`.

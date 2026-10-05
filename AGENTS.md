@@ -70,7 +70,7 @@ You MUST adhere to the following hierarchy when organizing components:
   ```bash
   npx tsx scripts/spawnAgents.ts "<task description>" [--plan <path_to_plan_spec>]
   ```
-  This automatically formulates or validates master specs, decomposes work into a dependency graph, executes worker contracts, runs the authoritative reviewer audit, and writes comprehensive reports to `/projects/spawnAgents_output.md` and `/projects/spawnAgents_output.json`.
+  This automatically formulates or validates master specs, decomposes work into a dependency graph, executes worker contracts, runs the authoritative reviewer audit, and writes comprehensive reports to `/artifacts/spawnAgents_output.md` and `/artifacts/spawnAgents_output.json`.
 - **Manager Persona**: When a user presents a complex task, act as a manager. Plan the agent layout, coordinate specialized sub-agents, and aggregate their domain-specific outputs into a unified solution. Use the CLI spawn tool to execute and persistent-record the multi-agent workflow.
 
 ## Workflow Integration

@@ -94,69 +94,30 @@ export class UniversalMCPClient {
 async function runCLI() {
   const args = process.argv.slice(2);
   const action = args[0] || "test";
-  const fs = await import("fs");
-  const path = await import("path");
-
-  const configPath = path.resolve(process.cwd(), "mcp-config.json");
-  let config: MCPConfig = { servers: {} };
-  
-  if (fs.existsSync(configPath)) {
-    config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-  }
 
   console.log("=== MCP Client Runner ===");
 
   if (action === "test") {
-    const serverName = args[1] || Object.keys(config.servers)[0] || "local";
-    const serverConfig = config.servers[serverName];
-
-    if (!serverConfig && serverName !== "local") {
-      console.error(`Server '${serverName}' not found in mcp-config.json`);
-      process.exit(1);
-    }
-
+    console.log("Connecting to local Figma MCP Server...");
     const client = new UniversalMCPClient();
-    
-    if (serverName === "local" || (!serverConfig && serverName === "local")) {
-      console.log("Connecting to local Figma MCP Server...");
-      await client.connectToStdio("npx", ["tsx", "scripts/figma-mcp-server.ts"]);
-    } else {
-      console.log(`Connecting to ${serverName} (${serverConfig.url})...`);
-      if (serverConfig.type === "stdio") {
-        await client.connectToStdio(serverConfig.command!, serverConfig.args || []);
-      } else {
-        await client.connectToHTTP(serverConfig.url!, serverConfig.headers || {});
-      }
-    }
+    await client.connectToStdio("npx", ["tsx", "scripts/figma-mcp-server.ts"]);
 
-    console.log("\n1. Listing all available MCP tools:");
-    try {
-      const toolsResult = await client.listTools();
-      console.log(JSON.stringify(toolsResult.tools.map((t) => t.name), null, 2));
-    } catch (err: any) {
-      console.error("Failed to list tools:", err.message);
-    }
+    console.log("\n1. Calling tool 'figma_get_me':");
+    const meResult = await client.callTool("figma_get_me");
+    console.log(JSON.stringify(meResult, null, 2));
+
+    console.log("\n2. Listing all available MCP tools:");
+    const toolsResult = await client.listTools();
+    console.log(JSON.stringify(toolsResult.tools.map((t) => t.name), null, 2));
 
     await client.close();
   } else if (action === "call") {
-    const serverName = args[1];
-    const toolName = args[2];
-    const toolArgsJson = args[3] || "{}";
+    const toolName = args[1];
+    const toolArgsJson = args[2] || "{}";
     const toolArgs = JSON.parse(toolArgsJson);
 
-    const serverConfig = config.servers[serverName];
-    if (!serverConfig) {
-      console.error(`Server '${serverName}' not found in mcp-config.json`);
-      process.exit(1);
-    }
-
     const client = new UniversalMCPClient();
-    if (serverConfig.type === "stdio") {
-      await client.connectToStdio(serverConfig.command!, serverConfig.args || []);
-    } else {
-      await client.connectToHTTP(serverConfig.url!, serverConfig.headers || {});
-    }
-
+    await client.connectToStdio("npx", ["tsx", "scripts/figma-mcp-server.ts"]);
     const res = await client.callTool(toolName, toolArgs);
     console.log(JSON.stringify(res, null, 2));
     await client.close();
