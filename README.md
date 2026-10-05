@@ -43,14 +43,6 @@ This is not just another component library. It is a **structural methodology** f
 
 ## 📜 Recent Changelogs
 
--   **`OCT 05, 2026`** · **Specialized Full-Screen TUI Route & Automatic Redirection**:
-    1. **Dedicated TUI Portal (`/tui`)**: Implemented a specialized, immersive route in `Terminal.tsx` that provides a true full-screen experience for interactive CLI applications. In TUI mode, the standard terminal header, quick keys, and prompt bars are hidden, allowing the remote application (like Antigravity) to utilize the entire viewport without distractions.
-    2. **Automatic Redirection Logic**: Configured the terminal to detect when the `agy` command is entered. If executed from the standard terminal, the user is automatically navigated to the `/tui` route to ensure the best possible rendering environment for the Bubbletea-based interface.
-    3. **Auto-Trigger & Persistence**: Added an effect that automatically launches the interactive `agy` session when landing on the `/tui` route if no process is already active. Provided a persistent "Exit TUI" floating button to allow seamless return to the standard terminal interface.
--   **`OCT 05, 2026`** · **TUI Rendering Stabilization & UTF-8 Environment Alignment**:
-    1. **Simplified Terminal Data Pipeline**: Removed redundant client-side `xterm-pty` complexity from `Terminal.tsx`, switching to a direct `term.onData` capture and SSE `term.write` rendering model. This eliminates intermediate buffer desynchronization between the frontend emulator and the real server-side Linux PTY.
-    2. **UTF-8 Unicode Enforcement**: Injected `LANG=C.UTF-8` and `LC_ALL=C.UTF-8` into the terminal execution environment in `server.ts`. This ensures that Bubbletea-based TUIs (like `agy` root) can correctly render Unicode box-drawing characters and symbols without mojibake or layout breakage.
-    3. **Raw Input Passthrough**: Standardized input forwarding to send raw keystrokes directly to the backend PTY, ensuring control sequences and TUI-specific hotkeys are captured with 100% fidelity.
 -   **`OCT 05, 2026`** · **Interactive Terminal PTY Reinstatement (`pty_runner.py`) & Client-Side PTY State Sync**:
     1. **PTY Runner Reinstatement**: Restored the dedicated, robust `scripts/pty_runner.py` pseudoterminal wrapper as the primary backend command execution engine (spawning via explicit `python3` runner), replacing `/usr/bin/script` which suffered from TUI buffering and input block constraints.
     2. **Synchronized Client-Side PTY Stream Routing**: Refactored `/components/Page/Terminal.tsx` to route incoming SSE streaming payloads directly through `slave.write(...)` of `xterm-pty` instead of bypassing it via `term.write(...)`. This ensures xterm-pty's local terminal emulator accurately processes and maintains raw modes, local echo states, alternate buffer layers, and cursor addressing for flawless interactive Bubbletea/Lipgloss rendering.
