@@ -46,8 +46,6 @@ interface ControlPanelProps {
   onToggleConfetti: () => void;
   enableSound: boolean;
   onToggleSound: () => void;
-  showMcp: boolean;
-  onToggleMcp: () => void;
 }
 
 // Removed custom PropSlider component, using core RangeSlider component instead
@@ -82,8 +80,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   onToggleConfetti,
   enableSound,
   onToggleSound,
-  showMcp,
-  onToggleMcp,
 }) => {
   const { theme, themeName, setThemeName } = useTheme();
 
@@ -568,11 +564,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             label="System Spec"
             isOn={showSystemSpec}
             onToggle={onToggleSystemSpec}
-          />
-          <Toggle
-            label="MCP Integrations"
-            isOn={showMcp}
-            onToggle={onToggleMcp}
           />
           <Toggle
             label="3D Layer View"

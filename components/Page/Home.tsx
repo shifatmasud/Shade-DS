@@ -17,7 +17,6 @@ import StyleGuidePanel from '../Package/StyleGuidePanel.tsx';
 import TabbedPanel from '../Package/TabbedPanel.tsx';
 import SystemSpec from '../Package/SystemSpec.tsx';
 import AIPanel from '../Package/AIPanel.tsx';
-import MCPIntegrations from '../Package/MCPIntegrations.tsx';
 import UndoRedo from '../Package/UndoRedo.tsx';
 import Confetti from '../Core/Confetti.tsx';
 import { Sliders, Code, Terminal } from 'phosphor-react';
@@ -831,18 +830,6 @@ const Home = () => {
                 onUpdateState={(updates) => handlePropChange({ ...updates, componentType: 'custom' })}
                 apiKey={geminiApiKey}
               />
-            </FloatingWindow>
-          )}
-
-          {windows.mcp.isOpen && (
-            <FloatingWindow
-              key="mcp"
-              {...windows.mcp}
-              onClose={() => toggleWindow('mcp')}
-              onResize={(newHeight) => handleResize('mcp', newHeight)}
-              onFocus={() => bringToFront('mcp')}
-            >
-              <MCPIntegrations />
             </FloatingWindow>
           )}
 
