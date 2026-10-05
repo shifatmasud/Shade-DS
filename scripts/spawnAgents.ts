@@ -5,22 +5,34 @@ import * as path from "path";
 import { execSync } from "child_process";
 import dotenv from "dotenv";
 
-// Load environment variables from .env
-dotenv.config();
+// Load environment variables silently
+dotenv.config({ quiet: true } as any);
 
 // ============================================================================
 // CONFIGURATION & INITIALIZATION
 // ============================================================================
 
-const apiKey = process.env.GEMINI_API_KEY;
+let apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  for (const profilePath of ["/root/.bashrc", "/root/.profile"]) {
+    if (fs.existsSync(profilePath)) {
+      const match = fs.readFileSync(profilePath, "utf8").match(/GEMINI_API_KEY=["']?([^"'\s\n]+)["']?/);
+      if (match?.[1]) {
+        apiKey = match[1];
+        process.env.GEMINI_API_KEY = apiKey;
+        break;
+      }
+    }
+  }
+}
 if (!apiKey) {
   console.error("\x1b[31m[Error] GEMINI_API_KEY environment variable is not set.\x1b[0m");
   console.log("\x1b[33mPlease set GEMINI_API_KEY in your environment or Settings > Secrets.\x1b[0m");
   process.exit(1);
 }
 
-// Every agent uses gemini-flash-latest by default
-export const DEFAULT_MODEL = process.env.SUB_AGENT_MODEL || "gemini-flash-latest";
+// Every agent uses gemini-3.8-flash by default
+export const DEFAULT_MODEL = process.env.SUB_AGENT_MODEL || "gemini-3.8-flash";
 export const MAX_REVIEW_RETRIES = 3;
 export const MAX_PARALLEL_AGENTS = 6;
 
@@ -36,11 +48,17 @@ const ai = new GoogleGenAI({
 /**
  * Robust caller for Gemini API with automatic exponential backoff.
  */
-export async function generateContentWithRetry(params: any, retries: number = 5, delayMs: number = 3000): Promise<any> {
+export async function generateContentWithRetry(params: any, retries: number = 8, delayMs: number = 1500): Promise<any> {
+  const modelsToTry = [params.model || DEFAULT_MODEL, "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+  let lastError: any = null;
+
   for (let attempt = 1; attempt <= retries; attempt++) {
+    const currentModel = modelsToTry[(attempt - 1) % modelsToTry.length];
+    const callParams = { ...params, model: currentModel };
     try {
-      return await ai.models.generateContent(params);
+      return await ai.models.generateContent(callParams);
     } catch (error: any) {
+      lastError = error;
       const errorStr = String(error?.message || error);
       const isTransient =
         errorStr.includes("503") ||
@@ -55,13 +73,61 @@ export async function generateContentWithRetry(params: any, retries: number = 5,
         error?.status === 429 ||
         error?.code === 429;
       if (isTransient && attempt < retries) {
-        console.warn(`\x1b[33m[Warning] Gemini API rate limit or transient error. Retrying in ${delayMs}ms (Attempt ${attempt}/${retries})...\x1b[0m`);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
-        delayMs *= 2;
-      } else {
+        delayMs = Math.min(delayMs * 1.5, 6000);
+      } else if (!isTransient) {
         throw error;
       }
     }
+  }
+  throw lastError;
+}
+
+// ============================================================================
+// CLEAN EXECUTIVE TERMINAL UX & STYLING ENGINE
+// ============================================================================
+
+export class CLITheme {
+  static banner(title: string, subtitle?: string): void {
+    const width = 68;
+    const border = "─".repeat(width);
+    console.log(`\n\x1b[38;5;141m┌${border}┐\x1b[0m`);
+    console.log(`\x1b[38;5;141m│\x1b[0m \x1b[1;37m${title.padEnd(width - 2)}\x1b[0m \x1b[38;5;141m│\x1b[0m`);
+    if (subtitle) {
+      console.log(`\x1b[38;5;141m│\x1b[0m \x1b[38;5;111m${subtitle.slice(0, width - 2).padEnd(width - 2)}\x1b[0m \x1b[38;5;141m│\x1b[0m`);
+    }
+    console.log(`\x1b[38;5;141m└${border}┘\x1b[0m\n`);
+  }
+
+  static stage(step: number, total: number, title: string, status: "RUNNING" | "DONE" | "WARN" | "FAIL" = "RUNNING"): void {
+    const statusMap = {
+      RUNNING: "\x1b[38;5;45m● IN PROGRESS\x1b[0m",
+      DONE: "\x1b[38;5;84m✔ COMPLETE\x1b[0m",
+      WARN: "\x1b[38;5;220m▲ AUTO-HEALING\x1b[0m",
+      FAIL: "\x1b[38;5;196m✖ FAILED\x1b[0m",
+    };
+    console.log(`\x1b[1;38;5;141m[${step}/${total}]\x1b[0m \x1b[1;37m${title}\x1b[0m  ${statusMap[status]}`);
+  }
+
+  static detail(label: string, value: string): void {
+    console.log(`    \x1b[2;37m├─\x1b[0m \x1b[38;5;111m${label}:\x1b[0m \x1b[37m${value}\x1b[0m`);
+  }
+
+  static detailLast(label: string, value: string): void {
+    console.log(`    \x1b[2;37m└─\x1b[0m \x1b[38;5;111m${label}:\x1b[0m \x1b[37m${value}\x1b[0m`);
+  }
+
+  static executiveCard(title: string, metrics: Array<[string, string]>): void {
+    const width = 68;
+    const border = "─".repeat(width);
+    console.log(`\n\x1b[38;5;84m┌${border}┐\x1b[0m`);
+    console.log(`\x1b[38;5;84m│\x1b[0m \x1b[1;38;5;84m✔ ${title.padEnd(width - 4)}\x1b[0m \x1b[38;5;84m│\x1b[0m`);
+    console.log(`\x1b[38;5;84m├${border}┤\x1b[0m`);
+    for (const [k, v] of metrics) {
+      const line = ` ${k.padEnd(22)}: ${v}`;
+      console.log(`\x1b[38;5;84m│\x1b[0m \x1b[37m${line.slice(0, width - 2).padEnd(width - 2)}\x1b[0m \x1b[38;5;84m│\x1b[0m`);
+    }
+    console.log(`\x1b[38;5;84m└${border}┘\x1b[0m\n`);
   }
 }
 
@@ -487,6 +553,173 @@ export class ChatRoomLedger {
 export const ChatGroupLedger = ChatRoomLedger;
 
 // ============================================================================
+// AGENTS MESSENGER 1:1 DIRECT MESSAGING ENGINE (/agents-messenger & artifacts/{project-id}/agents-messenger)
+// ============================================================================
+
+export class AgentsMessengerEngine {
+  public baseDir: string;
+  public projectMessengerDir?: string;
+  public projectId?: string;
+
+  constructor(projectId?: string) {
+    this.projectId = projectId;
+    this.baseDir = path.join(process.cwd(), "agents-messenger");
+    if (projectId) {
+      this.projectMessengerDir = path.join(process.cwd(), "artifacts", projectId, "agents-messenger");
+      if (!fs.existsSync(this.projectMessengerDir)) {
+        fs.mkdirSync(this.projectMessengerDir, { recursive: true });
+      }
+    } else {
+      if (!fs.existsSync(this.baseDir)) {
+        fs.mkdirSync(this.baseDir, { recursive: true });
+      }
+    }
+    this.ensureDefaultAgentFiles();
+  }
+
+  private ensureDefaultAgentFiles(): void {
+    const defaultAgents = [
+      { name: "manager", role: "manager", title: "Manager Coordinator" },
+      { name: "strategist", role: "strategist", title: "Technical Strategist" },
+      { name: "planner", role: "planner", title: "Master Planner" },
+      { name: "builder", role: "builder", title: "Implementation Builder" },
+      { name: "researcher", role: "researcher", title: "Codebase Researcher" },
+      { name: "analyst", role: "analyst", title: "Technical Analyst" },
+      { name: "tester", role: "tester", title: "Verification Tester" },
+      { name: "reviewer", role: "reviewer", title: "Authoritative Reviewer" },
+      { name: "fixer", role: "fixer", title: "Specialized Fix Agent" },
+      { name: "human", role: "human", title: "Human Operator" },
+    ];
+
+    for (const ag of defaultAgents) {
+      this.ensureAgentFile(ag.name, ag.role, ag.title);
+    }
+  }
+
+  public ensureAgentFile(agentName: string, role?: string, title?: string): string {
+    const cleanName = agentName.toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
+    const header = `# Agent Messenger: ${cleanName}
+- **Agent Name**: \`${cleanName}\`
+- **Role**: \`${role || cleanName}\`
+- **Title**: ${title || cleanName.toUpperCase()}
+- **Channel**: 1:1 Direct Agent Stream
+- **Created**: "${new Date().toISOString()}"
+
+---
+`;
+
+    // 1. Project-scoped artifacts/{project-id}/agents-messenger/{cleanName}.md (Preferred when in a project context)
+    if (this.projectMessengerDir) {
+      if (!fs.existsSync(this.projectMessengerDir)) {
+        fs.mkdirSync(this.projectMessengerDir, { recursive: true });
+      }
+      const projFilePath = path.join(this.projectMessengerDir, `${cleanName}.md`);
+      if (!fs.existsSync(projFilePath)) {
+        fs.writeFileSync(projFilePath, header, "utf8");
+      }
+      return projFilePath;
+    }
+
+    // 2. Root-level fallback if running standalone messenger without a project
+    if (!fs.existsSync(this.baseDir)) {
+      fs.mkdirSync(this.baseDir, { recursive: true });
+    }
+    const filePath = path.join(this.baseDir, `${cleanName}.md`);
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, header, "utf8");
+    }
+    return filePath;
+  }
+
+  public appendMessage(message: ChatMessage): void {
+    const formatted = `
+## [${message.id}] ${message.timestamp} | ${message.sender.id} → ${message.recipient.id} (${message.type.toUpperCase()})
+- **Channel**: \`${message.channel || "1:1"}\`
+- **Sender**: \`${message.sender.type}\` (${message.sender.id}${message.sender.role ? `, role: ${message.sender.role}` : ""})
+- **Recipient**: \`${message.recipient.type}\` (${message.recipient.id}${message.recipient.role ? `, role: ${message.recipient.role}` : ""})
+- **Type**: \`${message.type}\`${message.task ? `\n- **Task**: \`${message.task}\`` : ""}${
+      message.context?.tools && message.context.tools.length > 0 ? `\n- **Granted Tools**: ${message.context.tools.map((t) => `\`${t}\``).join(", ")}` : ""
+    }${
+      message.context?.artifacts && message.context.artifacts.length > 0 ? `\n- **Context Artifacts**: ${message.context.artifacts.map((a) => `\`${a}\``).join(", ")}` : ""
+    }${
+      message.artifacts && message.artifacts.length > 0
+        ? `\n- **Produced Artifacts**: ${message.artifacts.map((a) => `\`${a}\``).join(", ")}`
+        : ""
+    }
+
+### Content:
+${message.content}
+
+---
+`;
+
+    // Determine target agent files to write to
+    const targetAgents = new Set<string>();
+
+    const senderKey = message.sender.id.toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
+    const recipientKey = message.recipient.id.toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
+
+    targetAgents.add(senderKey);
+    targetAgents.add(recipientKey);
+
+    if (message.sender.role) {
+      targetAgents.add(message.sender.role.toLowerCase().replace(/[^a-z0-9_-]+/g, "_"));
+    }
+    if (message.recipient.role) {
+      targetAgents.add(message.recipient.role.toLowerCase().replace(/[^a-z0-9_-]+/g, "_"));
+    }
+
+    for (const ag of targetAgents) {
+      if (this.projectMessengerDir) {
+        // Strictly write to artifacts/{project-id}/agents-messenger/{agent-name}.md
+        const projFilePath = path.join(this.projectMessengerDir, `${ag}.md`);
+        if (!fs.existsSync(projFilePath)) {
+          this.ensureAgentFile(ag, ag);
+        }
+        fs.appendFileSync(projFilePath, formatted, "utf8");
+      } else {
+        this.ensureAgentFile(ag, ag);
+        const filePath = path.join(this.baseDir, `${ag}.md`);
+        fs.appendFileSync(filePath, formatted, "utf8");
+      }
+    }
+  }
+
+  public listAgents(projectId?: string): Array<{ name: string; file: string; size: number }> {
+    const targetDir = projectId
+      ? path.join(process.cwd(), "artifacts", projectId, "agents-messenger")
+      : (this.projectMessengerDir || this.baseDir);
+    if (!fs.existsSync(targetDir)) return [];
+    const files = fs.readdirSync(targetDir).filter((f) => f.endsWith(".md"));
+    return files.map((f) => {
+      const p = path.join(targetDir, f);
+      const stat = fs.statSync(p);
+      return {
+        name: f.replace(/\.md$/, ""),
+        file: path.relative(process.cwd(), p),
+        size: stat.size,
+      };
+    });
+  }
+
+  public readThread(agentName: string, projectId?: string): string {
+    const cleanName = agentName.toLowerCase().replace(/[^a-z0-9_-]+/g, "_").replace(/\.md$/, "");
+    const targetDir = projectId
+      ? path.join(process.cwd(), "artifacts", projectId, "agents-messenger")
+      : (this.projectMessengerDir || this.baseDir);
+    const filePath = path.join(targetDir, `${cleanName}.md`);
+    if (fs.existsSync(filePath)) {
+      return fs.readFileSync(filePath, "utf8");
+    }
+    const fallbackPath = path.join(this.baseDir, `${cleanName}.md`);
+    if (fs.existsSync(fallbackPath)) {
+      return fs.readFileSync(fallbackPath, "utf8");
+    }
+    return `Agent messenger file not found for '${agentName}' at ${path.relative(process.cwd(), filePath)}`;
+  }
+}
+
+// ============================================================================
 // ARTIFACTS & PROJECT REPOSITORY MANAGER
 // ============================================================================
 
@@ -494,6 +727,7 @@ export class ProjectArtifactsManager {
   public baseDir: string;
   public projectDir: string;
   public stateDir: string;
+  public agentsMessengerDir: string;
   public researchDir: string;
   public strategyDir: string;
   public plansDir: string;
@@ -508,6 +742,7 @@ export class ProjectArtifactsManager {
     this.baseDir = path.join(process.cwd(), "artifacts");
     this.projectDir = path.join(this.baseDir, projectId);
     this.stateDir = path.join(this.projectDir, "state");
+    this.agentsMessengerDir = path.join(this.projectDir, "agents-messenger");
     this.researchDir = path.join(this.projectDir, "research");
     this.strategyDir = path.join(this.projectDir, "strategy");
     this.plansDir = path.join(this.projectDir, "plans");
@@ -525,6 +760,7 @@ export class ProjectArtifactsManager {
       this.baseDir,
       this.projectDir,
       this.stateDir,
+      this.agentsMessengerDir,
       this.researchDir,
       this.strategyDir,
       this.plansDir,
@@ -600,6 +836,13 @@ export interface ToolGrant {
 export class ToolExecutionEngine {
   public modifiedFiles = new Set<string>();
   public readFiles = new Set<string>();
+  public allowedWriteDir: string;
+  public projectId: string;
+
+  constructor(projectId: string = "default", allowedWriteDir?: string) {
+    this.projectId = projectId;
+    this.allowedWriteDir = allowedWriteDir || path.resolve(process.cwd(), "artifacts", projectId);
+  }
 
   public getToolDeclarations(grantedTools: string[] = ["filesystem_read"]): any[] {
     const decls: any[] = [];
@@ -608,7 +851,7 @@ export class ToolExecutionEngine {
       decls.push(
         {
           name: "readFile",
-          description: "Read the complete content of a workspace file.",
+          description: "Read the complete content of any file in the workspace codebase (e.g. 'Theme.tsx', 'components/...', 'skills/...', 'artifacts/...').",
           parameters: {
             type: Type.OBJECT,
             properties: {
@@ -619,7 +862,7 @@ export class ToolExecutionEngine {
         },
         {
           name: "listDir",
-          description: "List directory contents.",
+          description: "List directory contents across any folder in the workspace codebase (e.g. '.', 'components', 'skills', 'artifacts').",
           parameters: {
             type: Type.OBJECT,
             properties: {
@@ -634,11 +877,11 @@ export class ToolExecutionEngine {
     if (grantedTools.includes("filesystem_write") || grantedTools.includes("filesystem") || grantedTools.includes("all")) {
       decls.push({
         name: "writeFile",
-        description: "Write complete contents to a file. Overwrites or creates file.",
+        description: `Write complete contents to a file. Sandboxed strictly within 'artifacts/${this.projectId}/'. Target file paths are saved inside the project artifact directory (e.g. 'implementation/file.tsx' or 'artifacts/${this.projectId}/implementation/file.tsx').`,
         parameters: {
           type: Type.OBJECT,
           properties: {
-            filePath: { type: Type.STRING, description: "Target relative file path" },
+            filePath: { type: Type.STRING, description: `Target file path strictly within artifacts/${this.projectId}/` },
             content: { type: Type.STRING, description: "Complete, pristine text content" },
           },
           required: ["filePath", "content"],
@@ -673,7 +916,7 @@ export class ToolExecutionEngine {
         if (!fp.startsWith(process.cwd())) {
           return { error: "Permission Denied: path is outside workspace root." };
         }
-        this.readFiles.add(args.filePath);
+        this.readFiles.add(path.relative(process.cwd(), fp));
         if (fs.existsSync(fp)) {
           return { content: fs.readFileSync(fp, "utf8") };
         }
@@ -684,15 +927,39 @@ export class ToolExecutionEngine {
         if (!grantedTools.includes("filesystem_write") && !grantedTools.includes("filesystem") && !grantedTools.includes("all")) {
           return { error: "Permission Denied: filesystem_write tool not granted." };
         }
-        const fp = path.resolve(process.cwd(), args.filePath);
-        if (!fp.startsWith(process.cwd())) {
-          return { error: "Permission Denied: path is outside workspace root." };
+
+        const rawPath = String(args.filePath || "").trim();
+        const normalizedRaw = rawPath.replace(/\\/g, "/").replace(/^\.\//, "");
+        const expectedPrefix = `artifacts/${this.projectId}`;
+        
+        let targetPath: string;
+        if (normalizedRaw === expectedPrefix || normalizedRaw.startsWith(`${expectedPrefix}/`)) {
+          targetPath = path.resolve(process.cwd(), normalizedRaw);
+        } else if (normalizedRaw.startsWith("artifacts/")) {
+          return {
+            error: `Permission Denied: Agents are sandboxed to project '${this.projectId}'. Cannot write to '${rawPath}'. All writes must reside within '${expectedPrefix}/'.`,
+          };
+        } else {
+          // Auto-sandbox subpaths within artifacts/{projectId}/
+          targetPath = path.resolve(this.allowedWriteDir, normalizedRaw);
         }
-        const dir = path.dirname(fp);
+
+        // Absolute security containment check
+        const normalizedTarget = path.resolve(targetPath);
+        const normalizedAllowed = path.resolve(this.allowedWriteDir);
+
+        if (!normalizedTarget.startsWith(normalizedAllowed)) {
+          return {
+            error: `Permission Denied: Sandboxing violation. Agents are strictly restricted to writing inside 'artifacts/${this.projectId}/'. Attempted target '${rawPath}' resolved outside sandbox.`,
+          };
+        }
+
+        const dir = path.dirname(normalizedTarget);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(fp, args.content, "utf8");
-        this.modifiedFiles.add(args.filePath);
-        return { success: true, message: `Successfully wrote ${args.filePath}` };
+        fs.writeFileSync(normalizedTarget, args.content, "utf8");
+        const relPath = path.relative(process.cwd(), normalizedTarget);
+        this.modifiedFiles.add(relPath);
+        return { success: true, message: `Successfully wrote ${relPath}` };
       }
 
       if (callName === "listDir") {
@@ -700,6 +967,9 @@ export class ToolExecutionEngine {
           return { error: "Permission Denied: filesystem_read tool not granted." };
         }
         const dp = path.resolve(process.cwd(), args.dirPath || ".");
+        if (!dp.startsWith(process.cwd())) {
+          return { error: "Permission Denied: path is outside workspace root." };
+        }
         if (fs.existsSync(dp)) {
           const files = fs.readdirSync(dp);
           const stats = files.map((f) => {
@@ -718,12 +988,18 @@ export class ToolExecutionEngine {
         }
         const cmd = args.command;
         try {
-          const stdout = execSync(cmd, { encoding: "utf8", timeout: 45000 });
+          const stdout = execSync(cmd, {
+            encoding: "utf8",
+            timeout: 60000,
+            stdio: ["pipe", "pipe", "pipe"],
+            maxBuffer: 10 * 1024 * 1024,
+            cwd: process.cwd(),
+          });
           return { stdout, stderr: "", exitCode: 0 };
         } catch (err: any) {
           return {
-            stdout: err.stdout || "",
-            stderr: err.stderr || err.message || String(err),
+            stdout: err.stdout ? String(err.stdout) : "",
+            stderr: err.stderr ? String(err.stderr) : err.message || String(err),
             exitCode: err.status || 1,
           };
         }
@@ -753,7 +1029,7 @@ export const ROLE_REGISTRY: Record<string, RoleDefinition> = {
     description: "High-level technical and architectural strategizing.",
     defaultTools: ["filesystem_read"],
     systemInstruction: `You are an expert Technical Strategist Agent.
-Your responsibility is to analyze requirements, identify architectural pathways, evaluate trade-offs, and recommend clean design strategies.
+Your responsibility is to analyze requirements, inspect the full workspace codebase, evaluate architectural pathways, and recommend clean design strategies.
 Always prioritize maintainability, performance, Theme.tsx design tokens, and modular separation of concerns.`,
   },
   planner: {
@@ -761,7 +1037,7 @@ Always prioritize maintainability, performance, Theme.tsx design tokens, and mod
     description: "Detailed step-by-step master plan and acceptance criteria formulation.",
     defaultTools: ["filesystem_read"],
     systemInstruction: `You are the Lead Master Planner Agent.
-Your responsibility is to establish a pristine architectural plan, objective, and explicit acceptance criteria (including functional criteria and non-negotiables).
+Your responsibility is to inspect the full workspace codebase and establish a pristine architectural plan, objective, and explicit acceptance criteria.
 Enforce repo rules: Theme.tsx token compliance, JS style objects, Framer Motion, and zero type errors.`,
   },
   researcher: {
@@ -769,26 +1045,26 @@ Enforce repo rules: Theme.tsx token compliance, JS style objects, Framer Motion,
     description: "Deep codebase, pattern, and reference research.",
     defaultTools: ["filesystem_read"],
     systemInstruction: `You are an expert Codebase Researcher Agent.
-Your role is to inspect workspace files, documentation, imports, and existing implementations to gather factual technical intelligence.`,
+Your role is to inspect any file in the workspace codebase (components, hooks, types, styles, skills, configs) to gather factual technical intelligence.`,
   },
   analyst: {
     name: "analyst",
     description: "Structural code analysis, impact assessment, and risk auditing.",
     defaultTools: ["filesystem_read"],
     systemInstruction: `You are a Senior Technical Analyst Agent.
-Your role is to audit data models, control flows, and edge cases, highlighting risks and actionable integration points.`,
+Your role is to audit data models, control flows, Theme tokens, and edge cases across the entire codebase, highlighting risks and actionable integration points.`,
   },
   builder: {
     name: "builder",
-    description: "Implementation engineer with read/write and build testing tools.",
+    description: "Implementation engineer with full codebase read access and sandboxed artifact write access.",
     defaultTools: ["filesystem_read", "filesystem_write", "terminal"],
     systemInstruction: `You are the Expert Implementation Builder Agent.
-Your role is to write clean, complete, and functional code adhering to the task spec.
+Your role is to inspect the full workspace codebase and write clean, complete, and functional artifacts sandboxed inside 'artifacts/{projectId}/'.
 Directives:
-1. Always read existing files before editing.
-2. Write complete, non-truncated content using writeFile.
-3. Use Theme.tsx Surface and Content tokens and procedural border helpers.
-4. Never add external CSS or manual borders.
+1. You have full read access across the codebase via readFile/listDir.
+2. All file writes via writeFile are strictly sandboxed inside 'artifacts/{projectId}/'.
+3. Write complete, non-truncated content.
+4. Use Theme.tsx Surface and Content tokens and procedural border helpers.
 5. Respect Dock immunity and README immunity.`,
   },
   tester: {
@@ -796,21 +1072,21 @@ Directives:
     description: "Verification and compilation testing specialist.",
     defaultTools: ["filesystem_read", "terminal"],
     systemInstruction: `You are the Verification & Testing Agent.
-Your role is to execute tests, run compiler/lint checks via terminal, inspect runtime integrity, and record validation results.`,
+Your role is to inspect the full codebase, execute tests, run compiler/lint checks via terminal, inspect runtime integrity, and record validation results.`,
   },
   reviewer: {
     name: "reviewer",
     description: "Authoritative code quality, architecture, and acceptance criteria auditor.",
     defaultTools: ["filesystem_read", "filesystem_write", "terminal"],
     systemInstruction: `You are the Authoritative Lead QA and Code Reviewer Agent.
-Your role is to run 'npm run lint' and 'npm run build', inspect modified files, verify Theme.tsx token usage, audit architectural integrity, and return PASS or FAIL with explicit issue items.`,
+Your role is to run 'npm run lint' and 'npm run build', inspect codebase and artifact files, verify Theme.tsx token usage, audit architectural integrity, and return PASS or FAIL with explicit issue items.`,
   },
   fixer: {
     name: "fixer",
     description: "Targeted bug and compiler error remediation engineer.",
     defaultTools: ["filesystem_read", "filesystem_write", "terminal"],
     systemInstruction: `You are the Specialized Fix Agent.
-Your sole mission is to resolve compiler errors, broken imports, missing types, or review issues identified by the Reviewer.`,
+Your sole mission is to inspect the codebase, resolve compiler errors, broken imports, missing types, or review issues, saving remediation artifacts inside 'artifacts/{projectId}/'.`,
   },
 };
 
@@ -828,13 +1104,14 @@ export interface SpawnAgentOptions {
   responseSchema?: any;
   maxTurns?: number;
   projectManager: ProjectArtifactsManager;
-  ledger: ChatGroupLedger;
+  ledger: ChatRoomLedger;
+  messenger?: AgentsMessengerEngine;
   channel?: string;
 }
 
 /**
  * Spawns a fresh, isolated agent.
- * Every sub-agent creates a brand-new Gemini context and records all prompts and responses to chatRoom.md.
+ * Every sub-agent creates a brand-new Gemini context and records all prompts and responses to chatRoom.md and /agents-messenger.
  */
 export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
   text: string;
@@ -850,14 +1127,18 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
   };
 
   const toolsGranted = opts.grantedTools || roleDef.defaultTools;
-  const toolEngine = new ToolExecutionEngine();
+  const toolEngine = new ToolExecutionEngine(opts.projectManager.projectId, opts.projectManager.projectDir);
   const toolsDecl = toolEngine.getToolDeclarations(toolsGranted);
 
-  const finalSystemInstruction = `${roleDef.systemInstruction}\n\n${opts.systemInstruction || ""}`.trim();
+  const sandboxInstruction = `WORKSPACE ACCESS RULES:
+- Full Codebase Read Access: You have unrestricted read access across the entire repository codebase using 'readFile' and 'listDir'.
+- Sandboxed Write Access: All file writing using 'writeFile' is strictly sandboxed inside 'artifacts/${opts.projectManager.projectId}/'. Target file paths will be saved inside 'artifacts/${opts.projectManager.projectId}/'.`;
 
-  // 1. Log prompt to chatRoom.md
+  const finalSystemInstruction = `${roleDef.systemInstruction}\n\n${sandboxInstruction}\n\n${opts.systemInstruction || ""}`.trim();
+
+  // 1. Log prompt to chatRoom.md and /agents-messenger
   const promptMsgId = opts.ledger.nextMessageId();
-  opts.ledger.appendMessage({
+  const promptMsg: ChatMessage = {
     id: promptMsgId,
     timestamp: new Date().toISOString(),
     sender: { type: "manager", id: "manager" },
@@ -870,7 +1151,9 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
       tools: toolsGranted,
     },
     task: opts.agentId,
-  });
+  };
+  opts.ledger.appendMessage(promptMsg);
+  opts.messenger?.appendMessage(promptMsg);
 
   const contents: any[] = [{ role: "user", parts: [{ text: opts.task }] }];
   let turn = 0;
@@ -881,7 +1164,6 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
     turn++;
     const config: any = {
       systemInstruction: finalSystemInstruction,
-      thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
     };
 
     if (toolsDecl.length > 0) {
@@ -912,9 +1194,9 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
 
     const toolParts: any[] = [];
     for (const call of functionCalls) {
-      // Log tool call to chatRoom.md
+      // Log tool call to chatRoom.md and /agents-messenger
       const toolCallId = opts.ledger.nextMessageId();
-      opts.ledger.appendMessage({
+      const toolCallMsg: ChatMessage = {
         id: toolCallId,
         timestamp: new Date().toISOString(),
         sender: { type: "agent", id: opts.agentId, role: opts.role },
@@ -923,13 +1205,15 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
         type: "tool_call",
         content: `Tool Call: ${call.name}\nArguments: ${JSON.stringify(call.args, null, 2)}`,
         task: opts.agentId,
-      });
+      };
+      opts.ledger.appendMessage(toolCallMsg);
+      opts.messenger?.appendMessage(toolCallMsg);
 
       const result = toolEngine.executeTool(call.name, call.args, toolsGranted);
 
-      // Log tool response to chatRoom.md
+      // Log tool response to chatRoom.md and /agents-messenger
       const toolRespId = opts.ledger.nextMessageId();
-      opts.ledger.appendMessage({
+      const toolRespMsg: ChatMessage = {
         id: toolRespId,
         timestamp: new Date().toISOString(),
         sender: { type: "manager", id: "manager" },
@@ -938,7 +1222,9 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
         type: "tool_response",
         content: `Tool Result (${call.name}):\n${JSON.stringify(result, null, 2).slice(0, 1000)}`,
         task: opts.agentId,
-      });
+      };
+      opts.ledger.appendMessage(toolRespMsg);
+      opts.messenger?.appendMessage(toolRespMsg);
 
       toolParts.push({
         functionResponse: {
@@ -951,9 +1237,9 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
     contents.push({ role: "user", parts: toolParts });
   }
 
-  // Log agent response to chatRoom.md
+  // Log agent response to chatRoom.md and /agents-messenger
   const responseMsgId = opts.ledger.nextMessageId();
-  opts.ledger.appendMessage({
+  const responseMsg: ChatMessage = {
     id: responseMsgId,
     timestamp: new Date().toISOString(),
     sender: { type: "agent", id: opts.agentId, role: opts.role },
@@ -962,7 +1248,9 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
     type: "agent_response",
     content: rawText,
     task: opts.agentId,
-  });
+  };
+  opts.ledger.appendMessage(responseMsg);
+  opts.messenger?.appendMessage(responseMsg);
 
   let parsedJson: any = undefined;
   try {
@@ -988,12 +1276,14 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
 
 export class ManagerOrchestrator {
   public artifactsManager: ProjectArtifactsManager;
-  public ledger: ChatGroupLedger;
+  public ledger: ChatRoomLedger;
+  public messenger: AgentsMessengerEngine;
   public state: ProjectState;
 
   constructor(public projectId: string, public userObjective: string) {
     this.artifactsManager = new ProjectArtifactsManager(projectId);
-    this.ledger = new ChatGroupLedger(this.artifactsManager.projectDir, projectId);
+    this.ledger = new ChatRoomLedger(this.artifactsManager.projectDir, projectId);
+    this.messenger = new AgentsMessengerEngine(projectId);
     
     const existing = this.artifactsManager.loadState();
     if (existing) {
@@ -1025,13 +1315,11 @@ export class ManagerOrchestrator {
     reviewResult: ReviewResult;
     artifacts: string[];
   }> {
-    console.log(`\n\x1b[35m=============================================================\x1b[0m`);
-    console.log(`\x1b[35m  MANAGER-CENTRIC MULTI-AGENT ORCHESTRATOR [Project: ${this.projectId}]\x1b[0m`);
-    console.log(`\x1b[35m=============================================================\x1b[0m\n`);
+    CLITheme.banner("AUTONOMOUS AGENT ORCHESTRATOR", `Task: "${this.state.objective}"`);
 
     // Log human request
     const humanMsgId = this.ledger.nextMessageId();
-    this.ledger.appendMessage({
+    const humanMsg: ChatMessage = {
       id: humanMsgId,
       timestamp: new Date().toISOString(),
       sender: { type: "human", id: "human" },
@@ -1039,10 +1327,12 @@ export class ManagerOrchestrator {
       channel: "manager",
       type: "user_prompt",
       content: this.state.objective,
-    });
+    };
+    this.ledger.appendMessage(humanMsg);
+    this.messenger.appendMessage(humanMsg);
 
     // 1. Manager Strategy & Master Planning
-    console.log(`\x1b[36m[Manager] Spawning Planner agent to formulate Master Architectural Plan...\x1b[0m`);
+    CLITheme.stage(1, 5, "Formulating Master Architectural Plan", "RUNNING");
     const planResult = await spawnFreshAgent({
       role: "planner",
       agentId: "planner_01",
@@ -1057,6 +1347,7 @@ Formulate a Master Architectural Plan JSON with:
 Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Motion, and zero compiler regressions.`,
       projectManager: this.artifactsManager,
       ledger: this.ledger,
+      messenger: this.messenger,
       grantedTools: ["filesystem_read"],
     });
 
@@ -1078,10 +1369,12 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
     );
     this.state.artifacts.push(planArtifactPath);
     this.artifactsManager.saveState(this.state);
-    console.log(`\x1b[32m✔ Master Plan established: "${masterPlan.taskName}". Artifact saved at ${planArtifactPath}\x1b[0m\n`);
+    CLITheme.stage(1, 5, "Master Architectural Plan Established", "DONE");
+    CLITheme.detail("Plan Target", masterPlan.taskName);
+    CLITheme.detailLast("Acceptance Criteria", `${masterPlan.acceptanceCriteria.criteria.length} criteria defined`);
 
     // 2. Parallel Analysis Agents
-    console.log(`\x1b[36m[Manager] Spawning Parallel Analysis Agents (Structural, DesignSystem, Rules)...\x1b[0m`);
+    CLITheme.stage(2, 5, "Parallel Discovery (Structural, Design System, Rules)", "RUNNING");
     const analysisPromises = [
       spawnFreshAgent({
         role: "researcher",
@@ -1089,6 +1382,7 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
         task: `Inspect codebase files, components, and project structure for task: "${this.state.objective}". Output key architectural findings.`,
         projectManager: this.artifactsManager,
         ledger: this.ledger,
+        messenger: this.messenger,
         grantedTools: ["filesystem_read"],
       }),
       spawnFreshAgent({
@@ -1097,6 +1391,7 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
         task: `Inspect Theme.tsx, design tokens, styling rules, and Framer Motion patterns for task: "${this.state.objective}".`,
         projectManager: this.artifactsManager,
         ledger: this.ledger,
+        messenger: this.messenger,
         grantedTools: ["filesystem_read"],
       }),
       spawnFreshAgent({
@@ -1105,6 +1400,7 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
         task: `Check AGENTS.md, protected components (Dock immunity, README immunity), and safety constraints for task: "${this.state.objective}".`,
         projectManager: this.artifactsManager,
         ledger: this.ledger,
+        messenger: this.messenger,
         grantedTools: ["filesystem_read"],
       }),
     ];
@@ -1113,10 +1409,11 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
     const combinedAnalysis = `### Structural Intelligence:\n${structuralBrief.text}\n\n### Design System Tokens:\n${designBrief.text}\n\n### Rules & Immunity:\n${rulesBrief.text}`;
     const analysisArtifactPath = this.artifactsManager.saveArtifact("analysis", "initial_brief.md", combinedAnalysis);
     this.state.artifacts.push(analysisArtifactPath);
-    console.log(`\x1b[32m✔ Parallel Analysis complete. Brief saved at ${analysisArtifactPath}\x1b[0m\n`);
+    CLITheme.stage(2, 5, "Parallel Architectural Discovery Complete", "DONE");
+    CLITheme.detail("Structural Brief", "Workspace layout and dependencies mapped");
+    CLITheme.detailLast("Token Boundaries", "Theme tokens and component isolation verified");
 
-    // 3. Manager Task Graph Partitioning
-    console.log(`\x1b[36m[Manager] Partitioning Master Plan into Dependency-Ordered Worker Tasks...\x1b[0m`);
+    // 3. Manager Task Graph Partitioning & Execution
     const partitionResult = await spawnFreshAgent({
       role: "planner",
       agentId: "task_coordinator",
@@ -1146,6 +1443,7 @@ Partition this plan into a list of worker tasks JSON:
 }`,
       projectManager: this.artifactsManager,
       ledger: this.ledger,
+      messenger: this.messenger,
       grantedTools: ["filesystem_read"],
     });
 
@@ -1166,17 +1464,12 @@ Partition this plan into a list of worker tasks JSON:
     this.state.activeTasks = tasks.map((t) => t.id);
     this.artifactsManager.saveState(this.state);
 
-    console.log(`\x1b[32m✔ Manager scheduled ${tasks.length} task(s):\x1b[0m`);
-    tasks.forEach((t, i) => console.log(`  ${i + 1}. [${t.id}] ${t.name} (${t.role})`));
-
-    // 4. Sequential Worker Execution
-    console.log(`\n\x1b[35m=== Worker Execution Phase ===\x1b[0m`);
+    CLITheme.stage(3, 5, `Executing ${tasks.length} Autonomous Worker Task(s)`, "RUNNING");
     const workerOutputs: WorkerOutputContract[] = [];
+    const allModifiedFiles = new Set<string>();
 
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
-      console.log(`\x1b[33m--- [Task ${i + 1}/${tasks.length}] ${task.name} (${task.role}) ---\x1b[0m`);
-
       const workerResult = await spawnFreshAgent({
         role: task.role,
         agentId: `${task.role}_${task.id}`,
@@ -1190,8 +1483,13 @@ CRITERIA: ${task.acceptanceCriteria.join("; ")}
 Read existing files, make necessary modifications using writeFile, and summarize your changes.`,
         projectManager: this.artifactsManager,
         ledger: this.ledger,
+        messenger: this.messenger,
         grantedTools: task.grantedTools || ROLE_REGISTRY[task.role]?.defaultTools || ["filesystem_read", "filesystem_write", "terminal"],
       });
+
+      for (const f of workerResult.modifiedFiles) {
+        allModifiedFiles.add(f);
+      }
 
       const outputContract: WorkerOutputContract = {
         taskId: task.id,
@@ -1218,16 +1516,27 @@ Read existing files, make necessary modifications using writeFile, and summarize
       this.state.activeTasks = this.state.activeTasks.filter((id) => id !== task.id);
       this.state.artifacts.push(outArtifactPath);
       this.artifactsManager.saveState(this.state);
+
+      if (i === tasks.length - 1) {
+        CLITheme.detailLast(`[${i + 1}/${tasks.length}] ${task.name} (${task.role})`, workerResult.modifiedFiles.length > 0 ? `Modified: ${workerResult.modifiedFiles.join(", ")}` : "Verified file system");
+      } else {
+        CLITheme.detail(`[${i + 1}/${tasks.length}] ${task.name} (${task.role})`, workerResult.modifiedFiles.length > 0 ? `Modified: ${workerResult.modifiedFiles.join(", ")}` : "Verified file system");
+      }
     }
+    CLITheme.stage(3, 5, `Completed ${tasks.length} Autonomous Worker Task(s)`, "DONE");
 
-    // 5. Authoritative Reviewer & Fix Agent Loop
-    console.log(`\n\x1b[35m=== Authoritative Review & Verification Phase ===\x1b[0m`);
+    // 4. Authoritative Reviewer
+    CLITheme.stage(4, 5, "Running Authoritative Review (Lint & Build Audit)", "RUNNING");
     let reviewResult = await this.executeReviewer(masterPlan, workerOutputs);
-    let retryCount = 0;
+    CLITheme.stage(4, 5, `Authoritative Audit: ${reviewResult.status} (Score: ${reviewResult.score})`, reviewResult.status === "PASS" ? "DONE" : "WARN");
+    CLITheme.detail("Lint Status", reviewResult.lintPassed ? "✔ PASSED" : "✖ FAILED");
+    CLITheme.detailLast("Build Status", reviewResult.buildPassed ? "✔ PASSED" : "✖ FAILED");
 
+    // 5. Autonomous Fix Agent Loop (if needed)
+    let retryCount = 0;
     while (reviewResult.status === "FAIL" && retryCount < MAX_REVIEW_RETRIES) {
       retryCount++;
-      console.warn(`\x1b[31m[Review Failed] ${reviewResult.issues.length} issue(s) detected. Spawning Fix Agent (Attempt ${retryCount}/${MAX_REVIEW_RETRIES})...\x1b[0m`);
+      CLITheme.stage(5, 5, `Self-Healing Auto-Fixer (Attempt ${retryCount}/${MAX_REVIEW_RETRIES})`, "WARN");
 
       await spawnFreshAgent({
         role: "fixer",
@@ -1240,24 +1549,37 @@ ${reviewResult.issues.map((iss, idx) => `${idx + 1}. [${iss.severity}] ${iss.fil
 Inspect failing files, execute 'runCommand' ('npm run lint' or 'npm run build') to diagnose, and apply pristine fixes with writeFile.`,
         projectManager: this.artifactsManager,
         ledger: this.ledger,
+        messenger: this.messenger,
         grantedTools: ["filesystem_read", "filesystem_write", "terminal"],
       });
 
-      console.log(`\x1b[36mRe-running Reviewer Agent for audit verification...\x1b[0m`);
       reviewResult = await this.executeReviewer(masterPlan, workerOutputs);
+    }
+
+    if (reviewResult.status === "PASS") {
+      CLITheme.stage(5, 5, "Zero-Defect Verification (100% Clean Pass)", "DONE");
+    } else {
+      CLITheme.stage(5, 5, "Verification Incomplete (Review retries exhausted)", "FAIL");
     }
 
     // 6. Final State & Backwards Compatibility Artifacts
     this.state.status = reviewResult.status === "PASS" ? "completed" : "failed";
     this.state.updatedAt = new Date().toISOString();
     this.artifactsManager.saveState(this.state);
-
-    // Save backwards compatible artifacts in /artifacts root
     this.saveCompatibilityArtifacts(masterPlan, combinedAnalysis, workerOutputs, reviewResult);
 
-    console.log(`\n\x1b[32m✔ Project execution complete! Status: ${this.state.status.toUpperCase()}\x1b[0m`);
-    console.log(`\x1b[36mCommunication Ledger:\x1b[0m \x1b[1martifacts/${this.projectId}/chatRoom.md\x1b[0m`);
-    console.log(`\x1b[36mProject State:\x1b[0m \x1b[1martifacts/${this.projectId}/state/project.yaml\x1b[0m\n`);
+    // Executive Completion Card
+    const fileListStr = Array.from(allModifiedFiles).join(", ") || "No manual changes required";
+    CLITheme.executiveCard("AUTONOMOUS EXECUTION COMPLETED", [
+      ["Project ID", this.projectId],
+      ["Objective", this.state.objective],
+      ["Build Status", reviewResult.buildPassed ? "✔ PASSED (npm run build)" : "✖ FAILED"],
+      ["Lint Status", reviewResult.lintPassed ? "✔ PASSED (npm run lint)" : "✖ FAILED"],
+      ["Quality Audit", `${reviewResult.score} (${reviewResult.status})`],
+      ["Modified Files", fileListStr],
+      ["Chat Room", `artifacts/${this.projectId}/chatRoom.md`],
+      ["1:1 Messenger", "agents-messenger/"],
+    ]);
 
     return {
       masterPlan,
@@ -1302,6 +1624,7 @@ Return a JSON object:
 }`,
       projectManager: this.artifactsManager,
       ledger: this.ledger,
+      messenger: this.messenger,
       grantedTools: ["filesystem_read", "filesystem_write", "terminal"],
     });
 
@@ -1334,40 +1657,39 @@ Return a JSON object:
     reviewResult: ReviewResult
   ): void {
     const artifactsDir = path.join(process.cwd(), "artifacts");
+    const projArtifactsDir = this.artifactsManager.projectDir;
     if (!fs.existsSync(artifactsDir)) fs.mkdirSync(artifactsDir, { recursive: true });
+    if (!fs.existsSync(projArtifactsDir)) fs.mkdirSync(projArtifactsDir, { recursive: true });
 
     // 1. Task Spec
     const taskSlug = masterPlan.taskName.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "task_spec";
-    const specFilePath = path.join(artifactsDir, `${taskSlug}_spec.md`);
     const specContent = `# Tech Spec: ${masterPlan.taskName}\n\n## Objective\n${masterPlan.objective}\n\n## Architectural Decisions\n${masterPlan.architectureDecisions}\n\n## Implementation Plan\n${masterPlan.planContent}\n\n## Acceptance Criteria\n### Functional Criteria\n${masterPlan.acceptanceCriteria.criteria.map((c) => `- ${c}`).join("\n")}\n\n### Non-Negotiables\n${masterPlan.acceptanceCriteria.nonNegotiables.map((n) => `- ${n}`).join("\n")}\n`;
-    fs.writeFileSync(specFilePath, specContent, "utf8");
+    fs.writeFileSync(path.join(projArtifactsDir, `${taskSlug}_spec.md`), specContent, "utf8");
+    fs.writeFileSync(path.join(artifactsDir, `${taskSlug}_spec.md`), specContent, "utf8");
 
     // 2. Markdown Report
-    const mdPath = path.join(artifactsDir, "spawnAgents_output.md");
     let mdContent = `# Spawn Agents Execution Report: ${masterPlan.taskName}\n\n## Task Objective\n${masterPlan.objective}\n\n## Analysis Briefing\n${combinedAnalysis}\n\n## Worker Outputs\n`;
     for (const w of workerOutputs) {
       mdContent += `### Task [${w.taskId}]: ${w.agentName} (${w.role})\n- **Status:** ${w.status}\n- **Modified Files:** ${w.modifiedFiles.join(", ") || "None"}\n- **Read Files:** ${w.readFiles.join(", ") || "None"}\n- **Rationale:** ${w.rationale}\n\n`;
     }
     mdContent += `## Reviewer Audit\n- **Status:** ${reviewResult.status}\n- **Score:** ${reviewResult.score}\n- **Build Passed:** ${reviewResult.buildPassed}\n- **Lint Passed:** ${reviewResult.lintPassed}\n- **Summary:** ${reviewResult.summary}\n`;
-    fs.writeFileSync(mdPath, mdContent, "utf8");
+    fs.writeFileSync(path.join(projArtifactsDir, "spawnAgents_output.md"), mdContent, "utf8");
+    fs.writeFileSync(path.join(artifactsDir, "spawnAgents_output.md"), mdContent, "utf8");
 
     // 3. JSON Output
-    const jsonPath = path.join(artifactsDir, "spawnAgents_output.json");
-    fs.writeFileSync(
-      jsonPath,
-      JSON.stringify(
-        {
-          projectId: this.projectId,
-          masterPlan,
-          workerOutputs,
-          reviewResult,
-          state: this.state,
-        },
-        null,
-        2
-      ),
-      "utf8"
+    const jsonContent = JSON.stringify(
+      {
+        projectId: this.projectId,
+        masterPlan,
+        workerOutputs,
+        reviewResult,
+        state: this.state,
+      },
+      null,
+      2
     );
+    fs.writeFileSync(path.join(projArtifactsDir, "spawnAgents_output.json"), jsonContent, "utf8");
+    fs.writeFileSync(path.join(artifactsDir, "spawnAgents_output.json"), jsonContent, "utf8");
   }
 }
 
@@ -1398,6 +1720,9 @@ Usage:
   npx tsx scripts/spawnAgents.ts task list <id> [--json]
   npx tsx scripts/spawnAgents.ts artifacts <id> [--json]
   npx tsx scripts/spawnAgents.ts chat <id> [--limit <n>] [--json]
+  npx tsx scripts/spawnAgents.ts messenger list [--json]
+  npx tsx scripts/spawnAgents.ts messenger read <agent-name> [--json]
+  npx tsx scripts/spawnAgents.ts messenger send <from-agent> <to-agent> "<message>" [--project <id>] [--json]
   npx tsx scripts/spawnAgents.ts resume <id> [--json]
   npx tsx scripts/spawnAgents.ts manager [--project <id>]
   
@@ -1462,7 +1787,8 @@ Direct shorthand:
         collaborationGroups: [],
       };
       mgr.saveState(state);
-      new ChatGroupLedger(mgr.projectDir, pid);
+      new ChatRoomLedger(mgr.projectDir, pid);
+      new AgentsMessengerEngine(pid);
       if (isJson) {
         console.log(JSON.stringify({ success: true, project: pid, state }, null, 2));
       } else {
@@ -1569,6 +1895,102 @@ Direct shorthand:
       }
     }
     return;
+  }
+
+  // 5. MESSENGER COMMANDS (/agents-messenger & artifacts/{project-id}/agents-messenger)
+  if (command === "messenger") {
+    const sub = filteredArgs[1] || "list";
+
+    // Extract optional --project or -p flag
+    let projectId: string | undefined = undefined;
+    const cleanSubArgs: string[] = [];
+    for (let i = 2; i < filteredArgs.length; i++) {
+      if (filteredArgs[i] === "--project" || filteredArgs[i] === "-p") {
+        if (i + 1 < filteredArgs.length) {
+          projectId = filteredArgs[i + 1];
+          i++;
+        }
+      } else {
+        cleanSubArgs.push(filteredArgs[i]);
+      }
+    }
+
+    const messenger = new AgentsMessengerEngine(projectId);
+
+    if (sub === "list") {
+      const list = messenger.listAgents(projectId);
+      if (isJson) {
+        console.log(JSON.stringify({ folder: projectId ? `artifacts/${projectId}/agents-messenger` : "agents-messenger", count: list.length, agents: list }, null, 2));
+      } else {
+        console.log(`\x1b[35m=== Agents Messenger Directory (${projectId ? `artifacts/${projectId}/agents-messenger` : "agents-messenger"}) ===\x1b[0m`);
+        list.forEach((a) => console.log(` - \x1b[1m${a.name}\x1b[0m (${a.file}, ${a.size} bytes)`));
+      }
+      return;
+    }
+
+    if (sub === "read") {
+      const agentName = cleanSubArgs[0];
+      if (!agentName) {
+        console.error("Please provide agent name: npx tsx scripts/spawnAgents.ts messenger read <agent-name> [--project <id>]");
+        return;
+      }
+      const thread = messenger.readThread(agentName, projectId);
+      if (isJson) {
+        console.log(JSON.stringify({ agent: agentName, project: projectId, thread }, null, 2));
+      } else {
+        console.log(`\x1b[35m=== 1:1 Messenger Thread: ${agentName} (${projectId ? `artifacts/${projectId}/agents-messenger/${agentName}.md` : `agents-messenger/${agentName}.md`}) ===\x1b[0m\n`);
+        console.log(thread);
+      }
+      return;
+    }
+
+    if (sub === "send") {
+      const fromAgent = cleanSubArgs[0];
+      const toAgent = cleanSubArgs[1];
+      const messageText = cleanSubArgs.slice(2).join(" ").trim();
+
+      if (!fromAgent || !toAgent || !messageText) {
+        console.error('Usage: npx tsx scripts/spawnAgents.ts messenger send <from-agent> <to-agent> "<message>" [--project <id>]');
+        return;
+      }
+
+      const activeProjectId = projectId || `messenger-${Date.now()}`;
+      console.log(`\x1b[36m[Messenger 1:1] Sending direct message from '${fromAgent}' to '${toAgent}' (Project: ${activeProjectId})...\x1b[0m`);
+      const artifactsManager = new ProjectArtifactsManager(activeProjectId);
+      const ledger = new ChatRoomLedger(artifactsManager.projectDir, activeProjectId);
+      const projectMessenger = new AgentsMessengerEngine(activeProjectId);
+
+      const promptMsg: ChatMessage = {
+        id: ledger.nextMessageId(),
+        timestamp: new Date().toISOString(),
+        sender: { type: fromAgent === "human" ? "human" : "agent", id: fromAgent, role: fromAgent },
+        recipient: { type: toAgent === "manager" ? "manager" : "agent", id: toAgent, role: toAgent },
+        channel: "1:1",
+        type: "agent_prompt",
+        content: messageText,
+      };
+      ledger.appendMessage(promptMsg);
+      projectMessenger.appendMessage(promptMsg);
+
+      const targetRole = ROLE_REGISTRY[toAgent] ? toAgent : "builder";
+      const result = await spawnFreshAgent({
+        role: targetRole,
+        agentId: toAgent,
+        task: messageText,
+        projectManager: artifactsManager,
+        ledger: ledger,
+        messenger: projectMessenger,
+        channel: "1:1",
+      });
+
+      if (isJson) {
+        console.log(JSON.stringify({ project: activeProjectId, from: fromAgent, to: toAgent, message: messageText, response: result.text }, null, 2));
+      } else {
+        console.log(`\x1b[32m✔ Direct 1:1 message sent and logged to artifacts/${activeProjectId}/agents-messenger/${toAgent}.md and root agents-messenger/${toAgent}.md\x1b[0m\n`);
+        console.log(`\x1b[35m=== [${toAgent}] 1:1 Response ===\x1b[0m\n${result.text}`);
+      }
+      return;
+    }
   }
 
   // 5. RESUME COMMAND

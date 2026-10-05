@@ -1,0 +1,12 @@
+project: verify-theme-tsx-and-audit-button-styles
+version: 1
+status: active
+objective: Verify Theme.tsx and audit button styles
+createdAt: "2026-10-05T03:06:22.053Z"
+updatedAt: "2026-10-05T03:06:22.053Z"
+activeTasks: []
+completedTasks: []
+failedTasks: []
+artifacts:
+  - artifacts/verify-theme-tsx-and-audit-button-styles/plans/master_plan.yaml
+collaborationGroups: []

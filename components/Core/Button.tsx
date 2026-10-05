@@ -8,7 +8,7 @@
  * To undo: replace its entire contents with /components/staged/Button.tsx.
  */
 import React from 'react';
-import { motion, type MotionValue, useMotionValue, AnimatePresence } from 'framer-motion';
+import { motion, type MotionValue, useMotionValue, type TargetAndTransition, type Transition, HTMLMotionProps } from 'framer-motion';
 import { useTheme } from '../../Theme.tsx';
 import StateLayer from './sub-components/StateLayer.tsx';
 import RippleLayer from './sub-components/RippleLayer.tsx';
@@ -28,14 +28,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   customColor?: string | MotionValue<string>;
   customRadius?: string | MotionValue<string>;
   disabled?: boolean;
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
-  style?: React.CSSProperties;
+  fullWidth?: boolean;
   enableSuccess?: boolean;
-  // Allow custom motion values
-  animate?: any;
-  whileHover?: any;
-  whileTap?: any;
-  transition?: any;
+  animate?: TargetAndTransition;
+  whileHover?: TargetAndTransition;
+  whileTap?: TargetAndTransition;
+  transition?: Transition;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
@@ -48,12 +46,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   customColor,
   customRadius,
   disabled = false,
+  fullWidth = false,
   onClick,
   style,
   children,
   type = 'button',
   enableSuccess = false,
-  // standard motion attributes can be default or customized
   animate,
   whileHover,
   whileTap,
@@ -97,7 +95,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     setIsTouchPress(false);
     setTimeout(() => setIsClicking(false), 200);
 
-    // If not in success mode, or if we want to allow multiple success ripples
     if (enableSuccess) {
       setIsSuccess(true);
       playSound('success');
@@ -118,7 +115,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     };
   }, []);
 
-  // Simple, elegant motion value handler for blank states
   const useResolvedMotionValue = (prop: any, fallback: string): any => {
     const isMV = prop && typeof prop === 'object' && 'get' in prop && 'on' in prop;
     const resolvedMV = useMotionValue(isMV ? (prop.get() || fallback) : (prop || fallback));
@@ -159,10 +155,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const resolvedColor = useResolvedMotionValue(customColor, fallbackColor);
 
   const getButtonShadow = () => {
-    // Standardize to 2 layers to prevent transition "snapping"
     const emptyShadow = '0 0 0 rgba(0,0,0,0)';
     
-    // Maintain glow as long as showGlow is true OR isSuccess is true
     if (isSuccess || showGlow) {
       return `0 0 24px ${theme.Color.Success.Surface['1']}, 0 0 6px ${theme.Color.Success.Content['1']}`;
     }
@@ -183,12 +177,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
-        return {
-          background: resolvedFill,
-          color: resolvedColor,
-          border: 'none',
-        };
       case 'secondary':
+      case 'destructive':
+      case 'tertiary':
+      default:
         return {
           background: resolvedFill,
           color: resolvedColor,
@@ -199,19 +191,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           background: resolvedFill,
           color: resolvedColor,
           ...theme.border.getBorder1px(theme.Color.Base.Content['3']),
-        };
-      case 'destructive':
-        return {
-          background: resolvedFill,
-          color: resolvedColor,
-          border: 'none',
-        };
-      case 'tertiary':
-      default:
-        return {
-          background: resolvedFill,
-          color: resolvedColor,
-          border: 'none',
         };
     }
   };
@@ -228,7 +207,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   const baseStyles: React.CSSProperties = {
     position: 'relative',
     display: 'inline-flex',
-    width: '100%',
+    width: fullWidth ? '100%' : 'auto',
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.space['Space.S'],
@@ -238,7 +217,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     userSelect: 'none',
     boxShadow: getButtonShadow(),
     isolation: 'isolate',
-    // GESTURE LOCKUP FIX: Keep pointerEvents as 'auto' during success to allow the browser and Framer Motion to receive pointerup/mouseup events, preventing UI freeze.
     pointerEvents: 'auto',
     ...getSizeStyles(),
     ...getVariantStyles(),
@@ -263,12 +241,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 
   return (
     <motion.button
+      layout
       ref={localRef}
       style={{
         ...baseStyles,
         borderRadius: customRadius || theme.radius['Radius.Full'],
         ...style,
-        background: 'transparent', // We'll use a layered background for the mask slide
+        background: 'transparent',
       }}
       disabled={disabled}
       type={type}
@@ -278,7 +257,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         scale: isClicking ? 0.95 : (isTouchPress ? 1.05 : 1),
         y: isClicking ? 1 : (isTouchPress ? -2 : 0),
         boxShadow: getButtonShadow(),
-        ...(animate || {})
+        ...animate
       }}
       transition={transition || { type: 'spring', stiffness: 400, damping: 30 }}
       onClick={handleClick}
@@ -289,7 +268,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
       data-success={isSuccess ? "true" : "false"}
       {...(rest as any)}
     >
-      {/* Background Layers for Mask Slide */}
       <motion.div
         style={{
           position: 'absolute',
@@ -307,9 +285,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         }}
       />
 
-      {/* Content Container - Rendered with zero-layout-shift preservation */}
       <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}>
-        {/* Default Content (Always in flow, determines button size) */}
         <div
           style={{
             display: 'flex',
@@ -326,7 +302,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         </div>
       </div>
 
-      {/* Smart Interaction Layers */}
       {!disabled && (
         <>
           <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 2 }}>
@@ -346,7 +321,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         </>
       )}
 
-      {/* Success Mask Slide layer inside Core/Button - Moved to top of stack */}
       <SuccessLayer
         isSuccess={isSuccess}
         label={successLabel}
