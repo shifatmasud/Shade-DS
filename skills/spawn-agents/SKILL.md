@@ -1,6 +1,6 @@
 ---
 name: spawn-agents
-description: Manager-Centric Multi-Agent CLI orchestration system in Node.js + TypeScript powered by Gemini Flash. Features zero-touch autonomous execution, clean executive CLI UX, strict star topology, context-isolated sub-agents, least-privilege tool granting, durable state recovery, a complete global communication ledger in chatRoom.md, and 1:1 direct agent streams in artifacts/{project-id}/agents-messenger. Triggers on `/spawnAgents`.
+description: Manager-Centric Multi-Agent CLI orchestration system in Node.js + TypeScript powered by Gemini Flash. Features zero-touch autonomous execution, clean executive CLI UX, strict star topology, context-isolated sub-agents, least-privilege tool granting, durable state recovery, a complete global communication ledger in chatRoom.md, and 1:1 direct agent streams in projects/{project-id}/agents-messenger. Triggers on `/spawnAgents`.
 ---
 
 # Spawn Agents: Autonomous Manager-Centric Multi-Agent Orchestration Skill
@@ -15,8 +15,8 @@ This skill governs the execution of the Manager-Centric Multi-Agent CLI runtime 
                              ▼
                        ┌───────────┐
                        │  MANAGER  │  ◄─── Sole Persistent Coordinator
-                       │   Flash   │       Logs to artifacts/{project-id}/chatRoom.md
-                       └─────┬─────┘       & artifacts/{project-id}/agents-messenger/
+                       │   Flash   │       Logs to projects/{project-id}/chatRoom.md
+                       └─────┬─────┘       & projects/{project-id}/agents-messenger/
                              │
           ┌──────────────────┼──────────────────┐
           │                  │                  │
@@ -43,23 +43,23 @@ This skill governs the execution of the Manager-Centric Multi-Agent CLI runtime 
    - The Manager autonomously executes all 5 lifecycle stages (Planning → Parallel Discovery → Task Graph Execution → Authoritative Review → Self-Healing Fix Loop) without requiring manual intervention or handholding.
 2. **Rule 2 — Manager is the Sole Coordinator (Star Topology)**:
    - Every interaction flows through the Manager (`Human ↔ Manager ↔ Sub-agent`).
-   - Workers never directly communicate with each other unless routed through the Manager or via explicit 1:1 dispatches in `artifacts/{project-id}/agents-messenger`.
+   - Workers never directly communicate with each other unless routed through the Manager or via explicit 1:1 dispatches in `projects/{project-id}/agents-messenger`.
 3. **Rule 3 — Fresh Context for Every Sub-Agent**:
    - Every sub-agent call spawns a brand-new, isolated Gemini context (`gemini-3.8-flash` with automatic multi-model retry/fallback).
    - Never leaks the Manager's or other workers' conversation history.
    - Passes only the explicit role, task instructions, selected artifacts, and least-privilege granted tools.
 4. **Rule 4 — Complete Global Communication Ledger (`chatRoom.md`)**:
-   - Every CLI-generated prompt, tool call, tool response, and agent response is formatted and appended chronologically to `/artifacts/{project-id}/chatRoom.md`.
-5. **Rule 5 — Dedicated 1:1 Agent Messenger Streams (`artifacts/{project-id}/agents-messenger/{agent-name}.md`)**:
+   - Every CLI-generated prompt, tool call, tool response, and agent response is formatted and appended chronologically to `/projects/{project-id}/chatRoom.md`.
+5. **Rule 5 — Dedicated 1:1 Agent Messenger Streams (`projects/{project-id}/agents-messenger/{agent-name}.md`)**:
    - Every agent active in a project has its own dedicated 1:1 communication stream persisted at:
      ```
-     artifacts/{project-id}/agents-messenger/{agent-name}.md
+     projects/{project-id}/agents-messenger/{agent-name}.md
      ```
    - Every built-in agent (`manager`, `strategist`, `planner`, `builder`, `researcher`, `analyst`, `tester`, `reviewer`, `fixer`, `human`) and any dynamically spawned custom worker (`planner_01`, `researcher_structural`, `analyst_design_system`, `builder_component_x`, etc.) gets its own `.md` ledger.
    - All inbound prompts, tool executions, and outbound responses involving that agent are appended in chronological Markdown blocks.
 6. **Rule 6 — Project-Scoped Write Sandboxing & Full Codebase Read Access**:
    - **Full Codebase Read Access**: Sub-agents have unrestricted read access across the entire repository codebase via `readFile` and `listDir` (e.g., `Theme.tsx`, `components/`, `framer/`, `skills/`, `hooks/`, configs).
-   - **Strict Artifact Write Sandboxing**: All file modifications and creations via `writeFile` are strictly sandboxed inside `artifacts/{project-id}/`. Attempts to write outside the project artifact sandbox are rejected with a permission error.
+   - **Strict Project Write Sandboxing**: All file modifications and creations via `writeFile` are strictly sandboxed inside `projects/{project-id}/`. Attempts to write outside the project sandbox are rejected with a permission error.
    - Sub-agents only receive explicit tools (`filesystem_read`, `filesystem_write`, `terminal`) required for their role.
    - Terminal tool calls (`runCommand`) execute with piped stdio (`stdio: ["pipe", "pipe", "pipe"]`) so compiler/linter output is captured cleanly for the agent and ledger without polluting the user's terminal UX.
 
@@ -92,7 +92,7 @@ npx tsx scripts/spawnAgents.ts "<task description>" [--plan <path>] [--project <
 # Explicit run subcommand (equivalent to shorthand):
 npx tsx scripts/spawnAgents.ts run "<task description>" [--plan <path>] [--project <id>] [--json]
 
-# 2. Direct 1:1 Agent Messenger (artifacts/{project-id}/agents-messenger)
+# 2. Direct 1:1 Agent Messenger (projects/{project-id}/agents-messenger)
 npx tsx scripts/spawnAgents.ts messenger list [--project <id>] [--json]
 npx tsx scripts/spawnAgents.ts messenger read <agent-name> [--project <id>] [--json]
 npx tsx scripts/spawnAgents.ts messenger send <from-agent> <to-agent> "<message>" [--project <id>] [--json]
@@ -105,9 +105,9 @@ npx tsx scripts/spawnAgents.ts project list [--json]
 npx tsx scripts/spawnAgents.ts project create <project-id> [--json]
 npx tsx scripts/spawnAgents.ts project status <project-id> [--json]
 
-# 5. Task & Artifact Inspection
+# 5. Task & Project File Inspection
 npx tsx scripts/spawnAgents.ts task list <project-id> [--json]
-npx tsx scripts/spawnAgents.ts artifacts <project-id> [--json]
+npx tsx scripts/spawnAgents.ts files <project-id> [--json]
 
 # 6. Resume Interrupted Project
 npx tsx scripts/spawnAgents.ts resume <project-id> [--json]
@@ -117,7 +117,7 @@ npx tsx scripts/spawnAgents.ts resume <project-id> [--json]
 
 # Communication Ledgers: `chatRoom.md` & `agents-messenger`
 
-## 1. Global Project Ledger (`/artifacts/{project-id}/chatRoom.md`)
+## 1. Global Project Ledger (`/projects/{project-id}/chatRoom.md`)
 Managed by `ChatRoomLedger`, every message across the entire project is recorded in structured Markdown:
 
 ```markdown
@@ -141,9 +141,9 @@ Managed by `ChatRoomLedger`, every message across the entire project is recorded
 ...
 ```
 
-## 2. 1:1 Direct Agent Streams (`artifacts/{project-id}/agents-messenger/{agent-name}.md`)
+## 2. 1:1 Direct Agent Streams (`projects/{project-id}/agents-messenger/{agent-name}.md`)
 Managed by `AgentsMessengerEngine`, every agent from `manager` to custom worker instances has a dedicated `.md` file recording all 1:1 interactions where that agent is the sender, recipient, or role target:
-- **Project-Scoped Directory**: `artifacts/{project-id}/agents-messenger/{agent-name}.md`
+- **Project-Scoped Directory**: `projects/{project-id}/agents-messenger/{agent-name}.md`
 - **File Format**:
   ```markdown
   # Agent Messenger: {agent-name}
@@ -182,16 +182,16 @@ Managed by `AgentsMessengerEngine`, every agent from `manager` to custom worker 
   ```bash
   npx tsx scripts/spawnAgents.ts messenger send human builder "Hello builder, confirm your task." --project <project-id>
   ```
-  Spawns an isolated `builder` context on channel `1:1`, writes the exchange to `artifacts/{project-id}/agents-messenger/builder.md`, `artifacts/{project-id}/agents-messenger/human.md`, `artifacts/{project-id}/agents-messenger/manager.md`, and `artifacts/{project-id}/chatRoom.md`, and displays the response in the CLI.
+  Spawns an isolated `builder` context on channel `1:1`, writes the exchange to `projects/{project-id}/agents-messenger/builder.md`, `projects/{project-id}/agents-messenger/human.md`, `projects/{project-id}/agents-messenger/manager.md`, and `projects/{project-id}/chatRoom.md`, and displays the response in the CLI.
 
 ---
 
-# Persistent Artifact Directory Structure
+# Persistent Project Directory Structure
 
-Every project maintains durable state, 1:1 messenger threads, and structured outputs strictly under `/artifacts/{project-id}/`:
+Every project maintains durable state, 1:1 messenger threads, and structured outputs strictly under `/projects/{project-id}/`:
 
 ```
-artifacts/
+projects/
 └── {project-id}/
     ├── agents-messenger/          # Project-scoped 1:1 agent messenger threads
     │   ├── manager.md
@@ -230,7 +230,7 @@ artifacts/
 | `planner` | `filesystem_read` | Formulates master plan, task dependency graph, and acceptance criteria |
 | `researcher` | `filesystem_read` | Inspects workspace code, directory structure, and component hierarchy |
 | `analyst` | `filesystem_read` | Audits `Theme.tsx` tokens, Shade DSL rules, and file immunities (`Dock.tsx`, `README.md`) |
-| `builder` | `filesystem_read`, `filesystem_write`, `terminal` | Implementation engineer writing complete, non-truncated code sandboxed in `artifacts/{project-id}/` |
+| `builder` | `filesystem_read`, `filesystem_write`, `terminal` | Implementation engineer writing complete, non-truncated code sandboxed in `projects/{project-id}/` |
 | `tester` | `filesystem_read`, `terminal` | Verification, compilation, and runtime testing |
 | `reviewer` | `filesystem_read`, `filesystem_write`, `terminal` | Authoritative code auditor running `npm run lint` and `npm run build` |
 | `fixer` | `filesystem_read`, `filesystem_write`, `terminal` | Self-healing remediation engineer resolving reviewer-reported compiler/lint issues |

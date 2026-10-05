@@ -33,6 +33,7 @@ if (!apiKey) {
 
 // Every agent uses gemini-3.8-flash by default
 export const DEFAULT_MODEL = process.env.SUB_AGENT_MODEL || "gemini-3.8-flash";
+export const BASE_STORAGE_DIR = "projects";
 export const MAX_REVIEW_RETRIES = 3;
 export const MAX_PARALLEL_AGENTS = 6;
 
@@ -521,7 +522,7 @@ export class ChatRoomLedger {
 }
 
 // ============================================================================
-// AGENTS MESSENGER 1:1 DIRECT MESSAGING ENGINE (artifacts/{project-id}/agents-messenger)
+// AGENTS MESSENGER 1:1 DIRECT MESSAGING ENGINE (projects/{project-id}/agents-messenger)
 // ============================================================================
 
 export class AgentsMessengerEngine {
@@ -530,7 +531,7 @@ export class AgentsMessengerEngine {
 
   constructor(projectId: string = "default") {
     this.projectId = projectId;
-    this.projectMessengerDir = path.join(process.cwd(), "artifacts", this.projectId, "agents-messenger");
+    this.projectMessengerDir = path.join(process.cwd(), BASE_STORAGE_DIR, this.projectId, "agents-messenger");
     if (!fs.existsSync(this.projectMessengerDir)) {
       fs.mkdirSync(this.projectMessengerDir, { recursive: true });
     }
@@ -625,7 +626,7 @@ ${message.content}
 
   public listAgents(projectId?: string): Array<{ name: string; file: string; size: number }> {
     const targetDir = projectId
-      ? path.join(process.cwd(), "artifacts", projectId, "agents-messenger")
+      ? path.join(process.cwd(), BASE_STORAGE_DIR, projectId, "agents-messenger")
       : this.projectMessengerDir;
     if (!fs.existsSync(targetDir)) return [];
     const files = fs.readdirSync(targetDir).filter((f) => f.endsWith(".md"));
@@ -643,7 +644,7 @@ ${message.content}
   public readThread(agentName: string, projectId?: string): string {
     const cleanName = agentName.toLowerCase().replace(/[^a-z0-9_-]+/g, "_").replace(/\.md$/, "");
     const targetDir = projectId
-      ? path.join(process.cwd(), "artifacts", projectId, "agents-messenger")
+      ? path.join(process.cwd(), BASE_STORAGE_DIR, projectId, "agents-messenger")
       : this.projectMessengerDir;
     const filePath = path.join(targetDir, `${cleanName}.md`);
     if (fs.existsSync(filePath)) {
@@ -654,10 +655,10 @@ ${message.content}
 }
 
 // ============================================================================
-// ARTIFACTS & PROJECT REPOSITORY MANAGER
+// PROJECTS & REPOSITORY MANAGER
 // ============================================================================
 
-export class ProjectArtifactsManager {
+export class ProjectManager {
   public baseDir: string;
   public projectDir: string;
   public stateDir: string;
@@ -673,7 +674,7 @@ export class ProjectArtifactsManager {
   public outputsDir: string;
 
   constructor(public projectId: string) {
-    this.baseDir = path.join(process.cwd(), "artifacts");
+    this.baseDir = path.join(process.cwd(), BASE_STORAGE_DIR);
     this.projectDir = path.join(this.baseDir, projectId);
     this.stateDir = path.join(this.projectDir, "state");
     this.agentsMessengerDir = path.join(this.projectDir, "agents-messenger");
@@ -775,7 +776,7 @@ export class ToolExecutionEngine {
 
   constructor(projectId: string = "default", allowedWriteDir?: string) {
     this.projectId = projectId;
-    this.allowedWriteDir = allowedWriteDir || path.resolve(process.cwd(), "artifacts", projectId);
+    this.allowedWriteDir = allowedWriteDir || path.resolve(process.cwd(), BASE_STORAGE_DIR, projectId);
   }
 
   public getToolDeclarations(grantedTools: string[] = ["filesystem_read"]): any[] {
@@ -785,7 +786,7 @@ export class ToolExecutionEngine {
       decls.push(
         {
           name: "readFile",
-          description: "Read the complete content of any file in the workspace codebase (e.g. 'Theme.tsx', 'components/...', 'skills/...', 'artifacts/...').",
+          description: "Read the complete content of any file in the workspace codebase (e.g. 'Theme.tsx', 'components/...', 'skills/...', 'projects/...').",
           parameters: {
             type: Type.OBJECT,
             properties: {
@@ -796,7 +797,7 @@ export class ToolExecutionEngine {
         },
         {
           name: "listDir",
-          description: "List directory contents across any folder in the workspace codebase (e.g. '.', 'components', 'skills', 'artifacts').",
+          description: "List directory contents across any folder in the workspace codebase (e.g. '.', 'components', 'skills', 'projects').",
           parameters: {
             type: Type.OBJECT,
             properties: {
@@ -811,11 +812,11 @@ export class ToolExecutionEngine {
     if (grantedTools.includes("filesystem_write") || grantedTools.includes("filesystem") || grantedTools.includes("all")) {
       decls.push({
         name: "writeFile",
-        description: `Write complete contents to a file. Sandboxed strictly within 'artifacts/${this.projectId}/'. Target file paths are saved inside the project artifact directory (e.g. 'implementation/file.tsx' or 'artifacts/${this.projectId}/implementation/file.tsx').`,
+        description: `Write complete contents to a file. Sandboxed strictly within '${BASE_STORAGE_DIR}/${this.projectId}/'. Target file paths are saved inside the project directory (e.g. 'implementation/file.tsx' or '${BASE_STORAGE_DIR}/${this.projectId}/implementation/file.tsx').`,
         parameters: {
           type: Type.OBJECT,
           properties: {
-            filePath: { type: Type.STRING, description: `Target file path strictly within artifacts/${this.projectId}/` },
+            filePath: { type: Type.STRING, description: `Target file path strictly within ${BASE_STORAGE_DIR}/${this.projectId}/` },
             content: { type: Type.STRING, description: "Complete, pristine text content" },
           },
           required: ["filePath", "content"],
@@ -864,17 +865,17 @@ export class ToolExecutionEngine {
 
         const rawPath = String(args.filePath || "").trim();
         const normalizedRaw = rawPath.replace(/\\/g, "/").replace(/^\.\//, "");
-        const expectedPrefix = `artifacts/${this.projectId}`;
+        const expectedPrefix = `${BASE_STORAGE_DIR}/${this.projectId}`;
         
         let targetPath: string;
         if (normalizedRaw === expectedPrefix || normalizedRaw.startsWith(`${expectedPrefix}/`)) {
           targetPath = path.resolve(process.cwd(), normalizedRaw);
-        } else if (normalizedRaw.startsWith("artifacts/")) {
+        } else if (normalizedRaw.startsWith(`${BASE_STORAGE_DIR}/`)) {
           return {
             error: `Permission Denied: Agents are sandboxed to project '${this.projectId}'. Cannot write to '${rawPath}'. All writes must reside within '${expectedPrefix}/'.`,
           };
         } else {
-          // Auto-sandbox subpaths within artifacts/{projectId}/
+          // Auto-sandbox subpaths within BASE_STORAGE_DIR/{projectId}/
           targetPath = path.resolve(this.allowedWriteDir, normalizedRaw);
         }
 
@@ -884,7 +885,7 @@ export class ToolExecutionEngine {
 
         if (!normalizedTarget.startsWith(normalizedAllowed)) {
           return {
-            error: `Permission Denied: Sandboxing violation. Agents are strictly restricted to writing inside 'artifacts/${this.projectId}/'. Attempted target '${rawPath}' resolved outside sandbox.`,
+            error: `Permission Denied: Sandboxing violation. Agents are strictly restricted to writing inside '${BASE_STORAGE_DIR}/${this.projectId}/'. Attempted target '${rawPath}' resolved outside sandbox.`,
           };
         }
 
@@ -990,13 +991,13 @@ Your role is to audit data models, control flows, Theme tokens, and edge cases a
   },
   builder: {
     name: "builder",
-    description: "Implementation engineer with full codebase read access and sandboxed artifact write access.",
+    description: "Implementation engineer with full codebase read access and sandboxed project write access.",
     defaultTools: ["filesystem_read", "filesystem_write", "terminal"],
     systemInstruction: `You are the Expert Implementation Builder Agent.
-Your role is to inspect the full workspace codebase and write clean, complete, and functional artifacts sandboxed inside 'artifacts/{projectId}/'.
+Your role is to inspect the full workspace codebase and write clean, complete, and functional artifacts sandboxed inside '${BASE_STORAGE_DIR}/{projectId}/'.
 Directives:
 1. You have full read access across the codebase via readFile/listDir.
-2. All file writes via writeFile are strictly sandboxed inside 'artifacts/{projectId}/'.
+2. All file writes via writeFile are strictly sandboxed inside '${BASE_STORAGE_DIR}/{projectId}/'.
 3. Write complete, non-truncated content.
 4. Use Theme.tsx Surface and Content tokens and procedural border helpers.
 5. Respect Dock immunity and README immunity.`,
@@ -1020,7 +1021,7 @@ Your role is to run 'npm run lint' and 'npm run build', inspect codebase and art
     description: "Targeted bug and compiler error remediation engineer.",
     defaultTools: ["filesystem_read", "filesystem_write", "terminal"],
     systemInstruction: `You are the Specialized Fix Agent.
-Your sole mission is to inspect the codebase, resolve compiler errors, broken imports, missing types, or review issues, saving remediation artifacts inside 'artifacts/{projectId}/'.`,
+Your sole mission is to inspect the codebase, resolve compiler errors, broken imports, missing types, or review issues, saving remediation artifacts inside '${BASE_STORAGE_DIR}/{projectId}/'.`,
   },
 };
 
@@ -1037,7 +1038,7 @@ export interface SpawnAgentOptions {
   grantedTools?: string[];
   responseSchema?: any;
   maxTurns?: number;
-  projectManager: ProjectArtifactsManager;
+  projectManager: ProjectManager;
   ledger: ChatRoomLedger;
   messenger?: AgentsMessengerEngine;
   channel?: string;
@@ -1066,7 +1067,7 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
 
   const sandboxInstruction = `WORKSPACE ACCESS RULES:
 - Full Codebase Read Access: You have unrestricted read access across the entire repository codebase using 'readFile' and 'listDir'.
-- Sandboxed Write Access: All file writing using 'writeFile' is strictly sandboxed inside 'artifacts/${opts.projectManager.projectId}/'. Target file paths will be saved inside 'artifacts/${opts.projectManager.projectId}/'.`;
+- Sandboxed Write Access: All file writing using 'writeFile' is strictly sandboxed inside '${BASE_STORAGE_DIR}/\${opts.projectManager.projectId}/'. Target file paths will be saved inside '${BASE_STORAGE_DIR}/\${opts.projectManager.projectId}/'.`;
 
   const finalSystemInstruction = `${roleDef.systemInstruction}\n\n${sandboxInstruction}\n\n${opts.systemInstruction || ""}`.trim();
 
@@ -1209,17 +1210,17 @@ export async function spawnFreshAgent(opts: SpawnAgentOptions): Promise<{
 // ============================================================================
 
 export class ManagerOrchestrator {
-  public artifactsManager: ProjectArtifactsManager;
+  public projectManager: ProjectManager;
   public ledger: ChatRoomLedger;
   public messenger: AgentsMessengerEngine;
   public state: ProjectState;
 
   constructor(public projectId: string, public userObjective: string) {
-    this.artifactsManager = new ProjectArtifactsManager(projectId);
-    this.ledger = new ChatRoomLedger(this.artifactsManager.projectDir, projectId);
+    this.projectManager = new ProjectManager(projectId);
+    this.ledger = new ChatRoomLedger(this.projectManager.projectDir, projectId);
     this.messenger = new AgentsMessengerEngine(projectId);
     
-    const existing = this.artifactsManager.loadState();
+    const existing = this.projectManager.loadState();
     if (existing) {
       this.state = existing;
       if (userObjective && !this.state.objective) {
@@ -1239,7 +1240,7 @@ export class ManagerOrchestrator {
         artifacts: [],
         collaborationGroups: [],
       };
-      this.artifactsManager.saveState(this.state);
+      this.projectManager.saveState(this.state);
     }
   }
 
@@ -1279,7 +1280,7 @@ Formulate a Master Architectural Plan JSON with:
 - planContent (string)
 - acceptanceCriteria (object with 'criteria' and 'nonNegotiables' arrays)
 Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Motion, and zero compiler regressions.`,
-      projectManager: this.artifactsManager,
+      projectManager: this.projectManager,
       ledger: this.ledger,
       messenger: this.messenger,
       grantedTools: ["filesystem_read"],
@@ -1296,13 +1297,13 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
       },
     };
 
-    const planArtifactPath = this.artifactsManager.saveArtifact(
+    const planArtifactPath = this.projectManager.saveArtifact(
       "plans",
       "master_plan.yaml",
       SimpleYaml.stringify(masterPlan)
     );
     this.state.artifacts.push(planArtifactPath);
-    this.artifactsManager.saveState(this.state);
+    this.projectManager.saveState(this.state);
     CLITheme.stage(1, 5, "Master Architectural Plan Established", "DONE");
     CLITheme.detail("Plan Target", masterPlan.taskName);
     CLITheme.detailLast("Acceptance Criteria", `${masterPlan.acceptanceCriteria.criteria.length} criteria defined`);
@@ -1314,7 +1315,7 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
         role: "researcher",
         agentId: "researcher_structural",
         task: `Inspect codebase files, components, and project structure for task: "${this.state.objective}". Output key architectural findings.`,
-        projectManager: this.artifactsManager,
+        projectManager: this.projectManager,
         ledger: this.ledger,
         messenger: this.messenger,
         grantedTools: ["filesystem_read"],
@@ -1323,7 +1324,7 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
         role: "analyst",
         agentId: "analyst_design_system",
         task: `Inspect Theme.tsx, design tokens, styling rules, and Framer Motion patterns for task: "${this.state.objective}".`,
-        projectManager: this.artifactsManager,
+        projectManager: this.projectManager,
         ledger: this.ledger,
         messenger: this.messenger,
         grantedTools: ["filesystem_read"],
@@ -1332,7 +1333,7 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
         role: "analyst",
         agentId: "analyst_rules",
         task: `Check AGENTS.md, protected components (Dock immunity, README immunity), and safety constraints for task: "${this.state.objective}".`,
-        projectManager: this.artifactsManager,
+        projectManager: this.projectManager,
         ledger: this.ledger,
         messenger: this.messenger,
         grantedTools: ["filesystem_read"],
@@ -1341,7 +1342,7 @@ Ensure strict adherence to Theme.tsx design tokens, JS style objects, Framer Mot
 
     const [structuralBrief, designBrief, rulesBrief] = await Promise.all(analysisPromises);
     const combinedAnalysis = `### Structural Intelligence:\n${structuralBrief.text}\n\n### Design System Tokens:\n${designBrief.text}\n\n### Rules & Immunity:\n${rulesBrief.text}`;
-    const analysisArtifactPath = this.artifactsManager.saveArtifact("analysis", "initial_brief.md", combinedAnalysis);
+    const analysisArtifactPath = this.projectManager.saveArtifact("analysis", "initial_brief.md", combinedAnalysis);
     this.state.artifacts.push(analysisArtifactPath);
     CLITheme.stage(2, 5, "Parallel Architectural Discovery Complete", "DONE");
     CLITheme.detail("Structural Brief", "Workspace layout and dependencies mapped");
@@ -1375,7 +1376,7 @@ Partition this plan into a list of worker tasks JSON:
     }
   ]
 }`,
-      projectManager: this.artifactsManager,
+      projectManager: this.projectManager,
       ledger: this.ledger,
       messenger: this.messenger,
       grantedTools: ["filesystem_read"],
@@ -1396,7 +1397,7 @@ Partition this plan into a list of worker tasks JSON:
     ];
 
     this.state.activeTasks = tasks.map((t) => t.id);
-    this.artifactsManager.saveState(this.state);
+    this.projectManager.saveState(this.state);
 
     CLITheme.stage(3, 5, `Executing ${tasks.length} Autonomous Worker Task(s)`, "RUNNING");
     const workerOutputs: WorkerOutputContract[] = [];
@@ -1415,7 +1416,7 @@ CONSTRAINTS: ${task.constraints.join(", ") || "Follow repo rules"}
 CRITERIA: ${task.acceptanceCriteria.join("; ")}
 
 Read existing files, make necessary modifications using writeFile, and summarize your changes.`,
-        projectManager: this.artifactsManager,
+        projectManager: this.projectManager,
         ledger: this.ledger,
         messenger: this.messenger,
         grantedTools: task.grantedTools || ROLE_REGISTRY[task.role]?.defaultTools || ["filesystem_read", "filesystem_write", "terminal"],
@@ -1438,7 +1439,7 @@ Read existing files, make necessary modifications using writeFile, and summarize
         summaryText: workerResult.text,
       };
 
-      const outArtifactPath = this.artifactsManager.saveArtifact(
+      const outArtifactPath = this.projectManager.saveArtifact(
         "outputs",
         `${task.id}_output.yaml`,
         SimpleYaml.stringify(outputContract)
@@ -1449,7 +1450,7 @@ Read existing files, make necessary modifications using writeFile, and summarize
       this.state.completedTasks.push(task.id);
       this.state.activeTasks = this.state.activeTasks.filter((id) => id !== task.id);
       this.state.artifacts.push(outArtifactPath);
-      this.artifactsManager.saveState(this.state);
+      this.projectManager.saveState(this.state);
 
       if (i === tasks.length - 1) {
         CLITheme.detailLast(`[${i + 1}/${tasks.length}] ${task.name} (${task.role})`, workerResult.modifiedFiles.length > 0 ? `Modified: ${workerResult.modifiedFiles.join(", ")}` : "Verified file system");
@@ -1481,7 +1482,7 @@ Issues:
 ${reviewResult.issues.map((iss, idx) => `${idx + 1}. [${iss.severity}] ${iss.file}: ${iss.description}\nFix: ${iss.fixInstructions}`).join("\n\n")}
 
 Inspect failing files, execute 'runCommand' ('npm run lint' or 'npm run build') to diagnose, and apply pristine fixes with writeFile.`,
-        projectManager: this.artifactsManager,
+        projectManager: this.projectManager,
         ledger: this.ledger,
         messenger: this.messenger,
         grantedTools: ["filesystem_read", "filesystem_write", "terminal"],
@@ -1499,7 +1500,7 @@ Inspect failing files, execute 'runCommand' ('npm run lint' or 'npm run build') 
     // 6. Final State & Project Reports
     this.state.status = reviewResult.status === "PASS" ? "completed" : "failed";
     this.state.updatedAt = new Date().toISOString();
-    this.artifactsManager.saveState(this.state);
+    this.projectManager.saveState(this.state);
     this.saveProjectReports(masterPlan, combinedAnalysis, workerOutputs, reviewResult);
 
     // Executive Completion Card
@@ -1511,15 +1512,15 @@ Inspect failing files, execute 'runCommand' ('npm run lint' or 'npm run build') 
       ["Lint Status", reviewResult.lintPassed ? "✔ PASSED (npm run lint)" : "✖ FAILED"],
       ["Quality Audit", `${reviewResult.score} (${reviewResult.status})`],
       ["Modified Files", fileListStr],
-      ["Chat Room", `artifacts/${this.projectId}/chatRoom.md`],
-      ["1:1 Messenger", `artifacts/${this.projectId}/agents-messenger/`],
+      ["Chat Room", `${BASE_STORAGE_DIR}/${this.projectId}/chatRoom.md`],
+      ["1:1 Messenger", `${BASE_STORAGE_DIR}/${this.projectId}/agents-messenger/`],
     ]);
 
     return {
       masterPlan,
       workerOutputs,
       reviewResult,
-      artifacts: this.artifactsManager.listArtifacts(),
+      artifacts: this.projectManager.listArtifacts(),
     };
   }
 
@@ -1556,7 +1557,7 @@ Return a JSON object:
     }
   ]
 }`,
-      projectManager: this.artifactsManager,
+      projectManager: this.projectManager,
       ledger: this.ledger,
       messenger: this.messenger,
       grantedTools: ["filesystem_read", "filesystem_write", "terminal"],
@@ -1573,14 +1574,14 @@ Return a JSON object:
       issues: [],
     };
 
-    const reviewArtifactPath = this.artifactsManager.saveArtifact(
+    const reviewArtifactPath = this.projectManager.saveArtifact(
       "reviews",
       `review_${Date.now()}.yaml`,
       SimpleYaml.stringify(res)
     );
     res.artifactPath = reviewArtifactPath;
     this.state.artifacts.push(reviewArtifactPath);
-    this.artifactsManager.saveState(this.state);
+    this.projectManager.saveState(this.state);
     return res;
   }
 
@@ -1590,13 +1591,13 @@ Return a JSON object:
     workerOutputs: WorkerOutputContract[],
     reviewResult: ReviewResult
   ): void {
-    const projArtifactsDir = this.artifactsManager.projectDir;
-    if (!fs.existsSync(projArtifactsDir)) fs.mkdirSync(projArtifactsDir, { recursive: true });
+    const projDir = this.projectManager.projectDir;
+    if (!fs.existsSync(projDir)) fs.mkdirSync(projDir, { recursive: true });
 
     // 1. Task Spec
     const taskSlug = masterPlan.taskName.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "task_spec";
     const specContent = `# Tech Spec: ${masterPlan.taskName}\n\n## Objective\n${masterPlan.objective}\n\n## Architectural Decisions\n${masterPlan.architectureDecisions}\n\n## Implementation Plan\n${masterPlan.planContent}\n\n## Acceptance Criteria\n### Functional Criteria\n${masterPlan.acceptanceCriteria.criteria.map((c) => `- ${c}`).join("\n")}\n\n### Non-Negotiables\n${masterPlan.acceptanceCriteria.nonNegotiables.map((n) => `- ${n}`).join("\n")}\n`;
-    fs.writeFileSync(path.join(projArtifactsDir, `${taskSlug}_spec.md`), specContent, "utf8");
+    fs.writeFileSync(path.join(projDir, `${taskSlug}_spec.md`), specContent, "utf8");
 
     // 2. Markdown Report
     let mdContent = `# Spawn Agents Execution Report: ${masterPlan.taskName}\n\n## Task Objective\n${masterPlan.objective}\n\n## Analysis Briefing\n${combinedAnalysis}\n\n## Worker Outputs\n`;
@@ -1604,7 +1605,7 @@ Return a JSON object:
       mdContent += `### Task [${w.taskId}]: ${w.agentName} (${w.role})\n- **Status:** ${w.status}\n- **Modified Files:** ${w.modifiedFiles.join(", ") || "None"}\n- **Read Files:** ${w.readFiles.join(", ") || "None"}\n- **Rationale:** ${w.rationale}\n\n`;
     }
     mdContent += `## Reviewer Audit\n- **Status:** ${reviewResult.status}\n- **Score:** ${reviewResult.score}\n- **Build Passed:** ${reviewResult.buildPassed}\n- **Lint Passed:** ${reviewResult.lintPassed}\n- **Summary:** ${reviewResult.summary}\n`;
-    fs.writeFileSync(path.join(projArtifactsDir, "spawnAgents_output.md"), mdContent, "utf8");
+    fs.writeFileSync(path.join(projDir, "spawnAgents_output.md"), mdContent, "utf8");
 
     // 3. JSON Output
     const jsonContent = JSON.stringify(
@@ -1618,7 +1619,7 @@ Return a JSON object:
       null,
       2
     );
-    fs.writeFileSync(path.join(projArtifactsDir, "spawnAgents_output.json"), jsonContent, "utf8");
+    fs.writeFileSync(path.join(projDir, "spawnAgents_output.json"), jsonContent, "utf8");
   }
 }
 
@@ -1665,12 +1666,12 @@ export async function handleCLI(): Promise<void> {
     console.log(`  ${W}npx tsx scripts/spawnAgents.ts resume <project-id>${R}`);
     console.log(`  ${M}└─ Resumes execution of an existing or interrupted project sandbox${R}\n`);
 
-    console.log(`${B}${P}📂 PROJECT & ARTIFACT MANAGEMENT${R}`);
+    console.log(`${B}${P}📂 PROJECT & FILE MANAGEMENT${R}`);
     console.log(`  ${W}npx tsx scripts/spawnAgents.ts project list${R}       ${M}List all registered project sandboxes${R}`);
     console.log(`  ${W}npx tsx scripts/spawnAgents.ts project create <id>${R}  ${M}Initialize a new project sandbox${R}`);
     console.log(`  ${W}npx tsx scripts/spawnAgents.ts project status <id>${R}  ${M}Inspect project tasks, state, and outputs${R}`);
     console.log(`  ${W}npx tsx scripts/spawnAgents.ts task list <id>${R}        ${M}Inspect active and completed worker tasks${R}`);
-    console.log(`  ${W}npx tsx scripts/spawnAgents.ts artifacts <id>${R}        ${M}List all files in artifacts/{project-id}/${R}\n`);
+    console.log(`  ${W}npx tsx scripts/spawnAgents.ts files <id>${R}               ${M}List all files in ${BASE_STORAGE_DIR}/{project-id}/${R}\n`);
 
     console.log(`${B}${G}💬 DIRECT 1:1 AGENT MESSENGER & AUDIT LEDGER${R}`);
     console.log(`  ${W}npx tsx scripts/spawnAgents.ts messenger list [--project <id>]${R}`);
@@ -1680,7 +1681,7 @@ export async function handleCLI(): Promise<void> {
     console.log(`  ${W}npx tsx scripts/spawnAgents.ts messenger send <from> <to> "<msg>" [--project <id>]${R}`);
     console.log(`  ${M}└─ Dispatch direct 1:1 message to an isolated sub-agent context${R}`);
     console.log(`  ${W}npx tsx scripts/spawnAgents.ts chat <project-id>${R}`);
-    console.log(`  ${M}└─ Stream global chronological ledger (artifacts/{project-id}/chatRoom.md)${R}\n`);
+    console.log(`  ${M}└─ Stream global chronological ledger (${BASE_STORAGE_DIR}/{project-id}/chatRoom.md)${R}\n`);
 
     console.log(`${B}${Y}🎯 COMMON EXAMPLES${R}`);
     console.log(`  ${M}$${R} ${W}npx tsx scripts/spawnAgents.ts "Audit Theme.tsx and verify Button styles"${R}`);
@@ -1696,7 +1697,7 @@ export async function handleCLI(): Promise<void> {
   // 1. PROJECT COMMANDS
   if (command === "project") {
     const sub = filteredArgs[1] || "list";
-    const baseDir = path.join(process.cwd(), "artifacts");
+    const baseDir = path.join(process.cwd(), BASE_STORAGE_DIR);
 
     if (sub === "list") {
       const list: any[] = [];
@@ -1729,7 +1730,7 @@ export async function handleCLI(): Promise<void> {
 
     if (sub === "create") {
       const pid = filteredArgs[2] || `project-${Date.now()}`;
-      const mgr = new ProjectArtifactsManager(pid);
+      const mgr = new ProjectManager(pid);
       const state: ProjectState = {
         project: pid,
         version: 1,
@@ -1749,7 +1750,7 @@ export async function handleCLI(): Promise<void> {
       if (isJson) {
         console.log(JSON.stringify({ success: true, project: pid, state }, null, 2));
       } else {
-        console.log(`\x1b[32m✔ Project '${pid}' created successfully at artifacts/${pid}\x1b[0m`);
+        console.log(`\x1b[32m✔ Project '${pid}' created successfully at ${BASE_STORAGE_DIR}/${pid}\x1b[0m`);
       }
       return;
     }
@@ -1760,7 +1761,7 @@ export async function handleCLI(): Promise<void> {
         console.error("Please provide project ID: npx tsx scripts/spawnAgents.ts project status <id>");
         return;
       }
-      const mgr = new ProjectArtifactsManager(pid);
+      const mgr = new ProjectManager(pid);
       const state = mgr.loadState();
       if (!state) {
         console.error(`Project '${pid}' not found or has no state.`);
@@ -1788,7 +1789,7 @@ export async function handleCLI(): Promise<void> {
       console.error("Please provide project ID: npx tsx scripts/spawnAgents.ts task list <id>");
       return;
     }
-    const mgr = new ProjectArtifactsManager(pid);
+    const mgr = new ProjectManager(pid);
     const state = mgr.loadState();
     if (!state) {
       console.error(`Project '${pid}' not found.`);
@@ -1813,20 +1814,20 @@ export async function handleCLI(): Promise<void> {
     }
   }
 
-  // 3. ARTIFACTS COMMAND
-  if (command === "artifacts") {
+  // 3. FILES COMMAND
+  if (command === "files") {
     const pid = filteredArgs[1];
     if (!pid) {
-      console.error("Please provide project ID: npx tsx scripts/spawnAgents.ts artifacts <id>");
+      console.error(`Please provide project ID: npx tsx scripts/spawnAgents.ts files <id>`);
       return;
     }
-    const mgr = new ProjectArtifactsManager(pid);
+    const mgr = new ProjectManager(pid);
     const arts = mgr.listArtifacts();
     if (isJson) {
-      console.log(JSON.stringify({ project: pid, artifacts: arts }, null, 2));
+      console.log(JSON.stringify({ project: pid, files: arts }, null, 2));
     } else {
-      console.log(`\x1b[35m=== Artifacts for ${pid} (${arts.length}) ===\x1b[0m`);
-      arts.forEach((a) => console.log(` - artifacts/${pid}/${a}`));
+      console.log(`\x1b[35m=== Files for ${pid} (${arts.length}) ===\x1b[0m`);
+      arts.forEach((a) => console.log(` - ${BASE_STORAGE_DIR}/${pid}/${a}`));
     }
     return;
   }
@@ -1838,7 +1839,7 @@ export async function handleCLI(): Promise<void> {
       console.error("Please provide project ID: npx tsx scripts/spawnAgents.ts chat <id>");
       return;
     }
-    const mgr = new ProjectArtifactsManager(pid);
+    const mgr = new ProjectManager(pid);
     const ledger = new ChatRoomLedger(mgr.projectDir, pid);
     const messages = ledger.getMessages();
     if (isJson) {
@@ -1854,7 +1855,7 @@ export async function handleCLI(): Promise<void> {
     return;
   }
 
-  // 5. MESSENGER COMMANDS (artifacts/{project-id}/agents-messenger)
+  // 5. MESSENGER COMMANDS (projects/{project-id}/agents-messenger)
   if (command === "messenger") {
     const sub = filteredArgs[1] || "list";
 
@@ -1878,9 +1879,9 @@ export async function handleCLI(): Promise<void> {
     if (sub === "list") {
       const list = messenger.listAgents(activeProjectId);
       if (isJson) {
-        console.log(JSON.stringify({ folder: `artifacts/${activeProjectId}/agents-messenger`, count: list.length, agents: list }, null, 2));
+        console.log(JSON.stringify({ folder: `${BASE_STORAGE_DIR}/${activeProjectId}/agents-messenger`, count: list.length, agents: list }, null, 2));
       } else {
-        console.log(`\x1b[35m=== Agents Messenger Directory (artifacts/${activeProjectId}/agents-messenger) ===\x1b[0m`);
+        console.log(`\x1b[35m=== Agents Messenger Directory (${BASE_STORAGE_DIR}/${activeProjectId}/agents-messenger) ===\x1b[0m`);
         list.forEach((a) => console.log(` - \x1b[1m${a.name}\x1b[0m (${a.file}, ${a.size} bytes)`));
       }
       return;
@@ -1889,14 +1890,14 @@ export async function handleCLI(): Promise<void> {
     if (sub === "read") {
       const agentName = cleanSubArgs[0];
       if (!agentName) {
-        console.error("Please provide agent name: npx tsx scripts/spawnAgents.ts messenger read <agent-name> [--project <id>]");
+        console.error(`Please provide agent name: npx tsx scripts/spawnAgents.ts messenger read <agent-name> [--project <id>]`);
         return;
       }
       const thread = messenger.readThread(agentName, activeProjectId);
       if (isJson) {
         console.log(JSON.stringify({ agent: agentName, project: activeProjectId, thread }, null, 2));
       } else {
-        console.log(`\x1b[35m=== 1:1 Messenger Thread: ${agentName} (artifacts/${activeProjectId}/agents-messenger/${agentName}.md) ===\x1b[0m\n`);
+        console.log(`\x1b[35m=== 1:1 Messenger Thread: ${agentName} (${BASE_STORAGE_DIR}/${activeProjectId}/agents-messenger/${agentName}.md) ===\x1b[0m\n`);
         console.log(thread);
       }
       return;
@@ -1914,8 +1915,8 @@ export async function handleCLI(): Promise<void> {
 
       const sendProjectId = projectId || `messenger-${Date.now()}`;
       console.log(`\x1b[36m[Messenger 1:1] Sending direct message from '${fromAgent}' to '${toAgent}' (Project: ${sendProjectId})...\x1b[0m`);
-      const artifactsManager = new ProjectArtifactsManager(sendProjectId);
-      const ledger = new ChatRoomLedger(artifactsManager.projectDir, sendProjectId);
+      const projectManager = new ProjectManager(sendProjectId);
+      const ledger = new ChatRoomLedger(projectManager.projectDir, sendProjectId);
       const projectMessenger = new AgentsMessengerEngine(sendProjectId);
 
       const promptMsg: ChatMessage = {
@@ -1935,7 +1936,7 @@ export async function handleCLI(): Promise<void> {
         role: targetRole,
         agentId: toAgent,
         task: messageText,
-        projectManager: artifactsManager,
+        projectManager: projectManager,
         ledger: ledger,
         messenger: projectMessenger,
         channel: "1:1",
@@ -1944,7 +1945,7 @@ export async function handleCLI(): Promise<void> {
       if (isJson) {
         console.log(JSON.stringify({ project: sendProjectId, from: fromAgent, to: toAgent, message: messageText, response: result.text }, null, 2));
       } else {
-        console.log(`\x1b[32m✔ Direct 1:1 message sent and logged to artifacts/${sendProjectId}/agents-messenger/${toAgent}.md\x1b[0m\n`);
+        console.log(`\x1b[32m✔ Direct 1:1 message sent and logged to ${BASE_STORAGE_DIR}/${sendProjectId}/agents-messenger/${toAgent}.md\x1b[0m\n`);
         console.log(`\x1b[35m=== [${toAgent}] 1:1 Response ===\x1b[0m\n${result.text}`);
       }
       return;
@@ -1958,7 +1959,7 @@ export async function handleCLI(): Promise<void> {
       console.error("Please provide project ID: npx tsx scripts/spawnAgents.ts resume <id>");
       return;
     }
-    const mgr = new ProjectArtifactsManager(pid);
+    const mgr = new ProjectManager(pid);
     const state = mgr.loadState();
     if (!state) {
       console.error(`Project '${pid}' not found.`);

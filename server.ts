@@ -272,6 +272,14 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
     // Broadcast the command execution prompt header
     broadcastToTerminal({ type: 'output', data: `\r\n\x1b[32m❯\x1b[0m ${trimmed}\r\n`, cwd: terminalCwd });
 
+    // Kill any existing active process before starting a new one
+    if (activeTerminalProcess && !activeTerminalProcess.killed) {
+      try {
+        activeTerminalProcess.kill('SIGKILL');
+      } catch (e) {}
+      activeTerminalProcess = null;
+    }
+
     // Ensure binary is ready across candidate paths
     if (trimmed === 'agy' || trimmed.startsWith('agy ') || trimmed.startsWith('agy=') || trimmed.startsWith('/app/applet/.bin/agy')) {
       let agyPath = await ensureAntigravityBinary();
@@ -322,6 +330,8 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
       COLORTERM: 'truecolor',
       PATH: `/app/applet/.bin:${dotBinDir}:/tmp/bin:${binDir}:/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ''}`,
       PAGER: 'cat',
+      LANG: 'C.UTF-8',
+      LC_ALL: 'C.UTF-8',
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
       GH_TOKEN: process.env.GH_TOKEN || '',
       VERCEL_TOKEN: process.env.VERCEL_TOKEN || '',
@@ -353,6 +363,7 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
         : ['-c', script];
     }
 
+    console.log(`[Terminal] Spawning process: ${spawnCmd} ${spawnArgs.join(' ')}`);
     const proc = spawn(spawnCmd, spawnArgs, {
       cwd: terminalCwd,
       env: {
@@ -371,23 +382,29 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
+      console.log(`[Terminal] STDOUT: ${text.length} chars`);
       rawStdout += text;
       broadcastToTerminal({ type: 'output', data: text });
       // If TUI queries background color (OSC 11), respond immediately to prevent query stall
       if (text.includes('\x1b]11;?')) {
+        console.log(`[Terminal] OSC 11 detected, responding...`);
         try {
           proc.stdin?.write('\x1b]11;rgb:0000/0000/0000\x07');
-        } catch (_) {}
+        } catch (e: any) {
+          console.error(`[Terminal] Failed to write OSC 11 response: ${e.message}`);
+        }
       }
     });
 
     proc.stderr?.on('data', (data: Buffer) => {
       const text = data.toString();
+      console.log(`[Terminal] STDERR: ${text}`);
       rawStderr += text;
       broadcastToTerminal({ type: 'output', data: text });
     });
 
     const cleanupAndFinish = (code: number | null) => {
+      console.log(`[Terminal] Process exited with code ${code}`);
       if (activeTerminalProcess === proc) {
         activeTerminalProcess = null;
         activeCommandName = null;
