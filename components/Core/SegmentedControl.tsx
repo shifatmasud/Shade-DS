@@ -60,7 +60,8 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ items, activeId, on
           <motion.div
             key={item.id}
             style={itemStyle}
-            onClick={() => {
+            onPointerDown={(e) => {
+              e.preventDefault();
               playSound('tick');
               onSelect(item.id);
             }}

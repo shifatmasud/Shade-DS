@@ -94,6 +94,7 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
   }, [updateRect]);
 
   const [hoveredIdx, setHoveredIdx] = useState(-1);
+  const [touchStartIdx, setTouchStartIdx] = useState<number | null>(null);
   const [pillRect, setPillRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
 
   const handleItemHover = (idx: number, el: HTMLElement) => {
@@ -218,9 +219,11 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
       onMouseMove={handleMouseMove}
       onTouchMove={handleTouchMove}
       onTouchEnd={() => {
-        if (hoveredIdx !== -1) {
-          onSelect(options[hoveredIdx].value);
+        const targetIdx = hoveredIdx !== -1 ? hoveredIdx : touchStartIdx;
+        if (targetIdx !== null && targetIdx !== -1 && options[targetIdx]) {
+          onSelect(options[targetIdx].value);
         }
+        setTouchStartIdx(null);
       }}
       onMouseLeave={handleMouseLeave}
       onPointerLeave={handleMouseLeave}
@@ -270,7 +273,15 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
               <motion.div
                 key={option.value}
                 data-grid-item
-                onClick={() => onSelect(option.value)}
+                onPointerDown={(e) => {
+                  if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
+                    e.preventDefault();
+                    onSelect(option.value);
+                  } else {
+                    setTouchStartIdx(idx);
+                    setHoveredIdx(idx);
+                  }
+                }}
                 animate={{ color: option.value === value ? theme.Color.Base.Content[1] : theme.Color.Base.Content[2] }}
                 style={styles.gridItem(option.value === value)}
                 onPointerEnter={(e) => handleItemHover(idx, e.currentTarget)}
@@ -348,7 +359,15 @@ const SelectOverlay: React.FC<SelectOverlayProps> = ({
               <motion.div
                 key={option.value}
                 data-list-item
-                onClick={() => onSelect(option.value)}
+                onPointerDown={(e) => {
+                  if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
+                    e.preventDefault();
+                    onSelect(option.value);
+                  } else {
+                    setTouchStartIdx(idx);
+                    setHoveredIdx(idx);
+                  }
+                }}
                 style={styles.option(option.value === value)}
                 onPointerEnter={(e) => handleItemHover(idx, e.currentTarget)}
                 onMouseEnter={(e) => handleItemHover(idx, e.currentTarget)}
@@ -472,7 +491,8 @@ const Select = <T extends string = string>({ label, value, onChange, options, st
         layout="size"
         ref={triggerRef}
         style={styles.trigger}
-        onClick={() => {
+        onPointerDown={(e) => {
+          e.preventDefault();
           playSound('tick');
           setIsOpen(!isOpen);
         }}

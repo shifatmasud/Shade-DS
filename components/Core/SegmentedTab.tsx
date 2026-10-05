@@ -32,7 +32,8 @@ const SegmentedTab: React.FC<SegmentedTabProps> = ({ tabs, activeTab, onTabClick
         return (
           <button
             key={tab.id}
-            onClick={() => {
+            onPointerDown={(e) => {
+              e.preventDefault();
               playSound('tick');
               onTabClick(tab.id);
             }}
