@@ -419,7 +419,7 @@ export class ChatRoomLedger {
       // Calculate existing message count
       try {
         const content = fs.readFileSync(this.filePath, "utf8");
-        const matches = content.match(/##\s*\[msg_\d+\]/g) || content.match(/id:\s*msg_/g);
+        const matches = content.match(/##\s*\[msg_\d+\]/g);
         this.messageCount = matches ? matches.length : 0;
       } catch {
         this.messageCount = 0;
@@ -459,12 +459,7 @@ export class ChatRoomLedger {
   }
 
   public getMessages(): ChatMessage[] {
-    // Check chatRoom.md first, or fall back to legacy chatGroup.yaml if present
     if (!fs.existsSync(this.filePath)) {
-      const yamlPath = path.join(this.projectDir, "chatGroup.yaml");
-      if (fs.existsSync(yamlPath)) {
-        return this.parseLegacyYaml(yamlPath);
-      }
       return [];
     }
 
@@ -506,73 +501,21 @@ export class ChatRoomLedger {
 
     return messages;
   }
-
-  private parseLegacyYaml(yamlPath: string): ChatMessage[] {
-    try {
-      const content = fs.readFileSync(yamlPath, "utf8");
-      const rawBlocks = content.split(/\n\s*-\s*id:\s*/);
-      const messages: ChatMessage[] = [];
-      for (let i = 1; i < rawBlocks.length; i++) {
-        const block = "id: " + rawBlocks[i];
-        const idMatch = block.match(/id:\s*([^\n]+)/);
-        const tsMatch = block.match(/timestamp:\s*"?([^"\n]+)"?/);
-        const senderTypeMatch = block.match(/sender:\s*[\r\n]+\s*type:\s*([^\n]+)/);
-        const senderIdMatch = block.match(/sender:\s*[\r\n]+(?:\s*type:[^\n]+[\r\n]+)?\s*id:\s*([^\n]+)/);
-        const recTypeMatch = block.match(/recipient:\s*[\r\n]+\s*type:\s*([^\n]+)/);
-        const recIdMatch = block.match(/recipient:\s*[\r\n]+(?:\s*type:[^\n]+[\r\n]+)?\s*id:\s*([^\n]+)/);
-        const channelMatch = block.match(/channel:\s*([^\n]+)/);
-        const typeMatch = block.match(/type:\s*([^\n]+)/);
-        const contentMatch = block.match(/content:\s*\|([\s\S]*?)(?=\n\s*(?:context|artifacts|task|$))/);
-
-        if (idMatch) {
-          messages.push({
-            id: idMatch[1].trim(),
-            timestamp: tsMatch ? tsMatch[1].trim() : "",
-            sender: {
-              type: (senderTypeMatch ? senderTypeMatch[1].trim() : "manager") as any,
-              id: senderIdMatch ? senderIdMatch[1].trim() : "manager",
-            },
-            recipient: {
-              type: (recTypeMatch ? recTypeMatch[1].trim() : "agent") as any,
-              id: recIdMatch ? recIdMatch[1].trim() : "agent",
-            },
-            channel: channelMatch ? channelMatch[1].trim() : "manager",
-            type: (typeMatch ? typeMatch[1].trim() : "agent_prompt") as any,
-            content: contentMatch ? contentMatch[1].replace(/^\s{6}/gm, "").trim() : "",
-          });
-        }
-      }
-      return messages;
-    } catch {
-      return [];
-    }
-  }
 }
 
-// Backward-compatible alias
-export const ChatGroupLedger = ChatRoomLedger;
-
 // ============================================================================
-// AGENTS MESSENGER 1:1 DIRECT MESSAGING ENGINE (/agents-messenger & artifacts/{project-id}/agents-messenger)
+// AGENTS MESSENGER 1:1 DIRECT MESSAGING ENGINE (artifacts/{project-id}/agents-messenger)
 // ============================================================================
 
 export class AgentsMessengerEngine {
-  public baseDir: string;
-  public projectMessengerDir?: string;
-  public projectId?: string;
+  public projectMessengerDir: string;
+  public projectId: string;
 
-  constructor(projectId?: string) {
+  constructor(projectId: string = "default") {
     this.projectId = projectId;
-    this.baseDir = path.join(process.cwd(), "agents-messenger");
-    if (projectId) {
-      this.projectMessengerDir = path.join(process.cwd(), "artifacts", projectId, "agents-messenger");
-      if (!fs.existsSync(this.projectMessengerDir)) {
-        fs.mkdirSync(this.projectMessengerDir, { recursive: true });
-      }
-    } else {
-      if (!fs.existsSync(this.baseDir)) {
-        fs.mkdirSync(this.baseDir, { recursive: true });
-      }
+    this.projectMessengerDir = path.join(process.cwd(), "artifacts", this.projectId, "agents-messenger");
+    if (!fs.existsSync(this.projectMessengerDir)) {
+      fs.mkdirSync(this.projectMessengerDir, { recursive: true });
     }
     this.ensureDefaultAgentFiles();
   }
@@ -608,27 +551,14 @@ export class AgentsMessengerEngine {
 ---
 `;
 
-    // 1. Project-scoped artifacts/{project-id}/agents-messenger/{cleanName}.md (Preferred when in a project context)
-    if (this.projectMessengerDir) {
-      if (!fs.existsSync(this.projectMessengerDir)) {
-        fs.mkdirSync(this.projectMessengerDir, { recursive: true });
-      }
-      const projFilePath = path.join(this.projectMessengerDir, `${cleanName}.md`);
-      if (!fs.existsSync(projFilePath)) {
-        fs.writeFileSync(projFilePath, header, "utf8");
-      }
-      return projFilePath;
+    if (!fs.existsSync(this.projectMessengerDir)) {
+      fs.mkdirSync(this.projectMessengerDir, { recursive: true });
     }
-
-    // 2. Root-level fallback if running standalone messenger without a project
-    if (!fs.existsSync(this.baseDir)) {
-      fs.mkdirSync(this.baseDir, { recursive: true });
+    const projFilePath = path.join(this.projectMessengerDir, `${cleanName}.md`);
+    if (!fs.existsSync(projFilePath)) {
+      fs.writeFileSync(projFilePath, header, "utf8");
     }
-    const filePath = path.join(this.baseDir, `${cleanName}.md`);
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, header, "utf8");
-    }
-    return filePath;
+    return projFilePath;
   }
 
   public appendMessage(message: ChatMessage): void {
@@ -653,9 +583,7 @@ ${message.content}
 ---
 `;
 
-    // Determine target agent files to write to
     const targetAgents = new Set<string>();
-
     const senderKey = message.sender.id.toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
     const recipientKey = message.recipient.id.toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
 
@@ -670,25 +598,18 @@ ${message.content}
     }
 
     for (const ag of targetAgents) {
-      if (this.projectMessengerDir) {
-        // Strictly write to artifacts/{project-id}/agents-messenger/{agent-name}.md
-        const projFilePath = path.join(this.projectMessengerDir, `${ag}.md`);
-        if (!fs.existsSync(projFilePath)) {
-          this.ensureAgentFile(ag, ag);
-        }
-        fs.appendFileSync(projFilePath, formatted, "utf8");
-      } else {
+      const projFilePath = path.join(this.projectMessengerDir, `${ag}.md`);
+      if (!fs.existsSync(projFilePath)) {
         this.ensureAgentFile(ag, ag);
-        const filePath = path.join(this.baseDir, `${ag}.md`);
-        fs.appendFileSync(filePath, formatted, "utf8");
       }
+      fs.appendFileSync(projFilePath, formatted, "utf8");
     }
   }
 
   public listAgents(projectId?: string): Array<{ name: string; file: string; size: number }> {
     const targetDir = projectId
       ? path.join(process.cwd(), "artifacts", projectId, "agents-messenger")
-      : (this.projectMessengerDir || this.baseDir);
+      : this.projectMessengerDir;
     if (!fs.existsSync(targetDir)) return [];
     const files = fs.readdirSync(targetDir).filter((f) => f.endsWith(".md"));
     return files.map((f) => {
@@ -706,14 +627,10 @@ ${message.content}
     const cleanName = agentName.toLowerCase().replace(/[^a-z0-9_-]+/g, "_").replace(/\.md$/, "");
     const targetDir = projectId
       ? path.join(process.cwd(), "artifacts", projectId, "agents-messenger")
-      : (this.projectMessengerDir || this.baseDir);
+      : this.projectMessengerDir;
     const filePath = path.join(targetDir, `${cleanName}.md`);
     if (fs.existsSync(filePath)) {
       return fs.readFileSync(filePath, "utf8");
-    }
-    const fallbackPath = path.join(this.baseDir, `${cleanName}.md`);
-    if (fs.existsSync(fallbackPath)) {
-      return fs.readFileSync(fallbackPath, "utf8");
     }
     return `Agent messenger file not found for '${agentName}' at ${path.relative(process.cwd(), filePath)}`;
   }
@@ -1562,11 +1479,11 @@ Inspect failing files, execute 'runCommand' ('npm run lint' or 'npm run build') 
       CLITheme.stage(5, 5, "Verification Incomplete (Review retries exhausted)", "FAIL");
     }
 
-    // 6. Final State & Backwards Compatibility Artifacts
+    // 6. Final State & Project Reports
     this.state.status = reviewResult.status === "PASS" ? "completed" : "failed";
     this.state.updatedAt = new Date().toISOString();
     this.artifactsManager.saveState(this.state);
-    this.saveCompatibilityArtifacts(masterPlan, combinedAnalysis, workerOutputs, reviewResult);
+    this.saveProjectReports(masterPlan, combinedAnalysis, workerOutputs, reviewResult);
 
     // Executive Completion Card
     const fileListStr = Array.from(allModifiedFiles).join(", ") || "No manual changes required";
@@ -1578,7 +1495,7 @@ Inspect failing files, execute 'runCommand' ('npm run lint' or 'npm run build') 
       ["Quality Audit", `${reviewResult.score} (${reviewResult.status})`],
       ["Modified Files", fileListStr],
       ["Chat Room", `artifacts/${this.projectId}/chatRoom.md`],
-      ["1:1 Messenger", "agents-messenger/"],
+      ["1:1 Messenger", `artifacts/${this.projectId}/agents-messenger/`],
     ]);
 
     return {
@@ -1650,22 +1567,19 @@ Return a JSON object:
     return res;
   }
 
-  private saveCompatibilityArtifacts(
+  private saveProjectReports(
     masterPlan: MasterPlan,
     combinedAnalysis: string,
     workerOutputs: WorkerOutputContract[],
     reviewResult: ReviewResult
   ): void {
-    const artifactsDir = path.join(process.cwd(), "artifacts");
     const projArtifactsDir = this.artifactsManager.projectDir;
-    if (!fs.existsSync(artifactsDir)) fs.mkdirSync(artifactsDir, { recursive: true });
     if (!fs.existsSync(projArtifactsDir)) fs.mkdirSync(projArtifactsDir, { recursive: true });
 
     // 1. Task Spec
     const taskSlug = masterPlan.taskName.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "task_spec";
     const specContent = `# Tech Spec: ${masterPlan.taskName}\n\n## Objective\n${masterPlan.objective}\n\n## Architectural Decisions\n${masterPlan.architectureDecisions}\n\n## Implementation Plan\n${masterPlan.planContent}\n\n## Acceptance Criteria\n### Functional Criteria\n${masterPlan.acceptanceCriteria.criteria.map((c) => `- ${c}`).join("\n")}\n\n### Non-Negotiables\n${masterPlan.acceptanceCriteria.nonNegotiables.map((n) => `- ${n}`).join("\n")}\n`;
     fs.writeFileSync(path.join(projArtifactsDir, `${taskSlug}_spec.md`), specContent, "utf8");
-    fs.writeFileSync(path.join(artifactsDir, `${taskSlug}_spec.md`), specContent, "utf8");
 
     // 2. Markdown Report
     let mdContent = `# Spawn Agents Execution Report: ${masterPlan.taskName}\n\n## Task Objective\n${masterPlan.objective}\n\n## Analysis Briefing\n${combinedAnalysis}\n\n## Worker Outputs\n`;
@@ -1674,7 +1588,6 @@ Return a JSON object:
     }
     mdContent += `## Reviewer Audit\n- **Status:** ${reviewResult.status}\n- **Score:** ${reviewResult.score}\n- **Build Passed:** ${reviewResult.buildPassed}\n- **Lint Passed:** ${reviewResult.lintPassed}\n- **Summary:** ${reviewResult.summary}\n`;
     fs.writeFileSync(path.join(projArtifactsDir, "spawnAgents_output.md"), mdContent, "utf8");
-    fs.writeFileSync(path.join(artifactsDir, "spawnAgents_output.md"), mdContent, "utf8");
 
     // 3. JSON Output
     const jsonContent = JSON.stringify(
@@ -1689,7 +1602,6 @@ Return a JSON object:
       2
     );
     fs.writeFileSync(path.join(projArtifactsDir, "spawnAgents_output.json"), jsonContent, "utf8");
-    fs.writeFileSync(path.join(artifactsDir, "spawnAgents_output.json"), jsonContent, "utf8");
   }
 }
 
@@ -1897,7 +1809,7 @@ Direct shorthand:
     return;
   }
 
-  // 5. MESSENGER COMMANDS (/agents-messenger & artifacts/{project-id}/agents-messenger)
+  // 5. MESSENGER COMMANDS (artifacts/{project-id}/agents-messenger)
   if (command === "messenger") {
     const sub = filteredArgs[1] || "list";
 
@@ -1915,14 +1827,15 @@ Direct shorthand:
       }
     }
 
-    const messenger = new AgentsMessengerEngine(projectId);
+    const activeProjectId = projectId || "default";
+    const messenger = new AgentsMessengerEngine(activeProjectId);
 
     if (sub === "list") {
-      const list = messenger.listAgents(projectId);
+      const list = messenger.listAgents(activeProjectId);
       if (isJson) {
-        console.log(JSON.stringify({ folder: projectId ? `artifacts/${projectId}/agents-messenger` : "agents-messenger", count: list.length, agents: list }, null, 2));
+        console.log(JSON.stringify({ folder: `artifacts/${activeProjectId}/agents-messenger`, count: list.length, agents: list }, null, 2));
       } else {
-        console.log(`\x1b[35m=== Agents Messenger Directory (${projectId ? `artifacts/${projectId}/agents-messenger` : "agents-messenger"}) ===\x1b[0m`);
+        console.log(`\x1b[35m=== Agents Messenger Directory (artifacts/${activeProjectId}/agents-messenger) ===\x1b[0m`);
         list.forEach((a) => console.log(` - \x1b[1m${a.name}\x1b[0m (${a.file}, ${a.size} bytes)`));
       }
       return;
@@ -1934,11 +1847,11 @@ Direct shorthand:
         console.error("Please provide agent name: npx tsx scripts/spawnAgents.ts messenger read <agent-name> [--project <id>]");
         return;
       }
-      const thread = messenger.readThread(agentName, projectId);
+      const thread = messenger.readThread(agentName, activeProjectId);
       if (isJson) {
-        console.log(JSON.stringify({ agent: agentName, project: projectId, thread }, null, 2));
+        console.log(JSON.stringify({ agent: agentName, project: activeProjectId, thread }, null, 2));
       } else {
-        console.log(`\x1b[35m=== 1:1 Messenger Thread: ${agentName} (${projectId ? `artifacts/${projectId}/agents-messenger/${agentName}.md` : `agents-messenger/${agentName}.md`}) ===\x1b[0m\n`);
+        console.log(`\x1b[35m=== 1:1 Messenger Thread: ${agentName} (artifacts/${activeProjectId}/agents-messenger/${agentName}.md) ===\x1b[0m\n`);
         console.log(thread);
       }
       return;
@@ -1954,11 +1867,11 @@ Direct shorthand:
         return;
       }
 
-      const activeProjectId = projectId || `messenger-${Date.now()}`;
-      console.log(`\x1b[36m[Messenger 1:1] Sending direct message from '${fromAgent}' to '${toAgent}' (Project: ${activeProjectId})...\x1b[0m`);
-      const artifactsManager = new ProjectArtifactsManager(activeProjectId);
-      const ledger = new ChatRoomLedger(artifactsManager.projectDir, activeProjectId);
-      const projectMessenger = new AgentsMessengerEngine(activeProjectId);
+      const sendProjectId = projectId || `messenger-${Date.now()}`;
+      console.log(`\x1b[36m[Messenger 1:1] Sending direct message from '${fromAgent}' to '${toAgent}' (Project: ${sendProjectId})...\x1b[0m`);
+      const artifactsManager = new ProjectArtifactsManager(sendProjectId);
+      const ledger = new ChatRoomLedger(artifactsManager.projectDir, sendProjectId);
+      const projectMessenger = new AgentsMessengerEngine(sendProjectId);
 
       const promptMsg: ChatMessage = {
         id: ledger.nextMessageId(),
@@ -1984,9 +1897,9 @@ Direct shorthand:
       });
 
       if (isJson) {
-        console.log(JSON.stringify({ project: activeProjectId, from: fromAgent, to: toAgent, message: messageText, response: result.text }, null, 2));
+        console.log(JSON.stringify({ project: sendProjectId, from: fromAgent, to: toAgent, message: messageText, response: result.text }, null, 2));
       } else {
-        console.log(`\x1b[32m✔ Direct 1:1 message sent and logged to artifacts/${activeProjectId}/agents-messenger/${toAgent}.md and root agents-messenger/${toAgent}.md\x1b[0m\n`);
+        console.log(`\x1b[32m✔ Direct 1:1 message sent and logged to artifacts/${sendProjectId}/agents-messenger/${toAgent}.md\x1b[0m\n`);
         console.log(`\x1b[35m=== [${toAgent}] 1:1 Response ===\x1b[0m\n${result.text}`);
       }
       return;
