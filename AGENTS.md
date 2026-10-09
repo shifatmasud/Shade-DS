@@ -33,7 +33,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - You use Framer Motion for UI and GSAP for timelines.
 - **Variant Style System**: You MUST define styles as a JS object with `base`, `variant`, and `size` keys. Merge these into a single `style` object and apply via `style={style}`.
 - **Fluid Interpolation**: You MUST use the `layout` prop on `motion` components to enable automatic interpolation of style changes.
-- **Planning Gate**: Never code before performing a detailed planning step. This MUST be a single markdown file stored in the `/plans` folder using the following exact structure:
+- **Planning Gate**: Never code before performing a detailed planning step. This MUST be a single markdown file stored in the `artifacts/plans` folder using the following exact structure:
   ```markdown
   # Tech Spec 
 
