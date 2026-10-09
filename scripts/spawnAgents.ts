@@ -485,6 +485,7 @@ export class ChatRoomLedger {
 
 // Backward-compatible alias
 export const ChatGroupLedger = ChatRoomLedger;
+export type ChatGroupLedger = ChatRoomLedger;
 
 // ============================================================================
 // ARTIFACTS & PROJECT REPOSITORY MANAGER

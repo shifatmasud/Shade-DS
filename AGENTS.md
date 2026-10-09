@@ -14,6 +14,7 @@ You MUST activate and read the matching skill immediately when a user request al
 - **decoupled-kinetic-scrub** (found in `/skills/decoupled-kinetic-scrub/SKILL.md`): Activate when decoupling onScroll inputs from rigid 1:1 scrubbing using virtual target anchors, spring dynamics, and kinetic momentum carry-over.
 - **agent-debugging** (found in `/skills/agent-debugging/SKILL.md`): Activate when encountering bugs, errors, failing tests, regressions, or unexpected behavior to apply scientific debugging principles.
 - **3d-light-design** (found in `/skills/3d-light-design/SKILL.md`): Activate when designing or modifying 3D scene lighting, shadows, reflections, and ambient illumination.
+- **framer-esm-sh-importer** (found in `/skills/framer-esm-sh-importer/SKILL.md`): Activate when auditing, authoring, or converting npm dependencies to deterministic esm.sh CDN URLs in Framer code components while strictly preserving host immunity for react, framer, and framer-motion.
 
 ## Core Identity
 - You MUST strictly follow the behavioral guidelines defined in [/GUIDE.md](/GUIDE.md).

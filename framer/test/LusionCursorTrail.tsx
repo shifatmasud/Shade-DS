@@ -6,7 +6,8 @@
  * @framerSupportedLayoutHeight any
  */
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import * as THREE from 'three';
+// @ts-ignore
+import * as THREE from "https://esm.sh/three@0.183.2";
 import { motion } from 'framer-motion';
 import { addPropertyControls, ControlType, RenderTarget } from 'framer';
 import { useTheme } from '../../Theme.tsx';
