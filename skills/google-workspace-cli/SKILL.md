@@ -113,9 +113,9 @@ When running `gws auth login` inside a remote container or cloud environment, th
 
 Follow this loopback forwarding workflow:
 
-1. Start `gws auth login` in the container:
+1. Set file keyring backend and start `gws auth login --full` in the container:
    ```bash
-   gws auth login
+   export GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND="file" && gws auth login --full
    ```
    `gws` will output:
    `Open this URL in your browser to authenticate: https://accounts.google.com/o/oauth2/auth?...&redirect_uri=http://localhost:<PORT>&...`
