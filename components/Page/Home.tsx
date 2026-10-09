@@ -544,7 +544,11 @@ const Home = () => {
   const handlePropChange = (keyOrObj: string | Partial<MetaButtonProps>, value?: any) => {
     if (typeof keyOrObj === 'string') {
       const key = keyOrObj;
-      if (key === 'label' || key === 'customRadius' || key === 'customFill' || key === 'customColor') {
+      const isContinuousInput = key === 'label' || key === 'customRadius' || key === 'customFill' || key === 'customColor' ||
+        key === 'cardMediaHeight' || key === 'sliderMin' || key === 'sliderMax' || key === 'sliderStep' ||
+        key === 'sliderDefaultValue' || key === 'slotCubeSpeed' || key === 'slotCubeScale' || key === 'slotAmbientIntensity';
+
+      if (isContinuousInput) {
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
         }

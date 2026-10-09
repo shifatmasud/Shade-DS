@@ -56,6 +56,8 @@ const FillSlider: React.FC<FillSliderProps> = ({
   const inputRange = useMemo(() => [min, max], [min, max]);
   const outputRange = useMemo(() => [0, 100], []);
 
+  const trackRectRef = useRef<DOMRect | null>(null);
+
   // Derived precision for float handling
   const decimals = useMemo(() => {
     const stepStr = step.toString();
@@ -65,24 +67,21 @@ const FillSlider: React.FC<FillSliderProps> = ({
     return 0;
   }, [step]);
 
-  // 2. Derive visual percentage for the fill width
-  const visualValue = useSpring(activeMV, {
-    stiffness: 400,
-    damping: 40,
-    mass: 1,
-    restDelta: 0.001
-  });
+  // 2. Derive visual percentage directly for instant 1:1 native tracking
+  const percentage = useTransform(activeMV, inputRange, outputRange);
+  const widthStyle = useTransform(percentage, (p) => `${Math.min(Math.max(p, 0), 100)}%`);
 
-  const percentage = useTransform(visualValue, inputRange, outputRange);
-  const widthStyle = useTransform(percentage, (p) => `${p}%`);
-
-  // 3. Setup Counter Value
-  // We use the spring value for the counter so numbers "roll" smoothly even on snap
-  const counterMV = visualValue;
+  // 3. Setup Counter Value (direct motion value reference)
+  const counterMV = activeMV;
 
   const updateValueFromPointer = (clientX: number) => {
-    if (!trackRef.current) return;
-    const rect = trackRef.current.getBoundingClientRect();
+    let rect = trackRectRef.current;
+    if (!rect && trackRef.current) {
+      rect = trackRef.current.getBoundingClientRect();
+      trackRectRef.current = rect;
+    }
+    if (!rect || rect.width <= 0) return;
+
     const percent = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
     const rawValue = min + percent * (max - min);
     
@@ -90,15 +89,21 @@ const FillSlider: React.FC<FillSliderProps> = ({
     const stepped = Math.round(rawValue / step) * step;
     const finalValue = parseFloat(Math.min(Math.max(stepped, min), max).toFixed(decimals));
 
-    activeMV.set(finalValue);
-    if (onChange) onChange(finalValue);
+    if (finalValue !== activeMV.get()) {
+      activeMV.set(finalValue);
+      if (onChange) onChange(finalValue);
+    }
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
     isDraggingMV.set(1);
     if (trackRef.current) {
+      trackRectRef.current = trackRef.current.getBoundingClientRect();
+      try {
         trackRef.current.setPointerCapture(e.pointerId);
-        trackRef.current.style.cursor = 'grabbing';
+      } catch (_) {}
+      trackRef.current.style.cursor = 'grabbing';
     }
     updateValueFromPointer(e.clientX);
   };
@@ -112,9 +117,26 @@ const FillSlider: React.FC<FillSliderProps> = ({
   const handlePointerUp = (e: React.PointerEvent) => {
     if (isDraggingMV.get() === 1) {
       isDraggingMV.set(0);
+      trackRectRef.current = null;
       if (trackRef.current) {
+        try {
           trackRef.current.releasePointerCapture(e.pointerId);
-          trackRef.current.style.cursor = 'pointer';
+        } catch (_) {}
+        trackRef.current.style.cursor = 'pointer';
+      }
+      if (onCommit) onCommit(activeMV.get());
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent) => {
+    if (isDraggingMV.get() === 1) {
+      isDraggingMV.set(0);
+      trackRectRef.current = null;
+      if (trackRef.current) {
+        try {
+          trackRef.current.releasePointerCapture(e.pointerId);
+        } catch (_) {}
+        trackRef.current.style.cursor = 'pointer';
       }
       if (onCommit) onCommit(activeMV.get());
     }
@@ -213,6 +235,7 @@ const FillSlider: React.FC<FillSliderProps> = ({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onPointerEnter={() => isHoveredMV.set(1)}
       onPointerLeave={() => isHoveredMV.set(0)}
     >

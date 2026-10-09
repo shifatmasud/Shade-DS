@@ -112,13 +112,13 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
     return 0;
   }, [step]);
 
-  // High-performance spring for the visual position to prevent "instant" snapping jumps
-  const visualValue = useSpring(motionValue, {
-    stiffness: 300,
-    damping: 35,
-    mass: 1,
-    restDelta: 0.0001
-  });
+  // Cache bounding client rect during active pointer drag to eliminate 120Hz/240Hz layout reflows
+  const trackRectRef = useRef<DOMRect | null>(null);
+  const lastSoundTimeRef = useRef<number>(0);
+  const isDraggingRef = useRef(false);
+
+  // Direct 1:1 normalized percentage (Zero Latency - tracks cursor at hardware refresh rate like native <input type="range">)
+  const normalizedValue = useTransform(motionValue, [min, max], [0, 100]);
   
   // Use a fallback for the initial value to avoid NaN in calculations
   const [internalValue, setInternalValue] = useState(() => {
@@ -131,76 +131,123 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState<string | number>('');
 
-  // Velocity based rotation for tooltip - normalized across ranges for consistent feel
-  const normalizedValue = useTransform(visualValue, [min, max], [0, 100]);
+  // Velocity based rotation for tooltip - decoupled from thumb position so thumb is 100% direct
   const velocity = useVelocity(normalizedValue);
   
   // mapping normalized velocity (percentage per second) to rotation
-  // 60deg max reached at 2.5 track-widths per second for intensity
-  const rawRotate = useTransform(velocity, [-250, 250], [60, -60]);
-  const rawSkew = useTransform(velocity, [-250, 250], [-15, 15]);
+  const rawRotate = useTransform(velocity, [-250, 250], [45, -45]);
+  const rawSkew = useTransform(velocity, [-250, 250], [-12, 12]);
 
-  // High-inertia lag spring for "heavy mechanical" feel
+  // Snappy responsive inertia spring for tooltip tilt
   const lagRotate = useSpring(rawRotate, {
-    stiffness: 15, // Extremely low stiffness for intense lag
-    damping: 8,    // Low damping for visceral bounce
-    mass: 2.5      // Heavy mass for inertia
+    stiffness: 80,
+    damping: 18,
+    mass: 1.2
   });
 
   const lagSkew = useSpring(rawSkew, {
-    stiffness: 15,
-    damping: 8,
-    mass: 2.5
+    stiffness: 80,
+    damping: 18,
+    mass: 1.2
   });
 
   // Sync internal state with external motion value updates (e.g. undo/redo)
   useEffect(() => {
     const unsubscribe = motionValue.on("change", (v) => {
-      if (!isDragging) {
+      if (!isDraggingRef.current) {
         setInternalValue(v);
       }
     });
     return unsubscribe;
-  }, [motionValue, isDragging]);
+  }, [motionValue]);
 
   const updateValueFromPointer = (clientX: number) => {
-    if (!trackRef.current) return;
-    const rect = trackRef.current.getBoundingClientRect();
+    let rect = trackRectRef.current;
+    if (!rect && trackRef.current) {
+      rect = trackRef.current.getBoundingClientRect();
+      trackRectRef.current = rect;
+    }
+    if (!rect || rect.width <= 0) return;
+
     const percent = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
     
     // Robust stepped calculation with floating point correction
     const rawValue = min + percent * (max - min);
     const stepped = Math.round(rawValue / step) * step;
-    const newValue = parseFloat(stepped.toFixed(decimals));
+    const clamped = Math.min(Math.max(stepped, min), max);
+    const newValue = parseFloat(clamped.toFixed(decimals));
     
-    // We only set the motion value, avoiding component-wide React virtual DOM re-renders during drag!
+    // 0ms direct update to motion value; zero React virtual DOM re-renders during drag
     if (newValue !== motionValue.get()) {
-      playSound('tick', 0.15);
       motionValue.set(newValue);
+
+      // Throttle audio ticks to optimal human perceptual threshold (~40ms) to prevent audio thread starvation
+      const now = performance.now();
+      if (now - lastSoundTimeRef.current >= 40) {
+        lastSoundTimeRef.current = now;
+        playSound('tick', 0.15);
+      }
+
       if (onChange) onChange(newValue);
     }
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return; // Primary pointer button only
+    isDraggingRef.current = true;
     setIsDragging(true);
-    trackRef.current?.setPointerCapture(e.pointerId);
+    
+    if (trackRef.current) {
+      // Cache bounding box once for the entire drag session (prevents layout thrashing)
+      trackRectRef.current = trackRef.current.getBoundingClientRect();
+      try {
+        trackRef.current.setPointerCapture(e.pointerId);
+      } catch (_) {
+        // Fallback for environments where pointer capture might fail
+      }
+    }
+    
     playSound('press');
     updateValueFromPointer(e.clientX);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (isDragging) {
+    if (isDraggingRef.current) {
       updateValueFromPointer(e.clientX);
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (isDragging) {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
       setIsDragging(false);
-      trackRef.current?.releasePointerCapture(e.pointerId);
+      trackRectRef.current = null;
+
+      if (trackRef.current) {
+        try {
+          trackRef.current.releasePointerCapture(e.pointerId);
+        } catch (_) {}
+      }
       playSound('release');
       
       // Flush back to React state ONLY when pointer dragging is finalized
+      const committedValue = motionValue.get();
+      setInternalValue(committedValue);
+      onCommit(committedValue);
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent) => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      trackRectRef.current = null;
+
+      if (trackRef.current) {
+        try {
+          trackRef.current.releasePointerCapture(e.pointerId);
+        } catch (_) {}
+      }
       const committedValue = motionValue.get();
       setInternalValue(committedValue);
       onCommit(committedValue);
@@ -333,6 +380,7 @@ const RangeSlider: React.FC<RangeSliderProps> = ({
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
