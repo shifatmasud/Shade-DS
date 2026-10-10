@@ -15,6 +15,13 @@ import {
   listUpsyTools, 
   callUpsyTool 
 } from "./services/upsyMcpService.ts";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import {
+  createWorkspaceMcpServer,
+  handleStatelessJsonRpc,
+  WORKSPACE_TOOLS,
+  appendAuditLog
+} from "./services/remoteMcpServer.ts";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -902,6 +909,330 @@ async function startServer() {
       auditClients.delete(res);
     });
   });
+
+  // ==========================================
+  // Remote MCP Server Routes (Grok Connectors)
+  // ==========================================
+  const sseTransports = new Map<string, SSEServerTransport>();
+
+  // Helper to read public Cloudflare tunnel URL if available
+  const getPublicTunnelUrl = (): string => {
+    try {
+      const candidates = ['/tmp/mcp_tunnel.log', '/tmp/cloudflared.log', '/tmp/logs/mcp_tunnel.log'];
+      for (const file of candidates) {
+        if (fs.existsSync(file)) {
+          const content = fs.readFileSync(file, 'utf-8');
+          const matches = content.match(/https:\/\/[-a-zA-Z0-9\.]*\.trycloudflare\.com/g);
+          if (matches && matches.length > 0) {
+            return matches[matches.length - 1];
+          }
+        }
+      }
+    } catch (_) {}
+  };
+
+  // API Route: Get MCP tunnel status & URL
+  app.get("/api/mcp/tunnel", (req, res) => {
+    const url = getPublicTunnelUrl();
+    const isRunning = !!url;
+    res.json({
+      status: isRunning ? "running" : "stopped",
+      publicUrl: url || null,
+      sseEndpoint: url ? `${url}/mcp/sse` : null,
+      postEndpoint: url ? `${url}/mcp` : null,
+      dashboard: url ? `${url}/mcp` : null
+    });
+  });
+
+  // API Route: Renew / restart MCP tunnel
+  app.post("/api/mcp/tunnel/renew", async (req, res) => {
+    try {
+      appendAuditLog("Triggering manual MCP tunnel renewal.");
+      const scriptPath = path.join(process.cwd(), "scripts", "mcp-tunnel.sh");
+      const { stdout, stderr } = await execAsync(`bash "${scriptPath}" renew`, { timeout: 35000 });
+      const newUrl = getPublicTunnelUrl();
+      res.json({
+        success: true,
+        publicUrl: newUrl,
+        sseEndpoint: newUrl ? `${newUrl}/mcp/sse` : null,
+        postEndpoint: newUrl ? `${newUrl}/mcp` : null,
+        output: stdout || stderr
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Permanent Cloudflare Custom Domain for Grok Connectors (Zero expiration)
+  const PERMANENT_CUSTOM_DOMAIN = "https://ai-studio-mcp.shifatmasud.workers.dev";
+
+  async function syncPermanentEdgeWorker(backendUrl: string) {
+    if (!backendUrl) return;
+    try {
+      const res = await fetch(`${PERMANENT_CUSTOM_DOMAIN}/sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-sync-secret": "ai_studio_mcp_secret_2026"
+        },
+        body: JSON.stringify({ backendUrl })
+      });
+      if (res.ok) {
+        appendAuditLog(`[PERMANENT-DOMAIN] Synced backend ${backendUrl} to ${PERMANENT_CUSTOM_DOMAIN}`);
+        console.log(`[PERMANENT-DOMAIN] Synced backend ${backendUrl} to ${PERMANENT_CUSTOM_DOMAIN}`);
+      }
+    } catch (err: any) {
+      appendAuditLog(`[PERMANENT-DOMAIN] Sync failed: ${err.message}`);
+    }
+  }
+
+  // Automated Cloudflare Tunnel Watchdog & Auto-Renew Service
+  let isRenewingTunnel = false;
+
+  async function checkAndAutoRenewTunnel() {
+    if (isRenewingTunnel) return;
+
+    const currentUrl = getPublicTunnelUrl();
+    let isHealthy = false;
+
+    if (currentUrl) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const probeRes = await fetch(`${currentUrl}/api/health`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (probeRes.status === 200) {
+          isHealthy = true;
+          // Periodically sync active backend to edge worker
+          syncPermanentEdgeWorker(currentUrl).catch(() => {});
+        }
+      } catch (_) {
+        isHealthy = false;
+      }
+    }
+
+    if (!isHealthy) {
+      isRenewingTunnel = true;
+      appendAuditLog("[MCP-WATCHDOG] Cloudflare tunnel unhealthy or expired. Auto-renewing via Cloudflare CLI...");
+      console.log("[MCP-WATCHDOG] Cloudflare tunnel unhealthy or expired. Auto-renewing via Cloudflare CLI...");
+      try {
+        const scriptPath = path.join(process.cwd(), "scripts", "mcp-tunnel.sh");
+        await execAsync(`bash "${scriptPath}" renew`, { timeout: 45000 });
+        const newUrl = getPublicTunnelUrl();
+        appendAuditLog(`[MCP-WATCHDOG] Cloudflare tunnel renewed successfully: ${newUrl}`);
+        console.log(`[MCP-WATCHDOG] Cloudflare tunnel renewed successfully: ${newUrl}`);
+        if (newUrl) {
+          await syncPermanentEdgeWorker(newUrl);
+        }
+      } catch (err: any) {
+        appendAuditLog(`[MCP-WATCHDOG] Failed to auto-renew tunnel: ${err.message}`);
+        console.error("[MCP-WATCHDOG] Auto-renew error:", err.message);
+      } finally {
+        isRenewingTunnel = false;
+      }
+    }
+  }
+
+  // Run watchdog initial check after 5s, then periodic poll every 45s
+  setTimeout(checkAndAutoRenewTunnel, 5000);
+  setInterval(checkAndAutoRenewTunnel, 45000);
+
+  // CORS and preflight middleware for all MCP endpoints
+  app.use(["/mcp", "/sse", "/messages"], (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-session-id, *");
+    res.setHeader("Access-Control-Expose-Headers", "*");
+    if (req.method === "OPTIONS") {
+      return res.status(204).end();
+    }
+    next();
+  });
+
+  // 3. GET /mcp/sse & GET /sse - SSE Stream Transport Handler
+  const handleSseConnection = async (req: express.Request, res: express.Response) => {
+    try {
+      // Set CORS and proxy unbuffered streaming headers
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "*");
+      res.setHeader("X-Accel-Buffering", "no");
+
+      const server = createWorkspaceMcpServer();
+      const transport = new SSEServerTransport("/mcp/messages", res);
+      const sessionId = transport.sessionId;
+      sseTransports.set(sessionId, transport);
+      appendAuditLog(`Grok/MCP SSE client connected. Session ID: ${sessionId}`);
+
+      transport.onclose = () => {
+        appendAuditLog(`Grok/MCP SSE client disconnected. Session ID: ${sessionId}`);
+        sseTransports.delete(sessionId);
+      };
+
+      req.on('close', () => {
+        sseTransports.delete(sessionId);
+      });
+
+      await server.connect(transport);
+    } catch (err: any) {
+      appendAuditLog(`SSE connection error: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ error: `Failed to initialize SSE transport: ${err.message}` });
+      }
+    }
+  };
+
+  // 1. GET /mcp - Metadata, Discovery & SSE Auto-Upgrade
+  app.get("/mcp", (req, res) => {
+    // If client requested text/event-stream directly on /mcp, upgrade to SSE seamlessly
+    if (req.headers.accept?.includes('text/event-stream')) {
+      return handleSseConnection(req, res);
+    }
+
+    const tunnelUrl = getPublicTunnelUrl();
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.get('host') || 'localhost:3000';
+    const directUrl = `${protocol}://${host}`;
+    const baseUrl = tunnelUrl || directUrl;
+
+    const metadata = {
+      name: "ai-studio-workspace-mcp",
+      version: "1.0.0",
+      description: "Remote Model Context Protocol (MCP) server for Google AI Studio workspace control, compatible with Grok Connectors.",
+      status: "online",
+      authentication: {
+        type: "none",
+        description: "Open endpoint without authentication for instant connector setup."
+      },
+      permanentCustomDomain: {
+        sseEndpoint: `${PERMANENT_CUSTOM_DOMAIN}/mcp/sse`,
+        postEndpoint: `${PERMANENT_CUSTOM_DOMAIN}/mcp`,
+        dashboard: `${PERMANENT_CUSTOM_DOMAIN}/mcp`,
+        notes: "Zero-expiration permanent custom domain on Cloudflare Edge. Use this in Grok."
+      },
+      transports: {
+        sse: {
+          endpoint: `${PERMANENT_CUSTOM_DOMAIN}/mcp/sse`,
+          directTunnelEndpoint: `${baseUrl}/mcp/sse`,
+          notes: "Primary SSE streaming transport for Grok Connectors."
+        },
+        streamableHttp: {
+          endpoint: `${PERMANENT_CUSTOM_DOMAIN}/mcp`,
+          directTunnelEndpoint: `${baseUrl}/mcp`,
+          method: "POST",
+          notes: "Stateless JSON-RPC 2.0 endpoint supporting standard initialize, tools/list, and tools/call."
+        }
+      },
+      publicTunnelUrl: tunnelUrl || null,
+      grokInstructions: {
+        step1: "In Grok (grok.com), go to Settings -> Connectors / MCP Tools.",
+        step2: `Enter Server URL: ${PERMANENT_CUSTOM_DOMAIN}/mcp/sse (or ${PERMANENT_CUSTOM_DOMAIN}/mcp)`,
+        step3: "Leave Authentication as None/Empty.",
+        step4: "Save and test. Grok will discover all 8 workspace tools."
+      },
+      toolsCount: WORKSPACE_TOOLS.length,
+      tools: WORKSPACE_TOOLS.map(t => ({
+        name: t.name,
+        description: t.description,
+        parameters: t.inputSchema
+      }))
+    };
+
+    if (req.accepts('html') && !req.accepts('json')) {
+      return res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Studio Workspace MCP Server</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; max-width: 900px; margin: 0 auto; line-height: 1.6; }
+    h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 0.5rem; }
+    h2 { color: #79c0ff; margin-top: 1.5rem; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.2rem; margin-bottom: 1.2rem; }
+    .code { background: #0d1117; padding: 0.4rem 0.8rem; border-radius: 6px; font-family: monospace; color: #7ee787; word-break: break-all; }
+    .tool-item { border-left: 3px solid #1f6feb; padding-left: 0.8rem; margin: 0.8rem 0; }
+    .tool-name { font-weight: bold; color: #ffa657; font-family: monospace; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; background: #238636; color: #fff; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h1>AI Studio Workspace MCP Server</h1>
+  <p>Online &amp; ready for Grok Connectors and external MCP clients.</p>
+  <div class="card">
+    <div class="badge">PERMANENT CUSTOM DOMAIN (ZERO EXPIRATION)</div>
+    <h3>Grok Connector Setup:</h3>
+    <p>1. Open <strong>Grok</strong> &rarr; <strong>Connectors</strong> &rarr; <strong>Add Custom MCP Server</strong></p>
+    <p>2. Server URL (SSE): <span class="code">${PERMANENT_CUSTOM_DOMAIN}/mcp/sse</span></p>
+    <p>3. Direct POST URL: <span class="code">${PERMANENT_CUSTOM_DOMAIN}/mcp</span></p>
+    <p>4. Authentication: <em>None (Open Access)</em></p>
+  </div>
+  <h2>Available Tools (${WORKSPACE_TOOLS.length})</h2>
+  ${WORKSPACE_TOOLS.map(t => `
+    <div class="tool-item">
+      <div class="tool-name">${t.name}</div>
+      <div style="color: #8b949e; font-size: 0.9rem;">${t.description}</div>
+    </div>
+  `).join('')}
+</body>
+</html>`);
+    }
+
+    return res.json(metadata);
+  });
+
+  // 2. POST /mcp - Stateless JSON-RPC 2.0 Endpoint
+  app.post("/mcp", async (req, res) => {
+    try {
+      const tunnelUrl = getPublicTunnelUrl();
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+      const host = req.get('host') || 'localhost:3000';
+      const directUrl = `${protocol}://${host}`;
+      const baseUrl = tunnelUrl || directUrl;
+
+      const { statusCode, response } = await handleStatelessJsonRpc(req.body, baseUrl);
+      if (statusCode === 204) {
+        return res.status(204).end();
+      }
+      return res.status(statusCode).json(response);
+    } catch (err: any) {
+      appendAuditLog(`POST /mcp error: ${err.message}`);
+      return res.status(500).json({
+        jsonrpc: "2.0",
+        id: req.body?.id ?? null,
+        error: { code: -32603, message: `Internal server error: ${err.message}` }
+      });
+    }
+  });
+
+  app.get("/mcp/sse", handleSseConnection);
+  app.get("/sse", handleSseConnection);
+
+  // 4. POST /mcp/messages & POST /messages - Post Messages to Active SSE Session
+  const handlePostMessages = async (req: express.Request, res: express.Response) => {
+    const sessionId = (req.query.sessionId as string) || (req.headers["x-session-id"] as string);
+    if (!sessionId) {
+      return res.status(400).json({ error: "Missing sessionId parameter" });
+    }
+
+    const transport = sseTransports.get(sessionId);
+    if (!transport) {
+      return res.status(404).json({ error: `Session not found: ${sessionId}` });
+    }
+
+    try {
+      await transport.handlePostMessage(req, res);
+    } catch (err: any) {
+      appendAuditLog(`handlePostMessage error: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message });
+      }
+    }
+  };
+
+  app.post("/mcp/messages", handlePostMessages);
+  app.post("/messages", handlePostMessages);
 
   // Standard health check
   app.get("/api/health", (req, res) => {

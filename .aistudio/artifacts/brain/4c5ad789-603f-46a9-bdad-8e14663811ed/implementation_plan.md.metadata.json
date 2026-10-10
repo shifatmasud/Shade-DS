@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for building a Remote Model Context Protocol (MCP) server supporting Grok Connectors and external AI clients. Provides dual transport (SSE and HTTP POST JSON-RPC 2.0) with full workspace control tools (terminal execution, file read/write/edit, directory listing, and project status) without authentication barriers.",
+  "updatedAt":  "2026-10-10T08:42:11.562171922Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

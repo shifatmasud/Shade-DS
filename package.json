@@ -8,7 +8,9 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "tunnel:status": "bash scripts/mcp-tunnel.sh status",
+    "tunnel:renew": "bash scripts/mcp-tunnel.sh renew"
   },
   "dependencies": {
     "@babel/parser": "^7.29.2",

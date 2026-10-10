@@ -1,0 +1,12 @@
+name = "ai-studio-mcp"
+main = "src/index.ts"
+compatibility_date = "2024-03-01"
+account_id = "59aed109e5b55bce035a2e1f59db08c5"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "MCP_CONFIG"
+id = "77a6da0a53d2462c8fdb3c5e1569ba59"
+
+[vars]
+SYNC_SECRET = "ai_studio_mcp_secret_2026"
