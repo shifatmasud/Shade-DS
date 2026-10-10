@@ -1,0 +1,30 @@
+{
+  "db875475395dacbfa339240f9ee35b34": {
+    "code_verifier": "0qRaF_NcZ145ODqB7AFZs-rMoNyadh-Ae0uhjZCcYws",
+    "code_challenge": "dcMToHnG0LuUeY5GC8ocyln7iZj1DGU9cAOFX4c3vz8",
+    "state": "db875475395dacbfa339240f9ee35b34",
+    "redirect_uri": "https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback",
+    "created_at": 1791615089707
+  },
+  "8b2f8a55dd03da3e2d4ac740134616a2": {
+    "code_verifier": "hzeyD9yJkOkfSk33Tf3AYzB3TD36MjPwxyPV1cHEitE",
+    "code_challenge": "R04tHXXkQcJ3Y_GiSmXtgGDIZb_rCyX97ZaMiuzXL2c",
+    "state": "8b2f8a55dd03da3e2d4ac740134616a2",
+    "redirect_uri": "http://localhost:3000/api/oauth/upsy/callback",
+    "created_at": 1791615134869
+  },
+  "4a506da1eabfe9835abe6470ec3163ca": {
+    "code_verifier": "T9O48paAMRTrrsdnswlVSJGMa7zwnfukMCK7nrpHLPU",
+    "code_challenge": "G50rLBnXmCn7sAn7mUHSSkU9mZkOVulUklvoa0jsuIU",
+    "state": "4a506da1eabfe9835abe6470ec3163ca",
+    "redirect_uri": "https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback",
+    "created_at": 1791615139381
+  },
+  "35cf090c273b6026d1a7800231a8b98e": {
+    "code_verifier": "TBIu12v_BL5JO3eGSvbUDn58xuFeUgLVu6q7HYcrKxU",
+    "code_challenge": "q9ZjbfmoiZvhBxIYB75Q42ZS1WetySZ_Thl0CdM0HHA",
+    "state": "35cf090c273b6026d1a7800231a8b98e",
+    "redirect_uri": "https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback",
+    "created_at": 1791615158165
+  }
+}

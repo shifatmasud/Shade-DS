@@ -6,6 +6,15 @@ import { promisify } from 'util';
 import fs from 'fs';
 import https from "https";
 import dotenv from "dotenv";
+import { 
+  createAuthorizationUrl, 
+  exchangeCodeForTokens, 
+  popPkceSession, 
+  loadTokens, 
+  saveTokens, 
+  listUpsyTools, 
+  callUpsyTool 
+} from "./services/upsyMcpService.ts";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -587,6 +596,142 @@ async function startServer() {
       res.json({ success: true, command, output: stdout || stderr });
     } catch (err: any) {
       res.json({ success: false, error: err.message, output: err.stderr || err.stdout || err.message });
+    }
+  });
+
+  // --- UPSY REMOTE MCP & OAUTH 2.1 PKCE ENDPOINTS ---
+
+  // Generate OAuth 2.1 authorization URL with PKCE
+  app.get("/api/upsy/auth-url", async (req, res) => {
+    try {
+      const redirectUriParam = req.query.redirect_uri as string | undefined;
+      const host = req.get('host') || 'ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app';
+      const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+      const computedRedirectUri = redirectUriParam || `${protocol}://${host}/api/oauth/upsy/callback`;
+
+      const authData = await createAuthorizationUrl({ redirectUri: computedRedirectUri });
+      res.json({
+        success: true,
+        url: authData.url,
+        state: authData.state,
+        client_id: authData.client_id,
+        redirect_uri: authData.redirect_uri,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // OAuth 2.1 callback handler (receives authorization code from Upsy)
+  app.get("/api/oauth/upsy/callback", async (req, res) => {
+    const { code, state, error, error_description } = req.query;
+
+    if (error) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Upsy OAuth Authorization Failed</title></head>
+        <body style="font-family: sans-serif; padding: 40px; background: #121212; color: #fff;">
+          <h2 style="color: #ff453a;">Authorization Denied or Failed</h2>
+          <p>${error_description || error}</p>
+          <a href="/" style="color: #64b5f6;">Back to Workspace</a>
+        </body>
+        </html>
+      `);
+    }
+
+    if (!code || !state) {
+      return res.status(400).send("Missing code or state in OAuth callback.");
+    }
+
+    try {
+      const pkceSession = popPkceSession(String(state));
+      if (!pkceSession) {
+        return res.status(400).send("Invalid or expired OAuth state session. Please initiate login again.");
+      }
+
+      // Load client ID from saved client config
+      const clientConfig = await import('./services/upsyMcpService.ts').then(m => m.loadClientConfig());
+      if (!clientConfig?.client_id) {
+        return res.status(500).send("Client configuration missing.");
+      }
+
+      const tokens = await exchangeCodeForTokens({
+        code: String(code),
+        code_verifier: pkceSession.code_verifier,
+        redirect_uri: pkceSession.redirect_uri,
+        client_id: clientConfig.client_id,
+      });
+
+      // Broadcast terminal notification if possible
+      broadcastToTerminal({
+        type: 'output',
+        data: `\r\n\x1b[32m[Upsy OAuth 2.1]\x1b[0m Successfully connected! Access token obtained with scopes: ${tokens.scope || 'all'}\r\n`,
+      });
+
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Upsy Connected Successfully</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f0f11; color: #f0f0f2; padding: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; }
+            .card { background: #1a1a1e; border: 1px solid #2a2a30; border-radius: 16px; padding: 32px 40px; max-width: 520px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center; }
+            .badge { display: inline-block; padding: 6px 14px; border-radius: 999px; background: rgba(30,142,62,0.15); color: #6dd78c; font-weight: 600; font-size: 13px; margin-bottom: 16px; border: 1px solid rgba(109,215,140,0.3); }
+            h1 { font-size: 24px; margin: 0 0 12px 0; font-weight: 600; }
+            p { font-size: 14px; color: #a0a0a8; line-height: 1.6; margin: 0 0 24px 0; }
+            a { display: inline-block; background: #ffffff; color: #000000; text-decoration: none; font-weight: 600; padding: 12px 24px; border-radius: 8px; font-size: 14px; transition: opacity 0.2s; }
+            a:hover { opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="badge">✓ Connected to Upsy Remote MCP</div>
+            <h1>Authentication Complete</h1>
+            <p>Your memory, files, browser, and connected apps are now linked to this workspace. You can close this tab or return to the application.</p>
+            <a href="/">Return to Workspace</a>
+          </div>
+        </body>
+        </html>
+      `);
+    } catch (err: any) {
+      console.error("Token exchange failed:", err);
+      return res.status(500).send(`Token exchange error: ${err.message}`);
+    }
+  });
+
+  // Upsy connection status
+  app.get("/api/upsy/status", (req, res) => {
+    const tokens = loadTokens();
+    res.json({
+      connected: !!tokens?.access_token,
+      obtained_at: tokens?.obtained_at,
+      scope: tokens?.scope,
+      hasRefreshToken: !!tokens?.refresh_token,
+    });
+  });
+
+  // Upsy tools list
+  app.get("/api/upsy/tools", async (req, res) => {
+    try {
+      const tools = await listUpsyTools();
+      res.json({ success: true, tools });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Call Upsy tool
+  app.post("/api/upsy/call", async (req, res) => {
+    const { name, arguments: toolArgs } = req.body;
+    if (!name) {
+      return res.status(400).json({ success: false, error: "Tool name is required." });
+    }
+    try {
+      const result = await callUpsyTool(name, toolArgs || {});
+      res.json({ success: true, result });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
