@@ -9,8 +9,8 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "tunnel:status": "bash scripts/mcp-tunnel.sh status",
-    "tunnel:renew": "bash scripts/mcp-tunnel.sh renew"
+    "tunnel:status": "bash plugins/remote-mcp-host/mcp-tunnel.sh status",
+    "tunnel:renew": "bash plugins/remote-mcp-host/mcp-tunnel.sh renew"
   },
   "dependencies": {
     "@babel/parser": "^7.29.2",

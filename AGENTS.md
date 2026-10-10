@@ -4,17 +4,17 @@ You are a bidirectional translator between React ecosystems and Shade DSL.
 
 ## Skill Activation
 You MUST activate and read the matching skill immediately when a user request aligns with any of the following capabilities:
-- **shade-dsl** (found in `/skills/shade_dsl/SKILL.md`): Activate when the user requests architecture extraction, modular React code generation, or DSL translation (Data, Logic, Render).
-- **shader-dsl** (found in `/skills/shader_dsl/SKILL.md`): Activate when working on GPGPU/GLSL/WGSL rendering systems, stage-isolated computations (`@compute`, `@vertex`, `@fragment`), or custom shader graph nodes.
-- **framer-code-components-overrides** (found in `/skills/framer-code-components-overrides/SKILL.md`): Activate when building custom code-backed components, designing overrides, adjusting hydration safety (browser/server guards), wrapping container portals, or resolving dynamic CMS text rendering.
-- **Framer-agent** (found in `/skills/Framer-agent/SKILL.md`): Activate when using the core programmatic workspace suite, executing CLI commands to traverse nodes, invoking background agent lookups, applying direct DSL strings, or processing sitemaps, staging, and web publication pipelines.
-- **spawn-agents** (found in `/skills/spawn-agents/SKILL.md`): Activate when orchestrating complex tasks, decomposing tasks into multiple worker agents, executing parallel codebase analysis, or generating detailed auditor reviews.
-- **modern-web-guidance** (found in `/skills/modern-web-guidance/SKILL.md`): Activate when applying modern browser APIs, performance optimizations, accessibility audits, or advanced CSS layouts.
-- **parasitic-dom-binding** (found in `/skills/parasitic-dom-binding/SKILL.md`): Activate when creating "self-aware" components that bind directly to parent or sibling DOM nodes to augment UI behavior or rendering (e.g., RippleLayer, StateLayer, SuccessLayer).
-- **decoupled-kinetic-scrub** (found in `/skills/decoupled-kinetic-scrub/SKILL.md`): Activate when decoupling onScroll inputs from rigid 1:1 scrubbing using virtual target anchors, spring dynamics, and kinetic momentum carry-over.
-- **agent-debugging** (found in `/skills/agent-debugging/SKILL.md`): Activate when encountering bugs, errors, failing tests, regressions, or unexpected behavior to apply scientific debugging principles.
-- **3d-light-design** (found in `/skills/3d-light-design/SKILL.md`): Activate when designing or modifying 3D scene lighting, shadows, reflections, and ambient illumination.
-- **framer-esm-sh-importer** (found in `/skills/framer-esm-sh-importer/SKILL.md`): Activate when auditing, authoring, or converting npm dependencies to deterministic esm.sh CDN URLs in Framer code components while strictly preserving host immunity for react, framer, and framer-motion.
+- **shade-dsl** (found in `/plugins/shade_dsl/SKILL.md`): Activate when the user requests architecture extraction, modular React code generation, or DSL translation (Data, Logic, Render).
+- **shader-dsl** (found in `/plugins/shader_dsl/SKILL.md`): Activate when working on GPGPU/GLSL/WGSL rendering systems, stage-isolated computations (`@compute`, `@vertex`, `@fragment`), or custom shader graph nodes.
+- **framer-code-components-overrides** (found in `/plugins/framer-code-components-overrides/SKILL.md`): Activate when building custom code-backed components, designing overrides, adjusting hydration safety (browser/server guards), wrapping container portals, or resolving dynamic CMS text rendering.
+- **Framer-agent** (found in `/plugins/framer-agent-cli/SKILL.md`): Activate when using the core programmatic workspace suite, executing CLI commands to traverse nodes, invoking background agent lookups, applying direct DSL strings, or processing sitemaps, staging, and web publication pipelines.
+- **spawn-agents** (found in `/plugins/spawn-agents/SKILL.md`): Activate when orchestrating complex tasks, decomposing tasks into multiple worker agents, executing parallel codebase analysis, or generating detailed auditor reviews.
+- **modern-web-guidance** (found in `/plugins/modern-web-guidance/SKILL.md`): Activate when applying modern browser APIs, performance optimizations, accessibility audits, or advanced CSS layouts.
+- **parasitic-dom-binding** (found in `/plugins/parasitic-dom-binding/SKILL.md`): Activate when creating "self-aware" components that bind directly to parent or sibling DOM nodes to augment UI behavior or rendering (e.g., RippleLayer, StateLayer, SuccessLayer).
+- **decoupled-kinetic-scrub** (found in `/plugins/decoupled-kinetic-scrub/SKILL.md`): Activate when decoupling onScroll inputs from rigid 1:1 scrubbing using virtual target anchors, spring dynamics, and kinetic momentum carry-over.
+- **agent-debugging** (found in `/plugins/agent-debugging/SKILL.md`): Activate when encountering bugs, errors, failing tests, regressions, or unexpected behavior to apply scientific debugging principles.
+- **3d-light-design** (found in `/plugins/3d-light-design/SKILL.md`): Activate when designing or modifying 3D scene lighting, shadows, reflections, and ambient illumination.
+- **framer-esm-sh-importer** (found in `/plugins/framer-esm-sh-importer/SKILL.md`): Activate when auditing, authoring, or converting npm dependencies to deterministic esm.sh CDN URLs in Framer code components while strictly preserving host immunity for react, framer, and framer-motion.
 
 ## Core Identity
 - You MUST strictly follow the behavioral guidelines defined in [/GUIDE.md](/GUIDE.md).
@@ -67,9 +67,9 @@ You MUST adhere to the following hierarchy when organizing components:
 - **Authoritative Reviewer & Fix Loop**: The Reviewer Agent audits build/lint results, architectural compliance, Theme token usage, code duplication, and security. If issues are identified, a Fix Agent loop resolves them automatically before re-review.
 - **Concurrency Permissions**: Parallel reads are permitted when analyzer agents are collecting file context. Code modifications and writes MUST be executed sequentially per task node to preserve file system integrity.
 - **Workspace Tool-Access**: Spawned agents are equipped with full read/write/execution access (`readFile`, `writeFile`, `listDir`, `runCommand`).
-- **CLI Spawn Tool**: Run the dedicated orchestrator at `scripts/spawnAgents.ts` using:
+- **CLI Spawn Tool**: Run the dedicated orchestrator at `plugins/spawn-agents/spawnAgents.ts` using:
   ```bash
-  npx tsx scripts/spawnAgents.ts "<task description>" [--plan <path_to_plan_spec>]
+  npx tsx plugins/spawn-agents/spawnAgents.ts "<task description>" [--plan <path_to_plan_spec>]
   ```
   This automatically formulates or validates master specs, decomposes work into a dependency graph, executes worker contracts, runs the authoritative reviewer audit, and writes comprehensive reports to `/artifacts/spawnAgents_output.md` and `/artifacts/spawnAgents_output.json`.
 - **Manager Persona**: When a user presents a complex task, act as a manager. Plan the agent layout, coordinate specialized sub-agents, and aggregate their domain-specific outputs into a unified solution. Use the CLI spawn tool to execute and persistent-record the multi-agent workflow.
@@ -126,7 +126,7 @@ When modifying, writing, or updating code, you MUST follow these standards withi
 
 ### Custom Skill Creation Protocols
 When asked or needed to create custom agent skills, you MUST follow these standards:
-- **File Format**: Every agent skill must be a markdown file named `SKILL.md` (e.g., `/skills/<skill-name>/SKILL.md`).
+- **File Format**: Every agent skill must be a markdown file named `SKILL.md` (e.g., `/plugins/<plugin-name>/SKILL.md`).
 - **YAML Frontmatter**: The file MUST start with a valid YAML frontmatter block defining the skill's metadata (e.g., name, description).
 - **H1-Delimited Contexts**: You MUST use H1-delimited headers (`# Header`) to separate and organize different skill contexts and instructions.
 
