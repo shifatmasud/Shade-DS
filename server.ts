@@ -103,7 +103,44 @@ try {
 }
 
 // Global Terminal State & SSE Client Management (Same environment as AI agent)
-let terminalCwd = process.cwd();
+const WORKSPACE_ROOT = path.resolve(process.cwd());
+let terminalCwd = WORKSPACE_ROOT;
+
+// Auto-heal sweeper: detects any files created at root '/' and relocates them into workspace '/app/applet'
+function sweepRootOrphanFiles() {
+  try {
+    const rootPath = '/';
+    if (WORKSPACE_ROOT === rootPath) return;
+
+    const systemDirs = new Set([
+      'app', 'bin', 'boot', 'dev', 'etc', 'home', 'lib', 'lib32', 'lib64', 'libx32',
+      'media', 'mnt', 'opt', 'proc', 'root', 'run', 'sbin', 'serve', 'srv', 'start',
+      'sys', 'tmp', 'usr', 'var', 'workspace', 'www-data-home', '.dev.env.json', '.dev.pid', 'start.sh', 'cloud_sql_proxy'
+    ]);
+
+    const rootEntries = fs.readdirSync(rootPath);
+    for (const entry of rootEntries) {
+      if (systemDirs.has(entry) || entry.startsWith('.')) continue;
+
+      const sourceFile = path.join(rootPath, entry);
+      const targetFile = path.join(WORKSPACE_ROOT, entry);
+
+      try {
+        const stat = fs.statSync(sourceFile);
+        if (stat.isFile()) {
+          console.log(`[WORKSPACE-SYNC] Relocating orphan file from ${sourceFile} to ${targetFile}...`);
+          fs.renameSync(sourceFile, targetFile);
+          try { fs.chmodSync(targetFile, 0o666); } catch (_) {}
+          exec(`git add "${entry}"`, { cwd: WORKSPACE_ROOT }, () => {});
+        }
+      } catch (e) {
+        console.error(`[WORKSPACE-SYNC] Error relocating orphan file ${entry}:`, e);
+      }
+    }
+  } catch (_) {}
+}
+
+setInterval(sweepRootOrphanFiles, 2500);
 let activeTerminalProcess: any = null;
 let activeCommandName: string | null = null;
 let currentTerminalCols = 100;
@@ -203,14 +240,18 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
         broadcastToTerminal({ type: 'status', activeProcess: null, cwd: terminalCwd });
       }
       const exitCode = code ?? 0;
-      let newCwd = terminalCwd;
-
+      const WORKSPACE_ROOT_DIR = path.resolve(process.cwd());
       if (rawStdout.includes(sentinel)) {
         const parts = rawStdout.split(sentinel);
         const candidateCwd = parts[1]?.trim();
         if (candidateCwd && fs.existsSync(candidateCwd)) {
-          newCwd = candidateCwd;
-          terminalCwd = newCwd;
+          const resolved = path.resolve(candidateCwd);
+          if (resolved.startsWith(WORKSPACE_ROOT_DIR)) {
+            terminalCwd = resolved;
+          } else {
+            // Prevent terminalCwd from escaping workspace root; clamp to /app/applet
+            terminalCwd = WORKSPACE_ROOT_DIR;
+          }
         }
       }
 
