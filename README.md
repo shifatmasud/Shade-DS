@@ -93,6 +93,22 @@ This is not just another component library. It is a **structural methodology** f
 
 ---
 
+## 🧩 Modular Plugin System
+
+The workspace uses a unified, modular **Plugin-Based Architecture** located under `/plugins/`. Every capability in the system—whether an AI agent skill, a remote MCP server, a CLI tool, or a WebGL shader analyzer—is structured as a self-contained plugin with its own executable logic and an accompanying `SKILL.md` manifest.
+
+### Key Plugin Capabilities:
+- **`plugins/remote-mcp-host`**: Remote Model Context Protocol server and Cloudflare tunnel manager (`mcp-tunnel.sh`) for xAI Grok Connectors.
+- **`plugins/upsy-mcp`**: Upsy Remote MCP Server & OAuth 2.1 PKCE integration tooling (`upsy-mcp.ts`).
+- **`plugins/figma-mcp`**: Figma Model Context Protocol server bridge (`figma-mcp-server.ts`).
+- **`plugins/spawn-agents`**: Multi-agent task decomposition, execution worker harness, and authoritative reviewer audit pipeline (`spawnAgents.ts`).
+- **`plugins/framer-agent-cli`**: Programmatic Framer workspace CLI suite (`framer_cli.ts`).
+- **`plugins/framer-esm-sh-importer`**: Automated npm to esm.sh CDN importer with host immunity preservation (`framer_esm_converter.ts`).
+- **`plugins/pty-runner`**: Python pseudo-terminal (PTY) runner for interactive terminal sessions (`pty_runner.py`).
+- **`plugins/agent-debugging`**: Scientific debugging protocol for evidence-based root-cause analysis.
+
+---
+
 ## 📖 Usage Guidelines
 
 ### 1. The Planning Gate
@@ -119,8 +135,8 @@ Always apply typography via object spread: `style={{ ...theme.Type.Body.1 }}`. N
 │   ├── Package/    # Modular panels (LEGO Sets)
 │   ├── Page/       # Major views
 │   └── Section/    # Structural blocks (Dock/Stage)
-├── Framer/         # Design System Sync & DSL extraction
-├── skills/         # AI Agent specialized capabilities
+├── framer/         # Design System Sync & DSL extraction
+├── plugins/        # Self-contained modular plugins (Skill + Script packages)
 └── Theme.tsx       # The source of truth for Design Tokens
 ```
 
