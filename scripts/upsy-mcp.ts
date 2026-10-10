@@ -16,9 +16,10 @@ async function main() {
 
   if (command === "auth" || command === "login") {
     const redirectUri = args[1];
-    const { url, state, client_id } = await createAuthorizationUrl(redirectUri ? { redirectUri } : undefined);
+    const { url, state, client_id, redirect_uri } = await createAuthorizationUrl(redirectUri ? { redirectUri } : undefined);
     console.log("\n[OAuth 2.1 with PKCE Initiated]");
     console.log("Client ID:", client_id);
+    console.log("Redirect URI:", redirect_uri);
     console.log("State:", state);
     console.log("\n>>> Open this URL to approve Upsy access: <<<");
     console.log(url);

@@ -183,19 +183,33 @@ export async function createAuthorizationUrl(options?: {
   redirectUri?: string;
   scopes?: string[];
 }): Promise<{ url: string; state: string; code_verifier: string; client_id: string; redirect_uri: string }> {
-  // Support both Cloud Run URLs, custom host or localhost callback
-  const defaultRedirectUri = process.env.PUBLIC_APP_URL 
-    ? `${process.env.PUBLIC_APP_URL.replace(/\/$/, '')}/api/oauth/upsy/callback`
-    : `https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback`;
+  // Auto-detect active Cloudflare tunnel URL from /tmp/mcp_tunnel.log if available
+  let tunnelUrl = '';
+  try {
+    if (fs.existsSync('/tmp/mcp_tunnel.log')) {
+      const logContent = fs.readFileSync('/tmp/mcp_tunnel.log', 'utf-8');
+      const match = logContent.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+      if (match) {
+        tunnelUrl = match[0];
+      }
+    }
+  } catch (_) {}
+
+  const defaultRedirectUri = tunnelUrl
+    ? `${tunnelUrl}/api/oauth/upsy/callback`
+    : (process.env.PUBLIC_APP_URL 
+        ? `${process.env.PUBLIC_APP_URL.replace(/\/$/, '')}/api/oauth/upsy/callback`
+        : `https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback`);
 
   const redirectUri = options?.redirectUri || defaultRedirectUri;
   const redirectUris = Array.from(new Set([
     redirectUri,
+    tunnelUrl ? `${tunnelUrl}/api/oauth/upsy/callback` : '',
     'https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback',
     'https://ais-pre-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback',
     'http://localhost:3000/api/oauth/upsy/callback',
     'http://127.0.0.1:3000/api/oauth/upsy/callback'
-  ]));
+  ].filter(Boolean)));
 
   const client = await registerDynamicClient(redirectUris);
   const { code_verifier, code_challenge } = generatePkce();
@@ -359,7 +373,23 @@ export async function sendUpsyMcpRequest(method: string, params: any = {}) {
     throw new Error(`Upsy MCP request failed (${res.status}): ${errText}`);
   }
 
-  return await res.json();
+  const text = await res.text();
+  if (text.startsWith("event:") || text.includes("data:")) {
+    const lines = text.split("\n");
+    for (const line of lines) {
+      if (line.startsWith("data:")) {
+        try {
+          return JSON.parse(line.substring(5).trim());
+        } catch (_) {}
+      }
+    }
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Failed to parse Upsy MCP response: ${text}`);
+  }
 }
 
 // List Tools from Upsy MCP

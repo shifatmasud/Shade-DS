@@ -26,5 +26,54 @@
     "state": "35cf090c273b6026d1a7800231a8b98e",
     "redirect_uri": "https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback",
     "created_at": 1791615158165
+  },
+  "218bd05e1074449ae6901f95bc354701": {
+    "code_verifier": "jN2Cc_uwkn3maZMAtxATCsW9uoxKGsjLK8-dxsBJb0U",
+    "code_challenge": "CoaHmaNujRiNa_TJx0gW0nEXeo6K7Fjna3jXfeCzu14",
+    "state": "218bd05e1074449ae6901f95bc354701",
+    "redirect_uri": "https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback",
+    "created_at": 1791626621126
+  },
+  "52f311e42a694e5ff27a99b595f4bf0d": {
+    "code_verifier": "kYMKQYP1pC6tvDBc9ZEGJHLsFm_I70YkkUac6IrNKR8",
+    "code_challenge": "8l4d_oSpDPPDD2gcw8CTkRaTZfJZQQgDKmqK4lqvvXM",
+    "state": "52f311e42a694e5ff27a99b595f4bf0d",
+    "redirect_uri": "http://localhost:3000/api/oauth/upsy/callback",
+    "created_at": 1791626628481
+  },
+  "a66492eb6d70419e39f1f1c545c5f975": {
+    "code_verifier": "Ga2rsXJF66eeh0otYFzd7QXRz4D4Mh0TdwuXlP_1MLs",
+    "code_challenge": "YV9xXdbOHWOTJxjYYgUIimgK35_55_kjvxWaA_wso8g",
+    "state": "a66492eb6d70419e39f1f1c545c5f975",
+    "redirect_uri": "https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback",
+    "created_at": 1791626636404
+  },
+  "7ff81000400e1c1a23f7420621b35a33": {
+    "code_verifier": "Efp2tDC07GZ6Pdv964KurkXvNKioERf6oqZzMQrWYyg",
+    "code_challenge": "cDzggVn_5Zb9WBYDJmiHMSlZexkvpcYO2sybJJsjZR0",
+    "state": "7ff81000400e1c1a23f7420621b35a33",
+    "redirect_uri": "http://localhost:3000/api/oauth/upsy/callback",
+    "created_at": 1791626735340
+  },
+  "61af04019d5a3942172f216f97370789": {
+    "code_verifier": "lVAGkQgoNLNBM_ChoHj_XQxWAxv_6b3iFntnPN8uBXs",
+    "code_challenge": "kJaNCrB7uvYeft-zB7bnzT1PDm29JRfanJAc07sng1M",
+    "state": "61af04019d5a3942172f216f97370789",
+    "redirect_uri": "https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/api/oauth/upsy/callback",
+    "created_at": 1791626746493
+  },
+  "1054bbad97c180937848de86dc10fe5c": {
+    "code_verifier": "YWRbCC4yMq9WurrpZh8iwDJFcbUz3moRm463bY6W-g0",
+    "code_challenge": "TiD-fQjJ-QC9O9vyF_XoX4gH35ET8N_bcd0EATOoN-k",
+    "state": "1054bbad97c180937848de86dc10fe5c",
+    "redirect_uri": "https://inflation-settled-cathedral-emphasis.trycloudflare.com/api/oauth/upsy/callback",
+    "created_at": 1791627064460
+  },
+  "5deb236f32049cc2e41939c47452b9bc": {
+    "code_verifier": "rWB8w1RWFeOUnMXYONeQze8xGYtJs15-Ce3lMFZduIw",
+    "code_challenge": "wQOTyrLe4ET_AlXo6uOQqUYWlOXgQ3UjVLh7ods43z8",
+    "state": "5deb236f32049cc2e41939c47452b9bc",
+    "redirect_uri": "https://containing-compete-quotes-theme.trycloudflare.com/api/oauth/upsy/callback",
+    "created_at": 1791628151950
   }
 }
