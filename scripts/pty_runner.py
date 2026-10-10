@@ -22,6 +22,11 @@ def set_window_size(fd, rows=24, cols=80):
         pass
 
 def main():
+    try:
+        os.umask(0o022)
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(description='Run command in pseudo-terminal')
     parser.add_argument('--cwd', default='.', help='Working directory')
     parser.add_argument('--rows', type=int, default=24, help='Terminal rows')

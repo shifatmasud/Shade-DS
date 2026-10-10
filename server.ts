@@ -26,6 +26,13 @@ import {
 // Load environment variables from .env file
 dotenv.config();
 
+// Ensure process umask allows world-readable/writable files for AI Studio sync & GitHub integration
+try {
+  process.umask(0o022);
+} catch (e) {
+  console.error("Failed to set process umask:", e);
+}
+
 const execAsync = promisify(exec);
 
 // Support both ESM and CJS for path resolution

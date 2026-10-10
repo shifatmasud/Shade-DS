@@ -297,10 +297,11 @@ export async function executeWorkspaceTool(name: string, args: Record<string, an
         // Ensure parent directory exists
         const dir = path.dirname(fullPath);
         if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
+          fs.mkdirSync(dir, { recursive: true, mode: 0o777 });
         }
 
         fs.writeFileSync(fullPath, String(content), "utf-8");
+        try { fs.chmodSync(fullPath, 0o666); } catch (_) {}
         const bytesWritten = Buffer.byteLength(String(content), "utf-8");
 
         return {
@@ -347,6 +348,7 @@ export async function executeWorkspaceTool(name: string, args: Record<string, an
         }
 
         fs.writeFileSync(fullPath, updated, "utf-8");
+        try { fs.chmodSync(fullPath, 0o666); } catch (_) {}
 
         return {
           content: [
