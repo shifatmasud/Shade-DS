@@ -43,8 +43,9 @@ This is not just another component library. It is a **structural methodology** f
 
 ## 📜 Recent Changelogs
 
--   **`OCT 10, 2026`** · **Upsy Remote MCP Server & OAuth 2.1 PKCE Integration**: Integrated Upsy (`https://upsy.ai/connect`) as a remote Model Context Protocol (MCP) server. Implemented OAuth 2.1 with PKCE (`S256`) utilizing Dynamic Client Registration (RFC 7591) and Upsy's OAuth Authorization Server metadata. Built full token persistence, automated code exchange, Streamable HTTP MCP JSON-RPC protocol transport, CLI tooling (`scripts/upsy-mcp.ts`), dedicated skill documentation (`skills/upsy-mcp/SKILL.md`), and UI connector controls in the Agent control panel.
--   **`OCT 09, 2026`** · **Framer ESM Importer & Trio Immunity Skill**: Formulated and deployed the `framer-esm-sh-importer` skill (`/skills/framer-esm-sh-importer/SKILL.md`) with query matrix and host immunity references, alongside an automated transformation engine (`/scripts/framer_esm_converter.ts`). Enforces strict transformation of 3rd-party npm imports into deterministic, pinned `https://esm.sh/...` CDN URLs while rigorously preserving host singleton immunity for `react`, `framer`, and `framer-motion`. Enforces `?external=react,react-dom` for React peer dependencies to prevent dual dispatcher crashes in the Framer canvas.
+-   **`OCT 10, 2026`** · **Unified Named Plugins Architecture Migration**: Migrated all workspace capabilities from disparate `/skills` and `/scripts` locations into a unified, modular `/plugins/` directory. Each matched skill and script pair is now co-located as an individual, self-contained plugin package (e.g. `plugins/figma-mcp`, `plugins/upsy-mcp`, `plugins/mcp-cli`, `plugins/remote-mcp-host`, `plugins/framer-agent-cli`, `plugins/framer-esm-sh-importer`, `plugins/spawn-agents`, `plugins/shader_dsl`, `plugins/browserless-screenshot`, `plugins/browser-desktop`). Transferred all standalone skills into dedicated plugin directories, wrapped standalone utilities (`decompile-jsx`, `pty-runner`, `system-control`) into plugins with accompanying `SKILL.md` manifests, and updated all execution paths across `package.json`, `AGENTS.md`, `TOOLS.md`, and internal tool references.
+-   **`OCT 10, 2026`** · **Upsy Remote MCP Server & OAuth 2.1 PKCE Integration**: Integrated Upsy (`https://upsy.ai/connect`) as a remote Model Context Protocol (MCP) server. Implemented OAuth 2.1 with PKCE (`S256`) utilizing Dynamic Client Registration (RFC 7591) and Upsy's OAuth Authorization Server metadata. Built full token persistence, automated code exchange, Streamable HTTP MCP JSON-RPC protocol transport, CLI tooling (`plugins/upsy-mcp/upsy-mcp.ts`), dedicated skill documentation (`plugins/upsy-mcp/SKILL.md`), and UI connector controls in the Agent control panel.
+-   **`OCT 09, 2026`** · **Framer ESM Importer & Trio Immunity Skill**: Formulated and deployed the `framer-esm-sh-importer` skill (`/plugins/framer-esm-sh-importer/SKILL.md`) with query matrix and host immunity references, alongside an automated transformation engine (`/plugins/framer-esm-sh-importer/framer_esm_converter.ts`). Enforces strict transformation of 3rd-party npm imports into deterministic, pinned `https://esm.sh/...` CDN URLs while rigorously preserving host singleton immunity for `react`, `framer`, and `framer-motion`. Enforces `?external=react,react-dom` for React peer dependencies to prevent dual dispatcher crashes in the Framer canvas.
 -   **`SEP 13, 2026`** · **Morphine Framer Native Page Transition & Exclusion Engine**: Rewrote `framer/Morphine.tsx` to support Framer's native view transition architecture alongside Framer Motion's `animateView`. Added dual transition modes (`auto`, `framer-native`, `animate-view`, `shared-only`), automatic Framer exclusion detection and CSS generation (`framer-*-exclude` rules with `animation: 0s none !important`), and native CSS `view-transition-name` synchronization. Fully preserved locked forward/reverse card-to-detail item indexing, route canonicalization, and origin memory pipelines with zero hydration errors.
 -   **`SEP 12, 2026`** · **TransformInverter Position & Pins Agnostic 3D Transform Clip Path**: Upgraded `TransformInverter.tsx` to be 100% position and pins agnostic (`position: absolute` with pinned `top`/`left`/`right`/`bottom`, negative insets, center alignment, `position: relative`, flexbox, CSS grid, and nested Framer wrappers). Implemented a dual-pass global DOM reference offset resolver (`getOffsetToDocument(child) - getOffsetToDocument(ancestor)`) that projects both elements onto a shared root coordinate space before transforms. Uses pure 3D CSS transform matrix arithmetic ($M_{\text{orientation}} = R \cdot P(d)$, $M_{\text{counter}} = M_{\text{orientation}}^{-1}$, and invariant pivot conjugation $T(\delta) \cdot M_{\text{counter}} \cdot T(-\delta)$) to generate exact, perspective-foreshortened card boundary clip paths on flat Subscribers without layout drift.
 -   **`SEP 12, 2026`** · **TransformInverter X-Rotation Clip Path Form Distortion Fix**: Resolved clip-path trapezoid distortion during Publisher X-axis rotations (`Rotate X: 40°`, `Perspective: 500px`) where the clip polygon lacked perspective foreshortening. Fixed 3D orientation matrix composition order in `build3DOrientationMatrix` to evaluate $R \cdot P(d)$ (`orientationMat.multiply(pMat)`) so that 3D rotation depth ($z = y \sin\theta$) is generated before perspective projection acts upon it ($m_{24} = -\sin\theta / d$), producing a mathematically exact, symmetric isosceles trapezoid matching the Publisher's 3D card outline. Added origin-aware base inverse mapping ($s_{cx}, s_{cy}$) in `computeProjectedCardClipPolygon` and clean 2D base matrix parsing.
@@ -92,6 +93,22 @@ This is not just another component library. It is a **structural methodology** f
 
 ---
 
+## 🧩 Modular Plugin System
+
+The workspace uses a unified, modular **Plugin-Based Architecture** located under `/plugins/`. Every capability in the system—whether an AI agent skill, a remote MCP server, a CLI tool, or a WebGL shader analyzer—is structured as a self-contained plugin with its own executable logic and an accompanying `SKILL.md` manifest.
+
+### Key Plugin Capabilities:
+- **`plugins/remote-mcp-host`**: Remote Model Context Protocol server and Cloudflare tunnel manager (`mcp-tunnel.sh`) for xAI Grok Connectors.
+- **`plugins/upsy-mcp`**: Upsy Remote MCP Server & OAuth 2.1 PKCE integration tooling (`upsy-mcp.ts`).
+- **`plugins/figma-mcp`**: Figma Model Context Protocol server bridge (`figma-mcp-server.ts`).
+- **`plugins/spawn-agents`**: Multi-agent task decomposition, execution worker harness, and authoritative reviewer audit pipeline (`spawnAgents.ts`).
+- **`plugins/framer-agent-cli`**: Programmatic Framer workspace CLI suite (`framer_cli.ts`).
+- **`plugins/framer-esm-sh-importer`**: Automated npm to esm.sh CDN importer with host immunity preservation (`framer_esm_converter.ts`).
+- **`plugins/pty-runner`**: Python pseudo-terminal (PTY) runner for interactive terminal sessions (`pty_runner.py`).
+- **`plugins/agent-debugging`**: Scientific debugging protocol for evidence-based root-cause analysis.
+
+---
+
 ## 📖 Usage Guidelines
 
 ### 1. The Planning Gate
@@ -118,8 +135,8 @@ Always apply typography via object spread: `style={{ ...theme.Type.Body.1 }}`. N
 │   ├── Package/    # Modular panels (LEGO Sets)
 │   ├── Page/       # Major views
 │   └── Section/    # Structural blocks (Dock/Stage)
-├── Framer/         # Design System Sync & DSL extraction
-├── skills/         # AI Agent specialized capabilities
+├── framer/         # Design System Sync & DSL extraction
+├── plugins/        # Self-contained modular plugins (Skill + Script packages)
 └── Theme.tsx       # The source of truth for Design Tokens
 ```
 

@@ -75,5 +75,19 @@
     "state": "5deb236f32049cc2e41939c47452b9bc",
     "redirect_uri": "https://containing-compete-quotes-theme.trycloudflare.com/api/oauth/upsy/callback",
     "created_at": 1791628151950
+  },
+  "cf37c2a06f9e655bfbf7a6943c04ed83": {
+    "code_verifier": "_cv7yBp6OroZE4EqMGygdY5XuNbCFGZaf-hPJ0pM4x0",
+    "code_challenge": "b7ppsXSCwK5cTULaak0marTjlcwTk511o5NnGqtmpKk",
+    "state": "cf37c2a06f9e655bfbf7a6943c04ed83",
+    "redirect_uri": "http://localhost:3000/api/oauth/upsy/callback",
+    "created_at": 1791632806551
+  },
+  "10a9a07438988a1f042f4d4815502c5a": {
+    "code_verifier": "RheJK07MZ8SJ0T4rv72VAXaEAVR35560MPWLemlU7-k",
+    "code_challenge": "Mm-3hqZYVDNg9o93uIQ6OcAeGXXiQCFksEY4x_kRg30",
+    "state": "10a9a07438988a1f042f4d4815502c5a",
+    "redirect_uri": "https://theme-college-founded-patches.trycloudflare.com/api/oauth/upsy/callback",
+    "created_at": 1791632837700
   }
 }

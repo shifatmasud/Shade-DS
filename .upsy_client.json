@@ -1,5 +1,5 @@
 {
-  "client_id": "c_mMx_DFx-Qm8TkAi6bCCQMw",
-  "redirect_uri": "https://containing-compete-quotes-theme.trycloudflare.com/api/oauth/upsy/callback",
-  "client_id_issued_at": 1791628151
+  "client_id": "c_qJKjMpN4XPO6xzgOdIANCQ",
+  "redirect_uri": "http://localhost:3000/api/oauth/upsy/callback",
+  "client_id_issued_at": 1791632806
 }

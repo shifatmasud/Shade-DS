@@ -135,7 +135,10 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
     const script = `${trimmed}\n__EC=$?\necho -n "${sentinel}"\npwd -P\nexit $__EC`;
 
     const binDir = path.join(process.cwd(), 'bin');
-    const ptyRunnerPath = path.join(process.cwd(), 'scripts', 'pty_runner.py');
+    const ptyRunnerPath = [
+      path.join(process.cwd(), 'plugins', 'pty-runner', 'pty_runner.py'),
+      path.join(process.cwd(), 'scripts', 'pty_runner.py')
+    ].find(p => fs.existsSync(p)) || path.join(process.cwd(), 'plugins', 'pty-runner', 'pty_runner.py');
     const customEnv = {
       ...process.env,
       TERM: 'xterm-256color',
@@ -948,7 +951,10 @@ async function startServer() {
   app.post("/api/mcp/tunnel/renew", async (req, res) => {
     try {
       appendAuditLog("Triggering manual MCP tunnel renewal.");
-      const scriptPath = path.join(process.cwd(), "scripts", "mcp-tunnel.sh");
+      const scriptPath = [
+        path.join(process.cwd(), "plugins", "remote-mcp-host", "mcp-tunnel.sh"),
+        path.join(process.cwd(), "scripts", "mcp-tunnel.sh")
+      ].find(p => fs.existsSync(p)) || path.join(process.cwd(), "plugins", "remote-mcp-host", "mcp-tunnel.sh");
       const { stdout, stderr } = await execAsync(`bash "${scriptPath}" renew`, { timeout: 35000 });
       const newUrl = getPublicTunnelUrl();
       res.json({
@@ -1018,7 +1024,10 @@ async function startServer() {
       appendAuditLog("[MCP-WATCHDOG] Cloudflare tunnel unhealthy or expired. Auto-renewing via Cloudflare CLI...");
       console.log("[MCP-WATCHDOG] Cloudflare tunnel unhealthy or expired. Auto-renewing via Cloudflare CLI...");
       try {
-        const scriptPath = path.join(process.cwd(), "scripts", "mcp-tunnel.sh");
+        const scriptPath = [
+          path.join(process.cwd(), "plugins", "remote-mcp-host", "mcp-tunnel.sh"),
+          path.join(process.cwd(), "scripts", "mcp-tunnel.sh")
+        ].find(p => fs.existsSync(p)) || path.join(process.cwd(), "plugins", "remote-mcp-host", "mcp-tunnel.sh");
         await execAsync(`bash "${scriptPath}" renew`, { timeout: 45000 });
         const newUrl = getPublicTunnelUrl();
         appendAuditLog(`[MCP-WATCHDOG] Cloudflare tunnel renewed successfully: ${newUrl}`);
