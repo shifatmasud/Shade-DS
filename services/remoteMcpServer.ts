@@ -302,6 +302,7 @@ export async function executeWorkspaceTool(name: string, args: Record<string, an
 
         fs.writeFileSync(fullPath, String(content), "utf-8");
         try { fs.chmodSync(fullPath, 0o666); } catch (_) {}
+        try { execAsync(`git add "${relPath}"`, { cwd: WORKSPACE_ROOT }); } catch (_) {}
         const bytesWritten = Buffer.byteLength(String(content), "utf-8");
 
         return {
@@ -349,6 +350,7 @@ export async function executeWorkspaceTool(name: string, args: Record<string, an
 
         fs.writeFileSync(fullPath, updated, "utf-8");
         try { fs.chmodSync(fullPath, 0o666); } catch (_) {}
+        try { execAsync(`git add "${relPath}"`, { cwd: WORKSPACE_ROOT }); } catch (_) {}
 
         return {
           content: [
