@@ -1092,9 +1092,10 @@ async function startServer() {
     }
   }
 
-  // Run watchdog initial check after 5s, then periodic poll every 45s
+  // Run watchdog initial check after 5s, then periodic poll every 5 minutes
+  // (Prevents hitting Cloudflare KV 1k write/day limit on Free tier)
   setTimeout(checkAndAutoRenewTunnel, 5000);
-  setInterval(checkAndAutoRenewTunnel, 45000);
+  setInterval(checkAndAutoRenewTunnel, 300000);
 
   // CORS and preflight middleware for all MCP endpoints
   app.use(["/mcp", "/sse", "/messages"], (req, res, next) => {

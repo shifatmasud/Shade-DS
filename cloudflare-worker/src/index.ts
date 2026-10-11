@@ -67,7 +67,10 @@ export default {
     // 3. Retrieve currently registered backend from KV
     let activeBackend = await env.MCP_CONFIG.get("ACTIVE_BACKEND_URL");
     if (!activeBackend) {
-      activeBackend = "https://inflation-settled-cathedral-emphasis.trycloudflare.com";
+      return Response.json({
+        error: "No active backend registered in KV storage. Please trigger a sync from the AI Studio container.",
+        mcp_tunnel_setup_needed: true
+      }, { status: 503 });
     }
 
     // Strip trailing slash if present
