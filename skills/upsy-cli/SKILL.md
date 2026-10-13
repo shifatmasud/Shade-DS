@@ -1,13 +1,13 @@
 ---
 name: "upsy-cli"
 description: |
-  Comprehensive guide for using the Upsy CLI (`bin/upsy`) to authenticate with and execute tools on the Upsy remote MCP server.
+  Comprehensive guide for using the Upsy CLI (`scripts/upsy-cli.ts`) to authenticate with and execute tools on the Upsy remote MCP server.
   Focuses on OAuth 2.1 PKCE flows, token management, and JSON-RPC 2.0 tool execution.
 ---
 
 # Upsy CLI Skill
 
-The Upsy CLI (`bin/upsy`) is a portable Node.js tool used to connect the workspace to Upsy's remote Model Context Protocol (MCP) server.
+The Upsy CLI (`scripts/upsy-cli.ts`) is a portable Node.js tool used to connect the workspace to Upsy's remote Model Context Protocol (MCP) server.
 
 ---
 
@@ -18,7 +18,7 @@ Upsy uses OAuth 2.1 with PKCE. Authentication must be completed once to obtain a
 ### A. Automatic Sign-In
 Run the login command to start the flow:
 ```bash
-./bin/upsy login
+npx tsx scripts/upsy-cli.ts login
 ```
 1.  **Link Generation**: The CLI will print a clickable authorization URL.
 2.  **Browser Approval**: Open the link, review permissions, and click **Approve**.
@@ -30,7 +30,7 @@ Run the login command to start the flow:
 ### B. Manual Exchange (Fallback)
 If the automatic redirect fails or is blocked, copy the **authorization code** (the `code=` parameter) or the **full redirect URL** from your browser address bar and run:
 ```bash
-./bin/upsy exchange "<code_or_url>"
+npx tsx scripts/upsy-cli.ts exchange "<code_or_url>"
 ```
 
 ---
@@ -40,29 +40,29 @@ If the automatic redirect fails or is blocked, copy the **authorization code** (
 ### Check Status
 Verify your connection and see when your token expires:
 ```bash
-./bin/upsy status
+npx tsx scripts/upsy-cli.ts status
 ```
 
 ### List Tools
 Discover all 60+ available tools (Memory, Gmail, Calendar, Drive, Slack, Browser, etc.):
 ```bash
-./bin/upsy tools
+npx tsx scripts/upsy-cli.ts tools
 ```
 
 ### Execute a Tool
 Call any Upsy MCP tool with JSON arguments:
 ```bash
-./bin/upsy call <tool_name> '[json_arguments]'
+npx tsx scripts/upsy-cli.ts call <tool_name> '[json_arguments]'
 ```
 *Example (Search Gmail):*
 ```bash
-./bin/upsy call search_threads '{"q":"from:google"}'
+npx tsx scripts/upsy-cli.ts call search_threads '{"q":"from:google"}'
 ```
 
 ### Refresh Token
 Manually refresh the access token using the stored refresh token:
 ```bash
-./bin/upsy refresh
+npx tsx scripts/upsy-cli.ts refresh
 ```
 
 ---

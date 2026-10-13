@@ -329,7 +329,7 @@ export class UpsyMcpClient {
 
 // Interactive Login Command
 export async function runLogin() {
-  const PORT = 8787;
+  const PORT = 8790;
   console.log("\n=======================================================");
   console.log("  Upsy Remote MCP Server - OAuth 2.1 Sign-In");
   console.log("=======================================================\n");

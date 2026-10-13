@@ -10,63 +10,6 @@ import dotenv from "dotenv";
 // Load environment variables from .env file
 dotenv.config();
 
-async function runShellOnlineDaemon() {
-  const shellPath = path.join(process.cwd(), 'bin', 'shell');
-  const stateFile = path.join(process.cwd(), '.shell_state');
-  if (!fs.existsSync(shellPath)) {
-    console.warn(`[Shell.online] Binary not found at ${shellPath}`);
-    return;
-  }
-
-  try {
-    console.log(`[Shell.online] Checking existing sessions...`);
-    try {
-      const listOutput = execSync(`"${shellPath}" list --json`, { timeout: 4000 }).toString().trim();
-      const existing = JSON.parse(listOutput || '[]');
-      if (Array.isArray(existing) && existing.length > 0) {
-        console.log(`[Shell.online] Found ${existing.length} existing session(s). Cleaning up before start...`);
-        execSync(`"${shellPath}" kill --all`, { timeout: 5000, stdio: 'ignore' });
-      }
-    } catch (_) {
-      try { execSync(`"${shellPath}" kill --all`, { timeout: 3000, stdio: 'ignore' }); } catch (__) {}
-    }
-
-    console.log(`[Shell.online] Starting persistent session with state file...`);
-    const ptyRunner = path.join(process.cwd(), 'scripts', 'pty_runner.py');
-    const hasPty = fs.existsSync(ptyRunner);
-    const spawnBin = hasPty ? 'python3' : shellPath;
-    const spawnArgs = hasPty ? [ptyRunner, shellPath, '--foreground', '--persistent', stateFile] : ['--foreground', '--persistent', stateFile];
-
-    const proc = spawn(spawnBin, spawnArgs, {
-      detached: true,
-      stdio: 'ignore',
-      cwd: process.cwd(),
-      env: { ...process.env }
-    });
-    proc.unref();
-
-    // Give the persistent daemon a moment to register, then extract credentials
-    setTimeout(() => {
-      try {
-        const activeList = execSync(`"${shellPath}" list --json`, { timeout: 5000 }).toString().trim();
-        const active = JSON.parse(activeList || '[]');
-        if (Array.isArray(active) && active.length > 0) {
-          const s = active[0];
-          const logMsg = `\n==================================================\n[Shell.online] SESSION READY\n[Shell.online] URL:      ${s.share_url}\n[Shell.online] Password: ${s.e2ee_password}\n==================================================\n`;
-          console.log(logMsg);
-          try { fs.writeFileSync('/tmp/shell_online.log', logMsg, 'utf-8'); } catch (_) {}
-        } else {
-          console.log(`[Shell.online] Process launched in background.`);
-        }
-      } catch (err: any) {
-        console.warn(`[Shell.online] Could not query active session: ${err.message}`);
-      }
-    }, 2000);
-  } catch (err: any) {
-    console.error(`[Shell.online] Initialization error:`, err?.message || err);
-  }
-}
-
 const execAsync = promisify(exec);
 
 // Support both ESM and CJS for path resolution
@@ -158,6 +101,98 @@ function broadcastToTerminal(payload: { type: string; data?: string; cwd?: strin
     } catch (e) {}
   }
 }
+
+async function runShellOnlineDaemon() {
+  const shellPath = path.join(process.cwd(), 'bin', 'shell');
+  const ptyRunner = path.join(process.cwd(), 'scripts', 'pty_runner.py');
+  
+  if (!fs.existsSync(shellPath)) {
+    console.warn(`[Shell.online] Binary not found at ${shellPath}`);
+    return;
+  }
+
+  const logSession = (s: any) => {
+    const plainMsg = `\n==================================================\n[Shell.online] SESSION ACTIVE\n[Shell.online] URL:      ${s.share_url}\n[Shell.online] Password: ${s.e2ee_password}\n==================================================\n`;
+    const termMsg = `\r\n\x1b[36m==================================================\r\n[Shell.online] SESSION ACTIVE\r\n[Shell.online] URL:      ${s.share_url}\r\n[Shell.online] Password: ${s.e2ee_password}\r\n==================================================\x1b[0m\r\n`;
+    
+    console.log(plainMsg);
+    try { fs.writeFileSync('/tmp/shell_online.log', plainMsg, 'utf-8'); } catch (_) {}
+    try { fs.appendFileSync(AGENT_LOG_PATH, plainMsg + '\n'); } catch (_) {}
+    try { broadcastToTerminal({ type: 'output', data: termMsg }); } catch (_) {}
+  };
+
+  const spawnDaemon = (forceFresh = false) => {
+    try {
+      if (!forceFresh) {
+        const listOutput = execSync(`"${shellPath}" list --json`, { timeout: 3000 }).toString().trim();
+        const existing = JSON.parse(listOutput || '[]');
+        if (Array.isArray(existing) && existing.length > 0 && existing[0].relay_status === 'connected') {
+          console.log(`[Shell.online] Reusing existing healthy session: ${existing[0].id}`);
+          logSession(existing[0]);
+          return;
+        }
+      }
+
+      console.log(`[Shell.online] Spawning fresh daemon...`);
+      // Force kill any existing ghost processes
+      try { execSync('pkill -9 -f "shell --foreground"', { stdio: 'ignore' }); } catch (_) {}
+      try { execSync(`"${shellPath}" kill --all`, { timeout: 3000, stdio: 'ignore' }); } catch (_) {}
+      
+      const hasPty = fs.existsSync(ptyRunner);
+      const spawnBin = hasPty ? 'python3' : shellPath;
+      const spawnArgs = hasPty ? [ptyRunner, shellPath, '--foreground'] : ['--foreground'];
+
+      const proc = spawn(spawnBin, spawnArgs, {
+        detached: true,
+        stdio: 'ignore',
+        cwd: process.cwd(),
+        env: { ...process.env }
+      });
+      proc.unref();
+
+      // Discovery phase: Wait for session registration and log it
+      setTimeout(() => {
+        try {
+          const listOutput = execSync(`"${shellPath}" list --json`, { timeout: 3000 }).toString().trim();
+          const sessions = JSON.parse(listOutput || '[]');
+          if (sessions.length > 0) {
+            logSession(sessions[0]);
+          }
+        } catch (_) {}
+      }, 5000);
+    } catch (err: any) {
+      console.error(`[Shell.online] Spawn error:`, err.message);
+    }
+  };
+
+  // Initial start
+  spawnDaemon();
+
+  // Health & Console Log Heartbeat Loop (Smart Self-Healing + Console Visibility)
+  setInterval(() => {
+    try {
+      const listOutput = execSync(`"${shellPath}" list --json`, { timeout: 3000 }).toString().trim();
+      const sessions = JSON.parse(listOutput || '[]');
+      
+      if (!Array.isArray(sessions) || sessions.length === 0) {
+        spawnDaemon(true);
+        return;
+      }
+
+      const session = sessions[0];
+      if (session.relay_status !== 'connected') {
+        console.warn(`[Shell.online] Session relay stale (${session.relay_status}). Restarting...`);
+        spawnDaemon(true);
+      } else {
+        console.log(`[Shell.online] ACTIVE SESSION | URL: ${session.share_url} | Password: ${session.e2ee_password}`);
+      }
+    } catch (err: any) {
+      spawnDaemon(true);
+    }
+  }, 30000); // Log active status every 30 seconds
+}
+
+
 
 // Execute command in bash with full environment matching agent terminal
 function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number; cwd: string }> {
@@ -859,6 +894,9 @@ async function startServer() {
       const shellPath = path.join(process.cwd(), 'bin', 'shell');
       const listOutput = execSync(`"${shellPath}" list --json`, { timeout: 4000 }).toString().trim();
       const sessions = JSON.parse(listOutput || '[]');
+      if (sessions.length > 0) {
+        console.log(`[Shell.online API] Active Session | URL: ${sessions[0].share_url} | Password: ${sessions[0].e2ee_password}`);
+      }
       res.json({ success: true, sessions });
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });

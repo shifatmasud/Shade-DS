@@ -9,7 +9,9 @@ This skill provides the standard procedure for installing external binary CLI to
 
 ## Core Principle
 
-All external binaries MUST be installed into the root `./bin` directory to ensure they are persisted across container restarts and accessible to the agent.
+All external binaries MUST be installed into the root `./bin` directory to ensure they are persisted across container restarts and accessible to the agent. 
+
+**Note**: Pure script-based CLIs (e.g., `.ts` files executed via `tsx`) may reside in `scripts/` or `framer/` as appropriate for the project structure, provided they are documented. binary wrappers in `./bin` are preferred for portability but not mandatory for project-local scripts.
 
 ## Installation Procedure
 
