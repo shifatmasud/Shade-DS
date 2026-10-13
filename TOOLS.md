@@ -53,6 +53,11 @@ These plugins provide optimized patterns, documentation (`SKILL.md`), and binari
 - **Automation**: Use non-interactive flags to automate deployments from CI or the agent session.
 - **Command**: `npx vercel --token="$VERCEL_TOKEN" --yes`
 
+### 10. **Shell.online (`skills/shell-online`)**
+- **What it does**: Securely shares the current terminal or a specific process to a browser-based session via `/bin/shell`.
+- **Automation**: Use this to collaborate with the user or share live development previews without complex tunneling.
+- **Command**: `./bin/shell -- npm run dev`
+
 ---
 
 ## 📜 Automation & Engine Plugins (`/plugins`)

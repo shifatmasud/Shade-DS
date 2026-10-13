@@ -1,0 +1,9 @@
+
+  Open this in a browser to sign in:
+
+  https://app.shell.online/cli/authorize?code_challenge=whH5ZRwv780-dCHJvOntj7LJDJfZHUQ6mO2uLmb9vgE&code_challenge_method=S256&redirect_uri=http%3A%2F%2F127.0.0.1%3A62607%2Fcallback&state=BR1salSM_gjXBvIT6f-JkRJgcm8klylUu2WbRWMcn5M
+
+  If you opened it on another computer, the browser will stop on a page
+  that will not load. Paste that page's address here:
+
+shell: login failed: timed out after 5m0s waiting for the browser
