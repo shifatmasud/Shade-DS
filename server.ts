@@ -140,10 +140,18 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
       ? [ptyRunnerPath, '--cwd', terminalCwd, '--cols', String(currentTerminalCols || 100), '--rows', String(currentTerminalRows || 30), '/bin/bash', '-c', script]
       : ['-c', script];
 
-    const proc = spawn(spawnFile, spawnArgs as any, {
-      cwd: terminalCwd,
-      env: customEnv
-    });
+    let proc: any;
+    try {
+      proc = spawn(spawnFile, spawnArgs as any, {
+        cwd: terminalCwd,
+        env: customEnv
+      });
+    } catch (spawnErr: any) {
+      const errMsg = `\r\n[Shell spawn error: ${spawnErr.message}]\r\n`;
+      broadcastToTerminal({ type: 'output', data: errMsg });
+      resolve({ stdout: '', stderr: spawnErr.message, exitCode: 1, cwd: terminalCwd });
+      return;
+    }
 
     activeTerminalProcess = proc;
     activeCommandName = trimmed.split(' ')[0] || 'process';
@@ -151,6 +159,18 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
 
     let rawStdout = '';
     let rawStderr = '';
+    let isFinished = false;
+
+    // Watchdog timer: 45 seconds max execution timeout to prevent hanging commands
+    const watchdogTimer = setTimeout(() => {
+      if (!isFinished && activeTerminalProcess === proc) {
+        try {
+          proc.kill('SIGKILL');
+        } catch (_) {}
+        broadcastToTerminal({ type: 'output', data: `\r\n\x1b[31m[Command execution timed out after 45s]\x1b[0m\r\n` });
+        cleanupAndFinish(124);
+      }
+    }, 45000);
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
@@ -171,6 +191,10 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
     });
 
     const cleanupAndFinish = (code: number | null) => {
+      if (isFinished) return;
+      isFinished = true;
+      clearTimeout(watchdogTimer);
+
       if (activeTerminalProcess === proc) {
         activeTerminalProcess = null;
         activeCommandName = null;
@@ -206,6 +230,10 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
     proc.on('close', cleanupAndFinish);
 
     proc.on('error', (err) => {
+      if (isFinished) return;
+      isFinished = true;
+      clearTimeout(watchdogTimer);
+
       if (activeTerminalProcess === proc) {
         activeTerminalProcess = null;
         activeCommandName = null;

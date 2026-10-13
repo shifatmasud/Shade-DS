@@ -1,6 +1,6 @@
 {
-  "summary": "Complete implementation plan for adding Upsy as a remote MCP server with OAuth 2.1 PKCE authorization, Cloudflare tunnel callback bridge for headless operation, standalone portable Node.js CLI tool, and accompanying skill documentation.",
-  "updatedAt": "2026-10-13T12:17:02.297662829Z",
+  "summary": "Implementation plan to debug and fix the /tui white screen and hanging connection issue by enhancing server.ts with robust PTY process timeouts, non-blocking SSE stream management, and error resilience.",
+  "updatedAt": "2026-10-13T14:08:23.069648457Z",
   "requestFeedback": true,
   "userFacing": true
 }

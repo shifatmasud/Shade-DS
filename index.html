@@ -1,6 +1,18 @@
 <!doctype html>
 <html>
 <head>
+<script>
+  window.addEventListener('unhandledrejection', function(event) {
+    if (event.reason && (event.reason.message || String(event.reason)).includes('WebSocket')) {
+      event.preventDefault();
+    }
+  });
+  window.addEventListener('error', function(event) {
+    if (event.message && event.message.includes('WebSocket')) {
+      event.preventDefault();
+    }
+  });
+</script>
 </head>
 <body>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
