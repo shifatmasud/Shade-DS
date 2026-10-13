@@ -8,6 +8,8 @@ import { ThemeProvider, useTheme } from './Theme.tsx';
 import { BreakpointProvider } from './hooks/useBreakpoint.tsx';
 import { BrowserRouter } from 'react-router-dom';
 import App from './components/App/App.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import GlobalErrorFallback from './components/Core/GlobalErrorFallback.tsx';
 import './styles.css';
 
 function Root() {
@@ -28,7 +30,9 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <BreakpointProvider>
     <ThemeProvider>
-      <Root />
+      <ErrorBoundary FallbackComponent={GlobalErrorFallback}>
+        <Root />
+      </ErrorBoundary>
     </ThemeProvider>
   </BreakpointProvider>
 );
