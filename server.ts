@@ -10,6 +10,63 @@ import dotenv from "dotenv";
 // Load environment variables from .env file
 dotenv.config();
 
+async function runShellOnlineDaemon() {
+  const shellPath = path.join(process.cwd(), 'bin', 'shell');
+  const stateFile = path.join(process.cwd(), '.shell_state');
+  if (!fs.existsSync(shellPath)) {
+    console.warn(`[Shell.online] Binary not found at ${shellPath}`);
+    return;
+  }
+
+  try {
+    console.log(`[Shell.online] Checking existing sessions...`);
+    try {
+      const listOutput = execSync(`"${shellPath}" list --json`, { timeout: 4000 }).toString().trim();
+      const existing = JSON.parse(listOutput || '[]');
+      if (Array.isArray(existing) && existing.length > 0) {
+        console.log(`[Shell.online] Found ${existing.length} existing session(s). Cleaning up before start...`);
+        execSync(`"${shellPath}" kill --all`, { timeout: 5000, stdio: 'ignore' });
+      }
+    } catch (_) {
+      try { execSync(`"${shellPath}" kill --all`, { timeout: 3000, stdio: 'ignore' }); } catch (__) {}
+    }
+
+    console.log(`[Shell.online] Starting persistent session with state file...`);
+    const ptyRunner = path.join(process.cwd(), 'scripts', 'pty_runner.py');
+    const hasPty = fs.existsSync(ptyRunner);
+    const spawnBin = hasPty ? 'python3' : shellPath;
+    const spawnArgs = hasPty ? [ptyRunner, shellPath, '--foreground', '--persistent', stateFile] : ['--foreground', '--persistent', stateFile];
+
+    const proc = spawn(spawnBin, spawnArgs, {
+      detached: true,
+      stdio: 'ignore',
+      cwd: process.cwd(),
+      env: { ...process.env }
+    });
+    proc.unref();
+
+    // Give the persistent daemon a moment to register, then extract credentials
+    setTimeout(() => {
+      try {
+        const activeList = execSync(`"${shellPath}" list --json`, { timeout: 5000 }).toString().trim();
+        const active = JSON.parse(activeList || '[]');
+        if (Array.isArray(active) && active.length > 0) {
+          const s = active[0];
+          const logMsg = `\n==================================================\n[Shell.online] SESSION READY\n[Shell.online] URL:      ${s.share_url}\n[Shell.online] Password: ${s.e2ee_password}\n==================================================\n`;
+          console.log(logMsg);
+          try { fs.writeFileSync('/tmp/shell_online.log', logMsg, 'utf-8'); } catch (_) {}
+        } else {
+          console.log(`[Shell.online] Process launched in background.`);
+        }
+      } catch (err: any) {
+        console.warn(`[Shell.online] Could not query active session: ${err.message}`);
+      }
+    }, 2000);
+  } catch (err: any) {
+    console.error(`[Shell.online] Initialization error:`, err?.message || err);
+  }
+}
+
 const execAsync = promisify(exec);
 
 // Support both ESM and CJS for path resolution
@@ -395,6 +452,11 @@ async function startServer() {
 
   // Pre-download and setup official GitHub CLI binary if needed
   downloadGithubCliIfNotExists().catch(console.error);
+
+  // Auto-run shell.online asynchronously after dev server starts listening
+  setTimeout(() => {
+    runShellOnlineDaemon().catch(console.error);
+  }, 1000);
 
   const app = express();
   const PORT = 3000;
@@ -789,6 +851,18 @@ async function startServer() {
   // Standard health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Shell.online active session status
+  app.get("/api/shell/session", (req, res) => {
+    try {
+      const shellPath = path.join(process.cwd(), 'bin', 'shell');
+      const listOutput = execSync(`"${shellPath}" list --json`, { timeout: 4000 }).toString().trim();
+      const sessions = JSON.parse(listOutput || '[]');
+      res.json({ success: true, sessions });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
   });
 
   // --- UPSY REMOTE MCP SERVER & OAUTH CONNECTOR ---
