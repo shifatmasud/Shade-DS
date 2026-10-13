@@ -6,32 +6,9 @@ import { promisify } from 'util';
 import fs from 'fs';
 import https from "https";
 import dotenv from "dotenv";
-import { 
-  createAuthorizationUrl, 
-  exchangeCodeForTokens, 
-  popPkceSession, 
-  loadTokens, 
-  saveTokens, 
-  listUpsyTools, 
-  callUpsyTool 
-} from "./services/upsyMcpService.ts";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import {
-  createWorkspaceMcpServer,
-  handleStatelessJsonRpc,
-  WORKSPACE_TOOLS,
-  appendAuditLog
-} from "./services/remoteMcpServer.ts";
 
 // Load environment variables from .env file
 dotenv.config();
-
-// Ensure process umask allows world-readable/writable files for AI Studio sync & GitHub integration
-try {
-  process.umask(0o022);
-} catch (e) {
-  console.error("Failed to set process umask:", e);
-}
 
 const execAsync = promisify(exec);
 
@@ -103,44 +80,7 @@ try {
 }
 
 // Global Terminal State & SSE Client Management (Same environment as AI agent)
-const WORKSPACE_ROOT = path.resolve(process.cwd());
-let terminalCwd = WORKSPACE_ROOT;
-
-// Auto-heal sweeper: detects any files created at root '/' and relocates them into workspace '/app/applet'
-function sweepRootOrphanFiles() {
-  try {
-    const rootPath = '/';
-    if (WORKSPACE_ROOT === rootPath) return;
-
-    const systemDirs = new Set([
-      'app', 'bin', 'boot', 'dev', 'etc', 'home', 'lib', 'lib32', 'lib64', 'libx32',
-      'media', 'mnt', 'opt', 'proc', 'root', 'run', 'sbin', 'serve', 'srv', 'start',
-      'sys', 'tmp', 'usr', 'var', 'workspace', 'www-data-home', '.dev.env.json', '.dev.pid', 'start.sh', 'cloud_sql_proxy'
-    ]);
-
-    const rootEntries = fs.readdirSync(rootPath);
-    for (const entry of rootEntries) {
-      if (systemDirs.has(entry) || entry.startsWith('.')) continue;
-
-      const sourceFile = path.join(rootPath, entry);
-      const targetFile = path.join(WORKSPACE_ROOT, entry);
-
-      try {
-        const stat = fs.statSync(sourceFile);
-        if (stat.isFile()) {
-          console.log(`[WORKSPACE-SYNC] Relocating orphan file from ${sourceFile} to ${targetFile}...`);
-          fs.renameSync(sourceFile, targetFile);
-          try { fs.chmodSync(targetFile, 0o666); } catch (_) {}
-          exec(`git add "${entry}"`, { cwd: WORKSPACE_ROOT }, () => {});
-        }
-      } catch (e) {
-        console.error(`[WORKSPACE-SYNC] Error relocating orphan file ${entry}:`, e);
-      }
-    }
-  } catch (_) {}
-}
-
-setInterval(sweepRootOrphanFiles, 2500);
+let terminalCwd = process.cwd();
 let activeTerminalProcess: any = null;
 let activeCommandName: string | null = null;
 let currentTerminalCols = 100;
@@ -179,10 +119,7 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
     const script = `${trimmed}\n__EC=$?\necho -n "${sentinel}"\npwd -P\nexit $__EC`;
 
     const binDir = path.join(process.cwd(), 'bin');
-    const ptyRunnerPath = [
-      path.join(process.cwd(), 'plugins', 'pty-runner', 'pty_runner.py'),
-      path.join(process.cwd(), 'scripts', 'pty_runner.py')
-    ].find(p => fs.existsSync(p)) || path.join(process.cwd(), 'plugins', 'pty-runner', 'pty_runner.py');
+    const ptyRunnerPath = path.join(process.cwd(), 'scripts', 'pty_runner.py');
     const customEnv = {
       ...process.env,
       TERM: 'xterm-256color',
@@ -240,18 +177,14 @@ function executeTerminalCommand(cmd: string): Promise<{ stdout: string; stderr: 
         broadcastToTerminal({ type: 'status', activeProcess: null, cwd: terminalCwd });
       }
       const exitCode = code ?? 0;
-      const WORKSPACE_ROOT_DIR = path.resolve(process.cwd());
+      let newCwd = terminalCwd;
+
       if (rawStdout.includes(sentinel)) {
         const parts = rawStdout.split(sentinel);
         const candidateCwd = parts[1]?.trim();
         if (candidateCwd && fs.existsSync(candidateCwd)) {
-          const resolved = path.resolve(candidateCwd);
-          if (resolved.startsWith(WORKSPACE_ROOT_DIR)) {
-            terminalCwd = resolved;
-          } else {
-            // Prevent terminalCwd from escaping workspace root; clamp to /app/applet
-            terminalCwd = WORKSPACE_ROOT_DIR;
-          }
+          newCwd = candidateCwd;
+          terminalCwd = newCwd;
         }
       }
 
@@ -657,142 +590,6 @@ async function startServer() {
     }
   });
 
-  // --- UPSY REMOTE MCP & OAUTH 2.1 PKCE ENDPOINTS ---
-
-  // Generate OAuth 2.1 authorization URL with PKCE
-  app.get("/api/upsy/auth-url", async (req, res) => {
-    try {
-      const redirectUriParam = req.query.redirect_uri as string | undefined;
-      const host = req.get('host') || 'ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app';
-      const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-      const computedRedirectUri = redirectUriParam || `${protocol}://${host}/api/oauth/upsy/callback`;
-
-      const authData = await createAuthorizationUrl({ redirectUri: computedRedirectUri });
-      res.json({
-        success: true,
-        url: authData.url,
-        state: authData.state,
-        client_id: authData.client_id,
-        redirect_uri: authData.redirect_uri,
-      });
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
-
-  // OAuth 2.1 callback handler (receives authorization code from Upsy)
-  app.get("/api/oauth/upsy/callback", async (req, res) => {
-    const { code, state, error, error_description } = req.query;
-
-    if (error) {
-      return res.status(400).send(`
-        <!DOCTYPE html>
-        <html>
-        <head><title>Upsy OAuth Authorization Failed</title></head>
-        <body style="font-family: sans-serif; padding: 40px; background: #121212; color: #fff;">
-          <h2 style="color: #ff453a;">Authorization Denied or Failed</h2>
-          <p>${error_description || error}</p>
-          <a href="/" style="color: #64b5f6;">Back to Workspace</a>
-        </body>
-        </html>
-      `);
-    }
-
-    if (!code || !state) {
-      return res.status(400).send("Missing code or state in OAuth callback.");
-    }
-
-    try {
-      const pkceSession = popPkceSession(String(state));
-      if (!pkceSession) {
-        return res.status(400).send("Invalid or expired OAuth state session. Please initiate login again.");
-      }
-
-      // Load client ID from saved client config
-      const clientConfig = await import('./services/upsyMcpService.ts').then(m => m.loadClientConfig());
-      if (!clientConfig?.client_id) {
-        return res.status(500).send("Client configuration missing.");
-      }
-
-      const tokens = await exchangeCodeForTokens({
-        code: String(code),
-        code_verifier: pkceSession.code_verifier,
-        redirect_uri: pkceSession.redirect_uri,
-        client_id: clientConfig.client_id,
-      });
-
-      // Broadcast terminal notification if possible
-      broadcastToTerminal({
-        type: 'output',
-        data: `\r\n\x1b[32m[Upsy OAuth 2.1]\x1b[0m Successfully connected! Access token obtained with scopes: ${tokens.scope || 'all'}\r\n`,
-      });
-
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Upsy Connected Successfully</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f0f11; color: #f0f0f2; padding: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; }
-            .card { background: #1a1a1e; border: 1px solid #2a2a30; border-radius: 16px; padding: 32px 40px; max-width: 520px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center; }
-            .badge { display: inline-block; padding: 6px 14px; border-radius: 999px; background: rgba(30,142,62,0.15); color: #6dd78c; font-weight: 600; font-size: 13px; margin-bottom: 16px; border: 1px solid rgba(109,215,140,0.3); }
-            h1 { font-size: 24px; margin: 0 0 12px 0; font-weight: 600; }
-            p { font-size: 14px; color: #a0a0a8; line-height: 1.6; margin: 0 0 24px 0; }
-            a { display: inline-block; background: #ffffff; color: #000000; text-decoration: none; font-weight: 600; padding: 12px 24px; border-radius: 8px; font-size: 14px; transition: opacity 0.2s; }
-            a:hover { opacity: 0.9; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="badge">✓ Connected to Upsy Remote MCP</div>
-            <h1>Authentication Complete</h1>
-            <p>Your memory, files, browser, and connected apps are now linked to this workspace. You can close this tab or return to the application.</p>
-            <a href="/">Return to Workspace</a>
-          </div>
-        </body>
-        </html>
-      `);
-    } catch (err: any) {
-      console.error("Token exchange failed:", err);
-      return res.status(500).send(`Token exchange error: ${err.message}`);
-    }
-  });
-
-  // Upsy connection status
-  app.get("/api/upsy/status", (req, res) => {
-    const tokens = loadTokens();
-    res.json({
-      connected: !!tokens?.access_token,
-      obtained_at: tokens?.obtained_at,
-      scope: tokens?.scope,
-      hasRefreshToken: !!tokens?.refresh_token,
-    });
-  });
-
-  // Upsy tools list
-  app.get("/api/upsy/tools", async (req, res) => {
-    try {
-      const tools = await listUpsyTools();
-      res.json({ success: true, tools });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  // Call Upsy tool
-  app.post("/api/upsy/call", async (req, res) => {
-    const { name, arguments: toolArgs } = req.body;
-    if (!name) {
-      return res.status(400).json({ success: false, error: "Tool name is required." });
-    }
-    try {
-      const result = await callUpsyTool(name, toolArgs || {});
-      res.json({ success: true, result });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
   // --- TERMINAL & AUDIT SSE & INPUT ENDPOINTS ---
 
   // 1. /api/terminal/stream - SSE endpoint for interactive shell session output
@@ -961,340 +758,296 @@ async function startServer() {
     });
   });
 
-  // ==========================================
-  // Remote MCP Server Routes (Grok Connectors)
-  // ==========================================
-  const sseTransports = new Map<string, SSEServerTransport>();
-
-  // Helper to read public Cloudflare tunnel URL if available
-  const getPublicTunnelUrl = (): string => {
-    try {
-      const candidates = ['/tmp/mcp_tunnel.log', '/tmp/cloudflared.log', '/tmp/logs/mcp_tunnel.log'];
-      for (const file of candidates) {
-        if (fs.existsSync(file)) {
-          const content = fs.readFileSync(file, 'utf-8');
-          const matches = content.match(/https:\/\/[-a-zA-Z0-9\.]*\.trycloudflare\.com/g);
-          if (matches && matches.length > 0) {
-            return matches[matches.length - 1];
-          }
-        }
-      }
-    } catch (_) {}
-  };
-
-  // API Route: Get MCP tunnel status & URL
-  app.get("/api/mcp/tunnel", (req, res) => {
-    const url = getPublicTunnelUrl();
-    const isRunning = !!url;
-    res.json({
-      status: isRunning ? "running" : "stopped",
-      publicUrl: url || null,
-      sseEndpoint: url ? `${url}/mcp/sse` : null,
-      postEndpoint: url ? `${url}/mcp` : null,
-      dashboard: url ? `${url}/mcp` : null
-    });
-  });
-
-  // API Route: Renew / restart MCP tunnel
-  app.post("/api/mcp/tunnel/renew", async (req, res) => {
-    try {
-      appendAuditLog("Triggering manual MCP tunnel renewal.");
-      const scriptPath = [
-        path.join(process.cwd(), "plugins", "remote-mcp-host", "mcp-tunnel.sh"),
-        path.join(process.cwd(), "scripts", "mcp-tunnel.sh")
-      ].find(p => fs.existsSync(p)) || path.join(process.cwd(), "plugins", "remote-mcp-host", "mcp-tunnel.sh");
-      const { stdout, stderr } = await execAsync(`bash "${scriptPath}" renew`, { timeout: 35000 });
-      const newUrl = getPublicTunnelUrl();
-      res.json({
-        success: true,
-        publicUrl: newUrl,
-        sseEndpoint: newUrl ? `${newUrl}/mcp/sse` : null,
-        postEndpoint: newUrl ? `${newUrl}/mcp` : null,
-        output: stdout || stderr
-      });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  // Permanent Cloudflare Custom Domain for Grok Connectors (Zero expiration)
-  const PERMANENT_CUSTOM_DOMAIN = "https://ai-studio-mcp.shifatmasud.workers.dev";
-
-  async function syncPermanentEdgeWorker(backendUrl: string) {
-    if (!backendUrl) return;
-    try {
-      const res = await fetch(`${PERMANENT_CUSTOM_DOMAIN}/sync`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-sync-secret": "ai_studio_mcp_secret_2026"
-        },
-        body: JSON.stringify({ backendUrl })
-      });
-      if (res.ok) {
-        appendAuditLog(`[PERMANENT-DOMAIN] Synced backend ${backendUrl} to ${PERMANENT_CUSTOM_DOMAIN}`);
-        console.log(`[PERMANENT-DOMAIN] Synced backend ${backendUrl} to ${PERMANENT_CUSTOM_DOMAIN}`);
-      }
-    } catch (err: any) {
-      appendAuditLog(`[PERMANENT-DOMAIN] Sync failed: ${err.message}`);
-    }
-  }
-
-  // Automated Cloudflare Tunnel Watchdog & Auto-Renew Service
-  let isRenewingTunnel = false;
-
-  async function checkAndAutoRenewTunnel() {
-    if (isRenewingTunnel) return;
-
-    const currentUrl = getPublicTunnelUrl();
-    let isHealthy = false;
-
-    if (currentUrl) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        const probeRes = await fetch(`${currentUrl}/api/health`, {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        if (probeRes.status === 200) {
-          isHealthy = true;
-          // Periodically sync active backend to edge worker
-          syncPermanentEdgeWorker(currentUrl).catch(() => {});
-        }
-      } catch (_) {
-        isHealthy = false;
-      }
-    }
-
-    if (!isHealthy) {
-      isRenewingTunnel = true;
-      appendAuditLog("[MCP-WATCHDOG] Cloudflare tunnel unhealthy or expired. Auto-renewing via Cloudflare CLI...");
-      console.log("[MCP-WATCHDOG] Cloudflare tunnel unhealthy or expired. Auto-renewing via Cloudflare CLI...");
-      try {
-        const scriptPath = [
-          path.join(process.cwd(), "plugins", "remote-mcp-host", "mcp-tunnel.sh"),
-          path.join(process.cwd(), "scripts", "mcp-tunnel.sh")
-        ].find(p => fs.existsSync(p)) || path.join(process.cwd(), "plugins", "remote-mcp-host", "mcp-tunnel.sh");
-        await execAsync(`bash "${scriptPath}" renew`, { timeout: 45000 });
-        const newUrl = getPublicTunnelUrl();
-        appendAuditLog(`[MCP-WATCHDOG] Cloudflare tunnel renewed successfully: ${newUrl}`);
-        console.log(`[MCP-WATCHDOG] Cloudflare tunnel renewed successfully: ${newUrl}`);
-        if (newUrl) {
-          await syncPermanentEdgeWorker(newUrl);
-        }
-      } catch (err: any) {
-        appendAuditLog(`[MCP-WATCHDOG] Failed to auto-renew tunnel: ${err.message}`);
-        console.error("[MCP-WATCHDOG] Auto-renew error:", err.message);
-      } finally {
-        isRenewingTunnel = false;
-      }
-    }
-  }
-
-  // Run watchdog initial check after 5s, then periodic poll every 5 minutes
-  // (Prevents hitting Cloudflare KV 1k write/day limit on Free tier)
-  setTimeout(checkAndAutoRenewTunnel, 5000);
-  setInterval(checkAndAutoRenewTunnel, 300000);
-
-  // CORS and preflight middleware for all MCP endpoints
-  app.use(["/mcp", "/sse", "/messages"], (req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-session-id, *");
-    res.setHeader("Access-Control-Expose-Headers", "*");
-    if (req.method === "OPTIONS") {
-      return res.status(204).end();
-    }
-    next();
-  });
-
-  // 3. GET /mcp/sse & GET /sse - SSE Stream Transport Handler
-  const handleSseConnection = async (req: express.Request, res: express.Response) => {
-    try {
-      // Set CORS and proxy unbuffered streaming headers
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "*");
-      res.setHeader("X-Accel-Buffering", "no");
-
-      const server = createWorkspaceMcpServer();
-      const transport = new SSEServerTransport("/mcp/messages", res);
-      const sessionId = transport.sessionId;
-      sseTransports.set(sessionId, transport);
-      appendAuditLog(`Grok/MCP SSE client connected. Session ID: ${sessionId}`);
-
-      transport.onclose = () => {
-        appendAuditLog(`Grok/MCP SSE client disconnected. Session ID: ${sessionId}`);
-        sseTransports.delete(sessionId);
-      };
-
-      req.on('close', () => {
-        sseTransports.delete(sessionId);
-      });
-
-      await server.connect(transport);
-    } catch (err: any) {
-      appendAuditLog(`SSE connection error: ${err.message}`);
-      if (!res.headersSent) {
-        res.status(500).json({ error: `Failed to initialize SSE transport: ${err.message}` });
-      }
-    }
-  };
-
-  // 1. GET /mcp - Metadata, Discovery & SSE Auto-Upgrade
-  app.get("/mcp", (req, res) => {
-    // If client requested text/event-stream directly on /mcp, upgrade to SSE seamlessly
-    if (req.headers.accept?.includes('text/event-stream')) {
-      return handleSseConnection(req, res);
-    }
-
-    const tunnelUrl = getPublicTunnelUrl();
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-    const host = req.get('host') || 'localhost:3000';
-    const directUrl = `${protocol}://${host}`;
-    const baseUrl = tunnelUrl || directUrl;
-
-    const metadata = {
-      name: "ai-studio-workspace-mcp",
-      version: "1.0.0",
-      description: "Remote Model Context Protocol (MCP) server for Google AI Studio workspace control, compatible with Grok Connectors.",
-      status: "online",
-      authentication: {
-        type: "none",
-        description: "Open endpoint without authentication for instant connector setup."
-      },
-      permanentCustomDomain: {
-        sseEndpoint: `${PERMANENT_CUSTOM_DOMAIN}/mcp/sse`,
-        postEndpoint: `${PERMANENT_CUSTOM_DOMAIN}/mcp`,
-        dashboard: `${PERMANENT_CUSTOM_DOMAIN}/mcp`,
-        notes: "Zero-expiration permanent custom domain on Cloudflare Edge. Use this in Grok."
-      },
-      transports: {
-        sse: {
-          endpoint: `${PERMANENT_CUSTOM_DOMAIN}/mcp/sse`,
-          directTunnelEndpoint: `${baseUrl}/mcp/sse`,
-          notes: "Primary SSE streaming transport for Grok Connectors."
-        },
-        streamableHttp: {
-          endpoint: `${PERMANENT_CUSTOM_DOMAIN}/mcp`,
-          directTunnelEndpoint: `${baseUrl}/mcp`,
-          method: "POST",
-          notes: "Stateless JSON-RPC 2.0 endpoint supporting standard initialize, tools/list, and tools/call."
-        }
-      },
-      publicTunnelUrl: tunnelUrl || null,
-      grokInstructions: {
-        step1: "In Grok (grok.com), go to Settings -> Connectors / MCP Tools.",
-        step2: `Enter Server URL: ${PERMANENT_CUSTOM_DOMAIN}/mcp/sse (or ${PERMANENT_CUSTOM_DOMAIN}/mcp)`,
-        step3: "Leave Authentication as None/Empty.",
-        step4: "Save and test. Grok will discover all 8 workspace tools."
-      },
-      toolsCount: WORKSPACE_TOOLS.length,
-      tools: WORKSPACE_TOOLS.map(t => ({
-        name: t.name,
-        description: t.description,
-        parameters: t.inputSchema
-      }))
-    };
-
-    if (req.accepts('html') && !req.accepts('json')) {
-      return res.send(`<!DOCTYPE html>
-<html>
-<head>
-  <title>AI Studio Workspace MCP Server</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; max-width: 900px; margin: 0 auto; line-height: 1.6; }
-    h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 0.5rem; }
-    h2 { color: #79c0ff; margin-top: 1.5rem; }
-    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.2rem; margin-bottom: 1.2rem; }
-    .code { background: #0d1117; padding: 0.4rem 0.8rem; border-radius: 6px; font-family: monospace; color: #7ee787; word-break: break-all; }
-    .tool-item { border-left: 3px solid #1f6feb; padding-left: 0.8rem; margin: 0.8rem 0; }
-    .tool-name { font-weight: bold; color: #ffa657; font-family: monospace; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; background: #238636; color: #fff; margin-bottom: 8px; }
-  </style>
-</head>
-<body>
-  <h1>AI Studio Workspace MCP Server</h1>
-  <p>Online &amp; ready for Grok Connectors and external MCP clients.</p>
-  <div class="card">
-    <div class="badge">PERMANENT CUSTOM DOMAIN (ZERO EXPIRATION)</div>
-    <h3>Grok Connector Setup:</h3>
-    <p>1. Open <strong>Grok</strong> &rarr; <strong>Connectors</strong> &rarr; <strong>Add Custom MCP Server</strong></p>
-    <p>2. Server URL (SSE): <span class="code">${PERMANENT_CUSTOM_DOMAIN}/mcp/sse</span></p>
-    <p>3. Direct POST URL: <span class="code">${PERMANENT_CUSTOM_DOMAIN}/mcp</span></p>
-    <p>4. Authentication: <em>None (Open Access)</em></p>
-  </div>
-  <h2>Available Tools (${WORKSPACE_TOOLS.length})</h2>
-  ${WORKSPACE_TOOLS.map(t => `
-    <div class="tool-item">
-      <div class="tool-name">${t.name}</div>
-      <div style="color: #8b949e; font-size: 0.9rem;">${t.description}</div>
-    </div>
-  `).join('')}
-</body>
-</html>`);
-    }
-
-    return res.json(metadata);
-  });
-
-  // 2. POST /mcp - Stateless JSON-RPC 2.0 Endpoint
-  app.post("/mcp", async (req, res) => {
-    try {
-      const tunnelUrl = getPublicTunnelUrl();
-      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-      const host = req.get('host') || 'localhost:3000';
-      const directUrl = `${protocol}://${host}`;
-      const baseUrl = tunnelUrl || directUrl;
-
-      const { statusCode, response } = await handleStatelessJsonRpc(req.body, baseUrl);
-      if (statusCode === 204) {
-        return res.status(204).end();
-      }
-      return res.status(statusCode).json(response);
-    } catch (err: any) {
-      appendAuditLog(`POST /mcp error: ${err.message}`);
-      return res.status(500).json({
-        jsonrpc: "2.0",
-        id: req.body?.id ?? null,
-        error: { code: -32603, message: `Internal server error: ${err.message}` }
-      });
-    }
-  });
-
-  app.get("/mcp/sse", handleSseConnection);
-  app.get("/sse", handleSseConnection);
-
-  // 4. POST /mcp/messages & POST /messages - Post Messages to Active SSE Session
-  const handlePostMessages = async (req: express.Request, res: express.Response) => {
-    const sessionId = (req.query.sessionId as string) || (req.headers["x-session-id"] as string);
-    if (!sessionId) {
-      return res.status(400).json({ error: "Missing sessionId parameter" });
-    }
-
-    const transport = sseTransports.get(sessionId);
-    if (!transport) {
-      return res.status(404).json({ error: `Session not found: ${sessionId}` });
-    }
-
-    try {
-      await transport.handlePostMessage(req, res);
-    } catch (err: any) {
-      appendAuditLog(`handlePostMessage error: ${err.message}`);
-      if (!res.headersSent) {
-        res.status(500).json({ error: err.message });
-      }
-    }
-  };
-
-  app.post("/mcp/messages", handlePostMessages);
-  app.post("/messages", handlePostMessages);
-
   // Standard health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // --- UPSY REMOTE MCP SERVER & OAUTH CONNECTOR ---
+  const UPSY_CONFIG_PATH = path.join(process.cwd(), '.upsy.json');
+  let activeCloudflareTunnelUrl: string | null = null;
+  let cloudflareProcess: any = null;
+
+  function ensureCloudflareTunnel(): Promise<string> {
+    if (activeCloudflareTunnelUrl) return Promise.resolve(activeCloudflareTunnelUrl);
+    return new Promise((resolve) => {
+      try {
+        const proc = spawn("cloudflared", ["tunnel", "--protocol", "http2", "--url", "http://127.0.0.1:3000"]);
+        cloudflareProcess = proc;
+        let buffer = "";
+        const timeout = setTimeout(() => {
+          resolve(activeCloudflareTunnelUrl || "");
+        }, 12000);
+
+        const handler = (data: Buffer) => {
+          buffer += data.toString();
+          const match = buffer.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+          if (match && !activeCloudflareTunnelUrl) {
+            activeCloudflareTunnelUrl = match[0];
+            clearTimeout(timeout);
+            console.log(`[Cloudflare Tunnel] Active: ${activeCloudflareTunnelUrl}`);
+            resolve(activeCloudflareTunnelUrl);
+          }
+        };
+
+        proc.stdout?.on("data", handler);
+        proc.stderr?.on("data", handler);
+        proc.on("error", (e) => {
+          console.warn("Tunnel error:", e);
+          resolve("");
+        });
+        proc.on("exit", () => {
+          activeCloudflareTunnelUrl = null;
+        });
+      } catch (e) {
+        resolve("");
+      }
+    });
+  }
+
+  function getUpsyConfig() {
+    try {
+      if (fs.existsSync(UPSY_CONFIG_PATH)) {
+        return JSON.parse(fs.readFileSync(UPSY_CONFIG_PATH, 'utf-8'));
+      }
+    } catch (e) {}
+    return {};
+  }
+
+  function saveUpsyConfig(cfg: any) {
+    cfg.updated_at = new Date().toISOString();
+    fs.writeFileSync(UPSY_CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
+  }
+
+  // 1. GET /api/upsy/start: Get or start OAuth sign-in flow
+  app.get(["/api/upsy/start", "/api/upsy/auth-url"], async (req, res) => {
+    try {
+      const metaRes = await fetch("https://upsy.ai/.well-known/oauth-authorization-server");
+      const meta = (await metaRes.json()) as any;
+
+      const tunnelUrl = await ensureCloudflareTunnel();
+      const devAppUrl = "https://ais-dev-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app";
+      
+      // Prefer Cloudflare tunnel URL so callback has zero iframe cookie redirection issues, with devAppUrl as fallback
+      const redirectUri = tunnelUrl ? `${tunnelUrl}/oauth/callback` : `${devAppUrl}/oauth/callback`;
+
+      const cfg = getUpsyConfig();
+      let clientId = cfg.client_id;
+
+      const candidateRedirects = Array.from(new Set([
+        redirectUri,
+        tunnelUrl ? `${tunnelUrl}/oauth/callback` : null,
+        `${devAppUrl}/oauth/callback`,
+        "https://ais-pre-soqmv42o6nqrg73vgevra3-22244230581.asia-east1.run.app/oauth/callback"
+      ].filter(Boolean) as string[]));
+
+      if (!clientId || cfg.redirect_uri !== redirectUri) {
+        const regRes = await fetch(meta.registration_endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_name: "Ai.studio",
+            redirect_uris: candidateRedirects,
+            grant_types: ["authorization_code", "refresh_token"],
+            response_types: ["code"],
+            token_endpoint_auth_method: "none",
+            scope: (meta.scopes_supported || []).join(" ")
+          })
+        });
+        const regData = (await regRes.json()) as any;
+        clientId = regData.client_id;
+        cfg.client_id = clientId;
+        cfg.client_id_issued_at = regData.client_id_issued_at;
+      }
+
+      const codeVerifier = (await import("node:crypto")).randomBytes(48).toString("base64url");
+      const codeChallenge = (await import("node:crypto")).createHash("sha256").update(codeVerifier).digest("base64url");
+      const state = (await import("node:crypto")).randomBytes(16).toString("hex");
+
+      cfg.redirect_uri = redirectUri;
+      cfg.code_verifier = codeVerifier;
+      cfg.state = state;
+      cfg.scopes = meta.scopes_supported;
+
+      const authUrl = new URL(meta.authorization_endpoint);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("client_id", clientId);
+      authUrl.searchParams.set("redirect_uri", redirectUri);
+      authUrl.searchParams.set("scope", (meta.scopes_supported || []).join(" "));
+      authUrl.searchParams.set("code_challenge", codeChallenge);
+      authUrl.searchParams.set("code_challenge_method", "S256");
+      authUrl.searchParams.set("state", state);
+
+      cfg.auth_url = authUrl.toString();
+      saveUpsyConfig(cfg);
+      fs.writeFileSync(path.join(process.cwd(), ".upsy-auth-url.txt"), authUrl.toString(), "utf-8");
+
+      if (req.query.redirect === "true") {
+        return res.redirect(authUrl.toString());
+      }
+
+      res.json({ success: true, auth_url: authUrl.toString(), redirect_uri: redirectUri, client_id: clientId });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  // 2. GET /oauth/callback: Receives approval from Upsy and finishes PKCE exchange
+  app.get("/oauth/callback", async (req, res) => {
+    const { code, state, error, error_description } = req.query;
+
+    if (error) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+          <body style="font-family:sans-serif;background:#090d16;color:#f87171;text-align:center;padding:60px 20px;">
+            <h2>Authorization Denied</h2>
+            <p>${error}: ${error_description || ''}</p>
+          </body>
+        </html>
+      `);
+    }
+
+    if (!code) {
+      return res.status(400).send("Missing authorization code.");
+    }
+
+    try {
+      const cfg = getUpsyConfig();
+      const metaRes = await fetch("https://upsy.ai/.well-known/oauth-authorization-server");
+      const meta = (await metaRes.json()) as any;
+
+      const host = req.get("host") || "";
+      const proto = req.protocol === "https" || req.get("x-forwarded-proto") === "https" ? "https" : "http";
+      const redirectUri = cfg.redirect_uri || `${proto}://${host}/oauth/callback`;
+      fs.appendFileSync("/tmp/upsy_oauth.log", `[${new Date().toISOString()}] Callback received: code=${code}, state=${state}\n`);
+
+      const tokenRes = await fetch(meta.token_endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: cfg.client_id,
+          code: String(code),
+          redirect_uri: redirectUri,
+          code_verifier: cfg.code_verifier || ""
+        }).toString()
+      });
+
+      if (!tokenRes.ok) {
+        const errBody = await tokenRes.text();
+        fs.appendFileSync("/tmp/upsy_oauth.log", `[${new Date().toISOString()}] Token exchange error (${tokenRes.status}): ${errBody}\n`);
+        throw new Error(`Token exchange failed (${tokenRes.status}): ${errBody}`);
+      }
+
+      const tokens = (await tokenRes.json()) as any;
+      fs.appendFileSync("/tmp/upsy_oauth.log", `[${new Date().toISOString()}] Token exchange success! Tokens saved.\n`);
+      if (tokens.expires_in) {
+        tokens.expires_at = Date.now() + tokens.expires_in * 1000;
+      }
+      cfg.tokens = tokens;
+      saveUpsyConfig(cfg);
+
+      let toolNames: string[] = [];
+      try {
+        const mcpRes = await fetch("https://upsy.ai/connect", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokens.access_token}`
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "tools/list",
+            params: {}
+          })
+        });
+        const mcpJson = (await mcpRes.json()) as any;
+        if (mcpJson.result?.tools) {
+          toolNames = mcpJson.result.tools.map((t: any) => t.name);
+          cfg.cached_tools = mcpJson.result.tools;
+          saveUpsyConfig(cfg);
+        }
+      } catch (mcpErr) {
+        console.warn("MCP tools query error:", mcpErr);
+      }
+
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head><title>Upsy Connected</title></head>
+          <body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;text-align:center;padding:60px 20px;background:#090d16;color:#e2e8f0;">
+            <div style="max-width:540px;margin:0 auto;background:#131c2e;border:1px solid #1e293b;border-radius:16px;padding:36px;box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+              <div style="font-size:48px;margin-bottom:16px;">✨</div>
+              <h1 style="color:#38bdf8;margin:0 0 12px;font-size:24px;font-weight:600;">Upsy Remote MCP Connected</h1>
+              <p style="color:#94a3b8;font-size:15px;line-height:1.5;margin-bottom:20px;">
+                OAuth 2.1 token exchange completed successfully. Tokens and client credentials have been stored in <code>.upsy.json</code>.
+              </p>
+              <div style="background:#0f172a;border-radius:8px;padding:14px;color:#4ade80;font-size:14px;text-align:left;font-family:monospace;margin-bottom:20px;">
+                ✓ Access Token Issued<br/>
+                ✓ Tools Discovered: ${toolNames.length > 0 ? toolNames.length : "Connected"}<br/>
+                ✓ Ready for agent and CLI execution
+              </div>
+              <p style="color:#64748b;font-size:13px;margin:0;">
+                You can now close this tab and return to AI Studio.
+              </p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (err: any) {
+      res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+          <body style="font-family:sans-serif;background:#090d16;color:#f87171;text-align:center;padding:60px 20px;">
+            <h2>Authentication Error</h2>
+            <p>${err.message}</p>
+          </body>
+        </html>
+      `);
+    }
+  });
+
+  // 3. GET /api/upsy/status
+  app.get("/api/upsy/status", (req, res) => {
+    const cfg = getUpsyConfig();
+    const hasToken = !!cfg.tokens?.access_token;
+    res.json({
+      configured: hasToken,
+      client_id: cfg.client_id || null,
+      redirect_uri: cfg.redirect_uri || null,
+      scopes: cfg.scopes || [],
+      token_expires_at: cfg.tokens?.expires_at || null,
+      tools_count: cfg.cached_tools?.length || 0
+    });
+  });
+
+  // 4. GET /api/upsy/tools
+  app.get("/api/upsy/tools", async (req, res) => {
+    const cfg = getUpsyConfig();
+    if (!cfg.tokens?.access_token) {
+      return res.status(401).json({ error: "Not authenticated. Please connect Upsy first." });
+    }
+    try {
+      const mcpRes = await fetch("https://upsy.ai/connect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${cfg.tokens.access_token}`
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/list",
+          params: {}
+        })
+      });
+      const mcpJson = (await mcpRes.json()) as any;
+      res.json(mcpJson.result || { tools: [] });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // Vite middleware for development

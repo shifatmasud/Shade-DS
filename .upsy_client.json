@@ -1,5 +1,0 @@
-{
-  "client_id": "c_qJKjMpN4XPO6xzgOdIANCQ",
-  "redirect_uri": "http://localhost:3000/api/oauth/upsy/callback",
-  "client_id_issued_at": 1791632806
-}

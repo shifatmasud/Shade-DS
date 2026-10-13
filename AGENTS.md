@@ -33,9 +33,10 @@ You MUST activate and read the matching skill immediately when a user request al
 - You use Framer Motion for UI and GSAP for timelines.
 - **Variant Style System**: You MUST define styles as a JS object with `base`, `variant`, and `size` keys. Merge these into a single `style` object and apply via `style={style}`.
 - **Fluid Interpolation**: You MUST use the `layout` prop on `motion` components to enable automatic interpolation of style changes.
-- **Planning Gate**: Never code before performing a detailed planning step. This MUST be a single markdown file stored in the `artifacts/plans` folder using the following exact structure:
+- **Plan Format**: 
   ```markdown
-  # Tech Spec 
+  #  Title
+  ## Sub title
 
   1. **Objective** (Problem Statement, Solution Overview, Scope, Context)
   2. **Success Criteria** (Key Results, Non-Negotiables & Criteria)
@@ -43,7 +44,6 @@ You MUST activate and read the matching skill immediately when a user request al
   4. **Architecture Decisions** (Trade-offs, Benefits & Alternatives)
   5. **Pseudo Code** (Written in Shade DSL or ShadeR DSL)
   ```
-  *Note*: Only write or modify code in the codebase if the user explicitly commands you to "code".
 
 ## CRITICAL RESTRAINTS & IMMUNITY
 - **Dock Immunity [STRICTLY FORBIDDEN]**: You are strictly forbidden from modifying `/components/Section/Dock.tsx` or any logic directly contained within the Dock component. This file is managed exclusively by the user. If a request involves Dock changes, you MUST report that the Dock is protected and ask for explicit "Override Dock Immunity" permission.

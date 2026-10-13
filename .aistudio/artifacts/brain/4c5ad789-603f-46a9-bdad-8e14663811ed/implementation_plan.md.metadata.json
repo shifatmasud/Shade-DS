@@ -1,6 +1,6 @@
 {
-  "summary":  "Revised implementation plan to organize all skills and scripts into named individual plugin folders under /plugins/. Paired skills and scripts reside together in named plugin folders, while standalone skills and standalone scripts become individual plugins (standalone scripts equipped with accompanying SKILL.md files). All project references across package.json, AGENTS.md, and TOOLS.md are updated directly.",
-  "updatedAt":  "2026-10-10T10:42:07.606077162Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Complete implementation plan for adding Upsy as a remote MCP server with OAuth 2.1 PKCE authorization, Cloudflare tunnel callback bridge for headless operation, standalone portable Node.js CLI tool, and accompanying skill documentation.",
+  "updatedAt": "2026-10-13T12:17:02.297662829Z",
+  "requestFeedback": true,
+  "userFacing": true
 }

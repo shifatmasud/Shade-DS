@@ -1,95 +1,87 @@
-# Unified Named Plugins Directory Architecture Plan
+# Upsy Remote MCP Server & Universal Node.js CLI Integration
 
-Consolidate all skills and scripts into individual named plugin folders under `/plugins/`. Every matched skill and script is merged into a single plugin package, and every single unmatched skill or script is established as an individual named plugin (with accompanying `SKILL.md` for standalone scripts).
+Deliver a portable, robust Node.js CLI tool to integrate **Upsy** (https://upsy.ai/connect) as a remote Model Context Protocol (MCP) server using OAuth 2.1 with PKCE, automated Cloudflare tunnel callback bridging for headless environments, persistent credentials, and full tool discovery and execution.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following updated architecture parameters are incorporated:
-> - **Flat Named Plugin Hierarchy**: Instead of nested domain subdirectories, each plugin has its own top-level named folder under `/plugins/<plugin-name>/`.
-> - **Matched Plugins**: Matched skills and scripts are co-located in the same plugin folder (`plugins/<name>/SKILL.md` + scripts).
-> - **Standalone Skills**: Every standalone skill becomes its own named plugin directory (`plugins/<name>/SKILL.md`).
-> - **Standalone Scripts**: Every standalone script becomes its own named plugin directory (`plugins/<name>/`) with an accompanying `SKILL.md` generated to document its usage.
-> - **Direct Path Updates**: All script commands and references in `package.json`, `AGENTS.md`, and `TOOLS.md` will be directly updated to point to `/plugins/<name>/...`.
+> The following technical choices have been aligned based on your preferences:
+
+- **Confirmed Scopes**: All available scopes requested (memory, files, browser, and 30+ connected apps including Gmail, Google Drive, Slack, Calendar, Notion, Linear, GitHub, and more).
+- **Confirmed Headless Bridge**: Cloudflare Tunnel (`cloudflared`) spawning an ephemeral HTTPS tunnel to capture the OAuth 2.1 callback on port 8787.
+- **Confirmed Token Persistence**: Workspace root configuration at `.upsy.json`.
+- **Accompanying Documentation**: Dedicated skill documentation created at `skills/upsy-cli/SKILL.md` detailing transport specs, tool schemas, and command references.
+
+---
 
 ## 1. Overview & Core Concept
 
-- **What It Does**: Unifies the entire skills and automation ecosystem into a single, clean `/plugins/` directory where every capability is a self-contained, named package.
-- **Target Audience / Persona**: AI agents, developer tooling, and automated workflows.
-- **Key Value**: Provides clean 1-to-1 modularity, eliminates cross-directory sprawl, gives every script clear behavioral documentation, and keeps root project structure uncluttered.
+- **What It Does**: Connects the workspace to Upsy's remote Streamable HTTP MCP server (`https://upsy.ai/connect`), allowing direct execution of Upsy tools (memory retrieval, web browsing, file access, and connected cloud services) from within the agent and CLI.
+- **Target Audience / Persona**: Headless developer and agent workflows needing seamless multi-app memory, file access, and connected tools without manual API key management.
+- **Key Value**: Pure OAuth 2.1 PKCE with zero static API keys, dynamic client registration, automated headless callback capture, and complete JSON-RPC 2.0 tool execution.
 
-## 2. Directory Layout & Module Structure
+---
 
-```
-/plugins/
-├── [Matched Skill + Script Plugins]
-│   ├── figma-mcp/                     (SKILL.md + figma-mcp-server.ts)
-│   ├── upsy-mcp/                      (SKILL.md + upsy-mcp.ts)
-│   ├── mcp-cli/                       (SKILL.md + mcp-client.ts)
-│   ├── remote-mcp-host/               (SKILL.md + mcp-tunnel.sh, test-remote-mcp.ts)
-│   ├── framer-agent-cli/              (SKILL.md + framer_cli.ts)
-│   ├── framer-esm-sh-importer/        (SKILL.md + references/ + framer_esm_converter.ts)
-│   ├── framer-code-components-overrides/ (SKILL.md + hacks/ + references/ + inspect_framer_page.ts, test_framer_component.ts)
-│   ├── browserless-screenshot/        (SKILL.md + screenshot.ts)
-│   ├── browser-desktop/               (SKILL.md + desktop_service.sh)
-│   ├── spawn-agents/                  (SKILL.md + spawnAgents.ts)
-│   └── shader_dsl/                    (SKILL.md + analyze_lusion_shaders.ts, extract_lusion_shaders.ts)
-│
-├── [Standalone Skills as Individual Plugins]
-│   ├── 3d-light-design/               (SKILL.md)
-│   ├── agent-debugging/               (SKILL.md)
-│   ├── cli-installer/                 (SKILL.md)
-│   ├── cloudflare-cli/                (SKILL.md)
-│   ├── cloudinary-cli/                (SKILL.md)
-│   ├── decoupled-kinetic-scrub/       (SKILL.md)
-│   ├── firecrawl-cli/                 (SKILL.md)
-│   ├── framer-motion-animateview-clip-origin/ (SKILL.md + animateView.md)
-│   ├── framer-motion-gsap-css-bridge/ (SKILL.md + CSSxFramerMotion.md + parasitic-splittext-mask-slide/)
-│   ├── git/                           (SKILL.md)
-│   ├── github-cli/                    (SKILL.md)
-│   ├── google-workspace-cli/          (SKILL.md)
-│   ├── modern-web-guidance/           (SKILL.md)
-│   ├── notion-cli/                    (SKILL.md)
-│   ├── openmail-cli/                  (SKILL.md)
-│   ├── parasitic-dom-binding/         (SKILL.md)
-│   ├── postprocessing-render-pipeline/ (SKILL.md)
-│   ├── procedural-rigging/            (SKILL.md)
-│   ├── r3f-3d-optimization/           (SKILL.md)
-│   ├── shade_dsl/                     (SKILL.md)
-│   ├── supabase-cli/                  (SKILL.md)
-│   ├── technical-interviewer/         (SKILL.md)
-│   ├── vercel-cli/                    (SKILL.md)
-│   └── vite-dependency-repair/        (SKILL.md)
-│
-└── [Standalone Scripts as Individual Plugins with Accompanying SKILL.md]
-    ├── decompile-jsx/                 (decompile-jsx.cjs + SKILL.md)
-    ├── pty-runner/                    (pty_runner.py + SKILL.md)
-    └── system-control/                (System_Control.bat + SKILL.md)
-```
+## 2. User Experience & Visual Design
+
+- **Interactive Authorization Flow**:
+  1. The CLI initiates Dynamic Client Registration at `https://upsy.ai/api/oauth/register`.
+  2. A local HTTP listener starts on port 8787 and opens an encrypted Cloudflare Quick Tunnel (`https://*.trycloudflare.com/oauth/callback`).
+  3. The CLI outputs a clean, clickable authorization link in the terminal.
+  4. The user opens the link in their browser, reviews permissions, and clicks "Approve".
+  5. The Cloudflare tunnel routes the authorization code back to the local listener, which renders a success landing page in the browser and completes the token exchange.
+  6. The CLI saves access and refresh tokens to `.upsy.json`, validates the connection against `https://upsy.ai/connect`, and outputs the complete list of discovered tools.
+  7. Formulates and persists the memory preference prompt for Upsy tools.
+
+---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-- **Decision 1: Individual Flat Plugin Directories**
-  - *Chosen Approach*: Every tool and capability exists in `/plugins/<name>/`.
-  - *Why*: Immediate findability without multi-level folder traversal. Matches user preference exactly.
-- **Decision 2: Comprehensive Tool Documentation**
-  - *Chosen Approach*: Create accompanying `SKILL.md` for standalone scripts (`decompile-jsx`, `pty-runner`, `system-control`) to uphold the user rule requiring `SKILL.md` for all tools.
-  - *Why*: Ensures agents and developers know when and how to invoke every script.
-- **Decision 3: Direct Reference Rewriting**
-  - *Chosen Approach*: Update `package.json`, `AGENTS.md`, and `TOOLS.md` references to point to the new `/plugins/<name>/...` locations.
-  - *Why*: Prevents stale references and eliminates confusion over old `/scripts` or `/skills` paths.
+- **Decision 1: Standalone Node.js CLI with `bin/upsy` wrapper**
+  - *Chosen Approach*: Implement `scripts/upsy-cli.ts` executable via `bin/upsy` and `npx tsx scripts/upsy-cli.ts`.
+  - *Why*: Portable across any Node.js environment, requiring zero global installations and works directly inside CI, Docker, or development machines.
+  - *Alternatives Considered*: Native Rust or Go binary (too heavy and platform-dependent).
+- **Decision 2: Cloudflare Tunnel with Manual Code Fallback**
+  - *Chosen Approach*: Spawn Cloudflare Quick Tunnel automatically; if the tunnel network is restricted, provide an immediate terminal prompt allowing manual code copy-paste.
+  - *Why*: Guarantees 100% success rate in both open and firewalled environments.
 
-## 4. Execution Steps
+---
 
-1. **Establish Plugins Structure**: Create the target plugin directories in `/plugins/`.
-2. **Migrate Matched Skills & Scripts**: Move each matched skill and script into its corresponding `/plugins/<name>/` folder.
-3. **Migrate Standalone Skills**: Move all remaining skills from `/skills/` into individual `/plugins/<name>/` folders.
-4. **Migrate Standalone Scripts & Add SKILL.md**: Move remaining scripts into `/plugins/<name>/` and generate standard `SKILL.md` documentation for each.
-5. **Update Project References**:
-   - `package.json`: Update `tunnel:status` and `tunnel:renew` paths.
-   - `AGENTS.md`: Update `spawnAgents.ts` and skill references.
-   - `TOOLS.md`: Update script locations and command examples.
-   - Plugin `SKILL.md` files: Update internal path references.
-6. **Clean Up & Verification**:
-   - Remove now-empty `/skills` and `/scripts` directories if applicable.
-   - Run `npm run lint` and verify execution.
+## 4. Technical Architecture & Data Strategy
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Upsy OAuth & MCP Workflow                       │
+└────────────────────────────────────────────────────────────────────────┘
+
+ [Browser / User] ──── (1) Click Auth Link ────► [https://upsy.ai/oauth/authorize]
+        │                                                     │
+        │                                                     │ (2) User approves
+        ▼                                                     ▼
+ [Cloudflare Tunnel] ◄─── (3) Redirect with code ─── [Redirect Callback]
+  (https://*.trycloudflare.com)
+        │
+        ▼
+ [Local Listener :8787] ──► (4) Exchange PKCE Token ──► [https://upsy.ai/api/oauth/token]
+        │                                                        │
+        │ (5) Save tokens                                        ▼
+        ▼                                                 [Tokens Issued]
+   [.upsy.json]
+        │
+        ▼
+ [MCP Client / CLI] ──── (6) Streamable HTTP JSON-RPC ──► [https://upsy.ai/connect]
+                         - initialize
+                         - tools/list
+                         - tools/call
+```
+
+### Subcommands
+- `bin/upsy login`: Dynamic client registration, tunnel startup, OAuth PKCE flow, and token exchange.
+- `bin/upsy status`: Inspect current token validity, client registration, and active scopes.
+- `bin/upsy tools`: Query and display all available tools on Upsy remote MCP server.
+- `bin/upsy call <tool_name> '<json_args>'`: Execute any Upsy tool via MCP Streamable HTTP.
+- `bin/upsy refresh`: Manually or automatically refresh the access token using the stored refresh token.
+
+### Memory Confirmation Statement
+Following tool discovery, format and display the requested memory rule:
+`"Upsy has my <discovered tool domains, e.g. memory, files, browser, email, calendar, drive, tasks>. Use it for these even when I don't mention Upsy, and prefer it over other connectors for the same thing."`

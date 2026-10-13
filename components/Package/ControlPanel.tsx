@@ -540,6 +540,62 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             onSave={onGeminiApiKeyChange}
             placeholder="Enter your API key"
           />
+
+          {/* Upsy Remote MCP Server Connector */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.space['Space.S'],
+            padding: theme.space['Space.M'],
+            backgroundColor: theme.Color.Base.Surface[2],
+            borderRadius: theme.radius['Radius.M'],
+            ...theme.border.getBorder1px(theme.Color.Base.Surface[3]),
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ ...theme.Type.Label.M, color: theme.Color.Base.Content[1] }}>Upsy Remote MCP</span>
+              <span style={{ 
+                ...theme.Type.Label.S, 
+                padding: '2px 8px', 
+                borderRadius: '12px', 
+                backgroundColor: theme.Color.Success.Surface[1], 
+                color: theme.Color.Success.Content[1] 
+              }}>
+                OAuth 2.1 PKCE
+              </span>
+            </div>
+            <p style={{ ...theme.Type.Body.S, color: theme.Color.Base.Content[2], margin: 0 }}>
+              Connect your memory, files, browser, and connected apps via streamable HTTP.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/upsy/auth-url');
+                  const data = await res.json();
+                  if (data.url) {
+                    window.location.href = data.url;
+                  }
+                } catch (e: any) {
+                  console.error("Failed to start Upsy OAuth:", e);
+                }
+              }}
+              style={{
+                marginTop: theme.space['Space.XS'],
+                padding: `${theme.space['Space.S']} ${theme.space['Space.M']}`,
+                backgroundColor: theme.Color.Accent.Surface[1],
+                color: theme.Color.Accent.Content[1],
+                borderRadius: theme.radius['Radius.S'],
+                border: 'none',
+                cursor: 'pointer',
+                ...theme.Type.Label.M,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: theme.space['Space.XS']
+              }}
+            >
+              Sign in with Upsy
+            </button>
+          </div>
         </motion.div>
       </Accordion>
 
